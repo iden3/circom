@@ -20,12 +20,12 @@ extra_javascript:
     
 nav:
      - Getting started:
-          - Background on ZK: 'getting-started/background.md'
           - Installation: 'getting-started/installation.md'
           - Writing and compiling circuits: 'getting-started/writing-compiling-circuits.md'
           - Computing the witness: 'getting-started/computing-the-witness.md'
           # - Testing circuits: 'getting-started/testing-circuits.md'
           - Proving circuits with ZK: 'getting-started/proving-circuits.md'
+     - Background in ZK: 'background/background.md'
      - The circom Language:
           - Signals:
                - Signals: 'circom-language/signals.md'
