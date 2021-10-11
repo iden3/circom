@@ -21,7 +21,8 @@ extra_javascript:
 nav:
      - Getting started:
           - Installation: 'getting-started/installation.md'
-          - Writing and compiling circuits: 'getting-started/writing-compiling-circuits.md'
+          - Writing circuits: 'getting-started/writing-circuits.md'
+          - Compiling circuits: 'getting-started/compiling-circuits.md'
           - Computing the witness: 'getting-started/computing-the-witness.md'
           # - Testing circuits: 'getting-started/testing-circuits.md'
           - Proving circuits with ZK: 'getting-started/proving-circuits.md'
@@ -53,3 +54,5 @@ nav:
                - Compiler Messages: 'circom-language/circom-insight/compiler-messages.md'
                - Unknowns : 'circom-language/circom-insight/unknowns.md'
                - Circom Library: 'circom-language/circom-insight/circom-library.md'
+     - More circuits: 
+          - Basic circuits: 'more-circuits/more-basic-circuits.md'
