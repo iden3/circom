@@ -145,7 +145,7 @@ template Main() {
 component main = Main();
 ```
 
-**Components are immutable** \(like signals\). A component can be declared first and initialized in a second step. If there are several initialization instructions \(in different execution paths\) they all need to be instantiations of the same template \(maybe with different values for the parameters\).
+**Components are immutable** (like signals). A component can be declared first and initialized in a second step. If there are several initialization instructions (in different execution paths) they all need to be instantiations of the same template (maybe with different values for the parameters).
 
 ```text
 template A(N){
