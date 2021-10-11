@@ -89,23 +89,6 @@ circom --help
       <input>    Path to a circuit with a main component [default: ./circuit.circom]
 ```
 
-## Installing circomlib
-
-You can install `circomlib` either as an npm package or by cloning its repository.
-To install `circomlib` as a npm package:
-
-```text
-npm install circomlib -g
-```
-
-If you want to install `circomlib` by cloning its repository:
-
-```text
-git clone https://github.com/iden3/circomlib.git
-```
-The package already contains tests for circuits available in the `circomlib`.
-The package also installs the npm packages `circomlibjs`, `circom_tester` and `ffjavascript` as dependencies.
-
 ## Installing snarkjs <a id="installing-the-tools"></a>
 
 `snarkjs` is a npm package that contains code to generate and validate ZK proofs from the artifacts produced by `circom`. 
