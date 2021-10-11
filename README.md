@@ -1,4 +1,4 @@
-# &#9888; Important deprecation note
+# &#8505; Important deprecation note
 
 The old `circom` compiler written in Javascript will be frozen, but it can still be downloaded from the [old circom repository](https://github.com/iden3/circom_old).
 
