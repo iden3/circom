@@ -1,5 +1,4 @@
 # Proving circuits
-## Next steps
 
 After compiling the circuit and running the witness calculator with 
 an appropriate input we have a file with extension .wtns that 
@@ -24,7 +23,7 @@ snarkjs print -r multiplier2.r1cs -s multiplier2.sym
 ```
 -->
 
-First, we start a new powers of tau ceremony:
+First, we start a new "powers of tau" ceremony:
 
 ```text
 snarkjs powersoftau new bn128 12 pot12_0000.ptau -v
@@ -42,15 +41,14 @@ We can verify the protocol so far:
 ```text
 snarkjs powersoftau verify pot12_0001.ptau
 ```
--->
 
 Finally, we apply a random beacon:
 
 ```text
 snarkjs powersoftau beacon pot12_0001.ptau pot12_beacon.ptau 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f 10 -n="Final Beacon"
-```
+-->```
 
-Now, we have the contributions to the powers of tau in the file *pot12_beacon.ptau* and 
+Now, we have the contributions to the powers of tau in the file *pot12_0001.ptau* and 
 we can proceed with the Phase 2.
 
 ## Trusted setup: Phase 2 <a id="my-first-trusted-setup"></a>
@@ -59,7 +57,7 @@ The **phase 2** is **circuit-specific**.
 Execute the following command to start the generation of this phase:
 
 ```text
-snarkjs powersoftau prepare phase2 pot12_beacon.ptau pot12_final.ptau -v
+snarkjs powersoftau prepare phase2 pot12_0001.ptau pot12_final.ptau -v
 ```
 <!--
 We can verify the final ptau file:
@@ -82,7 +80,7 @@ snarkjs zkey contribute multiplier2_0000.zkey multiplier2_0001.zkey --name="1st 
 <!-- 
 Verify the latest zkey
 snarkjs zkey verify $1.r1cs pot12_final.ptau $1_0001.zkey
--->
+
 
 Apply a random beacon:
 
@@ -90,7 +88,6 @@ Apply a random beacon:
 snarkjs zkey beacon multiplier2_0001.zkey multiplier2_final.zkey 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f 10 -n="Final Beacon phase2"
 ```
 
-<!-- 
 Verify the final zkey
 snarkjs zkey verify $1.r1cs pot12_final.ptau $1_final.zkey
 
@@ -119,7 +116,7 @@ If everything checks out, you should see the following at the top of the output:
 
 Export the verification key:
 ```text
-snarkjs zkey export verificationkey multiplier2_final.zkey verification_key.json
+snarkjs zkey export verificationkey multiplier2_0001.zkey verification_key.json
 ```
 
 ### Generating a Groph16 ZKP <a id="my-first-zero-knowledge-proof"></a>
