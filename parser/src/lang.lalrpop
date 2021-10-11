@@ -1,0 +1,525 @@
+use num_bigint::BigInt;
+use program_structure::statement_builders::*;
+use program_structure::expression_builders::*;
+use program_structure::ast::*;
+use program_structure::ast_shortcuts::{self,Symbol};
+use std::str::FromStr;
+
+grammar;
+
+// ====================================================================
+// Body
+// ====================================================================
+
+// A identifier list is a comma separated list of identifiers
+IdentifierListDef : Vec<String> = {
+    <v:(<IDENTIFIER> ",")*> <e:IDENTIFIER> => {
+        let mut v = v;
+        v.push(e);
+        v
+    }
+};
+
+// Pragma is included at the start of the file.
+// Their structure is the following: pragma circom "version of the compiler"
+ParsePragma : Version = { // maybe change to usize instead of BigInt
+    "pragma circom" <version: Version>  ";"
+    => version,
+};
+
+
+// Includes are added at the start of the file.
+// Their structure is the following: #include "path to the file"
+ParseInclude : String = {
+    "include" <file: STRING>  ";"
+    => file,
+};
+
+// Parsing a program requires:
+// Parsing the "pragma" instruction, if there is one
+// Parsing "includes" instructions, if there is anyone,
+// Parsing function and template definitions,
+// Parsing the declaration of the main component
+pub ParseAst : AST = {
+    <s:@L> <pragma: ParsePragma> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent> <e:@R>
+    => AST::new(Meta::new(s,e), Option::Some(pragma), includes,definitions,Option::Some(main)),
+
+    <s:@L> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent> <e:@R>
+    => AST::new(Meta::new(s,e),Option::None, includes,definitions,Option::Some(main)),
+
+    <s:@L> <pragma: ParsePragma> <includes: ParseInclude*> <definitions: ParseDefinition*> <e:@R>
+    => AST::new(Meta::new(s,e), Option::Some(pragma), includes,definitions,Option::None),
+
+    <s:@L> <includes: ParseInclude*> <definitions: ParseDefinition*> <e:@R>
+    => AST::new(Meta::new(s,e), Option::None,includes,definitions,Option::None),
+};
+
+// ====================================================================
+// Definitions
+// ====================================================================
+
+// The private list of the main component stands for the
+// list of private input signals
+ParsePublicList : Vec<String> = {
+    "{" "public" "[" <id: IdentifierListDef> "]" "}" => id,
+};
+
+pub ParseMainComponent : MainComponent = {
+    <s:@L> "component" "main" <public_list: ParsePublicList?> "=" <init: ParseExpression> ";" <e:@L>
+    => match public_list {
+        None => build_main_component(Vec::new(),init),
+        Some(list) => build_main_component(list,init)
+       },
+};
+
+
+pub ParseDefinition : Definition = {
+    <s:@L> "function" <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
+    => match arg_names {
+        None
+        => build_function(Meta::new(s,e),name,Vec::new(),args..arge,body),
+        Some(a)
+        => build_function(Meta::new(s,e),name,a,args..arge,body),
+    },
+    <s:@L> "template" <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
+    => match arg_names {
+        None
+        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some()),
+        Some(a)
+        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some()),
+    },
+};
+
+
+
+
+// ====================================================================
+// VariableDefinitions
+// ====================================================================
+
+ParseElementType : SignalElementType = {
+    "FieldElement" => SignalElementType::FieldElement,
+    "Binary" => SignalElementType::Binary,
+};
+
+ParseSignalType: SignalType = {
+    "input" => SignalType::Input,
+    "output" => SignalType::Output
+};
+
+SignalHeader : VariableType = {
+    "signal" <element_type: (":" <ParseElementType>)?>  <signal_type: ParseSignalType?>
+    => {
+        let e = match element_type {
+            None => SignalElementType::FieldElement,
+            Some(t) => t,
+        };
+        let s = match signal_type {
+            None => SignalType::Intermediate,
+            Some(st) => st,
+        };
+        VariableType::Signal(s,e)
+    }
+};
+
+// ====================================================================
+// Statements
+// ====================================================================
+
+// A Initialization is either just the name of a variable or
+// the name followed by a expression that initialices the variable.
+
+SimpleSymbol : Symbol = {
+    <name:IDENTIFIER> <dims:ParseArrayAcc*>
+    => Symbol {
+        name,
+        is_array: dims,
+        init: Option::None,
+    },
+}
+
+ComplexSymbol : Symbol = {
+    <name:IDENTIFIER> <dims:ParseArrayAcc*> "=" <rhe: ParseExpression>
+    => Symbol {
+        name,
+        is_array: dims,
+        init: Option::Some(rhe),
+    },
+};
+
+SomeSymbol : Symbol = {
+    ComplexSymbol,
+    SimpleSymbol,
+}
+
+// A declaration is the definition of a type followed by the initialization
+ParseDeclaration : Statement = {
+
+    <s:@L> "var" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
+            let mut symbols = symbols;
+            let meta = Meta::new(s,e);
+            let xtype = VariableType::Var;
+            symbols.push(symbol);
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols)
+    },
+    <s:@L> "component" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
+            let mut symbols = symbols;
+            let meta = Meta::new(s,e);
+            let xtype = VariableType::Component;
+            symbols.push(symbol);
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols)
+    },
+    <s:@L><xtype: SignalHeader> <symbols:(<SimpleSymbol> ",")*> <symbol: SimpleSymbol>  <e:@R>
+    => {
+            let mut symbols = symbols;
+            let meta = Meta::new(s,e);
+            symbols.push(symbol);
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols)
+    },
+};
+ParseSubstitution : Statement = {
+    <s:@L> <variable: ParseVariable> <op: ParseAssignOp> <rhe: ParseExpression> <e:@R>
+    => {let (name,access) = variable;
+        build_substitution(Meta::new(s,e),name,access,op,rhe)
+     },
+    <s:@L> <lhe: ParseExpression> "-->" <variable: ParseVariable> <e:@R>
+     => {let (name,access) = variable;
+        build_substitution(Meta::new(s,e),name,access,AssignOp::AssignSignal,lhe)
+     },
+     <s:@L> <lhe: ParseExpression> "==>" <variable: ParseVariable>  <e:@R>
+     => {let (name,access) = variable;
+         build_substitution(Meta::new(s,e),name,access,AssignOp::AssignConstraintSignal,lhe)
+     },
+    <s:@L> <variable: ParseVariable>  "\\=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::IntDiv,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "**=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::Pow,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "+=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::Add,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "-=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::Sub,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "*=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::Mul,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "/=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::Div,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "%=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::Mod,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "<<=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::ShiftL,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  ">>=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::ShiftR,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "&=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::BitAnd,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "|=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::BitOr,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "^=" <rhe: ParseExpression> <e:@R>
+    => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::BitXor,Meta::new(s,e),variable,rhe),
+
+    <s:@L> <variable: ParseVariable>  "++" <e:@R>
+    => ast_shortcuts::plusplus(Meta::new(s,e),variable),
+
+    <s:@L> <variable: ParseVariable>  "--" <e:@R>
+     => ast_shortcuts::subsub(Meta::new(s,e),variable),
+};
+
+ParseBlock : Statement = {
+    <s:@L> "{" <stmts :ParseStatement3*> "}" <e:@R>
+     => build_block(Meta::new(s,e),stmts),
+};
+
+pub ParseStatement : Statement = {
+    ParseStatement0
+};
+
+ParseElse<StmtLevel> : Statement = {
+    "else" <else_case: StmtLevel> => else_case,
+};
+
+ParseStatement0 : Statement = {
+    ParseStmt0NB,
+    ParseStatement1
+};
+
+ParseStmt0NB : Statement = {
+    <s:@L> "if" "(" <cond: ParseExpression> ")" <if_case: ParseStmt0NB> <e:@R>
+    => build_conditional_block(Meta::new(s,e),cond,if_case,Option::None),
+
+    <s:@L> "if" "(" <cond: ParseExpression> ")" <if_case: ParseStatement1> <e:@R>
+    => build_conditional_block(Meta::new(s,e),cond,if_case,Option::None),
+
+    <s:@L> "if" "(" <cond: ParseExpression> ")" <if_case: ParseStatement1> <else_case: ParseElse<ParseStmt0NB>><e:@R>
+    => build_conditional_block(Meta::new(s,e),cond,if_case,Option::Some(else_case)),
+};
+
+ParseStatement1 : Statement = {
+    <s:@L> "if" "(" <cond: ParseExpression> ")" <if_case: ParseStatement1> <else_case: ParseElse<ParseStatement1>><e:@R>
+    =>  build_conditional_block(Meta::new(s,e),cond,if_case,Option::Some(else_case)),
+    ParseStatement2
+};
+ParseStatement2 : Statement = {
+    <s:@L> "for" "(" <init: ParseDeclaration> ";" <cond: ParseExpression> ";" <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
+    => ast_shortcuts::for_into_while(Meta::new(s,e),init,cond,step,body),
+
+    <s:@L> "for" "(" <init: ParseSubstitution> ";" <cond: ParseExpression> ";" <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
+    => ast_shortcuts::for_into_while(Meta::new(s,e),init,cond,step,body),
+
+    <s:@L>"while" "(" <cond: ParseExpression> ")" <stmt: ParseStatement2> <e:@R>
+    => build_while_block(Meta::new(s,e),cond,stmt),
+
+    <s:@L> "return" <value: ParseExpression> ";"<e:@R>
+    => build_return(Meta::new(s,e),value),
+
+    <subs: ParseSubstitution> ";"
+    => subs,
+
+    <s:@L> <lhe: ParseExpression> "===" <rhe: ParseExpression> ";" <e:@R>
+    => build_constraint_equality(Meta::new(s,e),lhe,rhe),
+
+    <s:@L> "log" "(" <arg: ParseExpression> ")" ";" <e:@R>
+    => build_log_call(Meta::new(s,e),arg),
+
+    <s:@L> "assert" "(" <arg: ParseExpression> ")" ";" <e:@R>
+    => build_assert(Meta::new(s,e),arg),
+
+    ParseBlock
+};
+
+ParseStatement3 : Statement = {
+    <dec: ParseDeclaration> ";"
+    => dec,
+
+    ParseStatement
+};
+
+
+
+
+// ====================================================================
+// Variable
+// ====================================================================
+
+ParseVarAccess : Access  = {
+    <arr_dec: ParseArrayAcc> => build_array_access(arr_dec),
+    <component_acc: ParseComponentAcc> => build_component_access(component_acc),
+};
+ParseArrayAcc: Expression = {
+    "["<dim: ParseExpression>"]" => dim
+};
+ParseComponentAcc: String = {
+    "." <id: IDENTIFIER> => id,
+};
+ParseVariable : (String,Vec<Access>) = {
+    <name:IDENTIFIER> <access: ParseVarAccess*>
+        => (name,access),
+};
+// ====================================================================
+// Expression
+// ====================================================================
+
+Listable: Vec<Expression> = {
+    <e:(<ParseExpression> ",")*> <tail: ParseExpression>
+    => {
+        let mut e = e;
+        e.push(tail);
+        e
+    },
+};
+
+InfixOpTier<Op,NextTier> : Expression = {
+    <s:@L> <lhe:InfixOpTier<Op,NextTier>> <infix_op:Op> <rhe:NextTier> <e: @R>
+    => build_infix(Meta::new(s,e),lhe,infix_op,rhe),
+
+    NextTier
+};
+
+PrefixOpTier<Op,NextTier >: Expression = {
+    <s:@L> <prefix_op:Op> <rhe:NextTier> <e:@R>
+    => build_prefix(Meta::new(s,e),prefix_op,rhe),
+
+    NextTier
+};
+
+
+pub ParseExpression: Expression = {
+    Expression13,
+    Expression12,
+};
+
+// ops: e ? a : i
+Expression13 : Expression  = {
+    <s:@L> <cond: Expression12>  "?" <if_true: Expression12> ":" <if_false: Expression12> <e:@R>
+    => build_inline_switch_op(Meta::new(s,e),cond,if_true,if_false),
+};
+
+// ops: ||
+Expression12 = InfixOpTier<ParseBoolOr,Expression11>;
+
+// ops: &&
+Expression11 = InfixOpTier<ParseBoolAnd,Expression10>;
+
+// ops:  == != < > <= >=
+Expression10 = InfixOpTier<ParseCmpOpCodes,Expression9>;
+
+// ops: |
+Expression9 = InfixOpTier<ParseBitOr,Expression8>;
+
+// ops: ^
+Expression8 = InfixOpTier<ParseBitXOR,Expression7>;
+
+// ops: &
+Expression7 = InfixOpTier<ParseBitAnd,Expression6>;
+
+// ops: << >>
+Expression6 = InfixOpTier<ParseShift,Expression5>;
+
+// ops: + -
+Expression5 = InfixOpTier<ParseAddAndSub,Expression4>;
+
+// ops: * / \\ %
+Expression4 = InfixOpTier<ParseMulDiv,Expression3>;
+
+// ops: **
+Expression3 = InfixOpTier<ParseExp,Expression2>;
+
+// ops: Unary - ! ~
+Expression2 = PrefixOpTier<ParseExpressionPrefixOpcode,Expression1>;
+
+// function call, array inline
+Expression1: Expression = {
+    <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R>
+    => match args {
+        None => build_call(Meta::new(s,e),id,Vec::new()),
+        Some(a) => build_call(Meta::new(s,e),id,a),
+    },
+
+    <s:@L> "[" <values: Listable> "]" <e:@R>
+    => build_array_in_line(Meta::new(s,e),values),
+
+    Expression0,
+};
+
+// Literal, parentheses
+Expression0: Expression = {
+    <s:@L> <variable: ParseVariable> <e:@L>
+    => {
+        let (name,access) = variable;
+        build_variable(Meta::new(s,e),name,access)
+    },
+
+    <s:@L> <value:DECNUMBER> <e:@L>
+    => build_number(Meta::new(s,e),value),
+
+    <s:@L> <value:HEXNUMBER> <e:@L>
+    => build_number(Meta::new(s,e),value),
+
+    "(" <Expression12> ")"
+};
+
+
+// ====================================================================
+// Terminals
+// ====================================================================
+
+
+
+ParseExpressionPrefixOpcode: ExpressionPrefixOpcode = {
+    "!" => ExpressionPrefixOpcode::BoolNot,
+    "~" => ExpressionPrefixOpcode::Complement,
+    "-" => ExpressionPrefixOpcode::Sub,
+};
+
+ParseBoolOr : ExpressionInfixOpcode = {
+    "||" => ExpressionInfixOpcode::BoolOr,
+};
+
+ParseBoolAnd : ExpressionInfixOpcode = {
+    "&&" => ExpressionInfixOpcode::BoolAnd,
+};
+
+ParseCmpOpCodes : ExpressionInfixOpcode = {
+    "==" => ExpressionInfixOpcode::Eq,
+    "!=" => ExpressionInfixOpcode::NotEq,
+    "<"  => ExpressionInfixOpcode::Lesser,
+    ">"  => ExpressionInfixOpcode::Greater,
+    "<=" => ExpressionInfixOpcode::LesserEq,
+    ">=" => ExpressionInfixOpcode::GreaterEq,
+};
+
+ParseBitOr : ExpressionInfixOpcode = {
+    "|" =>  ExpressionInfixOpcode::BitOr,
+};
+
+ParseBitAnd : ExpressionInfixOpcode = {
+    "&" =>  ExpressionInfixOpcode::BitAnd,
+};
+
+ParseShift : ExpressionInfixOpcode = {
+    "<<" => ExpressionInfixOpcode::ShiftL,
+    ">>" => ExpressionInfixOpcode::ShiftR,
+};
+
+ParseAddAndSub : ExpressionInfixOpcode = {
+    "+" =>  ExpressionInfixOpcode::Add,
+    "-" =>  ExpressionInfixOpcode::Sub,
+};
+
+ParseMulDiv : ExpressionInfixOpcode = {
+    "*" =>  ExpressionInfixOpcode::Mul,
+    "/" =>  ExpressionInfixOpcode::Div,
+    "\\" => ExpressionInfixOpcode::IntDiv,
+    "%" =>  ExpressionInfixOpcode::Mod,
+};
+
+ParseExp : ExpressionInfixOpcode = {
+    "**" => ExpressionInfixOpcode::Pow,
+};
+
+ParseBitXOR : ExpressionInfixOpcode = {
+    "^" =>  ExpressionInfixOpcode::BitXor,
+};
+
+
+ParseAssignOp: AssignOp = {
+    "="   => AssignOp::AssignVar,
+    "<--" => AssignOp::AssignSignal,
+    "<==" => AssignOp::AssignConstraintSignal,
+};
+
+DECNUMBER: BigInt = {
+    r"[0-9]+" => BigInt::parse_bytes(&<>.as_bytes(),10).expect("failed to parse base10")
+};
+
+HEXNUMBER : BigInt = {
+    r"0x[0-9A-Fa-f]*" => BigInt::parse_bytes(&(<>.as_bytes()[2..]),16).expect("failed to parse base16")
+};
+
+IDENTIFIER : String = {
+    r"[$_]*[a-zA-Z][a-zA-Z$_0-9]*" => String::from(<>)
+};
+
+STRING : String = {
+    <s:r#""[^"]*""#> => String::from(&s[1..s.len()-1])
+};
+
+SMALL_DECNUMBER: usize = {
+    r"[0-9]+" => usize::from_str(<>).expect("failed to parse number")
+};
+
+
+// Version used by pragma to describe the compiler, its syntax is Number1.Number2.Number3...
+Version : Version = {
+    <version: SMALL_DECNUMBER> "." <subversion:SMALL_DECNUMBER> "." <subsubversion:SMALL_DECNUMBER> => {
+        (version, subversion, subsubversion)
+    }
+};

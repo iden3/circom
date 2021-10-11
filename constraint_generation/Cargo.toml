@@ -1,0 +1,16 @@
+[package]
+name = "constraint_generation"
+version = "0.1.0"
+authors = ["hermeGarcia <hermegarcianavarro@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+ansi_term = "0.12.1"
+num-traits = "0.2.6"
+num-bigint-dig = "0.6.0"
+compiler = { path = "../compiler" }
+circom_algebra = { path = "../circom_algebra" }
+program_structure = { path = "../program_structure" }
+constraint_writers = { path = "../constraint_writers" }
+constraint_list = { path = "../constraint_list" }
+dag = { path = "../dag" }

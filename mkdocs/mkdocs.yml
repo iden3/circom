@@ -1,0 +1,40 @@
+site_name: Circom 2 Documentation
+site_url: http://127.0.0.1:8000
+theme: readthedocs
+    
+nav:
+  - Getting started:        
+    - Background on ZK: 'getting-started/background.md'
+    - Installation: 'getting-started/installation.md'
+    - Writing and compiling circuits: 'getting-started/writing-compiling-circuits.md'
+    - Computing the witness: 'getting-started/computing-the-witness.md'
+#     - Testing circuits: 'getting-started/testing-circuits.md'
+    - Proving circuits with ZK: 'getting-started/proving-circuits.md'
+  - The circom Language:
+    - Signals:
+         - Signals: 'circom-language/signals.md'
+         - Variables & Mutability: 'circom-language/variables-and-mutability.md'
+    - Templates:
+         - Templates & Components: 'circom-language/templates-and-components.md'
+         - Pragma: 'circom-language/pragma.md'
+         - Functions: 'circom-language/functions.md'
+         - Include: 'circom-language/include.md'
+         - The main Component: 'circom-language/the-main-component.md'
+    - Syntax:
+         - Comment Lines: 'circom-language/comment-lines.md'
+         - Identifiers: 'circom-language/identifiers.md'
+         - Reserved-keywords: 'circom-language/reserved-keywords.md'
+    - Basic Operators: 'circom-language/basic-operators.md'
+    - Constraint Generation: 'circom-language/constraint-generation.md'
+    - Control Flow: 'circom-language/control-flow.md'
+    - Data Types: 'circom-language/data-types.md'
+    - Scoping: 'circom-language/scoping.md'
+    - Code Quality:
+         - Code Assertion: 'circom-language/code-quality/code-assertion.md'
+         - Debugging Operations: 'circom-language/code-quality/debugging-operations.md'
+    - Circom Insight:
+         - Compiler Phases: 'circom-language/circom-insight/circom-phases.md'
+         - Compiler Messages: 'circom-language/circom-insight/compiler-messages.md'
+         - Unknowns : 'circom-language/circom-insight/unknowns.md'
+         - Circom Library: 'circom-language/circom-insight/circom-library.md'
+

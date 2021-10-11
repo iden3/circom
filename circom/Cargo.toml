@@ -1,0 +1,19 @@
+[package]
+name = "circom"
+version = "0.1.0"
+authors = ["HermenegildoTFG <hermegar@ucm.es>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+parser = {path = "../parser"}
+program_structure = { path = "../program_structure" }
+type_analysis = { path = "../type_analysis" }
+constraint_generation = { path = "../constraint_generation" }
+constraint_writers = { path = "../constraint_writers" }
+compiler = { path = "../compiler" }
+dag = { path = "../dag" }
+clap = "2.33.0"
+ansi_term = "0.12.1"
+wabt = "0.10.0"
