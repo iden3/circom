@@ -106,7 +106,7 @@ With these options we generate three types of files:
 * `--r1cs`: it generates the file `multiplier2.r1cs` that contains the [R1CS constraint system](/getting-started/background#rank-1-constraint-system) of the circuit in binary format.
 * `--wasm`: it generates the directory `multiplier2_js` that contains the `Wasm` code (multiplier2.wasm) and other files needed to generate the [witness](/getting-started/background#witness).
 * `--sym` : it generates the file `multiplier2.sym` , a symbols file required for debugging or for printing the constraint system in an annotated mode.
-* `--c` : it generates the directory `multiplier2_cpp` that contains several files \(multiplier2.cpp, multiplier2.dat, and other common files for every compiled program  like main.cpp, MakeFile, etc\)  needed to compile the C code to generate the witness.
+* `--c` : it generates the directory `multiplier2_cpp` that contains several files (multiplier2.cpp, multiplier2.dat, and other common files for every compiled program  like main.cpp, MakeFile, etc)  needed to compile the C code to generate the witness.
 
 We can use the option -o to specify the directory where these files are created. 
 
