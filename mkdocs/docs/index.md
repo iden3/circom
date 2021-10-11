@@ -1,7 +1,27 @@
+[![Chat on Telegram][ico-telegram]][link-telegram]
+[![Website][ico-website]][link-website]
+![GitHub top language](https://img.shields.io/github/languages/top/iden3/circom)
+[![GitHub repo][ico-github]][link-github]
+
+[ico-website]: https://img.shields.io/website?up_color=blue&up_message=circom&url=https%3A%2F%2Fiden3.io%2Fcircom
+[ico-telegram]: https://img.shields.io/badge/@iden3-2CA5E0.svg?style=flat-square&logo=telegram&label=Telegram
+[ico-github]: https://img.shields.io/github/last-commit/iden3/circom?color=blue
+
+[link-website]: https://iden3.io/circom
+[link-telegram]: https://t.me/iden3io
+[link-github]: https://github.com/iden3/circom
+
+---
+
+# [Getting started](https://iden3.github.io/circom/getting-started/installation/)
+
+---
+
 # &#9888; Important deprecation note
 
 Current `circom` is a compiler written in Rust. The old `circom` compiler written in Javascript will be frozen, but it can still be downloaded from the [old circom repository](https://github.com/iden3/circom_old).
 
+---
 
 # About the circom ecosystem
 
