@@ -6,7 +6,7 @@ Variables are identifiers that hold non-signal data and are mutable. Variables a
 var x;
 ```
 
-They hold either numerical values of the field or arithmetic expressions when they are used to build constraints (see [Constraint Generation](/circom-language/constraint-generation)). They can be named using a variable identifier or can be stored in arrays.
+They hold either numerical values of the field or arithmetic expressions when they are used to build constraints (see [Constraint Generation](../constraint-generation)). They can be named using a variable identifier or can be stored in arrays.
 
 Variable assignment is made using the equal symbol `=`. Declarations may also include an initialization, as in the following examples:
 
