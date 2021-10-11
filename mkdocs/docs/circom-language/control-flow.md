@@ -47,7 +47,7 @@ while(i < 100){
 }
 ```
 
-**Important**: when constraints are generated in any block inside an if-then-else or loop statement, the condition cannot be unknown (see [Unknowns](/circom-language/circom-insight/unknowns)). This is because the constraint generation must be unique and cannot depend on unknown input signals.
+**Important**: when constraints are generated in any block inside an if-then-else or loop statement, the condition cannot be unknown (see [Unknowns](../circom-insight/unknowns)). This is because the constraint generation must be unique and cannot depend on unknown input signals.
 
 In case the expression in the condition is unknown and some constraint is generated, the compiler will generate the next error message: "_There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase_".
 
@@ -112,7 +112,7 @@ template wrong(){
 
 This template produces a compilation error, since the value of variable `t` involved in the last constraint depends on the unknown value of variable `in`.
 
-The control flow of the computations is like in other imperative languages, but the [instantiation of components](/circom-language/templates-and-components) may not follow the sequential structure of the code because component instantiation will not be triggered until all input signals have a concrete value assigned.
+The control flow of the computations is like in other imperative languages, but the [instantiation of components](../templates-and-components) may not follow the sequential structure of the code because component instantiation will not be triggered until all input signals have a concrete value assigned.
 
 ```text
 template mult(){
