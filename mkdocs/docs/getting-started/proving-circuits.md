@@ -129,7 +129,7 @@ snarkjs groth16 prove multiplier2_final.zkey witness.wtns proof.json public.json
 
 This command generates a [Groth16](https://eprint.iacr.org/2016/260) proof and outputs two files:
 
-* `proof.json`: it contains the [Groth16](https://eprint.iacr.org/2016/260) proof.
+* `proof.json`: it contains the proof.
 * `public.json`: it contains the values of the public inputs and outputs.
 
 To **verify the proof**, execute the following command:

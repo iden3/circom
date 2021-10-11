@@ -30,8 +30,9 @@ After calling the `circom` compiler with the flag `--wasm` and the circuit `mult
 Enter in the directory `multiplier2_js`, add the input in a file `input.json` and execute:
 
 ```text
-node generate-witness.js multiplier2.wasm input.json witness.wtns
+node generate_witness.js multiplier2.wasm input.json witness.wtns
 ```
+
 
 ## Computing the witness from the C++ directory <a id="witness-from-c-directory"></a>
 
