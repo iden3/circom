@@ -1,5 +1,5 @@
 site_name: Circom 2 Documentation
-site_url: http://docs.circom.io
+site_url: https://iden3.github.io/circom/
 theme:
      name: material
      palette:
@@ -9,6 +9,7 @@ theme:
      features:
           - navigation.tabs
           - navigation.tabs.sticky
+          - navigation.tracking
 repo_url: https://github.com/iden3/circom
 markdown_extensions:
      - pymdownx.arithmatex:
