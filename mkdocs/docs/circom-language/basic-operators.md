@@ -2,7 +2,7 @@
 
 Circom provides boolean, arithmetic, and bitwise operators. They have the standard semantics but the arithmetic operators applied to numeric values work modulo p. 
 
-The precedence and association of the operators are like in Rust \(defined [here](https://doc.rust-lang.org/1.22.1/reference/expressions/operator-expr.html#operator-precedence)\).
+The precedence and association of the operators are like in Rust (defined [here](https://doc.rust-lang.org/1.22.1/reference/expressions/operator-expr.html#operator-precedence)).
 
 Expressions can be built using the next operators, but the conditional operator `?_:_` can only occur at the top level. 
 
@@ -14,7 +14,7 @@ A field element is a value in the domain of Z/pZ, where p is the prime number se
 
 As such, field elements are operated in arithmetic modulo p.
 
-The circom language is parametric to this number, and it can be changed without affecting the rest of the language \(using `GLOBAL_FIELD_P`\).
+The circom language is parametric to this number, and it can be changed without affecting the rest of the language (using `GLOBAL_FIELD_P`).
 
 ## Conditional expressions
 
