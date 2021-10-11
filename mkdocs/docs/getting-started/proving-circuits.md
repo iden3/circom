@@ -6,7 +6,7 @@ contains all the computed signals and a file with extension .r1cs that contains 
 
 Now, we will use the `snarkjs` tool to generate and validate our zk-SNARK. In particular, using the multiplier2, **we will prove that we are able to provide the two factors of the number 33**. That is, we will show that we know two integers `a` and `b` such that when we multiply them, it results in the number 33.
 
-Before generating the proof, you will need to generate a [trusted setup](/background/background#trusted-setup). Generating a trusted setup consists of 2 parts: powers of tau and phase 2. Next, we provide a very basic ceremony for creating the trusted setup for the [Groth16](https://eprint.iacr.org/2016/260) zk-SNARK protocol. We also provide the basic commands to create and verify [Groth16](https://eprint.iacr.org/2016/260) proofs. Review the related [Background](/background/background) section and check [the snarkjs tutorial](https://github.com/iden3/snarkjs) for further information.
+Before generating the proof, you will need to generate a [trusted setup](../../background/background#trusted-setup). Generating a trusted setup consists of 2 parts: powers of tau and phase 2. Next, we provide a very basic ceremony for creating the trusted setup for the [Groth16](https://eprint.iacr.org/2016/260) zk-SNARK protocol. We also provide the basic commands to create and verify [Groth16](https://eprint.iacr.org/2016/260) proofs. Review the related [Background](../../background/background) section and check [the snarkjs tutorial](https://github.com/iden3/snarkjs) for further information.
 
 ## Trusted setup: Powers of Tau <a id="my-first-trusted-setup"></a>
 
