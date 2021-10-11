@@ -7,12 +7,16 @@ TODO add and mini explain ffjavascript
 Put links to all the docs
 -->
 
-# The circom ecosystem
+# Installing the circom ecosystem
+
+## &#9888; Important deprecation note
+
+The old `circom` compiler written in Javascript will be frozen, but it can still be downloaded from the [old circom repository](https://github.com/iden3/circom_old).
 
 ## Installing dependencies
 
-You need several dependencies installed in your system to 
-install all the tools related to `circom` circuits.
+You need several dependencies in your system to 
+run `circom` and its associated tools.
 
    * The core tool is the `circom` compiler which is written in Rust.
    To have Rust available in your system, you can install `rustup`. If you’re using Linux or macOS, open a terminal and enter the following command:
@@ -35,7 +39,7 @@ The compiler outputs the representation of the circuit as constraints and everyt
 To install from our sources, clone the `circom` repository: 
 
 ```text
-git clone https://github.com/hermeGarcia/circom_compiler.git
+git clone https://github.com/iden3/circom.git
 ```
 
 Enter the directory circom_compiler and use the cargo build to compile `circom`:
@@ -60,7 +64,7 @@ Now, you should be able to see all the options of the executable by using the `h
 ```console
 circom --help
 
-   Circom Compiler 2.0
+   Circom Compiler 2.0.0
    IDEN3
    Compiler for the Circom programming language
 
@@ -92,10 +96,17 @@ circom --help
 
 With `circom`, it is possible to create large circuits by combining smaller generic circuits called `templates`. The `circomlib` is a library of `circom` templates that contains hundreds of circuits such as comparators, hash functions, digital signatures, binary and decimal convertors and many more. You can also create your custom templates, but before start coding, we recommend you to take a look at our already created templates.
 
-To install `circomlib`, clone its github repository:
+You can install `circomlib` either as an npm package or by cloning its repository.
+To install `circomlib` as a npm package:
 
 ```text
-git clone git@github.com:alrubio/circomlib2.git
+npm install circomlib -g
+```
+
+If you want to clone its repository:
+
+```text
+git clone https://github.com/iden3/circomlib.git
 ```
 The package already contains tests for circuits available in the `circomlib`.
 The package also installs the npm packages `circomlibjs` and `circom_tester` as dependencies.

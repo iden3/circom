@@ -1,6 +1,10 @@
 # About the circom ecosystem
 
-Circom and its ecosystem of tools allow you to create, test and create zero knowledge proofs for your circuits.
+The circom compiler and its ecosystem of tools allows you to create, test and create zero knowledge proofs for your circuits.
+
+# &#9888; Important deprecation note
+
+Current `circom` is a compiler written in Rust. The old `circom` compiler written in Javascript will be frozen, but it can still be downloaded from the [old circom repository](https://github.com/iden3/circom_old).
 
 # Visual summary <a id="visual-summary"></a>
 
