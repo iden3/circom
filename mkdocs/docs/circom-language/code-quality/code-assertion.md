@@ -1,6 +1,6 @@
 # Code Assertion
 
-**assert\(bool\_expression\);**
+**assert(bool_expression);**
 
 This statement introduces conditions to be checked at execution time. If the condition fails, the witness generation is interrupted and the error is reported.
 

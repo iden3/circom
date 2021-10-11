@@ -4,7 +4,7 @@ We have standard constructions for defining the control flow of the program.
 
 ## Conditional statement: if-then-else
 
-**if \( boolean\_condition \) block\_of\_code else block\_of\_code**
+**if ( boolean_condition ) block_of_code else block_of_code**
 
 The else part is optional. When omitted, it means “else do nothing”.
 
@@ -21,9 +21,9 @@ if (x >= 0) {
 
 ## Loop statement: for
 
-**for \( initialization\_code ; boolean\_condition ; step\_code \) block\_of\_code**
+**for ( initialization_code ; boolean_condition ; step_code ) block_of_code**
 
-If the initialization\_code includes a var declaration then its scope is reduced to the for statement and hence, using it later on \(without defining it again\) will produce a compilation error.
+If the initialization_code includes a var declaration then its scope is reduced to the for statement and hence, using it later on (without defining it again) will produce a compilation error.
 
 ```text
 var y = 0;
@@ -34,7 +34,7 @@ for(var i = 0; i < 100; i++){
 
 ## Loop statement: while
 
-**while \( boolean\_condition \) block\_of\_code**
+**while ( boolean_condition ) block_of_code**
 
 It executes the block of code while the condition holds. The condition is checked every time before executing the block of code.
 
@@ -47,7 +47,7 @@ while(i < 100){
 }
 ```
 
-**Important**: when constraints are generated in any block inside an if-then-else or loop statement, the condition cannot be unknown \(see [Unknowns](/circom-language/circom-insight/unknowns)\). This is because the constraint generation must be unique and cannot depend on unknown input signals.
+**Important**: when constraints are generated in any block inside an if-then-else or loop statement, the condition cannot be unknown (see [Unknowns](/circom-language/circom-insight/unknowns)). This is because the constraint generation must be unique and cannot depend on unknown input signals.
 
 In case the expression in the condition is unknown and some constraint is generated, the compiler will generate the next error message: "_There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase_".
 
