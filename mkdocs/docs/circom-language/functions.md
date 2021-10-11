@@ -11,7 +11,7 @@ function funid ( param1, ... , paramn ) {
 }
 ```
 
-Functions compute numeric \(or arrays of\) values or expressions. Functions can be recursive. Consider the [next function](https://github.com/iden3/circomlib/blob/master/circuits/binsum.circom) from the circom library.
+Functions compute numeric (or arrays of) values or expressions. Functions can be recursive. Consider the [next function](https://github.com/iden3/circomlib/blob/master/circuits/binsum.circom) from the circom library.
 
 ```text
 /*
@@ -30,7 +30,7 @@ function nbits(a) {
 }
 ```
 
- Functions cannot declare signals or generate constraints \(use templates if you need so\). The next function produces the error message: "Template operator found".
+ Functions cannot declare signals or generate constraints (use templates if you need so). The next function produces the error message: "Template operator found".
 
 ```text
 function nbits(a) {
@@ -46,7 +46,7 @@ function nbits(a) {
 }
 ```
 
-As usual, there can be many return statements, but every execution trace must end in a return statement \(otherwise, a compile error will be produced\). The execution of the return statement returns the control to the caller of the function. 
+As usual, there can be many return statements, but every execution trace must end in a return statement (otherwise, a compile error will be produced). The execution of the return statement returns the control to the caller of the function. 
 
 ```text
 function example(N){
