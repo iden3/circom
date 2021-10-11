@@ -18,7 +18,15 @@ extra_javascript:
      - javascripts/mathjax.js
      - https://polyfill.io/v3/polyfill.min.js?features=es6
      - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
-    
+extra:
+     social:
+          - icon: fontawesome/brands/telegram
+            link: https://t.me/iden3io
+          - icon: fontawesome/brands/github
+            link: https://github.com/iden3/circom
+          - icon: octicons/browser-24
+            link: https://iden3.io/circom
+
 nav:
      - Getting started:
           - Installation: 'getting-started/installation.md'
