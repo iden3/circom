@@ -1,5 +1,5 @@
 <div align="center">
-<img src="mkdocs/circom-logo-black.png" width="300"/>
+<img src="mkdocs/docs/circom-logo-black.png" width="300"/>
 </div>
 <div align="center">
 
