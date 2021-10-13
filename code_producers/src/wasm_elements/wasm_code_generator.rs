@@ -1424,6 +1424,7 @@ pub fn fr_code() -> Vec<WasmInstruction> {
     instructions
 }
 
+/*
 pub fn generate_utils_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
@@ -1440,6 +1441,7 @@ pub fn generate_utils_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
     js_file.flush()?;
     Ok(())
 }
+ */
 
 pub fn generate_generate_witness_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
