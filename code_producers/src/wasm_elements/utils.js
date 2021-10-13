@@ -1,5 +1,3 @@
-const fnv = require("fnv-plus");
-
 module.exports.fnvHash = fnvHash;
 module.exports.toArray32 = toArray32;
 module.exports.fromArray32 = fromArray32;
@@ -49,5 +47,15 @@ function flatArray(a) {
 }
 
 function fnvHash(str) {
-    return fnv.hash(str, 64).hex();
+    const uint64_max = BigInt(2) ** BigInt(64);
+    let hash = BigInt("0xCBF29CE484222325");
+    for (var i = 0; i < str.length; i++) {
+	hash ^= BigInt(str[i].charCodeAt());
+	hash *= BigInt(0x100000001B3);
+	hash %= uint64_max;
+    }
+    let shash = hash.toString(16);
+    let n = 16 - shash.length;
+    shash = '0'.repeat(n).concat(shash);
+    return shash;
 }
