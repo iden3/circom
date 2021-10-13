@@ -28,7 +28,7 @@ component main {public [in1,in2]} = Multiplier2();
 
 This example declares input signals `in1` and `in2` of the main component as public signals.
 
-In circom, all output signals of the main component are public (and cannot be made private), the input signals of the main component are private if not stated otherwise using the keyword public as avobe. The rest of signals are all private and cannot be made public. 
+In circom, all output signals of the main component are public (and cannot be made private), the input signals of the main component are private if not stated otherwise using the keyword public as above. The rest of signals are all private and cannot be made public. 
 
 Thus, from the programmer's point of view, only public input and output signals are visible from outside the circuit, and hence no intermediate signal can be accessed.
 
