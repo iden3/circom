@@ -1,12 +1,17 @@
-# Circom
+<div align="center">
+<img src="mkdocs/docs/circom-logo-black.png" width="300"/>
+</div>
+<div align="center">
 
 [![Chat on Telegram][ico-telegram]][link-telegram]
 [![Website][ico-website]][link-website]
 ![GitHub top language](https://img.shields.io/github/languages/top/iden3/circom)
 
+</div>
+
 # Quickstart
 
-[Get started here.](https://iden3.github.io/circom/getting-started/installation/)
+<b>==> [Get started here](https://iden3.github.io/circom/getting-started/installation/)</b>
 
 # &#8505; Important deprecation note
 
