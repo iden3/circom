@@ -119,7 +119,7 @@ Export the verification key:
 snarkjs zkey export verificationkey multiplier2_0001.zkey verification_key.json
 ```
 
-### Generating a Groph16 ZKP <a id="my-first-zero-knowledge-proof"></a>
+### Generating a Groth16 ZKP <a id="my-first-zero-knowledge-proof"></a>
 
 Once the witness is computed and the trusted setup is already executed, we can **generate a zk-proof** associated to the circuit and the witness:
 
