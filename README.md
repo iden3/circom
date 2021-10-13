@@ -20,7 +20,7 @@ The old `circom` compiler written in Javascript will be frozen, but it can still
 # About circom 
 
 Current `circom` is a compiler written in Rust for compiling circuits written in the `circom` language.
-The compiler outputs the representation of the circuit as constraints and produces everything needed to compute different ZK proofs. The documentation for installing and using `circom` and its associated tools can be found at [doc](https://iden3.github.io/circom).
+The compiler outputs the representation of the circuit as constraints and produces everything needed to compute different ZK proofs. The documentation for installing and using `circom` and its associated tools can be found at [doc](https://docs.circom.io/).
 
 
 [ico-website]: https://img.shields.io/website?up_color=blue&up_message=circom&url=https%3A%2F%2Fiden3.io%2Fcircom
