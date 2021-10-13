@@ -411,7 +411,6 @@ impl Circuit {
     pub fn produce_wasm<W: Write>(&self, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let js_folder_path = Path::new(js_folder.clone()).to_path_buf();
-	wasm_code_generator::generate_utils_js_file(&js_folder_path).map_err(|_err| {})?;
         wasm_code_generator::generate_generate_witness_js_file(&js_folder_path).map_err(|_err| {})?;
         wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path).map_err(|_err| {})?;
         self.write_wasm(writer, &self.wasm_producer)
