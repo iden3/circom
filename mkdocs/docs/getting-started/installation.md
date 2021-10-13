@@ -40,7 +40,7 @@ To install from our sources, clone the `circom` repository:
 git clone https://github.com/iden3/circom.git
 ```
 
-Enter the directory circom_compiler and use the cargo build to compile `circom`:
+Enter the circom directory and use the cargo build to compile:
 
 ```text
 cargo build --release
