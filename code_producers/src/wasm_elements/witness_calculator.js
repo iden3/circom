@@ -1,5 +1,3 @@
-const utils = require("./utils");
-
 module.exports = async function builder(code, options) {
 
     options = options || {};
@@ -68,7 +66,7 @@ module.exports = async function builder(code, options) {
 	for (let j=0; j<shared_rw_memory_size; j++) {
 	    arr[shared_rw_memory_size-1-j] = instance.exports.readSharedRWMemory(j);
 	}
-	console.log(utils.fromArray32(arr));
+	console.log(fromArray32(arr));
     }
 
 };
@@ -85,7 +83,7 @@ class WitnessCalculator {
         for (let i=0; i<this.n32; i++) {
             arr[this.n32-1-i] = this.instance.exports.readSharedRWMemory(i);
         }
-        this.prime = utils.fromArray32(arr);
+        this.prime = fromArray32(arr);
 
         this.witnessSize = this.instance.exports.getWitnessSize();
 
@@ -101,12 +99,12 @@ class WitnessCalculator {
         this.instance.exports.init((this.sanityCheck || sanityCheck) ? 1 : 0);
         const keys = Object.keys(input);
         keys.forEach( (k) => {
-            const h = utils.fnvHash(k);
+            const h = fnvHash(k);
             const hMSB = parseInt(h.slice(0,8), 16);
             const hLSB = parseInt(h.slice(8,16), 16);
-            const fArr = utils.flatArray(input[k]);
+            const fArr = flatArray(input[k]);
             for (let i=0; i<fArr.length; i++) {
-		const arrFr = utils.toArray32(fArr[i],this.n32)
+		const arrFr = toArray32(fArr[i],this.n32)
 		for (let j=0; j<this.n32; j++) {
 		    this.instance.exports.writeSharedRWMemory(j,arrFr[this.n32-1-j]);
 		}
@@ -133,7 +131,7 @@ class WitnessCalculator {
             for (let j=0; j<this.n32; j++) {
             arr[this.n32-1-j] = this.instance.exports.readSharedRWMemory(j);
             }
-            w.push(utils.fromArray32(arr));
+            w.push(fromArray32(arr));
         }
 
         return w;
@@ -227,4 +225,59 @@ class WitnessCalculator {
 }
 
 
+function toArray32(s,size) {
+    const res = []; //new Uint32Array(size); //has no unshift
+    let rem = BigInt(s);
+    const radix = BigInt(0x100000000);
+    while (rem) {
+        res.unshift( Number(rem % radix));
+        rem = rem / radix;
+    }
+    if (size) {
+	var i = size - res.length;
+	while (i>0) {
+	    res.unshift(0);
+	    i--;
+	}
+    }
+    return res;
+}
 
+function fromArray32(arr) { //returns a BigInt
+    var res = BigInt(0);
+    const radix = BigInt(0x100000000);
+    for (let i = 0; i<arr.length; i++) {
+        res = res*radix + BigInt(arr[i]);
+    }
+    return res;
+}
+
+function flatArray(a) {
+    var res = [];
+    fillArray(res, a);
+    return res;
+
+    function fillArray(res, a) {
+        if (Array.isArray(a)) {
+            for (let i=0; i<a.length; i++) {
+                fillArray(res, a[i]);
+            }
+        } else {
+            res.push(a);
+        }
+    }
+}
+
+function fnvHash(str) {
+    const uint64_max = BigInt(2) ** BigInt(64);
+    let hash = BigInt("0xCBF29CE484222325");
+    for (var i = 0; i < str.length; i++) {
+	hash ^= BigInt(str[i].charCodeAt());
+	hash *= BigInt(0x100000001B3);
+	hash %= uint64_max;
+    }
+    let shash = hash.toString(16);
+    let n = 16 - shash.length;
+    shash = '0'.repeat(n).concat(shash);
+    return shash;
+}
