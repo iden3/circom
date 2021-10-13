@@ -76,7 +76,7 @@ template B(){
 component main = B();
 ```
 
-At compilation time, the content of a signal is always considered unknown \(see [Unknowns](/circom-language/circom-insight/unknowns)\), even if a constant is already assigned to them. The reason for that is to provide a precise \(decidable\) definition of which constructions are allowed and which are not, without depending on the power of the compiler to detect whether a signal has always a constant value or not. 
+At compilation time, the content of a signal is always considered unknown (see [Unknowns](/circom-language/circom-insight/unknowns)), even if a constant is already assigned to them. The reason for that is to provide a precise \(decidable\) definition of which constructions are allowed and which are not, without depending on the power of the compiler to detect whether a signal has always a constant value or not. 
 
 ```text
 pragma circom 2.0.0;
