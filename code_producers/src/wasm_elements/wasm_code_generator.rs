@@ -1234,8 +1234,8 @@ pub fn build_buffer_message_generator(producer: &WASMProducer) -> Vec<WasmInstru
     //now we extract the digits and add them to buffer. We assume line > 0
     instructions.push(add_block());
     instructions.push(add_loop());
-    //check if $l != 0
-    instructions.push(get_local("$l"));
+    //check if $p10 != 0
+    instructions.push(get_local("$p10"));
     instructions.push(eqz32());
     instructions.push(br_if("1")); // jump to end of block 1
     instructions.push(get_local("$bm")); //next position in the buffer
