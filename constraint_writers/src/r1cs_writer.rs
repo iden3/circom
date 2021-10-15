@@ -265,7 +265,7 @@ impl SignalSection {
     where
         T: AsRef<[u8]>,
     {
-        let (bytes, size) = into_format(bytes.as_ref(), 4);
+        let (bytes, size) = into_format(bytes.as_ref(), 8);
         self.size += size;
         self.writer.write_all(&bytes).map_err(|_err| {})?;
         self.writer.flush().map_err(|_err| {})
