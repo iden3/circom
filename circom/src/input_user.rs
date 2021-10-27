@@ -185,11 +185,13 @@ mod input_processing {
     use ansi_term::Colour;
     use clap::{App, Arg, ArgMatches};
     use std::path::{Path, PathBuf};
+    use std::fs::File;
 
     pub fn get_input(matches: &ArgMatches) -> Result<PathBuf, ()> {
-        let route = Path::new(matches.value_of("input").unwrap()).to_path_buf();
-        if route.is_file() {
-            Result::Ok(route)
+        let route = Path::new(matches.value_of("input").unwrap());
+        let f = File::open(route);
+        if f.is_ok() {
+            Result::Ok(route.to_path_buf())
         } else {
             Result::Err(println!("{}", Colour::Red.paint("invalid input file")))
         }
