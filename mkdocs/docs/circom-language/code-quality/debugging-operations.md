@@ -8,5 +8,19 @@ log(c.b);
 log(x==y);
 ```
 
+The `log` operation must be declared inside a code block. See example below.
 
+```
+template Multiplier2() {
+    signal input a;
+    signal input b;
+    signal output c;
+    c <== a*b + 1;
+    
+    log(135);   // this is valid
+}
 
+log(135);   // this is not valid
+
+component main = Multiplier2();
+```
