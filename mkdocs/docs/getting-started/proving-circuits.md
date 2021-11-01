@@ -15,7 +15,7 @@ To use this protocol, you will need to generate a [trusted setup](../../backgrou
 
 Next, we provide a very basic ceremony for creating the trusted setup and we also provide the basic commands to create and verify [Groth16](https://eprint.iacr.org/2016/260) proofs. Review the related [Background](../../background/background) section and check [the snarkjs tutorial](https://github.com/iden3/snarkjs) for further information.
 
-## Trusted setup: Powers of Tau <a id="my-first-trusted-setup"></a>
+## Powers of Tau <a id="my-first-trusted-setup"></a>
 
 <!-- 
 You can access the **help** of `snarkjs` by typing the command:
@@ -45,7 +45,7 @@ snarkjs powersoftau contribute pot12_0000.ptau pot12_0001.ptau --name="First con
 Now, we have the contributions to the powers of tau in the file *pot12_0001.ptau* and 
 we can proceed with the Phase 2.
 
-## Trusted setup: Phase 2 <a id="my-first-trusted-setup"></a>
+## Phase 2 <a id="my-first-trusted-setup"></a>
 
 The **phase 2** is **circuit-specific**. 
 Execute the following command to start the generation of this phase:
@@ -109,7 +109,7 @@ Export the verification key:
 snarkjs zkey export verificationkey multiplier2_0001.zkey verification_key.json
 ```
 
-### Generating a Groth16 ZKP <a id="my-first-zero-knowledge-proof"></a>
+## Generating a Proof
 
 Once the witness is computed and the trusted setup is already executed, we can **generate a zk-proof** associated to the circuit and the witness:
 
@@ -122,6 +122,8 @@ This command generates a [Groth16](https://eprint.iacr.org/2016/260) proof and o
 * `proof.json`: it contains the proof.
 * `public.json`: it contains the values of the public inputs and outputs.
 
+## Verifying a Proof
+
 To **verify the proof**, execute the following command:
 
 ```text
@@ -131,6 +133,8 @@ snarkjs groth16 verify verification_key.json public.json proof.json
 The command uses the files `verification_key.json` we exported earlier,`proof.json` and `public.json` to check if the proof is valid. If the proof is valid, the command outputs an `OK`.
 
 A valid proof not only proves that we know a set of signals that satisfy the circuit, but also that the public inputs and outputs that we use match the ones described in the `public.json` file.
+
+## Verifying from a Smart Contract
 
 ​👉 It is also possible to generate a **Solidity verifier** that allows **verifying proofs on Ethereum blockchain**.
 
