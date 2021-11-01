@@ -14,20 +14,18 @@ The arithmetic circuits built using `circom` operate on signals. Let us define o
 ```text  
 pragma circom 2.0.0;
   
-/*This circuit multiplies in1 and in2.*/  
+/*This circuit template multiplies in1 and in2.*/  
 
 template Multiplier2 () {  
 
    // Declaration of signals.  
-   signal input in1;  
-   signal input in2;  
-   signal output out;  
+   signal input a;  
+   signal input b;  
+   signal output c;  
      
    // Statements.  
-   out <== in1 * in2;  
+   c <== a * b;  
 }
-
-component main = Multiplier2();
 ```
 
 First, the `pragma` instruction is used to specify the compiler version. This is to ensure that the circuit is compatible with the compiler version indicated after the `pragma` instruction. Otherwise, the compiler will throw a warning. 
