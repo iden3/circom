@@ -140,7 +140,7 @@ First, we need to generate the Solidity code using the command:
 snarkjs zkey export solidityverifier multiplier2_0001.zkey verifier.sol
 ```
 
-This command takes validation key `multiplier2_final.zkey` and outputs Solidity code in a file named `verifier.sol`. You can take the code from this file and cut and paste it in Remix. You will see that the code contains two contracts: `Pairing` and `Verifier`. You only need to deploy the `Verifier` contract.
+This command takes validation key `multiplier2_0001.zkey` and outputs Solidity code in a file named `verifier.sol`. You can take the code from this file and cut and paste it in Remix. You will see that the code contains two contracts: `Pairing` and `Verifier`. You only need to deploy the `Verifier` contract.
 
 You may want to use first a testnet like Rinkeby, Kovan or Ropsten. You can also use the JavaScript VM, but in some browsers the verification takes long and the page may freeze.
 
