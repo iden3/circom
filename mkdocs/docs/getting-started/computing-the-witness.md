@@ -44,8 +44,12 @@ Enter in the directory `multiplier2_cpp` and execute:
 make
 ```
 
+which creates an executable called `multiplier2`. 
 
-which creates an executable called `multiplier2`. Now, we execute it indicating the input file and the name for the witness file. 
+Note. To compile the C++ source, we rely on some libraries that you need to have installed in your system. 
+In particular, we use `nlohmann-json3-dev`, `libgmp-dev` and `nasm`.
+
+After the executable is created, we execute it indicating the input file and the name for the witness file. 
 
 ```text
 ./multiplier2 input.json witness.wtns
