@@ -145,7 +145,7 @@ fn build_function_instances(
 }
 
 // WASM producer builder
-fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB) -> WASMProducer {
+fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool) -> WASMProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
     let prime = UsefulConstants::new().get_p().clone();
@@ -173,6 +173,7 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB) -> WASMProducer {
     producer.io_map = build_io_map(vcp, database);
     producer.template_instance_list = build_template_list(vcp);
     producer.field_tracking.clear();
+    producer.wat_flag = wat_flag;
     producer
 }
 
@@ -289,7 +290,7 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags) -> Circuit {
     }
     let template_database = TemplateDB::build(&vcp.templates);
     let mut circuit = Circuit::default();
-    circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database);
+    circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag);
     circuit.c_producer = initialize_c_producer(&vcp, &template_database);
 
     let field_tracker = FieldTracker::new();

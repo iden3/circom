@@ -9,6 +9,7 @@ use std::io::Write;
 
 pub struct CompilationFlags {
     pub main_inputs_log: bool,
+    pub wat_flag:bool,
 }
 
 pub struct Circuit {
