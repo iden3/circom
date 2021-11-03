@@ -28,7 +28,7 @@ TODO remove the command and put a link to rustup site
 ```shell
 curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 ```
-   You also need to have installed some tools to build from sources. In Linux systems, these tools can be found in the packages `cmake` and `build-essential`.
+   You also need to have installed some tools to build from sources. In Linux systems, these tools can be found in the packages `cmake` (> 3.16) and `build-essential`.
 
    * We also distribute a series of npm packages so `Node.js` and some package manager like `npm` or `yarn` should be available in your system. Recent versions of `Node.js` include big integer support and web assembly compilers that help run code faster, so to get a better performance, install version 10 or higher.
 

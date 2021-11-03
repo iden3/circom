@@ -100,9 +100,9 @@ All bitwise operators are performed modulo p.
 | &gt;&gt; | a &gt;&gt; 4 | Right shift operator |
 | &lt;&lt; | a &lt;&lt; 4 | Left shift operator |
 
- The shift operations also work modulo p and are defined as follows \(assuming p&gt;=7\). 
+ The shift operations also work modulo p and are defined as follows (assuming p&gt;=7). 
 
-For all ```k``` with ```0=< k <= p/2``` \(integer division\) we have that 
+For all ```k``` with ```0=< k <= p/2``` (integer division) we have that 
 
 * ```x >> k = x/(2**k)``` 
 *  ```x << k = (x*(2{**}k)~ & ~mask) % p  ``` 

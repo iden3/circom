@@ -48,7 +48,7 @@ component main {public [in1,in2,in3]} = Multiplier3();
 ```
 
 Here, we indicate that the initial component for our first circom program is the circuit `Multiplier3` which has three public signals: `in1, in2` and `in3`.
-In circom, all output signals of the main component are public (and cannot be made private), the input signals of the main component are private if not stated otherwise using the keyword public as avobe. The rest of signals are all private and cannot be made public.
+In circom, all output signals of the main component are public (and cannot be made private), the input signals of the main component are private if not stated otherwise using the keyword public as above. The rest of signals are all private and cannot be made public.
 
 ## Extending our multiplier to N inputs
 

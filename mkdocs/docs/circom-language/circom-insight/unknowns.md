@@ -58,7 +58,7 @@ component main = A(1,2);
 
 Var `end` is considered unknown since it is the result of a function `F` called with the unknown parameter `in`. The compilation of the previous code produces the error _"Non quadratic constraints are not allowed!_", since the value of `j` depends on the value of `end`. 
 
-The key point for the compiler in the constructive phase is that the generation of constraints cannot depend on conditions \(expressions\) that are unknown.This is imposed on [all statements](../../control-flow). This can be seen both in the previous example and the next one:
+The key point for the compiler in the constructive phase is that the generation of constraints cannot depend on conditions (expressions) that are unknown.This is imposed on [all statements](../../control-flow). This can be seen both in the previous example and the next one:
 
 ```text
 pragma circom 2.0.0;
