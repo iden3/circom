@@ -25,7 +25,7 @@ Now, we calculate the witness and generate a binary file `witness.wtns` containi
 
 After calling the `circom` compiler with the flag `--wasm` and the circuit `multiplier2.circom` we can find a `multiplier2_js` folder that contains the `Wasm` code in multiplier2.wasm and all the needed `JavaScript` files.
 
-## Computing the witness from the WebAssembly directory <a id="witness-from-wasm-directory"></a>
+## Computing the witness with WebAssembly <a id="witness-from-wasm-directory"></a>
 
 Enter in the directory `multiplier2_js`, add the input in a file `input.json` and execute:
 
@@ -33,25 +33,31 @@ Enter in the directory `multiplier2_js`, add the input in a file `input.json` an
 node generate_witness.js multiplier2.wasm input.json witness.wtns
 ```
 
+## Computing the witness with C++  <a id="witness-from-c-directory"></a>
 
-## Computing the witness from the C++ directory <a id="witness-from-c-directory"></a>
+As a faster alternative, we can use the C++ directory to compute the witness using the previous file `input.json`. This directory is created when using the `circom` compiler with the flag `--c`. In our example, the compiler creates a `multiplier2_cpp` folder that contains all the `C++` code needed to compute the witness and a Makefile to easily generate the corresponding executable program.
 
-Instead of using the WebAssembly directory, we can alternatively use the C++ directory to compute the witness using the previous file `input.json`. Then we need to call the `circom` compiler with the flag `--c` and will get a `multiplier2_cpp` folder that contains the all `C++` code needed to compute the witness and a Makefile to easily generate an executable program.
-
-Enter in the directory `multiplier2_cpp` and execute:
+To do so, enter the directory `multiplier2_cpp` and execute:
 
 ```text
 make
 ```
 
+The previous command creates an executable called `multiplier2`. 
 
-which creates an executable called `multiplier2`. Now, we execute it indicating the input file and the name for the witness file. 
+Note. To compile the C++ source, we rely on some libraries that you need to have installed in your system. 
+In particular, we use `nlohmann-json3-dev`, `libgmp-dev` and `nasm`.
+
+After the executable is created, we execute it indicating the input file and the name for the witness file: 
 
 ```text
 ./multiplier2 input.json witness.wtns
 ```
+## The Witness file
 
-This command will generate the file `ẁitness.wtns` which has a format compatible with `snarkjs`, and can be used to create the proof. 
+The two programs will generate the same `ẁitness.wtns` file. This file is encoded in a binary format compatible with `snarkjs`, which is the tool that we use to create the actual proofs. 
+
+Note. For big circuits, the C++ witness calculator is significantly faster than the WASM calculator.
 
 <!--
 g++ -pthread -o circuit-512-32-256-64 -I ../../Fr -I ../../ ../../main.cpp ../../Fr/fr.o ../../Fr/fr.cpp ../../calcwit.cpp ../../utils.cpp circuit-512-32-256-64.cpp -lgmp -O3
