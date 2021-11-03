@@ -46,7 +46,9 @@ impl WriteWasm for ReturnBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(";; return bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; return bucket".to_string());
+	}
         if self.with_size == 1 {
             instructions.push(get_local(producer.get_result_address_tag())); //result address
             let mut instructions_value = self.value.produce_wasm(producer);
@@ -84,7 +86,9 @@ impl WriteWasm for ReturnBucket {
         let mut free_stack_code = free_stack(producer);
         instructions.append(&mut free_stack_code);
         instructions.push(add_return());
-        instructions.push(";; end of return bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end of return bucket".to_string());
+	}
         instructions
     }
 }

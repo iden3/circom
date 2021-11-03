@@ -50,7 +50,9 @@ impl WriteWasm for LoopBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(format!(";; loop bucket. Line {}", self.line)); //.to_string()
+        if producer.needs_comments() {
+            instructions.push(format!(";; loop bucket. Line {}", self.line)); //.to_string()
+	}
         instructions.push(add_block());
         instructions.push(add_loop());
         let mut instructions_continue = self.continue_condition.produce_wasm(producer);
@@ -65,7 +67,9 @@ impl WriteWasm for LoopBucket {
         instructions.push(br("0"));
         instructions.push(add_end());
         instructions.push(add_end());
-        instructions.push(";; end of loop bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end of loop bucket".to_string());
+	}
         instructions
     }
 }

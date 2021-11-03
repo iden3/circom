@@ -117,7 +117,9 @@ impl WriteWasm for TemplateCodeInfo {
             + self.expression_stack_depth * 4 * (producer.get_size_32_bit() + 2);
         let mut reserve_stack_fr_code = reserve_stack_fr(producer, needed_stack_bytes);
         instructions.append(&mut reserve_stack_fr_code);
-        instructions.push(";; start of the template code".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; start of the template code".to_string());
+	}
         //set signalstart local
         instructions.push(get_local(producer.get_offset_tag()));
         instructions

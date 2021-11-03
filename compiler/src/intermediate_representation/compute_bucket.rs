@@ -127,7 +127,9 @@ impl WriteWasm for ComputeBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(";; compute bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; compute bucket".to_string());
+	}
         match &self.op {
             OperatorType::AddAddress => {}
             OperatorType::MulAddress => {}
@@ -144,7 +146,9 @@ impl WriteWasm for ComputeBucket {
             let mut instructions_exp = e.produce_wasm(producer);
             instructions.append(&mut instructions_exp);
         }
-        instructions.push(format!(";; OP({})", self.op.to_string()));
+        if producer.needs_comments() {
+            instructions.push(format!(";; OP({})", self.op.to_string()));
+	}
         match &self.op {
             OperatorType::AddAddress => {
                 instructions.push(add32());
@@ -234,7 +238,9 @@ impl WriteWasm for ComputeBucket {
                 instructions.push(add32());
             }
         }
-        instructions.push(";; end of compute bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end of compute bucket".to_string());
+	}
         instructions
     }
 }

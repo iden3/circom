@@ -59,7 +59,9 @@ impl WriteWasm for CreateCmpBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(";; create component bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; create component bucket".to_string());
+	}
         //obtain address of the subcomponent inside the component
         instructions.push(get_local(producer.get_offset_tag()));
         instructions
@@ -115,7 +117,9 @@ impl WriteWasm for CreateCmpBucket {
             instructions.push(add_end());
             instructions.push(add_end());
         }
-        instructions.push(";; end create component bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end create component bucket".to_string());
+	}
         instructions
     }
 }

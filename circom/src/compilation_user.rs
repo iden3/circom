@@ -25,7 +25,7 @@ pub struct CompilerConfig {
 pub fn compile(config: CompilerConfig) -> Result<(), ()> {
     let circuit = compiler_interface::run_compiler(
         config.vcp,
-        Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log },
+        Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
     )?;
 
     if config.c_flag {
