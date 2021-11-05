@@ -46,10 +46,11 @@ impl Input {
         use input_processing::SimplificationStyle;
         let matches = input_processing::view();
         let input = input_processing::get_input(&matches)?;
-        let file_name = input.file_stem().unwrap().to_str().unwrap().to_string();
+        let file_name = input.file_name().unwrap().to_str().unwrap().to_string();
+        let file_stem = input.file_stem().unwrap().to_str().unwrap().to_string();
         let output_path = input_processing::get_output_path(&matches)?;
-        let output_c_path = Input::build_folder(&output_path, &file_name, CPP);
-        let output_js_path = Input::build_folder(&output_path, &file_name, JS);
+        let output_c_path = Input::build_folder(&output_path, &file_stem, CPP);
+        let output_js_path = Input::build_folder(&output_path, &file_stem, JS);
         let o_style = input_processing::get_simplification_style(&matches)?;
         Result::Ok(Input {
             field: P_0,
