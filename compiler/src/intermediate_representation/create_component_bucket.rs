@@ -11,8 +11,11 @@ pub struct CreateCmpBucket {
     pub cmp_unique_id: usize,
     pub symbol: String,
     pub sub_cmp_id: InstructionPointer,
+    pub name_subcomponent: String,
     // indexes of the created positions
     pub defined_positions: Vec<usize>,
+    // dimensions of the component
+    pub dimensions: Vec<usize>,
     // signal offset with respect to the start of the father's signals
     pub signal_offset: usize,
     pub signal_offset_jump: usize,
@@ -172,6 +175,9 @@ impl WriteC for CreateCmpBucket {
         instructions.push(format!("uint aux_create = {};", scmp_idx));
         instructions.push(format!("int aux_cmp_num = {}+{}+1;", self.component_offset, CTX_INDEX));
         instructions.push(format!("uint csoffset = {}+{};", MY_SIGNAL_START.to_string(), self.signal_offset));
+        if self.number_of_cmp > 1{
+            instructions.push(format!("uint aux_dimensions[{}] = {};", self.dimensions.len(), set_list(self.dimensions.clone())));
+        }
         // if the array is complete traverse all its positions
         if complete_array {
             instructions.push(format!("for (uint i = 0; i < {}; i++) {{", self.number_of_cmp));
@@ -184,12 +190,25 @@ impl WriteC for CreateCmpBucket {
             instructions.push(format!("uint i = aux_positions[i_aux];"));
         }
         
-    let sub_cmp_template_create = format!("{}_create", self.symbol);
-    let create_args = vec![
-        "csoffset".to_string(),
-         "aux_cmp_num".to_string(),
-          CIRCOM_CALC_WIT.to_string()
-          ];
+        let sub_cmp_template_create = format!("{}_create", self.symbol);
+        if self.number_of_cmp > 1{
+            instructions.push(
+                format!("std::string new_cmp_name = \"{}\"+{};",
+                 self.name_subcomponent.to_string(),
+                 generate_my_array_position("aux_dimensions".to_string(), self.dimensions.len().to_string(), "i".to_string())
+                )
+            );
+        }
+        else {
+            instructions.push(format!("std::string new_cmp_name = \"{}\";", self.name_subcomponent.to_string()));
+        }
+        let create_args = vec![
+            "csoffset".to_string(), 
+            "aux_cmp_num".to_string(), 
+            CIRCOM_CALC_WIT.to_string(), 
+            "new_cmp_name".to_string(),
+            MY_ID.to_string()
+        ];
         let create_call = build_call(sub_cmp_template_create, create_args);
 	instructions.push(format!("{}[aux_create+i] = aux_cmp_num;", MY_SUBCOMPONENTS));
     instructions.push(format!("{};", create_call));

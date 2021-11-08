@@ -10,7 +10,7 @@ pub type TemplateCode = Box<TemplateCodeInfo>;
 pub struct TemplateCodeInfo {
     pub id: TemplateID,
     pub header: String,
-    pub name: String, // Not used now
+    pub name: String,
     pub is_parallel: bool,
     pub has_parallel_sub_cmp: bool,
     pub number_of_inputs: usize,
@@ -151,6 +151,8 @@ impl WriteC for TemplateCodeInfo {
         create_params.push(declare_signal_offset());
         create_params.push(declare_component_offset());
         create_params.push(declare_circom_calc_wit());
+        create_params.push(declare_component_name());
+        create_params.push(declare_component_father());
         let mut create_body = vec![];
 
         create_body.push(format!(
@@ -160,16 +162,34 @@ impl WriteC for TemplateCodeInfo {
             &self.id.to_string()
         ));
         create_body.push(format!(
+            "{}->componentMemory[{}].templateName = \"{}\";",
+            CIRCOM_CALC_WIT,
+	        component_offset(),
+            &self.name.to_string()
+        ));
+        create_body.push(format!(
             "{}->componentMemory[{}].signalStart = {};",
             CIRCOM_CALC_WIT,
 	        component_offset(),
-	    SIGNAL_OFFSET
+	        SIGNAL_OFFSET
         ));
         create_body.push(format!(
             "{}->componentMemory[{}].inputCounter = {};",
             CIRCOM_CALC_WIT,
 	        component_offset(),
             &self.number_of_inputs.to_string()
+        ));
+        create_body.push(format!(
+            "{}->componentMemory[{}].componentName = {};",
+            CIRCOM_CALC_WIT,
+	        component_offset(),
+            COMPONENT_NAME
+        ));
+        create_body.push(format!(
+            "{}->componentMemory[{}].idFather = {};",
+            CIRCOM_CALC_WIT,
+	        component_offset(),
+            COMPONENT_FATHER
         ));
         create_body.push(format!(
             "{}->componentMemory[{}].subcomponents = new uint[{}];",
@@ -220,6 +240,10 @@ impl WriteC for TemplateCodeInfo {
         let mut run_body = vec![];
         run_body.push(format!("{};", declare_signal_values()));
         run_body.push(format!("{};", declare_my_signal_start()));
+        run_body.push(format!("{};", declare_my_template_name()));
+        run_body.push(format!("{};", declare_my_component_name()));
+        run_body.push(format!("{};", declare_my_father()));
+        run_body.push(format!("{};", declare_my_id()));
         run_body.push(format!("{};", declare_my_subcomponents()));
         run_body.push(format!("{};", declare_circuit_constants()));
         run_body.push(format!("{};", declare_list_of_template_messages_use()));

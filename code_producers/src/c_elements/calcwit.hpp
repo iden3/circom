@@ -49,6 +49,9 @@ public:
     Fr_copy(val, &signalValues[circuit->witness2SignalList[idx]]);
   }
 
+  std::string getTrace(u64 id_cmp);
+
+  std::string generate_position_array(uint* dimensions, uint size_dimensions, uint index);
 };
 
 typedef void (*Circom_TemplateFunction)(uint __cIdx, Circom_CalcWit* __ctx); 

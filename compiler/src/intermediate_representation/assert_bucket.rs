@@ -70,8 +70,10 @@ impl WriteC for AssertBucket {
         use c_code_generator::*;
         let (prologue, value) = self.evaluate.produce_c(producer);
         let is_true = build_call("Fr_isTrue".to_string(), vec![value]);
-        let assertion = format!("{}; // line {} in circom", build_call("assert".to_string(), vec![is_true]),self.line.to_string());
+        let if_condition = format!("if (!{}) {};", is_true, build_failed_assert_message(self.line));    
+        let assertion = format!("{};", build_call("assert".to_string(), vec![is_true]));
         let mut assert_c = prologue;
+        assert_c.push(if_condition);
         assert_c.push(assertion);
         (assert_c, "".to_string())
     }
