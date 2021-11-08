@@ -122,7 +122,8 @@ impl ExecutedProgram {
 }
 
 fn produce_dags_stats(dag: &DAG) -> Stats {
-    let mut all_cmp = vec![0; dag.number_of_nodes()];
+    let mut all_created_cmp = vec![0; dag.number_of_nodes()];
+    let mut all_needed_subcomponents_indexes = vec![0; dag.number_of_nodes()];
     let mut all_signals = vec![0; dag.number_of_nodes()];
     let mut all_io = vec![0; dag.number_of_nodes()];
     for (index, node) in dag.nodes.iter().enumerate() {
@@ -131,16 +132,23 @@ fn produce_dags_stats(dag: &DAG) -> Stats {
         all_signals[index] += node.number_of_intermediates();
         all_io[index] += node.number_of_inputs();
         all_io[index] += node.number_of_outputs();
-        all_cmp[index] += 1;
+        all_created_cmp[index] += 1;
+        all_needed_subcomponents_indexes[index] += node.number_of_subcomponents_indexes();
         for c in dag.get_edges(index).unwrap() {
-            all_cmp[index] += all_cmp[c.get_goes_to()];
+            all_created_cmp[index] += all_created_cmp[c.get_goes_to()];
+            all_needed_subcomponents_indexes[index] += all_needed_subcomponents_indexes[c.get_goes_to()];
             all_signals[index] += all_signals[c.get_goes_to()];
             all_io[index] += all_io[c.get_goes_to()];
         }
     }
+
     Stats {
         all_signals: all_signals.pop().unwrap(),
         io_signals: all_io.pop().unwrap(),
-        all_components: all_cmp.pop().unwrap(),
+        // number of components that are really created
+        all_created_components: all_created_cmp.pop().unwrap(),
+        //number of indexes that we need to store (in case there is an array with subcomponents, we need space to store all of them although some positions may not be created)
+        //it is the sum of the number of sons of all created components
+        all_needed_subcomponents_indexes: all_needed_subcomponents_indexes.pop().unwrap(),
     }
 }
