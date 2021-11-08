@@ -34,7 +34,7 @@ fn build_template_instances(
         let name = template.template_name;
         let instance_values = template.header;
         let msg = format!("Error in template {}", header);
-        let number_of_components = template.triggers.len();
+        let number_of_components = template.number_of_components;
         let mut cmp_to_type = HashMap::new();
         for cluster in &template.clusters {
             let name = cluster.cmp_name.clone();
@@ -154,7 +154,8 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool) -> 
     producer.main_header = vcp.get_main_instance().unwrap().template_header.clone();
     producer.main_signal_offset = 1;
     producer.prime = prime.to_str_radix(10);
-    producer.size_of_component_tree = stats.all_components * 4 - 1;
+    // for each created component we store three u32, for each son we store a u32 in its father
+    producer.size_of_component_tree = stats.all_created_components * 3 + stats.all_needed_subcomponents_indexes;
     producer.total_number_of_signals = stats.all_signals + 1;
     producer.size_32_bit = prime.bits() / 32 + if prime.bits() % 32 != 0 { 1 } else { 0 };
     producer.size_32_shift = 0;
@@ -164,7 +165,7 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool) -> 
         producer.size_32_shift += 1;
     }
     producer.size_32_shift += 2;
-    producer.number_of_components = stats.all_components;
+    producer.number_of_components = stats.all_created_components;
     producer.witness_to_signal_list = vcp.get_witness_list().clone();
     producer.signals_in_witness = producer.witness_to_signal_list.len();
     producer.number_of_main_inputs = vcp.templates[initial_node].number_of_inputs;
@@ -186,7 +187,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB) -> CProducer {
     producer.main_header = vcp.get_main_instance().unwrap().template_header.clone();
     producer.main_signal_offset = 1;
     producer.prime = prime.to_str_radix(10);
-    producer.size_of_component_tree = stats.all_components * 4 - 1;
+    producer.size_of_component_tree = stats.all_created_components * 3 + stats.all_needed_subcomponents_indexes;
     producer.total_number_of_signals = stats.all_signals + 1;
     producer.size_32_bit = prime.bits() / 32 + if prime.bits() % 32 != 0 { 1 } else { 0 };
     producer.size_32_shift = 0;
@@ -196,7 +197,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB) -> CProducer {
         producer.size_32_shift += 1;
     }
     producer.size_32_shift += 2;
-    producer.number_of_components = stats.all_components;
+    producer.number_of_components = stats.all_created_components;
     producer.witness_to_signal_list = vcp.get_witness_list().clone();
     producer.signals_in_witness = producer.witness_to_signal_list.len();
     producer.number_of_main_inputs = vcp.templates[initial_node].number_of_inputs;

@@ -24,6 +24,7 @@ pub struct ExecutedTemplate {
     pub constraints: Vec<Constraint>,
     pub intermediates: SignalCollector,
     pub components: ComponentCollector,
+    pub number_of_components: usize,
     pub public_inputs: HashSet<String>,
     pub parameter_instances: ParameterContext,
     pub is_parallel: bool,
@@ -53,6 +54,7 @@ impl ExecutedTemplate {
             outputs: SignalCollector::new(),
             intermediates: SignalCollector::new(),
             components: ComponentCollector::new(),
+            number_of_components: 0,
             constraints: Vec::new(),
             connexions: Vec::new(),
         }
@@ -82,6 +84,7 @@ impl ExecutedTemplate {
 
     pub fn add_component(&mut self, component_name: &str, dimensions: &[usize]) {
         self.components.push((component_name.to_string(), dimensions.to_vec()));
+        self.number_of_components += dimensions.iter().fold(1, |p, c| p * (*c));
     }
 
     pub fn add_constraint(&mut self, constraint: Constraint) {
@@ -152,7 +155,9 @@ impl ExecutedTemplate {
                 v => v,
             }
         });
-        self.components = filter_used_components(self);
+        let filtered_components = filter_used_components(self);
+        self.components = filtered_components.0;
+        self.number_of_components = filtered_components.1;
         for cnn in &mut self.connexions {
             cnn.dag_offset = dag.get_entry().unwrap().get_out();
             cnn.dag_component_offset = dag.get_entry().unwrap().get_out_component();
@@ -161,6 +166,7 @@ impl ExecutedTemplate {
             cnn.dag_component_jump = dag.get_entry().unwrap().get_out_component() - cnn.dag_component_offset;
         }
         self.has_parallel_sub_cmp = dag.nodes[dag.main_id()].has_parallel_sub_cmp();
+        dag.set_number_of_subcomponents_indexes(self.number_of_components);
     }
     fn build_constraints(&self, dag: &mut DAG) {
         for c in &self.constraints {
@@ -226,6 +232,7 @@ impl ExecutedTemplate {
             has_parallel_sub_cmp: self.has_parallel_sub_cmp,
             code: self.code,
             name: self.template_name,
+            number_of_components : self.number_of_components,
         };
 
         let mut instance = TemplateInstance::new(config);
@@ -308,18 +315,23 @@ fn as_big_int(exprs: Vec<ArithmeticExpression<String>>) -> Vec<BigInt> {
     numbers
 }
 
-fn filter_used_components(tmp: &ExecutedTemplate) -> ComponentCollector {
+fn filter_used_components(tmp: &ExecutedTemplate) -> (ComponentCollector, usize) {
+    fn compute_number_cmp(lengths: &Vec<usize>) -> usize {
+        lengths.iter().fold(1, |p, c| p * (*c))
+    }
     let mut used = HashSet::with_capacity(tmp.components.len());
     for cnn in &tmp.connexions {
         used.insert(cnn.inspect.name.clone());
     }
     let mut filtered = Vec::with_capacity(used.len());
+    let mut number_of_components = 0;
     for cmp in &tmp.components {
         if used.contains(&cmp.0) {
             filtered.push(cmp.clone());
+            number_of_components = number_of_components + compute_number_cmp(&cmp.1);
         }
     }
-    filtered
+    (filtered, number_of_components)
 }
 
 #[derive(Copy, Clone)]
@@ -383,18 +395,21 @@ fn build_clusters(tmp: &ExecutedTemplate, instances: &[TemplateInstance]) -> Vec
         let sub_cmp_header = instances[instance_id].template_header.clone();
         let start = index;
         let mut end = index;
+        let mut defined_positions: Vec<Vec<usize>> = vec![];
         loop {
             if end == connexions.len() {
                 break;
             } else if connexions[end].inspect.name != cnn_data.name {
                 break;
             } else {
+                defined_positions.push(connexions[end].inspect.indexed_with.clone());
                 end += 1;
             }
         }
         let cluster = TriggerCluster {
             slice: start..end,
             length: end - start,
+            defined_positions: defined_positions,
             cmp_name: cnn_data.name.clone(),
             xtype: ClusterType::Uniform { offset_jump, component_offset_jump, instance_id, header: sub_cmp_header },
         };

@@ -269,6 +269,17 @@ pub fn build_call(header: String, arguments: Vec<String>) -> String {
     format!("{}({})", header, argument_list(arguments))
 }
 
+pub fn set_list(elems: Vec<usize>) -> String {
+    let mut set_string = "{".to_string();
+    for elem in elems {
+        set_string = format!("{}{},", set_string, elem);
+    }
+    set_string.pop();
+    set_string .push('}');
+    set_string
+}
+
+
 pub fn add_return() -> String {
     "return;".to_string()
 }
