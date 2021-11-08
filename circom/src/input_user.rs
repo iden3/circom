@@ -99,6 +99,7 @@ impl Input {
         file.set_extension(ext);
         file
     }
+    
 
     pub fn input_file(&self) -> &str {
         &self.input_program.to_str().unwrap()
@@ -185,6 +186,7 @@ mod input_processing {
     use ansi_term::Colour;
     use clap::{App, Arg, ArgMatches};
     use std::path::{Path, PathBuf};
+    use crate::VERSION;
 
     pub fn get_input(matches: &ArgMatches) -> Result<PathBuf, ()> {
         let route = Path::new(matches.value_of("input").unwrap()).to_path_buf();
@@ -272,7 +274,7 @@ mod input_processing {
 
     pub fn view() -> ArgMatches<'static> {
         App::new("circom compiler")
-            .version("2.0.0")
+            .version(VERSION)
             .author("IDEN3")
             .about("Compiler for the circom programming language")
             .arg(
