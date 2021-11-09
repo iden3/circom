@@ -1,6 +1,6 @@
 [package]
 name = "code_producers"
-version = "0.1.0"
+version = "2.0.1"
 authors = ["hermeGarcia <hermegarcianavarro@gmail.com>"]
 edition = "2018"
 
