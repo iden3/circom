@@ -1,6 +1,6 @@
 [package]
 name = "parser"
-version = "0.1.0"
+version = "2.0.1"
 authors = ["Hermenegildo <hermegar@ucm.es>"]
 edition = "2018"
 build = "build.rs"
