@@ -95,11 +95,9 @@ impl Input {
     
     fn build_output(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
         let mut file = output_path.clone();
-        file.push(filename);
-        file.set_extension(ext);
+        file.push(format!("{}.{}",filename,ext));
         file
     }
-    
 
     pub fn input_file(&self) -> &str {
         &self.input_program.to_str().unwrap()
