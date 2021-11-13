@@ -95,8 +95,7 @@ impl Input {
     
     fn build_output(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
         let mut file = output_path.clone();
-        file.push(filename);
-        file.set_extension(ext);
+        file.push(format!("{}.{}",filename,ext));
         file
     }
 
@@ -185,6 +184,7 @@ mod input_processing {
     use ansi_term::Colour;
     use clap::{App, Arg, ArgMatches};
     use std::path::{Path, PathBuf};
+    use crate::VERSION;
 
     pub fn get_input(matches: &ArgMatches) -> Result<PathBuf, ()> {
         let route = Path::new(matches.value_of("input").unwrap()).to_path_buf();
@@ -272,7 +272,7 @@ mod input_processing {
 
     pub fn view() -> ArgMatches<'static> {
         App::new("circom compiler")
-            .version("2.0.0")
+            .version(VERSION)
             .author("IDEN3")
             .about("Compiler for the circom programming language")
             .arg(

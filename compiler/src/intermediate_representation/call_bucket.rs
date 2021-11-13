@@ -67,7 +67,9 @@ impl WriteWasm for CallBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(";; call bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; call bucket".to_string());
+	}
         if self.arguments.len() > 0 {
             let local_info_size_u32 = producer.get_local_info_size_u32();
             instructions.push(set_constant("0"));
@@ -81,7 +83,9 @@ impl WriteWasm for CallBucket {
             let mut count = 0;
             let mut i = 0;
             for p in &self.arguments {
-                instructions.push(format!(";; copying argument {}", i));
+		if producer.needs_comments() {
+                    instructions.push(format!(";; copying argument {}", i));
+		}
                 instructions.push(get_local(producer.get_call_lvar_tag()));
                 instructions.push(set_constant(&count.to_string()));
                 instructions.push(add32());
@@ -121,7 +125,9 @@ impl WriteWasm for CallBucket {
                     instructions.push(add_end());
                     instructions.push(add_end());
                 }
-                instructions.push(format!(";; end copying argument {}", i));
+		if producer.needs_comments() {
+                    instructions.push(format!(";; end copying argument {}", i));
+		}
                 count += self.argument_types[i].size * 4 * producer.get_size_32_bits_in_memory();
                 i += 1;
             }
@@ -138,7 +144,9 @@ impl WriteWasm for CallBucket {
                 let mut my_template_header = Option::<String>::None;
                 match &data.dest {
                     LocationRule::Indexed { location, template_header } => {
-                        instructions.push(";; getting result address".to_string());
+			if producer.needs_comments() {
+                            instructions.push(";; getting result address".to_string());
+			}
                         let mut instructions_dest = location.produce_wasm(producer);
                         instructions.append(&mut instructions_dest);
                         let size = producer.get_size_32_bits_in_memory() * 4;
@@ -178,7 +186,9 @@ impl WriteWasm for CallBucket {
                     LocationRule::Mapped { signal_code, indexes } => {
                         match &data.dest_address_type {
                             AddressType::SubcmpSignal { cmp_address, .. } => {
-                                instructions.push(";; is subcomponent".to_string());
+				if producer.needs_comments() {
+                                    instructions.push(";; is subcomponent".to_string());
+				}
                                 instructions.push(get_local(producer.get_offset_tag()));
                                 instructions.push(set_constant(
                                     &producer.get_sub_component_start_in_component().to_string(),
@@ -256,7 +266,9 @@ impl WriteWasm for CallBucket {
                 match &data.dest_address_type {
                     AddressType::SubcmpSignal { .. } => {
                         // if subcomponent input check if run needed
-                        instructions.push(";; decrease counter".to_string()); // by self.context.size
+			if producer.needs_comments() {
+                            instructions.push(";; decrease counter".to_string()); // by self.context.size
+			}
                         instructions.push(get_local(producer.get_sub_cmp_tag()));
                         instructions.push(get_local(producer.get_sub_cmp_tag()));
                         instructions.push(load32(Some(
@@ -267,14 +279,18 @@ impl WriteWasm for CallBucket {
                         instructions.push(store32(Some(
                             &producer.get_input_counter_address_in_component().to_string(),
                         ))); // update remaining inputs to be set
-                        instructions.push(";; check if run is needed".to_string());
+			if producer.needs_comments() {
+                            instructions.push(";; check if run is needed".to_string());
+			}
                         instructions.push(get_local(producer.get_sub_cmp_tag()));
                         instructions.push(load32(Some(
                             &producer.get_input_counter_address_in_component().to_string(),
                         )));
                         instructions.push(eqz32());
                         instructions.push(add_if());
-                        instructions.push(";; run sub component".to_string());
+			if producer.needs_comments() {
+                            instructions.push(";; run sub component".to_string());
+			}
                         instructions.push(get_local(producer.get_sub_cmp_tag()));
                         match &data.dest {
                             LocationRule::Indexed { .. } => {
@@ -293,14 +309,18 @@ impl WriteWasm for CallBucket {
                                 ));
                             }
                         }
-                        instructions.push(";; end run sub component".to_string());
+			if producer.needs_comments() {
+                            instructions.push(";; end run sub component".to_string());
+			}
                         instructions.push(add_end());
                     }
                     _ => (),
                 }
             }
         }
-        instructions.push(";; end call bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end call bucket".to_string());
+	}
         instructions
     }
 }

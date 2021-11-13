@@ -44,7 +44,9 @@ impl WriteWasm for AssertBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(";; assert bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; assert bucket".to_string());
+	}
         let mut instructions_eval = self.evaluate.produce_wasm(producer);
         instructions.append(&mut instructions_eval);
         instructions.push(call("$Fr_isTrue"));
@@ -56,7 +58,9 @@ impl WriteWasm for AssertBucket {
         instructions.push(set_constant(&exception_code_assert_fail().to_string()));
         instructions.push(call("$exceptionHandler"));
         instructions.push(add_end());
-        instructions.push(";; end of assert bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end of assert bucket".to_string());
+	}
         instructions
     }
 }
@@ -66,8 +70,10 @@ impl WriteC for AssertBucket {
         use c_code_generator::*;
         let (prologue, value) = self.evaluate.produce_c(producer);
         let is_true = build_call("Fr_isTrue".to_string(), vec![value]);
-        let assertion = format!("{}; // line {} in circom", build_call("assert".to_string(), vec![is_true]),self.line.to_string());
+        let if_condition = format!("if (!{}) {};", is_true, build_failed_assert_message(self.line));    
+        let assertion = format!("{};", build_call("assert".to_string(), vec![is_true]));
         let mut assert_c = prologue;
+        assert_c.push(if_condition);
         assert_c.push(assertion);
         (assert_c, "".to_string())
     }

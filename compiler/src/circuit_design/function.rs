@@ -67,7 +67,9 @@ impl WriteWasm for FunctionCodeInfo {
             + self.max_number_of_ops_in_expression * 4 * (producer.get_size_32_bits_in_memory());
         let mut reserve_stack_fr_code = reserve_stack_fr(producer, needed_stack_bytes);
         instructions.append(&mut reserve_stack_fr_code); //gives value to $cstack
-        instructions.push(";; start of the function code".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; start of the function code".to_string());
+	}
         //generate code
 
         for t in &self.body {

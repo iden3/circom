@@ -9,6 +9,7 @@ use std::io::Write;
 
 pub struct CompilationFlags {
     pub main_inputs_log: bool,
+    pub wat_flag:bool,
 }
 
 pub struct Circuit {
@@ -343,7 +344,8 @@ impl WriteC for Circuit {
         let run_circuit = "void run".to_string();
         let run_circuit_args = vec![declare_circom_calc_wit()];
         let main_template_create = producer.main_header.clone() + "_create";
-        let create_args = vec!["1".to_string(), "0".to_string(), CIRCOM_CALC_WIT.to_string()];
+        // We use 0 to indicate that the main component has no father
+        let create_args = vec!["1".to_string(), "0".to_string(), CIRCOM_CALC_WIT.to_string(), "\"main\"".to_string(), "0".to_string()];
         let create_call = build_call(main_template_create, create_args);
         // let ctx_index = format!("{} = {};", declare_ctx_index(), create_call);
         let ctx_index = format!("{};", create_call);

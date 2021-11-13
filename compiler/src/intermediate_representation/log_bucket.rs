@@ -45,12 +45,16 @@ impl WriteWasm for LogBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(";; log bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; log bucket".to_string());
+	}
         let mut instructions_print = self.print.produce_wasm(producer);
         instructions.append(&mut instructions_print);
         instructions.push(call("$copyFr2SharedRWMemory"));
         instructions.push(call("$showSharedRWMemory"));
-        instructions.push(";; end of log bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end of log bucket".to_string());
+	}
         instructions
     }
 }

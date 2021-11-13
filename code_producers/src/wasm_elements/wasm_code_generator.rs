@@ -190,7 +190,7 @@ pub fn add_return() -> WasmInstruction {
 // ----- exception codes and other constants -----------------
 
 pub fn default_memory_for_stack_kib() -> usize {
-    1000
+    10
 }
 
 pub fn exception_code_singal_not_found() -> usize {
@@ -216,7 +216,7 @@ pub fn exception_code_not_enough_memory() -> usize {
 //------------------ compute initial size of memory ---------------
 
 pub fn get_initial_size_of_memory(producer: &WASMProducer) -> usize {
-    let n = (producer.get_var_stack_memory_start() + 1023) / 1024;
+    let n = (producer.get_var_stack_memory_start() + 65535) / 65536;
     n + default_memory_for_stack_kib()
 }
 

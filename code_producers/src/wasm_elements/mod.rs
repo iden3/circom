@@ -22,6 +22,7 @@ pub struct WASMProducer {
     pub template_instance_list: TemplateList,
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
+    pub wat_flag: bool,
     version: usize,
     stack_free_pos: usize,
     local_info_size_u32: usize,
@@ -74,6 +75,7 @@ impl Default for WASMProducer {
             io_map: TemplateInstanceIOMap::new(), //my_map,
             template_instance_list: [].to_vec(),
             field_tracking: [].to_vec(),
+            wat_flag: true,
             // fix values
             version: 2,
             stack_free_pos: 0,
@@ -356,5 +358,8 @@ impl WASMProducer {
     }
     pub fn get_create_loop_counter_tag(&self) -> &str {
         &self.create_loop_counter_tag
+    }
+    pub fn needs_comments(&self) -> bool{
+        self.wat_flag
     }
 }

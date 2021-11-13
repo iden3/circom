@@ -83,3 +83,27 @@ void Circom_CalcWit::setInputSignal(u64 h, uint i,  FrElement & val){
   }
 }
 
+std::string Circom_CalcWit::getTrace(u64 id_cmp){
+  if (id_cmp == 0) return componentMemory[id_cmp].componentName;
+  else{
+    u64 id_father = componentMemory[id_cmp].idFather;
+    std::string my_name = componentMemory[id_cmp].componentName;
+
+    return Circom_CalcWit::getTrace(id_father) + "." + my_name;
+  }
+
+
+}
+
+std::string Circom_CalcWit::generate_position_array(uint* dimensions, uint size_dimensions, uint index){
+  std::string positions = "";
+
+  for (uint i = 0 ; i < size_dimensions; i++){
+    uint last_pos = index % dimensions[size_dimensions -1 - i];
+    index = index / dimensions[size_dimensions -1 - i];
+    std::string new_pos = "[" + std::to_string(last_pos) + "]";
+    positions =  new_pos + positions;
+  }
+  return positions;
+}
+

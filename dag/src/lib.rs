@@ -150,6 +150,7 @@ pub struct Node {
     constraints: Vec<Constraint>,
     is_parallel: bool,
     has_parallel_sub_cmp: bool,
+    number_of_subcomponents_indexes: usize,
 }
 
 impl Node {
@@ -201,6 +202,10 @@ impl Node {
         self.constraints.push(constraint)
     }
 
+    fn set_number_of_subcomponents_indexes(&mut self, number_scmp: usize) {
+        self.number_of_subcomponents_indexes = number_scmp
+    }
+
     fn is_local_signal(&self, s: usize) -> bool {
         self.locals.contains(&s)
     }
@@ -247,6 +252,10 @@ impl Node {
 
     pub fn has_parallel_sub_cmp(&self) -> bool {
         self.has_parallel_sub_cmp
+    }
+
+    pub fn number_of_subcomponents_indexes(&self) -> usize {
+        self.number_of_subcomponents_indexes
     }
 }
 
@@ -343,6 +352,12 @@ impl DAG {
     pub fn add_constraint(&mut self, constraint: Constraint) {
         if let Option::Some(node) = self.get_mut_main() {
             node.add_constraint(constraint);
+        }
+    }
+
+    pub fn set_number_of_subcomponents_indexes(&mut self, number_scmp: usize){
+        if let Option::Some(node) = self.get_mut_main() {
+            node.set_number_of_subcomponents_indexes(number_scmp);
         }
     }
 
