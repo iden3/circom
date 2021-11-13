@@ -71,6 +71,7 @@ pub struct TriggerCluster {
     pub slice: Range<usize>,
     pub length: usize,
     pub xtype: ClusterType,
+    pub defined_positions: Vec<Vec<usize>>,
 }
 
 #[derive(Clone)]
@@ -86,6 +87,7 @@ pub struct TemplateInstance {
     pub number_of_intermediates: usize,
     pub signals: Vec<Signal>,
     pub components: Vec<Component>,
+    pub number_of_components: usize,
     pub triggers: Vec<Trigger>,
     pub clusters: Vec<TriggerCluster>,
     pub code: Code,
@@ -98,6 +100,7 @@ pub struct TemplateConfig {
     pub header: String,
     pub id: usize,
     pub code: Statement,
+    pub number_of_components: usize,
     pub triggers: Vec<Trigger>,
     pub clusters: Vec<TriggerCluster>,
     pub components: Vec<Component>,
@@ -117,6 +120,7 @@ impl TemplateInstance {
             number_of_inputs: 0,
             number_of_outputs: 0,
             number_of_intermediates: 0,
+            number_of_components: config.number_of_components,
             signals: Vec::new(),
             components: config.components,
             triggers: config.triggers,
@@ -161,7 +165,8 @@ pub struct VCF {
 pub struct Stats {
     pub all_signals: usize,
     pub io_signals: usize,
-    pub all_components: usize,
+    pub all_created_components: usize,
+    pub all_needed_subcomponents_indexes: usize,
 }
 
 #[derive(Clone)]

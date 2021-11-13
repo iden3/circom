@@ -54,9 +54,13 @@ impl WriteWasm for StoreBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(format!(";; store bucket. Line {}", self.line)); //.to_string()
+        if producer.needs_comments() {
+	    instructions.push(format!(";; store bucket. Line {}", self.line)); //.to_string()
+	}
         let mut my_template_header = Option::<String>::None;
-        instructions.push(";; getting dest".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; getting dest".to_string());
+	}
         match &self.dest {
             LocationRule::Indexed { location, template_header } => {
                 let mut instructions_dest = location.produce_wasm(producer);
@@ -98,7 +102,9 @@ impl WriteWasm for StoreBucket {
             LocationRule::Mapped { signal_code, indexes } => {
                 match &self.dest_address_type {
                     AddressType::SubcmpSignal { cmp_address, .. } => {
-                        instructions.push(";; is subcomponent".to_string());
+			if producer.needs_comments() {
+                            instructions.push(";; is subcomponent".to_string());
+			}
                         instructions.push(get_local(producer.get_offset_tag()));
                         instructions.push(set_constant(
                             &producer.get_sub_component_start_in_component().to_string(),
@@ -167,7 +173,9 @@ impl WriteWasm for StoreBucket {
                 }
             }
         }
-        instructions.push(";; getting src".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; getting src".to_string());
+	}
         if self.context.size > 1 {
             instructions.push(set_local(producer.get_store_aux_1_tag()));
         }
@@ -207,7 +215,9 @@ impl WriteWasm for StoreBucket {
         match &self.dest_address_type {
             AddressType::SubcmpSignal { .. } => {
                 // if subcomponent input check if run needed
-                instructions.push(";; decrease counter".to_string()); // by self.context.size
+		if producer.needs_comments() {
+                    instructions.push(";; decrease counter".to_string()); // by self.context.size
+		}
                 instructions.push(get_local(producer.get_sub_cmp_tag())); // to update input signal counter
                 instructions.push(get_local(producer.get_sub_cmp_tag())); // to read input signal counter
                 instructions.push(load32(Some(
@@ -218,14 +228,18 @@ impl WriteWasm for StoreBucket {
                 instructions.push(store32(Some(
                     &producer.get_input_counter_address_in_component().to_string(),
                 ))); // update remaining inputs to be set
-                instructions.push(";; check if run is needed".to_string());
+		if producer.needs_comments() {
+                    instructions.push(";; check if run is needed".to_string());
+		}
                 instructions.push(get_local(producer.get_sub_cmp_tag()));
                 instructions.push(load32(Some(
                     &producer.get_input_counter_address_in_component().to_string(),
                 )));
                 instructions.push(eqz32());
                 instructions.push(add_if());
-                instructions.push(";; run sub component".to_string());
+		if producer.needs_comments() {
+                    instructions.push(";; run sub component".to_string());
+		}
                 instructions.push(get_local(producer.get_sub_cmp_tag()));
                 match &self.dest {
                     LocationRule::Indexed { .. } => {
@@ -244,12 +258,16 @@ impl WriteWasm for StoreBucket {
                         ));
                     }
                 }
-                instructions.push(";; end run sub component".to_string());
+		if producer.needs_comments() {
+                    instructions.push(";; end run sub component".to_string());
+		}
                 instructions.push(add_end());
             }
             _ => (),
         }
-        instructions.push(";; end of store bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end of store bucket".to_string());
+	}
         instructions
     }
 }

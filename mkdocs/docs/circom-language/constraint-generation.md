@@ -11,7 +11,7 @@ circom allows programmers to define the constraints that define the arithmetic c
 
 * Moves from one side of the equality to the other.
 * Applications of commutativity of addition.
-* Multiplication \(or divisions\) by constants.
+* Multiplication (or division) by constants.
 
 A constraint is imposed with the operator `===`,  which creates the simplified form of the given equality constraint.
 

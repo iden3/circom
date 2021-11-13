@@ -283,6 +283,21 @@ fn create_components(state: &mut State, triggers: &[Trigger], clusters: Vec<Trig
 }
 
 fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: TriggerCluster) {
+    fn compute_number_cmp(lengths: &Vec<usize>) -> usize {
+        lengths.iter().fold(1, |p, c| p * (*c))
+    }
+    fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
+        let mut jump = 0;
+        let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
+        let mut lengths = lengths.clone();
+        lengths.reverse();
+        for index in indexes {
+            let length = lengths.pop().unwrap();
+            full_length /= length;
+            jump += (*index) * full_length;
+        }
+        jump
+    }
     use ClusterType::Uniform;
     if let Uniform { offset_jump, component_offset_jump, .. } = cluster.xtype {
         let id = state.reserve_component_ids(offset_jump);
@@ -294,12 +309,15 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
             is_parallel: state.is_parallel,
             message_id: state.message_id,
             symbol: c_info.runs.clone(),
+            name_subcomponent: c_info.component_name.clone(),
+            defined_positions: cluster.defined_positions.into_iter().map(|x| compute_jump(&symbol.dimensions, &x)).collect(),
             cmp_unique_id: id,
             sub_cmp_id: symbol.access_instruction.clone(),
             template_id: c_info.template_id,
             signal_offset: c_info.offset,
 	        component_offset: c_info.component_offset,
-            number_of_cmp: cluster.length,
+            number_of_cmp: compute_number_cmp(&symbol.dimensions),
+            dimensions: symbol.dimensions,
             signal_offset_jump: offset_jump,
 	     component_offset_jump: component_offset_jump,
         }
@@ -323,16 +341,16 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
         }
         jump
     }
-
     for index in cluster.slice {
         let id = state.reserve_component_ids(1);
         let c_info = &triggers[index];
         let symbol = state.environment.get_variable(&c_info.component_name).unwrap().clone();
+        let value_jump = compute_jump(&symbol.dimensions, &c_info.indexed_with);
         let jump = ValueBucket {
             line: 0,
             message_id: state.message_id,
             parse_as: ValueType::U32,
-            value: compute_jump(&symbol.dimensions, &c_info.indexed_with),
+            value: value_jump,
             op_aux_no: 0,
             is_parallel: state.is_parallel,
         }
@@ -351,6 +369,9 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
             is_parallel: state.is_parallel,
             message_id: state.message_id,
             symbol: c_info.runs.clone(),
+            name_subcomponent: format!("{}{}",c_info.component_name.clone(), c_info.indexed_with.iter().fold(String::new(), |acc, &num| format!("{}[{}]", acc, &num.to_string()))),
+            defined_positions: vec![0],
+            dimensions: symbol.dimensions,
             cmp_unique_id: id,
             sub_cmp_id: location,
             template_id: c_info.template_id,

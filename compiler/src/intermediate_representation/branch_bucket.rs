@@ -57,7 +57,9 @@ impl WriteWasm for BranchBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(";; branch bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; branch bucket".to_string());
+	}
         if self.if_branch.len() > 0 {
             let mut instructions_cond = self.cond.produce_wasm(producer);
             instructions.append(&mut instructions_cond);
@@ -74,6 +76,7 @@ impl WriteWasm for BranchBucket {
                     instructions.append(&mut instructions_else);
                 }
             }
+	    instructions.push(add_end());
         } else {
             if self.else_branch.len() > 0 {
                 let mut instructions_cond = self.cond.produce_wasm(producer);
@@ -85,10 +88,12 @@ impl WriteWasm for BranchBucket {
                     let mut instructions_else = ins.produce_wasm(producer);
                     instructions.append(&mut instructions_else);
                 }
+		instructions.push(add_end());
             }
         }
-        instructions.push(add_end());
-        instructions.push(";; end of branch bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end of branch bucket".to_string());
+	}
         instructions
     }
 }

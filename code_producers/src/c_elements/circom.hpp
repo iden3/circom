@@ -43,6 +43,9 @@ struct Circom_Component {
   u32 templateId;
   u64 signalStart;
   u32 inputCounter;
+  std::string templateName;
+  std::string componentName;
+  u64 idFather; 
   u32* subcomponents;
   bool *outputIsSet;  //one for each output
   std::mutex *mutexes;  //one for each output

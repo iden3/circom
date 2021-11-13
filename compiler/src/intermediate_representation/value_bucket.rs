@@ -52,7 +52,9 @@ impl WriteWasm for ValueBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(";; value bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; value bucket".to_string());
+	}
         match &self.parse_as {
             ValueType::U32 => {
                 instructions.push(set_constant(&self.value.to_string()));
@@ -64,7 +66,9 @@ impl WriteWasm for ValueBucket {
                 instructions.push(set_constant(&const_pos.to_string()));
             }
         }
-        instructions.push(";; end of value bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; end of value bucket".to_string());
+	}
         instructions
     }
 }

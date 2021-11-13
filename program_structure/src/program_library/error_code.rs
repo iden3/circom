@@ -67,6 +67,7 @@ pub enum ReportCode {
     UnconstrainedSignal,
     OneConstraintIntermediate,
     NoOutputInInstance,
+    ErrorWat2Wasm,
 }
 impl fmt::Display for ReportCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -136,6 +137,7 @@ impl fmt::Display for ReportCode {
             UnconstrainedSignal => "CA01",
             OneConstraintIntermediate => "CA02",
             NoOutputInInstance => "CA03",
+            ErrorWat2Wasm => "W01",
         };
         f.write_str(string_format)
     }

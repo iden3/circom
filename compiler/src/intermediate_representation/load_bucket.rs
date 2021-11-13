@@ -49,7 +49,9 @@ impl WriteWasm for LoadBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        instructions.push(";; load bucket".to_string());
+        if producer.needs_comments() {
+            instructions.push(";; load bucket".to_string());
+	}
         match &self.src {
             LocationRule::Indexed { location, .. } => {
                 let mut instructions_src = location.produce_wasm(producer);
@@ -65,7 +67,9 @@ impl WriteWasm for LoadBucket {
                         instructions.push(get_local(producer.get_signal_start_tag()).to_string());
                     }
                     AddressType::SubcmpSignal { cmp_address, .. } => {
-                        instructions.push(";; is subcomponent".to_string());
+			if producer.needs_comments() {
+			    instructions.push(";; is subcomponent".to_string());
+			}
                         instructions.push(get_local(producer.get_offset_tag()));
                         instructions.push(set_constant(
                             &producer.get_sub_component_start_in_component().to_string(),
@@ -85,12 +89,16 @@ impl WriteWasm for LoadBucket {
                     }
                 }
                 instructions.push(add32());
-                instructions.push(";; end of load bucket".to_string());
+		if producer.needs_comments() {
+                    instructions.push(";; end of load bucket".to_string());
+		}
             }
             LocationRule::Mapped { signal_code, indexes } => {
                 match &self.address_type {
                     AddressType::SubcmpSignal { cmp_address, .. } => {
-                        instructions.push(";; is subcomponent".to_string());
+			if producer.needs_comments() {
+                            instructions.push(";; is subcomponent".to_string());
+			}
                         instructions.push(get_local(producer.get_offset_tag()));
                         instructions.push(set_constant(
                             &producer.get_sub_component_start_in_component().to_string(),
@@ -152,7 +160,9 @@ impl WriteWasm for LoadBucket {
                         instructions.push(add32());
                         instructions.push(load32(None)); //subcomponent start_of_signals
                         instructions.push(add32()); // we get the position of the signal (with indexes) in memory
-                        instructions.push(";; end of load bucket".to_string());
+			if producer.needs_comments() {
+                            instructions.push(";; end of load bucket".to_string());
+			}
                     }
                     _ => {
                         assert!(false);

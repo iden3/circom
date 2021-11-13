@@ -106,6 +106,22 @@ pub fn component_offset() -> CInstruction {
     COMPONENT_OFFSET.to_string()
 }
 
+pub const COMPONENT_NAME: &str = "componentName";
+pub fn declare_component_name() -> CInstruction {
+    format!("std::string {}", COMPONENT_NAME)
+}
+pub fn component_name() -> CInstruction {
+    COMPONENT_NAME.to_string()
+}
+
+pub const COMPONENT_FATHER: &str = "componentFather";
+pub fn declare_component_father() -> CInstruction {
+    format!("uint {}", COMPONENT_FATHER)
+}
+pub fn component_father() -> CInstruction {
+    COMPONENT_FATHER.to_string()
+}
+
 pub const CIRCOM_CALC_WIT: &str = "ctx";
 pub fn declare_circom_calc_wit() -> CInstruction {
     format!("Circom_CalcWit* {}", CIRCOM_CALC_WIT)
@@ -131,6 +147,51 @@ pub fn declare_my_signal_start() -> CInstruction {
 }
 pub fn my_signal_start() -> CInstruction {
     format!("{}", MY_SIGNAL_START)
+}
+
+pub const MY_TEMPLATE_NAME: &str = "myTemplateName";
+pub fn declare_my_template_name() -> CInstruction {
+    format!(
+        "std::string {} = {}->componentMemory[{}].templateName",
+        MY_TEMPLATE_NAME, CIRCOM_CALC_WIT, CTX_INDEX
+    )
+}
+pub fn my_template_name() -> CInstruction {
+    format!("{}", MY_TEMPLATE_NAME)
+}
+
+pub const MY_COMPONENT_NAME: &str = "myComponentName";
+pub fn declare_my_component_name() -> CInstruction {
+    format!(
+        "std::string {} = {}->componentMemory[{}].componentName",
+        MY_COMPONENT_NAME, CIRCOM_CALC_WIT, CTX_INDEX
+    )
+}
+pub fn my_component_name() -> CInstruction {
+    format!("{}", MY_COMPONENT_NAME)
+}
+
+
+pub const MY_FATHER: &str = "myFather";
+pub fn declare_my_father() -> CInstruction {
+    format!(
+        "u64 {} = {}->componentMemory[{}].idFather",
+        MY_FATHER, CIRCOM_CALC_WIT, CTX_INDEX
+    )
+}
+pub fn my_father() -> CInstruction {
+    format!("{}", MY_FATHER)
+}
+
+pub const MY_ID: &str = "myId";
+pub fn declare_my_id() -> CInstruction {
+    format!(
+        "u64 {} = {}",
+        MY_ID, CTX_INDEX
+    )
+}
+pub fn my_id() -> CInstruction {
+    format!("{}", MY_ID)
 }
 
 pub const FUNCTION_TABLE: &str = "_functionTable";
@@ -270,8 +331,35 @@ pub fn build_call(header: String, arguments: Vec<String>) -> String {
     format!("{}({})", header, argument_list(arguments))
 }
 
+pub fn set_list(elems: Vec<usize>) -> String {
+    let mut set_string = "{".to_string();
+    for elem in elems {
+        set_string = format!("{}{},", set_string, elem);
+    }
+    set_string.pop();
+    set_string .push('}');
+    set_string
+}
+
+
 pub fn add_return() -> String {
     "return;".to_string()
+}
+
+pub fn generate_my_array_position(aux_dimensions: String, len_dimensions: String, param: String) -> String {
+    format!("{}->generate_position_array({}, {}, {})", CIRCOM_CALC_WIT, aux_dimensions, len_dimensions, param)
+}
+
+pub fn generate_my_trace() -> String {
+    format!("{}->getTrace({})", CIRCOM_CALC_WIT, MY_ID)
+}
+
+pub fn build_failed_assert_message(line:usize) -> String{
+    format!("std::cout << \"Failed assert in template \" << {} << \" line {}. \" <<  \"Followed trace: \" << {} << std::endl" ,
+        MY_TEMPLATE_NAME,
+        line,
+        generate_my_trace()
+     )
 }
 
 pub fn build_conditional(
@@ -298,10 +386,18 @@ pub fn merge_code(instructions: Vec<String>) -> String {
 pub fn collect_template_headers(instances: &TemplateList) -> Vec<String> {
     let mut template_headers = vec![];
     for instance in instances {
-        let params = vec![declare_ctx_index(), declare_circom_calc_wit()];
-        let params = argument_list(params);
-        let run_header = format!("void {}_run({});", instance, params);
-        let create_header = format!("u32 {}_create({});", instance, params);
+        let params_run = vec![declare_ctx_index(), declare_circom_calc_wit()];
+        let params_run = argument_list(params_run);
+        let run_header = format!("void {}_run({});", instance, params_run);
+        let params_create = vec![
+            declare_signal_offset(), 
+            declare_component_offset(), 
+            declare_circom_calc_wit(),
+            declare_component_name(),
+            declare_component_father(),
+        ];
+        let params_create = argument_list(params_create);
+        let create_header = format!("void {}_create({});", instance, params_create);
         template_headers.push(create_header);
         template_headers.push(run_header);
     }
