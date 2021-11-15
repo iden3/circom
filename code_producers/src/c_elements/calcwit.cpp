@@ -59,13 +59,13 @@ void Circom_CalcWit::setInputSignal(u64 h, uint i,  FrElement & val){
     while (pos != inipos) {
       if (circuit->InputHashMap[pos].hash==h) break;
       if (circuit->InputHashMap[pos].hash==0) {
-	fprintf(stderr, "Signals not fond\n");
+	fprintf(stderr, "Signals not found\n");
 	assert(false);
       }
       pos = (pos+1)%n; 
     }
     if (pos == inipos) {
-      fprintf(stderr, "Signals not fond\n");
+      fprintf(stderr, "Signals not found\n");
       assert(false);
     }
   }
