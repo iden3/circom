@@ -375,7 +375,7 @@ pub fn build_conditional(
 }
 
 pub fn merge_code(instructions: Vec<String>) -> String {
-    let mut code = format!("{}\n", instructions.join("\n"));
+    let code = format!("{}\n", instructions.join("\n"));
     code
 }
 
