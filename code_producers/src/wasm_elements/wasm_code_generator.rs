@@ -23,10 +23,7 @@ pub fn wasm_hexa(nbytes: usize, num: &BigInt) -> String {
 }
 
 pub fn merge_code(instructions: Vec<String>) -> String {
-    let mut code = "".to_string();
-    for instruction in instructions {
-        code = format!("{}{}\n", code, instruction);
-    }
+    let code = format!("{}\n", instructions.join("\n"));
     code
 }
 
