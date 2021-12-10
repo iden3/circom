@@ -1,6 +1,6 @@
 [package]
 name = "circom"
-version = "2.0.1"
+version = "2.0.2"
 authors = ["HermenegildoTFG <hermegar@ucm.es>"]
 edition = "2018"
 
