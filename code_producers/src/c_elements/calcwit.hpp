@@ -42,8 +42,10 @@ public:
 
   // Public functions
   void setInputSignal(u64 h, uint i, FrElement &val);
-  
-  uint getWitnessSize();
+
+  inline uint getRemaingInputsToBeSet() {
+    return inputSignalAssignedCounter;
+  }
   
   inline void getWitness(uint idx, PFrElement val) {
     Fr_copy(val, &signalValues[circuit->witness2SignalList[idx]]);

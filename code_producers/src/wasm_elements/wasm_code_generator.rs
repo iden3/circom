@@ -527,6 +527,7 @@ pub fn generate_exports_list() -> Vec<WasmInstruction> {
     exports.push("(export \"getRawPrime\" (func $getRawPrime))".to_string());
     exports.push("(export \"getFieldNumLen32\" (func $getFieldNumLen32))".to_string());
     exports.push("(export \"getWitnessSize\" (func $getWitnessSize))".to_string());
+    exports.push("(export \"getInputSize\" (func $getInputSize))".to_string());
     exports.push("(export \"getWitness\" (func $getWitness))".to_string());
     exports.push("(export \"getMessageChar\" (func $getMessageChar))".to_string());
     exports
@@ -1001,6 +1002,16 @@ pub fn get_field_num_len32_generator(producer: &WASMProducer) -> Vec<WasmInstruc
     instructions.push(header);
     instructions.push("(result i32)".to_string());
     instructions.push(set_constant(&producer.get_size_32_bit().to_string()));
+    instructions.push(")".to_string());
+    instructions
+}
+
+pub fn get_input_size_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
+    let mut instructions = vec![];
+    let header = "(func $getInputSize (type $_t_ri32)".to_string();
+    instructions.push(header);
+    instructions.push("(result i32)".to_string());
+    instructions.push(set_constant(&producer.get_number_of_main_inputs().to_string()));
     instructions.push(")".to_string());
     instructions
 }
