@@ -28,6 +28,7 @@ pub struct BuildConfig {
     pub flag_s: bool,
     pub flag_f: bool,
     pub flag_p: bool,
+    pub flag_verbose: bool,
     pub inspect_constraints: bool,
 }
 
@@ -35,10 +36,10 @@ pub type ConstraintWriter = Box<dyn ConstraintExporter>;
 type BuildResponse = Result<(ConstraintWriter, VCP), ()>;
 pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildResponse {
     let files = program.file_library.clone();
-    let exe = instantiation(&program).map_err(|r| {
+    let exe = instantiation(&program, config.flag_verbose).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
-    let (mut dag, mut vcp, warnings) = export(exe, program).map_err(|r| {
+    let (mut dag, mut vcp, warnings) = export(exe, program, config.flag_verbose).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
     if config.inspect_constraints {
@@ -54,8 +55,8 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
 }
 
 type InstantiationResponse = Result<ExecutedProgram, ReportCollection>;
-fn instantiation(program: &ProgramArchive) -> InstantiationResponse {
-    let execution_result = execute::constraint_execution(&program);
+fn instantiation(program: &ProgramArchive, flag_verbose: bool) -> InstantiationResponse {
+    let execution_result = execute::constraint_execution(&program, flag_verbose);
     match execution_result {
         Ok(program_exe) => {
             let no_nodes = program_exe.number_of_nodes();
@@ -68,8 +69,8 @@ fn instantiation(program: &ProgramArchive) -> InstantiationResponse {
     }
 }
 
-fn export(exe: ExecutedProgram, program: ProgramArchive) -> ExportResult {
-    let exported = exe.export(program);
+fn export(exe: ExecutedProgram, program: ProgramArchive, flag_verbose: bool) -> ExportResult {
+    let exported = exe.export(program, flag_verbose);
     exported
 }
 
