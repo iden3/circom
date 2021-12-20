@@ -28,6 +28,7 @@ pub struct Input {
     pub parallel_simplification_flag: bool,
     pub inspect_constraints_flag: bool,
     pub no_rounds: usize,
+    pub flag_verbose: bool,
 }
 
 const P_0: &'static str =
@@ -83,6 +84,7 @@ impl Input {
             reduced_simplification_flag: o_style == SimplificationStyle::O1,
             parallel_simplification_flag: input_processing::get_parallel_simplification(&matches),
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
+            flag_verbose: input_processing::get_flag_verbose(&matches)
         })
     }
 
@@ -169,6 +171,9 @@ impl Input {
     }
     pub fn inspect_constraints_flag(&self) -> bool {
         self.inspect_constraints_flag
+    }
+    pub fn flag_verbose(&self) -> bool {
+        self.flag_verbose
     }
     pub fn reduced_simplification_flag(&self) -> bool {
         self.reduced_simplification_flag
@@ -268,6 +273,10 @@ mod input_processing {
     }
     pub fn get_inspect_constraints(matches: &ArgMatches) -> bool {
         matches.is_present("inspect_constraints")
+    }
+
+    pub fn get_flag_verbose(matches: &ArgMatches) -> bool {
+        matches.is_present("flag_verbose")
     }
 
     pub fn view() -> ArgMatches<'static> {
@@ -381,6 +390,12 @@ mod input_processing {
                     .takes_value(false)
                     .hidden(true)
                     .help("produces a log_inputs.txt file"),
+            )
+            .arg(
+                Arg::with_name("flag_verbose")
+                    .long("verbose")
+                    .takes_value(false)
+                    .help("Shows logs during compilation"),
             )
             .get_matches()
     }

@@ -30,6 +30,7 @@ fn start() -> Result<(), ()> {
         flag_p: user_input.parallel_simplification_flag(),
         flag_s: user_input.reduced_simplification_flag(),
         flag_f: user_input.unsimplified_flag(),
+        flag_verbose: user_input.flag_verbose(),
         inspect_constraints_flag: user_input.inspect_constraints_flag(),
         r1cs_flag: user_input.r1cs_flag(),
         json_constraint_flag: user_input.json_constraints_flag(),

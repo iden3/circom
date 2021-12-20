@@ -64,7 +64,7 @@ impl ExecutedProgram {
         node_index
     }
 
-    pub fn export(mut self, mut program: ProgramArchive) -> ExportResult {
+    pub fn export(mut self, mut program: ProgramArchive, flag_verbose: bool) -> ExportResult {
         use super::executed_template::templates_in_mixed_arrays;
         fn merge_mixed(org: Vec<bool>, new: Vec<bool>) -> Vec<bool> {
             let mut result = Vec::with_capacity(org.len());
@@ -98,8 +98,8 @@ impl ExecutedProgram {
         warnings.append(&mut w);
 
         let dag_stats = produce_dags_stats(&dag);
-        crate::compute_constants::manage_functions(&mut program)?;
-        crate::compute_constants::compute_vct(&mut temp_instances, &program)?;
+        crate::compute_constants::manage_functions(&mut program, flag_verbose)?;
+        crate::compute_constants::compute_vct(&mut temp_instances, &program, flag_verbose)?;
         let mut mixed = vec![];
         let mut index = 0;
         for in_mixed in mixed_instances {
