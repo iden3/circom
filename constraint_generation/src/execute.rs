@@ -153,7 +153,7 @@ fn execute_statement(
                     .push(safe_unwrap_to_single_arithmetic_expression(f_dimensions, line!()));
             }
             treat_result_with_memory_error(
-                valid_indexing(&arithmetic_values),
+                valid_array_declaration(&arithmetic_values),
                 meta,
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
@@ -1134,6 +1134,15 @@ fn valid_indexing(ae_indexes: &[AExpr]) -> Result<(), MemoryError> {
     Result::Ok(())
 }
 
+fn valid_array_declaration(ae_indexes: &[AExpr]) -> Result<(), MemoryError> {
+    for ae_index in ae_indexes {
+        if !ae_index.is_number() {
+            return Result::Err(MemoryError::UnknownSizeDimension);
+        }
+    }
+    Result::Ok(())
+}
+
 /*
     ae_indexes Numbers MUST fit in usize,
     this function must be call just
@@ -1269,6 +1278,9 @@ fn treat_result_with_memory_error<C>(
                 ),
                 MemoryError::OutOfBoundsError => {
                     Report::error("Out of bounds exception".to_string(), RuntimeError)
+                }
+                MemoryError::UnknownSizeDimension => {
+                    Report::error("Array dimension with unknown size".to_string(), RuntimeError)
                 }
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
