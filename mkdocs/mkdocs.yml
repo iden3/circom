@@ -65,3 +65,4 @@ nav:
                - Circom Library: 'circom-language/circom-insight/circom-library.md'
      - More circuits: 
           - Basic circuits: 'more-circuits/more-basic-circuits.md'
+     - Downloads: 'downloads/downloads.md'
