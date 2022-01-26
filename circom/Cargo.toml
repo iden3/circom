@@ -16,4 +16,4 @@ compiler = { path = "../compiler" }
 dag = { path = "../dag" }
 clap = "2.33.0"
 ansi_term = "0.12.1"
-wabt = "0.10.0"
+wast = "39.0.0"
