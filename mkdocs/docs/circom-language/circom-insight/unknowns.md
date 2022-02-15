@@ -15,7 +15,7 @@ template A(n1, n2){
 }
 ```
 
-Parameters `n1` and `n2in` and `in2` are unknown. Consequently, the value of var `x` is also considered unknown since it depends on the value of the unknown signal `in`. 
+Parameters `n1`, `n2`, `in` and `in2` are unknown. Consequently, the value of var `x` is also considered unknown since it depends on the value of the unknown signal `in`.
 
 Similarly, any expression that depends on unknowns is considered unknown. Additionally, if an array is modified with an unknown expression in an unknown position then all positions of the array become unknown. 
 
