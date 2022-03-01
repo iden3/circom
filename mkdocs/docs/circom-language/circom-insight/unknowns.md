@@ -35,15 +35,15 @@ template A(n){
    signal input in;
    signal output out;
    var array[n];
+   
    out <== array[in];
+   // Error: Non-quadratic constraint was detected statically, using unknown index will cause the constraint to be non-quadratic
 }
 
 component main = A(10);
 ```
 
 In the code above, an array is defined with a known size of value `n` (as template parameters are always considered known), while a constraint is set to be dependent on the array element at an unknown position `in` (as signals are always considered unknown).
-
-Compiling the code above would result in the error: _"Non-quadratic constraint was detected statically, using unknown index will cause the constraint to be non-quadratic"_.
 
 An array must also be defined with a known size. 
 
@@ -53,14 +53,13 @@ pragma circom 2.0.0;
 template A(){
    signal input in;
    var array[in];
+   // Error: The length of every array must known during the constraint generation phase
 }
 
 component main = A();
 ```
 
 In the code above, an array is definied with an unknown size of value `in` (as signals are always considered unknown).
-
-Compiling the code above would result in the error: _"The length of every array must known during the constraint generation phase"_.
 
 ## Control Flow
 
@@ -74,7 +73,9 @@ pragma circom 2.0.0;
 template A(){
    signal input in;
    signal output out;
+   
    if (in < 0){
+   // Error: There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase
        out <== 0;
    }
 }
@@ -84,8 +85,6 @@ component main = A();
 
 In the code above, a constraint is defined in an if-then statement with a comparitive condition involving an unknown value `in` (as signals are always considered unknown).
 
-Compiling the code above would result in the error: _"There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase"_.
-
 Similarly, using a for-loop as an example:
 
 ```text
@@ -94,7 +93,9 @@ pragma circom 2.0.0;
 template A(){
    signal input in;
    signal output out;
+   
    for (var i = 0; i < in; i++){
+   // Error: There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase
        out <== i;
    }
 }
@@ -103,7 +104,5 @@ component main = A();
 ```
 
 In the code above, a constraint is defined in a for-loop with a counting condition to an unknown value `in` (as signals are always considered unknown).
-
-Compiling the code above would result in the same error: _"There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase"_.
 
 For additional details, see [Control Flow](../control-flow).
