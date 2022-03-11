@@ -19,4 +19,4 @@ fr_asm.o: fr.asm
 	$(NASM) fr.asm -o fr_asm.o
 	
 {{run_name}}: $(DEPS_O) {{run_name}}.o
-	$(CC) -o circuit *.o -lgmp {{#if has_parallelism}}-pthread{{/if}}
+	$(CC) -o {{run_name}} *.o -lgmp {{#if has_parallelism}}-pthread{{/if}}
