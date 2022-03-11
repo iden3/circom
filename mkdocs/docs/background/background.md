@@ -23,7 +23,7 @@ In this context, the most preferable NIZK are **zk-SNARK** proofs \(Zero-knowled
 
 ## Arithmetic circuits <a id="arithmetic-circuits"></a>
 
-Like most ZKPs, zk-SNARKs permit proving **computational statements**, but they cannot be applied to the computational problem directly, the statement first needs to be converted into the right form. Specifically, zk-SNARKs requires the computational statement to be modeled with an arithmetic circuit. Although it may not always be obvious how to do this conversion, most computational problems we care about can easily be converted into arithmetic circuits.
+Like most ZKPs, zk-SNARKs permits proving **computational statements**, but they cannot be applied to the computational problem directly, the statement first needs to be converted into the right form. Specifically, zk-SNARKs requires the computational statement to be modeled with an arithmetic circuit. Although it may not always be obvious how to do this conversion, most computational problems we care about can easily be converted into arithmetic circuits.
 
 An **`F_p`-arithmetic circuit** is a circuit consisting of set of wires that carry values from the field `F_p` and connect them to addition and multiplication gates `modulo p`.
 

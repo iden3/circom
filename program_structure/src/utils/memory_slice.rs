@@ -4,6 +4,7 @@ pub enum MemoryError {
     OutOfBoundsError,
     AssignmentError,
     InvalidAccess,
+    UnknownSizeDimension,
 }
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;

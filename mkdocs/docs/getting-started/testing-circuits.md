@@ -1,6 +1,6 @@
 ---
 description: >-
-  This tutorial guide you through the process of writing your first program
+  This tutorial will guide you through the process of writing your first program
   using the main features of circom: signals, variables, templates, components,
   and arrays.
 ---
