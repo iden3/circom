@@ -45,7 +45,13 @@ pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, Report> {
             }
             (2, '*') => {
                 loc += 1;
-                match it.next() {
+                let mut next = it.next();
+                while next == Some('*') {
+                    pp.push(' ');
+                    loc += 1;
+                    next = it.next();
+                }
+                match next {
                     Some('/') => {
                         pp.push(' ');
                         pp.push(' ');
@@ -58,9 +64,6 @@ pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, Report> {
                         }
                     }
                     None => {
-                        let error =
-                            UnclosedCommentError { location: block_start..block_start, file_id };
-                        return Err(UnclosedCommentError::produce_report(error));
                     }
                 }
             }
@@ -71,7 +74,14 @@ pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, Report> {
             }
         }
     }
-    Ok(pp)
+    if state == 2{
+        let error =
+            UnclosedCommentError { location: block_start..block_start, file_id };
+        Err(UnclosedCommentError::produce_report(error))
+    }
+    else{
+        Ok(pp)
+    }
 }
 
 pub fn parse_file(src: &str, file_id: FileID) -> Result<AST, Report> {

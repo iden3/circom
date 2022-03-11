@@ -388,7 +388,7 @@ fn map_returns(stmts: &mut Vec<Statement>, mut fresh_id: usize) -> usize {
     let work = std::mem::take(stmts);
     for w in work {
         let should_split = match &w {
-            Return { value, .. } => value.is_array() || value.is_switch(),
+            Return { value, .. } => value.is_array() || value.is_switch() || value.is_call(),
             _ => false,
         };
         if should_split {

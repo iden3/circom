@@ -1,7 +1,7 @@
 # Proving circuits
 
 After compiling the circuit and running the witness calculator with 
-an appropriate input, we have a file with extension .wtns that 
+an appropriate input, we will have a file with extension .wtns that 
 contains all the computed signals and, a file with extension .r1cs that contains the constraints describing the circuit. Both files will be used to create our proof.
 
 Now, we will use the `snarkjs` tool to generate and validate a proof for our input. In particular, using the multiplier2, **we will prove that we are able to provide the two factors of the number 33**. That is, we will show that we know two integers `a` and `b` such that when we multiply them, it results in the number 33.

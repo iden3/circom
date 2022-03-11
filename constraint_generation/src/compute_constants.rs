@@ -16,7 +16,7 @@ struct Context<'a> {
     program_archive: &'a ProgramArchive,
 }
 
-pub fn manage_functions(program_archive: &mut ProgramArchive) -> CCResult {
+pub fn manage_functions(program_archive: &mut ProgramArchive, flag_verbose: bool) -> CCResult {
     let mut reports = vec![];
     let mut processed = HashMap::new();
     for (name, data) in program_archive.get_functions() {
@@ -24,7 +24,7 @@ pub fn manage_functions(program_archive: &mut ProgramArchive) -> CCResult {
         let environment = EE::new();
         let context =
             Context { program_archive, inside_template: false, environment: &environment };
-        treat_statement(&mut code, &context, &mut reports);
+        treat_statement(&mut code, &context, &mut reports, flag_verbose);
         processed.insert(name.clone(), code);
     }
     for (k, v) in processed {
@@ -40,12 +40,13 @@ pub fn manage_functions(program_archive: &mut ProgramArchive) -> CCResult {
 pub fn compute_vct(
     instances: &mut Vec<TemplateInstance>,
     program_archive: &ProgramArchive,
+    flag_verbose: bool,
 ) -> CCResult {
     let mut reports = vec![];
     for instance in instances {
         let environment = transform_header_into_environment(&instance.header);
         let context = Context { program_archive, inside_template: true, environment: &environment };
-        treat_statement(&mut instance.code, &context, &mut reports);
+        treat_statement(&mut instance.code, &context, &mut reports, flag_verbose);
     }
     if reports.is_empty() {
         Result::Ok(())
@@ -72,25 +73,25 @@ fn argument_into_slice(argument: &Argument) -> AExpressionSlice {
     AExpressionSlice::new_array(dimensions, arithmetic_expressions)
 }
 
-fn treat_statement(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection) {
+fn treat_statement(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flag_verbose: bool) {
     if stmt.is_initialization_block() {
-        treat_init_block(stmt, context, reports)
+        treat_init_block(stmt, context, reports, flag_verbose)
     } else if stmt.is_block() {
-        treat_block(stmt, context, reports)
+        treat_block(stmt, context, reports, flag_verbose)
     } else if stmt.is_if_then_else() {
-        treat_conditional(stmt, context, reports)
+        treat_conditional(stmt, context, reports, flag_verbose)
     } else if stmt.is_while() {
-        treat_while(stmt, context, reports)
+        treat_while(stmt, context, reports, flag_verbose)
     } else {
     }
 }
 
-fn treat_init_block(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection) {
+fn treat_init_block(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flag_verbose: bool) {
     use Statement::InitializationBlock;
     if let InitializationBlock { initializations, .. } = stmt {
         for init in initializations {
             if init.is_declaration() {
-                treat_declaration(init, context, reports)
+                treat_declaration(init, context, reports, flag_verbose)
             }
         }
     } else {
@@ -98,44 +99,44 @@ fn treat_init_block(stmt: &mut Statement, context: &Context, reports: &mut Repor
     }
 }
 
-fn treat_block(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection) {
+fn treat_block(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flag_verbose: bool) {
     use Statement::Block;
     if let Block { stmts, .. } = stmt {
         for s in stmts {
-            treat_statement(s, context, reports);
+            treat_statement(s, context, reports, flag_verbose);
         }
     } else {
         unreachable!()
     }
 }
 
-fn treat_while(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection) {
+fn treat_while(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flag_verbose: bool) {
     use Statement::While;
     if let While { stmt, .. } = stmt {
-        treat_statement(stmt, context, reports);
+        treat_statement(stmt, context, reports, flag_verbose);
     } else {
         unreachable!()
     }
 }
 
-fn treat_conditional(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection) {
+fn treat_conditional(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flag_verbose: bool) {
     use Statement::IfThenElse;
     if let IfThenElse { if_case, else_case, .. } = stmt {
-        treat_statement(if_case, context, reports);
+        treat_statement(if_case, context, reports, flag_verbose);
         if let Option::Some(s) = else_case {
-            treat_statement(s, context, reports);
+            treat_statement(s, context, reports, flag_verbose);
         }
     } else {
         unreachable!()
     }
 }
 
-fn treat_declaration(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection) {
+fn treat_declaration(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flag_verbose: bool) {
     use Statement::Declaration;
     if let Declaration { meta, dimensions, .. } = stmt {
         let mut concrete_dimensions = vec![];
         for d in dimensions.iter_mut() {
-            let execution_response = treat_dimension(d, context, reports);
+            let execution_response = treat_dimension(d, context, reports, flag_verbose);
             if let Option::Some(v) = execution_response {
                 concrete_dimensions.push(v);
             } else {
@@ -152,6 +153,7 @@ fn treat_dimension(
     dim: &Expression,
     context: &Context,
     reports: &mut ReportCollection,
+    flag_verbose: bool
 ) -> Option<usize> {
     use crate::execute::execute_constant_expression;
     if context.inside_template && !dim.is_number() {
@@ -161,7 +163,7 @@ fn treat_dimension(
     } else {
         let program = context.program_archive;
         let env = context.environment;
-        let execution_result = execute_constant_expression(dim, program, env.clone());
+        let execution_result = execute_constant_expression(dim, program, env.clone(), flag_verbose);
         match execution_result {
             Result::Err(mut r) => {
                 reports.append(&mut r);

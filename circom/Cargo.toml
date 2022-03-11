@@ -1,6 +1,6 @@
 [package]
 name = "circom"
-version = "2.0.1"
+version = "2.0.3"
 authors = ["HermenegildoTFG <hermegar@ucm.es>"]
 edition = "2018"
 
@@ -16,4 +16,4 @@ compiler = { path = "../compiler" }
 dag = { path = "../dag" }
 clap = "2.33.0"
 ansi_term = "0.12.1"
-wabt = "0.10.0"
+wast = "39.0.0"

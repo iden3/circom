@@ -98,6 +98,7 @@ class WitnessCalculator {
 	//input is assumed to be a map from signals to arrays of bigints
         this.instance.exports.init((this.sanityCheck || sanityCheck) ? 1 : 0);
         const keys = Object.keys(input);
+	var input_counter = 0;
         keys.forEach( (k) => {
             const h = fnvHash(k);
             const hMSB = parseInt(h.slice(0,8), 16);
@@ -110,6 +111,7 @@ class WitnessCalculator {
 		}
 		try {
                     this.instance.exports.setInputSignal(hMSB, hLSB,i);
+		    input_counter++;
 		} catch (err) {
 		    // console.log(`After adding signal ${i} of ${k}`)
                     throw new Error(err);
@@ -117,6 +119,9 @@ class WitnessCalculator {
             }
 
         });
+	if (input_counter < this.instance.exports.getInputSize()) {
+	    throw new Error(`Not all inputs have been set. Only ${input_counter} out of ${this.instance.exports.getInputSize()}`);
+	}
     }
 
     async calculateWitness(input, sanityCheck) {

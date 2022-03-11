@@ -156,9 +156,16 @@ pub fn declare_my_template_name() -> CInstruction {
         MY_TEMPLATE_NAME, CIRCOM_CALC_WIT, CTX_INDEX
     )
 }
+pub fn declare_my_template_name_function(name: &String) -> CInstruction {
+    format!(
+        "std::string {} = \"{}\"",
+        MY_TEMPLATE_NAME, name.to_string()
+    )
+}
 pub fn my_template_name() -> CInstruction {
     format!("{}", MY_TEMPLATE_NAME)
 }
+
 
 pub const MY_COMPONENT_NAME: &str = "myComponentName";
 pub fn declare_my_component_name() -> CInstruction {
@@ -170,7 +177,6 @@ pub fn declare_my_component_name() -> CInstruction {
 pub fn my_component_name() -> CInstruction {
     format!("{}", MY_COMPONENT_NAME)
 }
-
 
 pub const MY_FATHER: &str = "myFather";
 pub fn declare_my_father() -> CInstruction {
@@ -354,13 +360,15 @@ pub fn generate_my_trace() -> String {
     format!("{}->getTrace({})", CIRCOM_CALC_WIT, MY_ID)
 }
 
-pub fn build_failed_assert_message(line:usize) -> String{
-    format!("std::cout << \"Failed assert in template \" << {} << \" line {}. \" <<  \"Followed trace: \" << {} << std::endl" ,
+pub fn build_failed_assert_message(line: usize) -> String{
+    
+    format!("std::cout << \"Failed assert in template/function \" << {} << \" line {}. \" <<  \"Followed trace of components: \" << {} << std::endl" ,
         MY_TEMPLATE_NAME,
         line,
         generate_my_trace()
      )
 }
+
 
 pub fn build_conditional(
     cond: Vec<String>,
@@ -376,10 +384,7 @@ pub fn build_conditional(
 }
 
 pub fn merge_code(instructions: Vec<String>) -> String {
-    let mut code = "".to_string();
-    for instruction in instructions {
-        code = format!("{}{}\n", code, instruction);
-    }
+    let code = format!("{}\n", instructions.join("\n"));
     code
 }
 
@@ -410,6 +415,7 @@ pub fn collect_function_headers(functions: Vec<String>) -> Vec<String> {
         let params = vec![
             declare_circom_calc_wit(),
             declare_lvar_pointer(),
+            declare_component_father(),
             declare_dest_pointer(),
             declare_dest_size(),
         ];

@@ -496,10 +496,9 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
             }
             (Quadratic { a, b, c }, Number { value }) => {
                 let mut a = a.clone();
-                let mut b = b.clone();
+                let b = b.clone();
                 let mut c = c.clone();
                 ArithmeticExpression::divide_coefficients_by_constant(value, &mut a, field)?;
-                ArithmeticExpression::divide_coefficients_by_constant(value, &mut b, field)?;
                 ArithmeticExpression::divide_coefficients_by_constant(value, &mut c, field)?;
                 Result::Ok(Quadratic { a, b, c })
             }
@@ -544,10 +543,9 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
             }
             (Quadratic { a, b, c }, Number { value }) => {
                 let mut a = a.clone();
-                let mut b = b.clone();
+                let b = b.clone();
                 let mut c = c.clone();
                 ArithmeticExpression::idivide_coefficients_by_constant(value, &mut a, field)?;
-                ArithmeticExpression::idivide_coefficients_by_constant(value, &mut b, field)?;
                 ArithmeticExpression::idivide_coefficients_by_constant(value, &mut c, field)?;
                 Result::Ok(Quadratic { a, b, c })
             }
@@ -578,14 +576,15 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 let value = modular_arithmetic::pow(value_0, value_1, field);
                 Number { value }
             }
-            (Signal { symbol }, Number { value }) => {
-                if *value == BigInt::from(2) {
+            (Signal { symbol }, Number { value }) if *value == BigInt::from(2) => {      
                     let left = Signal { symbol: symbol.clone() };
                     let right = Signal { symbol: symbol.clone() };
                     ArithmeticExpression::mul(&left, &right, field)
-                } else {
-                    NonQuadratic
-                }
+            }
+            (Linear { coefficients }, Number {value}) if *value == BigInt::from(2) => {
+                let left = Linear { coefficients: coefficients.clone() };
+                let right = Linear { coefficients: coefficients.clone() };
+                ArithmeticExpression::mul(&left, &right, field)
             }
             _ => NonQuadratic,
         }
