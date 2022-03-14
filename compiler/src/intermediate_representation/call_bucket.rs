@@ -360,6 +360,7 @@ impl WriteC for CallBucket {
         let mut call_arguments = vec![];
         call_arguments.push(CIRCOM_CALC_WIT.to_string());
         call_arguments.push(L_VAR_FUNC_CALL_STORAGE.to_string());
+        call_arguments.push(my_id());
         match &self.return_info {
             ReturnType::Intermediate { op_aux_no } => {
                 let exp_aux_index = op_aux_no.to_string();

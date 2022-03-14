@@ -88,12 +88,15 @@ impl WriteC for FunctionCodeInfo {
         let params = vec![
             declare_circom_calc_wit(),
             declare_lvar_pointer(),
+            declare_component_father(),
             declare_dest_pointer(),
             declare_dest_size(),
         ];
         let mut body = vec![];
         body.push(format!("{};", declare_circuit_constants()));
         body.push(format!("{};", declare_expaux(self.max_number_of_ops_in_expression)));
+        body.push(format!("{};", declare_my_template_name_function(&self.name)));
+        body.push(format!("u64 {} = {};", my_id(), component_father()));
         for t in &self.body {
             let (mut instructions_body, _) = t.produce_c(producer);
             body.append(&mut instructions_body);
