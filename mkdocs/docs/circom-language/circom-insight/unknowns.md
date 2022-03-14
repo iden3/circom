@@ -22,6 +22,7 @@ component main = A(1, 2);
 
 In the code above, the template parameters `n1`, `n2` and the constant value `0` are considered known. Consequently, the variables `x` and `y` are also considered known.
 
+
 Meanwhile, the signals `in1`, `in2` are considered unknown. Consequently, the variable `z` is also considered unknown.
 
 ## Array
@@ -59,13 +60,13 @@ template A(){
 component main = A();
 ```
 
-In the code above, an array is definied with an unknown size of value `in` (as signals are always considered unknown).
+In the code above, an array is defined with an unknown size of value `in` (as signals are always considered unknown).
 
 ## Control Flow
 
 A constraint generated in a control flow must have a known condition.
 
-Take a if-then statement as an example:
+Take an if-then statement as an example:
 
 ```text
 pragma circom 2.0.0;
