@@ -1,5 +1,6 @@
 use super::*;
 use num_bigint_dig::{BigInt, Sign};
+use serde_json::json;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -134,7 +135,7 @@ pub fn template_ins_2_io_info() -> CInstruction {
     format!("{}", TEMP_INS_2_IO_INFO)
 }
 
-pub fn template_id_in_component(idx: CInstruction)-> CInstruction {
+pub fn template_id_in_component(idx: CInstruction) -> CInstruction {
     format!("{}->componentMemory[{}].templateId", CIRCOM_CALC_WIT, idx)
 }
 pub const MY_SIGNAL_START: &str = "mySignalStart";
@@ -425,8 +426,6 @@ pub fn collect_function_headers(functions: Vec<String>) -> Vec<String> {
     function_headers
 }
 
-
-
 //--------------- generate all kinds of Data for the .dat file ---------------
 
 pub fn generate_hash_map(signal_name_list: &Vec<(String, usize)>) -> Vec<(u64, u64)> {
@@ -540,20 +539,20 @@ pub fn generate_dat_io_signals_info(
     // println!("size: {}",io_map.len());
     let mut io_signals_info = vec![];
     for (t_ins, _) in io_map {
-	//println!("info: {}",t_ins);
+        //println!("info: {}",t_ins);
         let t32 = *t_ins as u32;
         let mut v: Vec<u8> = t32.to_be_bytes().to_vec();
         v.reverse();
         io_signals_info.append(&mut v);
     }
     for (_, l_io_def) in io_map {
-	//println!("io_def_len: {}",l_io_def.len());	
+        //println!("io_def_len: {}",l_io_def.len());
         let l32 = l_io_def.len() as u32;
         let mut v: Vec<u8> = l32.to_be_bytes().to_vec();
         v.reverse();
         io_signals_info.append(&mut v);
         for s in l_io_def {
-	    //println!("offset: {}",s.offset);	
+            //println!("offset: {}",s.offset);
             let l32 = s.offset as u32;
             let mut v: Vec<u8> = l32.to_be_bytes().to_vec();
             v.reverse();
@@ -564,12 +563,12 @@ pub fn generate_dat_io_signals_info(
             } else {
                 n32 = 0;
             }
-	    // println!("dims-1: {}",n32);	
+            // println!("dims-1: {}",n32);
             let mut v: Vec<u8> = n32.to_be_bytes().to_vec();
             v.reverse();
             io_signals_info.append(&mut v);
             for i in 1..s.lengths.len() {
-		// println!("dims {}: {}",i,s.lengths[i]);	
+                // println!("dims {}: {}",i,s.lengths[i]);
                 let pos = s.lengths[i] as u32;
                 let mut v: Vec<u8> = pos.to_be_bytes().to_vec();
                 v.reverse();
@@ -601,7 +600,7 @@ pub fn generate_dat_io_signals_info(
                     u64[u8,8] size of dimension
 
  */
-   
+
 pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std::io::Result<()> {
     //let p = producer.get_prime().as_bytes();
     //let pl = p.len() as u32;
@@ -643,12 +642,12 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
 }
 
 pub fn generate_function_list(_producer: &CProducer, list: &TemplateList) -> String {
-    let mut func_list= "".to_string();
+    let mut func_list = "".to_string();
     if list.len() > 0 {
-	func_list.push_str(&format!("\n{}_run",list[0]));
-	for i in 1..list.len() {
-	    func_list.push_str(&format!(",\n{}_run",list[i]));
-	}
+        func_list.push_str(&format!("\n{}_run", list[0]));
+        for i in 1..list.len() {
+            func_list.push_str(&format!(",\n{}_run", list[i]));
+        }
     }
     func_list
 }
@@ -673,7 +672,7 @@ pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageLi
 
 pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut file_path  = c_folder.clone();
+    let mut file_path = c_folder.clone();
     file_path.push("main");
     file_path.set_extension("cpp");
     let file_name = file_path.to_str().unwrap();
@@ -690,7 +689,7 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
 
 pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut file_path  = c_folder.clone();
+    let mut file_path = c_folder.clone();
     file_path.push("circom");
     file_path.set_extension("hpp");
     let file_name = file_path.to_str().unwrap();
@@ -707,7 +706,7 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
 
 pub fn generate_fr_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut file_path  = c_folder.clone();
+    let mut file_path = c_folder.clone();
     file_path.push("fr");
     file_path.set_extension("hpp");
     let file_name = file_path.to_str().unwrap();
@@ -724,7 +723,7 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
 
 pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut file_path  = c_folder.clone();
+    let mut file_path = c_folder.clone();
     file_path.push("calcwit");
     file_path.set_extension("hpp");
     let file_name = file_path.to_str().unwrap();
@@ -741,7 +740,7 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
 
 pub fn generate_fr_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut file_path  = c_folder.clone();
+    let mut file_path = c_folder.clone();
     file_path.push("fr");
     file_path.set_extension("cpp");
     let file_name = file_path.to_str().unwrap();
@@ -758,7 +757,7 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
 
 pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut file_path  = c_folder.clone();
+    let mut file_path = c_folder.clone();
     file_path.push("calcwit");
     file_path.set_extension("cpp");
     let file_name = file_path.to_str().unwrap();
@@ -775,7 +774,7 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
 
 pub fn generate_fr_asm_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut file_path  = c_folder.clone();
+    let mut file_path = c_folder.clone();
     file_path.push("fr");
     file_path.set_extension("asm");
     let file_name = file_path.to_str().unwrap();
@@ -790,27 +789,27 @@ pub fn generate_fr_asm_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_make_file(c_folder: &PathBuf, run_name: &str, producer: &CProducer) -> std::io::Result<()> {
+pub fn generate_make_file(
+    c_folder: &PathBuf,
+    run_name: &str,
+    producer: &CProducer,
+) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut code = format!("CC=g++\n");
-    code = format!("{}CFLAGS=-O3 -I.\n", code);
-    code = format!("{}DEPS_HPP = circom.hpp calcwit.hpp fr.hpp\n", code);
-    code = format!("{}DEPS_O = main.o calcwit.o fr.o fr_asm.o\n", code);
-    code = format!("{}\n", code);
-    code = format!("{}all: {}\n", code, run_name);
-    code = format!("{}\n", code);
-    code = format!("{}%.o: %.cpp $(DEPS_HPP)\n", code);
-    code = format!("{}\t$(CC) -c $< $(CFLAGS)\n", code);
-    code = format!("{}fr_asm.o: fr.asm\n", code);
-    code = format!("{}\tnasm -felf64 fr.asm -o fr_asm.o\n", code);
-    code = format!("{}\n", code);
-    code = format!("{}{}: $(DEPS_O) {}.o\n", code, run_name, run_name);
-    if producer.has_parallelism {
-	    code = format!("{}\t$(CC) -o {} *.o -lgmp -pthread\n", code, run_name);
-    } else {
-	    code = format!("{}\t$(CC) -o {} *.o -lgmp\n", code, run_name);
-    }
-    let mut file_path  = c_folder.clone();
+
+    const MAKEFILE_TEMPLATE: &str = include_str!("./makefile");
+
+    let template = handlebars::Handlebars::new();
+    let code = template
+        .render_template(
+            MAKEFILE_TEMPLATE,
+            &json!({
+                "run_name": run_name,
+                "has_parallelism": producer.has_parallelism,
+            }),
+        )
+        .expect("must render");
+
+    let mut file_path = c_folder.clone();
     file_path.push("Makefile");
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
@@ -829,14 +828,16 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
     code.push("#include <assert.h>".to_string());
     code.push("#include \"circom.hpp\"".to_string());
     code.push("#include \"calcwit.hpp\"".to_string());
-    
+
     let mut run_defs = collect_template_headers(producer.get_template_instance_list());
     code.append(&mut run_defs);
-    
-    code.push(format!("Circom_TemplateFunction _functionTable[{}] = {{ {} }};",
-		      producer.get_number_of_template_instances(),
-		      generate_function_list(producer, producer.get_template_instance_list())));
-    
+
+    code.push(format!(
+        "Circom_TemplateFunction _functionTable[{}] = {{ {} }};",
+        producer.get_number_of_template_instances(),
+        generate_function_list(producer, producer.get_template_instance_list())
+    ));
+
     code.push(format!("uint get_size_of_input_hashmap() {{return {};}}\n", len));
     code.push(format!(
         "uint get_size_of_witness() {{return {};}}\n",
@@ -847,7 +848,7 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
         producer.get_field_constant_list().len()
     ));
     code.push(format!("uint get_size_of_io_map() {{return {};}}\n", producer.get_io_map().len()));
-    
+
     // let mut ml_def = generate_message_list_def(producer, producer.get_message_list());
     // code.append(&mut ml_def);
     for l in code {
