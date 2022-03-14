@@ -1,79 +1,109 @@
 # Unknowns
 
-The concept of unknown is very important in the constructive part of circom, where constraints are generated. In order to understand the compiler behavior we need to define what is considered unknown at compile time.
+As expressions accepted during [constraint generation](../constraint-generation) can at most be quadratic only, certain checks and constraints are imposed on the use of unknown values at compile.
 
-As already said, the content of a signal is always considered unknown, and only constant values or template parameters are considered known. A var whose value depends on unknowns is unknown. 
+In circom, **constant values** and **template parameters** are always considered known, while **signals** are always considered unknown.
 
-```text
-template A(n1, n2){
-   signal input in;
-   signal input in2;
-   var x;
-   while(n1 > 0){
-      x += in;
-   }
-}
-```
-
-Parameters `n1`, `n2`, `in`, and `in2` are unknown. Consequently, the value of var `x` is also considered unknown since it depends on the value of the unknown signal `in`. 
-
-Similarly, any expression that depends on unknowns is considered unknown. Additionally, if an array is modified with an unknown expression in an unknown position then all positions of the array become unknown. 
+Expressions depending only on knowns are considered knowns, while those depending on unknowns are considered unknowns.
 
 ```text
 pragma circom 2.0.0;
 
-template A(n1, n2){
+template A(n1, n2){ // known
+   signal input in1; // unknown
+   signal input in2; // unknown
+   var x = 0; // known
+   var y = n1; // known
+   var z = in1; // unknown
+}
+
+component main = A(1, 2);
+```
+
+In the code above, the template parameters `n1`, `n2` and the constant value `0` are considered known. Consequently, the variables `x` and `y` are also considered known.
+
+
+Meanwhile, the signals `in1`, `in2` are considered unknown. Consequently, the variable `z` is also considered unknown.
+
+## Array
+
+A constraint with an array access must have a known accessing position.
+
+```text
+pragma circom 2.0.0;
+
+template A(n){
    signal input in;
    signal output out;
-   var array[n2];
-   array[in] = in * n1;
+   var array[n];
+   
    out <== array[in];
+   // Error: Non-quadratic constraint was detected statically, using unknown index will cause the constraint to be non-quadratic
 }
 
-component main = A(1,2);
+component main = A(10);
 ```
 
-The previous code generates the next error message: _"Non-quadratic constraint was detected statically, using unknown index will cause the constraint to be non-quadratic"_.
+In the code above, an array is defined with a known size of value `n` (as template parameters are always considered known), while a constraint is set to be dependent on the array element at an unknown position `in` (as signals are always considered unknown).
 
-Finally, the result of a function call with unknown parameters is unknown.
+An array must also be defined with a known size. 
 
 ```text
 pragma circom 2.0.0;
 
-function F(n){
-   return n*n;
+template A(){
+   signal input in;
+   var array[in];
+   // Error: The length of every array must known during the constraint generation phase
 }
-template A(n1, n2){
+
+component main = A();
+```
+
+In the code above, an array is defined with an unknown size of value `in` (as signals are always considered unknown).
+
+## Control Flow
+
+A constraint generated in a control flow must have a known condition.
+
+Take an if-then statement as an example:
+
+```text
+pragma circom 2.0.0;
+
+template A(){
    signal input in;
    signal output out;
-   var end = F(in);
-   var j = 0;
-   for(var i = 0; i < end; i++){
-   	 j += 2;
+   
+   if (in < 0){
+   // Error: There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase
+       out <== 0;
    }
-   out <== j;
 }
-component main = A(1,2);
+
+component main = A();
 ```
 
-Var `end` is considered unknown since it is the result of a function `F` called with the unknown parameter `in`. The compilation of the previous code produces the error _"Non quadratic constraints are not allowed!_", since the value of `j` depends on the value of `end`. 
+In the code above, a constraint is defined in an if-then statement with a comparitive condition involving an unknown value `in` (as signals are always considered unknown).
 
-The key point for the compiler in the constructive phase is that the generation of constraints cannot depend on conditions (expressions) that are unknown.This is imposed on [all statements](../../control-flow). This can be seen both in the previous example and the next one:
+Similarly, using a for-loop as an example:
 
 ```text
 pragma circom 2.0.0;
 
-template wrong(){
-    signal input in;
-    var y = 0;
-    var i = 0;
-    while(i < in){
-        i++;
-        y += y;
-    }
-    out <== y;
+template A(){
+   signal input in;
+   signal output out;
+   
+   for (var i = 0; i < in; i++){
+   // Error: There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase
+       out <== i;
+   }
 }
 
-component main = wrong();
+component main = A();
 ```
 
+In the code above, a constraint is defined in a for-loop with a counting condition to an unknown value `in` (as signals are always considered unknown).
+
+For additional details, see [Control Flow](../control-flow).
