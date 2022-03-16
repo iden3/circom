@@ -12,7 +12,7 @@ use input_user::Input;
 fn main() {
     let result = start();
     if result.is_err() {
-        println!("{}", Colour::Red.paint("previous errors were found"));
+        eprintln!("{}", Colour::Red.paint("previous errors were found"));
     } else {
         println!("{}", Colour::Green.paint("Everything went okay, circom safe"));
     }
