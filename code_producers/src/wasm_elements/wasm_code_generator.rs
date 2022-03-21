@@ -1519,7 +1519,7 @@ mod tests {
                 }
             }
         } else {
-            println!("NO FILE FOUND");
+            eprintln!("NO FILE FOUND");
         }
         instructions
     }
@@ -1527,7 +1527,7 @@ mod tests {
     /*
         let bytes = empty.read_line(&mut buffer)?;
         if bytes == 0 {
-            println!("EOF reached");
+            eprintln!("EOF reached");
         }
     */
     fn write_block(writer: &mut BufWriter<File>, code: Vec<WasmInstruction>) {
