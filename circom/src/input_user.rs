@@ -196,7 +196,7 @@ mod input_processing {
         if route.is_file() {
             Result::Ok(route)
         } else {
-            Result::Err(println!("{}", Colour::Red.paint("invalid input file")))
+            Result::Err(eprintln!("{}", Colour::Red.paint("invalid input file")))
         }
     }
 
@@ -205,7 +205,7 @@ mod input_processing {
         if route.is_dir() {
             Result::Ok(route)
         } else {
-            Result::Err(println!("{}", Colour::Red.paint("invalid output path")))
+            Result::Err(eprintln!("{}", Colour::Red.paint("invalid output path")))
         }
     }
 
@@ -228,7 +228,7 @@ mod input_processing {
             (_, true, _, _) => Ok(SimplificationStyle::O1),
             (_, _, true, Ok(no_rounds)) => Ok(SimplificationStyle::O2(no_rounds)),
             (false, false, false, _) => Ok(SimplificationStyle::O1),
-            _ => Result::Err(println!("{}", Colour::Red.paint("invalid number of rounds")))
+            _ => Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds")))
         }
     }
 
