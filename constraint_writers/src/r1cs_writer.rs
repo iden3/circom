@@ -47,7 +47,7 @@ fn obtain_linear_combination_block<T>(
     field_size: usize,
 ) -> (Vec<u8>, usize)
 where
-    T: AsRef<[u8]>,
+    T: AsRef<[u8]>  + std::cmp::Ord + std::hash::Hash,
 {
     let mut block = Vec::new();
     let non_zero_factors = BigInt::from(linear_combination.len());
@@ -55,7 +55,10 @@ where
     let (stream, bytes) = bigint_as_bytes(&non_zero_factors, 4);
     size += bytes;
     block.extend_from_slice(&stream);
-    for (id, factor) in linear_combination {
+    let mut order: Vec<&T> = linear_combination.keys().collect();
+    order.sort();
+    for i in order {
+        let (id, factor) = linear_combination.get_key_value(i).unwrap();
         let (stream, bytes) = into_format(id.as_ref(), 4);
         size += bytes;
         block.extend_from_slice(&stream);
@@ -75,7 +78,7 @@ fn write_constraint<T>(
     field_size: usize,
 ) -> Result<usize, ()>
 where
-    T: AsRef<[u8]>,
+    T: AsRef<[u8]> + std::cmp::Ord + std::hash::Hash,
 {
     let (block_a, size_a) = obtain_linear_combination_block(a, field_size);
     let (block_b, size_b) = obtain_linear_combination_block(b, field_size);
