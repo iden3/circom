@@ -25,6 +25,21 @@ template Multiplier2(){
 
 component main {public [in1,in2]} = Multiplier2();
 ```
+Since circom 2.0.4, it is also allowed the initialization of intermediate and outputs signals right after their declaration. Then, the previous example can be rewritten as follows:
+
+```text
+pragma circom 2.0.0;
+
+template Multiplier2(){
+   //Declaration of signals
+   signal input in1;
+   signal input in2;
+   signal output out <== in1 * in2;
+}
+
+component main {public [in1,in2]} = Multiplier2();
+```
+
 
 This example declares input signals `in1` and `in2` of the main component as public signals.
 
