@@ -2,8 +2,9 @@ module.exports = async function builder(code, options) {
 
     options = options || {};
 
+    let wasmModule;
     try {
-	const wasmModule = await WebAssembly.compile(code);
+	wasmModule = await WebAssembly.compile(code);
     }  catch (err) {
 	console.log(err);
 	console.log("\nTry to run circom --c in order to generate c++ code instead\n");
@@ -27,6 +28,8 @@ module.exports = async function builder(code, options) {
                     errStr= "Assert Failed. ";
 		} else if (code == 5) {
                     errStr= "Not enough memory. ";
+		} else if (code == 6) {
+                    errStr= "Input signal array access exceeds the size";
 		} else {
 		    errStr= "Unknown error\n";
                 }
