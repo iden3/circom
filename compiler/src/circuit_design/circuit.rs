@@ -75,6 +75,9 @@ impl WriteWasm for Circuit {
         code_aux = set_input_signal_generator(&producer);
         code.append(&mut code_aux);
 
+        code_aux = get_input_signal_size_generator(&producer);
+        code.append(&mut code_aux);
+
         code_aux = get_raw_prime_generator(&producer);
         code.append(&mut code_aux);
 
@@ -196,6 +199,11 @@ impl WriteWasm for Circuit {
         writer.flush().map_err(|_| {})?;
 
         code_aux = set_input_signal_generator(&producer);
+        code = merge_code(code_aux);
+        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        writer.flush().map_err(|_| {})?;
+
+        code_aux = get_input_signal_size_generator(&producer);
         code = merge_code(code_aux);
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})?;

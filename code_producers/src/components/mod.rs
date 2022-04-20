@@ -7,7 +7,8 @@ pub struct IODef {
     pub lengths: Vec<usize>,
 }
 
-pub type InputList = Vec<(String, usize)>;
+// It is an array that contains (name, start position, size)
+pub type InputList = Vec<(String, usize, usize)>;
 pub type TemplateList = Vec<String>;
 pub type SignalList = Vec<usize>;
 pub type InputOutputList = Vec<IODef>;
