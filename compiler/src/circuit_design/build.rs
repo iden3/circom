@@ -202,7 +202,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB) -> CProducer {
     producer.signals_in_witness = producer.witness_to_signal_list.len();
     producer.number_of_main_inputs = vcp.templates[initial_node].number_of_inputs;
     producer.number_of_main_outputs = vcp.templates[initial_node].number_of_outputs;
-    producer.main_input_list = main_input_list(&vcp.templates[initial_node]);
+    producer.main_input_list = main_input_list(&vcp.templates[initial_node]);   
     producer.io_map = build_io_map(vcp, database);
     producer.template_instance_list = build_template_list(vcp);
     producer.field_tracking.clear();
@@ -215,7 +215,7 @@ fn main_input_list(main: &TemplateInstance) -> InputList {
     let mut input_list = vec![];
     for s in &main.signals {
         if s.xtype == Input {
-            input_list.push((s.name.clone(), s.dag_local_id));
+            input_list.push((s.name.clone(), s.dag_local_id, s.size()));
         }
     }
     input_list

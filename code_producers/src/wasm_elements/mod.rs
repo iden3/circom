@@ -65,7 +65,7 @@ impl Default for WASMProducer {
             size_32_shift: 5,
             number_of_main_outputs: 0, //2,
             number_of_main_inputs: 0,  // 4,
-            main_input_list: [("in1".to_string(), 1), ("in2".to_string(), 2)].to_vec(), //("inpair".to_string(),2),
+            main_input_list: [("in1".to_string(), 1, 1), ("in2".to_string(), 2, 1)].to_vec(), //("inpair".to_string(),2),
             signals_in_witness: 0,                                                      //20,
             witness_to_signal_list: [].to_vec(), //[0,1,2,3,4,5,6,12,16,19,24,27,33,42,46,50,51,65,78,79].to_vec(),
             message_list: [].to_vec(), //["Main".to_string(),"Hola Herme".to_string(),"Hola Albert".to_string()].to_vec(),
@@ -237,7 +237,7 @@ impl WASMProducer {
         (4 * self.size_32_bit) + 8 + self.get_shared_rw_memory_start()
     }
     pub fn get_remaining_input_signal_counter(&self) -> usize {
-        self.get_input_signals_hashmap_start() + 5120
+        self.get_input_signals_hashmap_start() + 4096 // 256*(8(h)+4(pos)+4(size))
     }
     pub fn get_input_signal_set_map_start(&self) -> usize {
         self.get_remaining_input_signal_counter() + 4

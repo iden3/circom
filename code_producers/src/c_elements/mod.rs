@@ -60,7 +60,7 @@ impl Default for CProducer {
                 .to_string(),
             number_of_main_outputs: 1,
             number_of_main_inputs: 2,
-            main_input_list: [("in1".to_string(), 2), ("in2".to_string(), 3)].to_vec(), //[].to_vec(),
+            main_input_list: [("in1".to_string(), 2, 1), ("in2".to_string(), 3, 1)].to_vec(), //[].to_vec(),
             signals_in_witness: 20,
             witness_to_signal_list: [
                 0, 1, 2, 3, 4, 5, 6, 12, 16, 19, 24, 27, 33, 42, 46, 50, 51, 65, 78, 79,

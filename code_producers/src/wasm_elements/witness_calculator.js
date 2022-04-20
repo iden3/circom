@@ -2,7 +2,13 @@ module.exports = async function builder(code, options) {
 
     options = options || {};
 
-    const wasmModule = await WebAssembly.compile(code);
+    try {
+	const wasmModule = await WebAssembly.compile(code);
+    }  catch (err) {
+	console.log(err);
+	console.log("\nTry to run circom --c in order to generate c++ code instead\n");
+	throw new Error(err);
+    }
 
     let wc;
 
@@ -104,6 +110,16 @@ class WitnessCalculator {
             const hMSB = parseInt(h.slice(0,8), 16);
             const hLSB = parseInt(h.slice(8,16), 16);
             const fArr = flatArray(input[k]);
+	    let signalSize = this.instance.exports.getInputSignalSize(hMSB, hLSB);
+	    if (signalSize < 0){
+		throw new Error(`Signal ${k} not found\n`);
+	    }
+	    if (fArr.length < signalSize) {
+		throw new Error(`Not enough values for input signal ${k}\n`);
+	    }
+	    if (fArr.length > signalSize) {
+		throw new Error(`Too many values for input signal ${k}\n`);
+	    }
             for (let i=0; i<fArr.length; i++) {
 		const arrFr = toArray32(fArr[i],this.n32)
 		for (let j=0; j<this.n32; j++) {

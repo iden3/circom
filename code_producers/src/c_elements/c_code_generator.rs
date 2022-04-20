@@ -607,7 +607,9 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     //dfile.write_all(&pl.to_be_bytes())?;
     //dfile.write_all(&p)?;
     //dfile.flush()?;
-    let map = generate_hash_map(&producer.get_main_input_list());
+
+    let aux_removing_third: Vec<(String, usize)> = producer.get_main_input_list().iter().map(|(x, y , _z)| (x.clone(), *y)).collect();
+    let map = generate_hash_map(&aux_removing_third);
     let hashmap = generate_dat_from_hash_map(&map); //bytes u64 --> u64
                                                     //let hml = 256 as u32;
                                                     //dfile.write_all(&hml.to_be_bytes())?;

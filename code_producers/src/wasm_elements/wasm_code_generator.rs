@@ -219,25 +219,26 @@ pub fn get_initial_size_of_memory(producer: &WASMProducer) -> usize {
 
 //------------------- generate all kinds of Data ------------------
 
-pub fn generate_hash_map(signal_name_list: &Vec<(String, usize)>) -> Vec<(u64, usize)> {
+pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>) -> Vec<(u64, usize, usize)> {
     assert!(signal_name_list.len() <= 256);
     let len = 256;
-    let mut hash_map = vec![(0, 0); len];
+    let mut hash_map = vec![(0, 0, 0); len];
     for i in 0..signal_name_list.len() {
         let h = hasher(&signal_name_list[i].0);
         let mut p = (h % 256) as usize;
         while hash_map[p].1 != 0 {
             p = (p + 1) % 256;
         }
-        hash_map[p] = (h, signal_name_list[i].1);
+        hash_map[p] = (h, signal_name_list[i].1, signal_name_list[i].2);
     }
     hash_map
 }
 
-pub fn generate_data_from_hash_map(map: &Vec<(u64, usize)>) -> String {
+pub fn generate_data_from_hash_map(map: &Vec<(u64, usize, usize)>) -> String {
     let mut hash_map_data = "".to_string();
-    for (h, s) in map {
+    for (h, p, s) in map {
         hash_map_data.push_str(&wasm_hexa(8, &BigInt::from(*h))); //64bits 8 stots of 8bits
+        hash_map_data.push_str(&wasm_hexa(4, &BigInt::from(*p))); //32bits 4 stots of 8bits
         hash_map_data.push_str(&wasm_hexa(4, &BigInt::from(*s))); //32bits 4 stots of 8bits
     }
     hash_map_data
@@ -521,6 +522,7 @@ pub fn generate_exports_list() -> Vec<WasmInstruction> {
     exports.push("(export \"writeSharedRWMemory\" (func $writeSharedRWMemory))".to_string());
     exports.push("(export \"init\" (func $init))".to_string());
     exports.push("(export \"setInputSignal\" (func $setInputSignal))".to_string());
+    exports.push("(export \"getInputSignalSize\" (func $getInputSignalSize))".to_string());
     exports.push("(export \"getRawPrime\" (func $getRawPrime))".to_string());
     exports.push("(export \"getFieldNumLen32\" (func $getFieldNumLen32))".to_string());
     exports.push("(export \"getWitnessSize\" (func $getWitnessSize))".to_string());
@@ -814,7 +816,7 @@ pub fn get_input_signal_position_generator(producer: &WASMProducer) -> Vec<WasmI
     instructions.push(add_loop()); // loop 2
     instructions.push(set_constant(&producer.get_input_signals_hashmap_start().to_string()));
     instructions.push(get_local("$i"));
-    instructions.push(set_constant("12"));
+    instructions.push(set_constant("16")); // 8(h)+4(p)+4(s)
     instructions.push(mul32());
     instructions.push(add32());
     instructions.push(set_local("$aux"));
@@ -978,6 +980,88 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(add_end()); // end else if 3
     instructions.push(add_end()); // end else if 2
     instructions.push(add_end()); // end else if 1
+    instructions.push(")".to_string());
+    instructions
+}
+
+pub fn get_input_signal_size_aux_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
+    let mut instructions = vec![];
+    let header = "(func $getInputSignalSizeAux (type $_t_i64ri32)".to_string();
+    instructions.push(header);
+    instructions.push(" (param $hn i64)".to_string());
+    instructions.push("(result i32)".to_string());
+    instructions.push(" (local $ini i32)".to_string());
+    instructions.push(" (local $i i32)".to_string());
+    instructions.push(" (local $aux i32)".to_string());
+    instructions.push(get_local("$hn"));
+    instructions.push(wrap_i6432());
+    instructions.push(set_constant("255"));
+    instructions.push(and32());
+    instructions.push(set_local("$ini"));
+    instructions.push(get_local("$ini"));
+    instructions.push(set_local("$i"));
+    instructions.push(add_block()); // block 1
+    instructions.push(add_loop()); // loop 2
+    instructions.push(set_constant(&producer.get_input_signals_hashmap_start().to_string()));
+    instructions.push(get_local("$i"));
+    instructions.push(set_constant("16")); // 8(h)+4(p)+4(s)
+    instructions.push(mul32());
+    instructions.push(add32());
+    instructions.push(set_local("$aux"));
+    instructions.push(get_local("$aux"));
+    instructions.push(load64(None));
+    instructions.push(get_local("$hn"));
+    instructions.push(eq64());
+    instructions.push(add_if()); // if 3
+    instructions.push(get_local("$aux"));
+    instructions.push(load32(Some("12")));
+    instructions.push(add_return());
+    instructions.push(add_end()); // end if 3
+    instructions.push(get_local("$aux"));
+    instructions.push(load64(None));
+    instructions.push(eqz64());
+    instructions.push(add_if()); // if 4
+    instructions.push(set_constant("-1")); // error
+    instructions.push(add_return());
+    instructions.push(add_end()); // end if 4
+    instructions.push(get_local("$i"));
+    instructions.push(set_constant("1"));
+    instructions.push(add32());
+    instructions.push(set_constant("255"));
+    instructions.push(and32());
+    instructions.push(set_local("$i"));
+    instructions.push(get_local("$i"));
+    instructions.push(get_local("$ini"));
+    instructions.push(eq32());
+    instructions.push(add_if()); //if 5
+    instructions.push(set_constant("-1")); // error
+    instructions.push(add_return());
+    instructions.push(add_end()); // end if 5
+    instructions.push(br("0"));
+    instructions.push(add_end()); // end loop 2
+    instructions.push(add_end()); // end block 1
+    instructions.push(set_constant("-1"));
+    instructions.push(")".to_string());
+    instructions
+}
+
+pub fn get_input_signal_size_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
+    let mut instructions = vec![];
+    let mut code_aux = get_input_signal_size_aux_generator(&producer);
+    instructions.append(&mut code_aux);
+    let header = "(func $getInputSignalSize (type $_t_i32i32ri32)".to_string();
+    instructions.push(header);
+    instructions.push(" (param $hmsb i32)".to_string());
+    instructions.push(" (param $hlsb i32)".to_string());
+    instructions.push("(result i32)".to_string());
+    instructions.push(get_local("$hmsb"));
+    instructions.push(extend_i32_u64());
+    instructions.push(set_constant_64("32"));
+    instructions.push(shl64());
+    instructions.push(get_local("$hlsb"));
+    instructions.push(extend_i32_u64());
+    instructions.push(or64());
+    instructions.push(call("$getInputSignalSizeAux"));
     instructions.push(")".to_string());
     instructions
 }
@@ -1584,6 +1668,9 @@ mod tests {
         code.append(&mut code_aux);
 
         code_aux = set_input_signal_generator(&producer);
+        code.append(&mut code_aux);
+
+        code_aux = get_input_signal_size_generator(&producer);
         code.append(&mut code_aux);
 
         code_aux = get_raw_prime_generator(&producer);
