@@ -14,9 +14,10 @@ typedef uint32_t u32;
 typedef uint8_t u8;
 
 //only for the main inputs
-struct __attribute__((__packed__)) HashSignalPair {
+struct __attribute__((__packed__)) HashSignalInfo {
     u64 hash;
     u64 signalid; 
+    u64 signalsize; 
 };
 
 struct IODef { 
@@ -32,7 +33,7 @@ struct IODefPair {
 
 struct Circom_Circuit {
   //  const char *P;
-  HashSignalPair* InputHashMap;
+  HashSignalInfo* InputHashMap;
   u64* witness2SignalList;
   FrElement* circuitConstants;  
   std::map<u32,IODefPair> templateInsId2IOSignalInfo;
@@ -70,13 +71,6 @@ PFrElements expaux[];
 PFrElements lvar[];
 
 */
-
-
-//HashSignalPair* InputHashMap; //256
-
-//u32 remainingInputSignalCounter;
-
-//bool* inputSignalSetMap; //M
 
 uint get_main_input_signal_start();
 uint get_main_input_signal_no();

@@ -8,7 +8,7 @@ pub fn wasm_hexa(nbytes: usize, num: &BigInt) -> String {
     let inbytes = num.to_str_radix(16).to_string();
     assert!(
         2 * nbytes >= inbytes.len(),
-        "the size of memory is beyond 32 bits addresses. This circuit cannot be run on WebAssembly"
+        "the size of memory needs addresses beyond 32 bits long. This circuit cannot be run on WebAssembly\n Try to run circom --c in order to generate c++ code instead"
     );
     let mut temp = "0".repeat(2 * nbytes - inbytes.len());
     temp.push_str(&inbytes);
