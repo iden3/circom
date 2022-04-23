@@ -38,8 +38,8 @@ Circom_Circuit* loadCircuit(std::string const &datFileName) {
     u8* bdata = (u8*)mmap(NULL, sb.st_size, PROT_READ , MAP_PRIVATE, fd, 0);
     close(fd);
 
-    circuit->InputHashMap = new HashSignalPair[get_size_of_input_hashmap()];
-    uint dsize = get_size_of_input_hashmap()*sizeof(HashSignalPair);
+    circuit->InputHashMap = new HashSignalInfo[get_size_of_input_hashmap()];
+    uint dsize = get_size_of_input_hashmap()*sizeof(HashSignalInfo);
     memcpy((void *)(circuit->InputHashMap), (void *)bdata, dsize);
 
     circuit->witness2SignalList = new u64[get_size_of_witness()];
@@ -131,13 +131,24 @@ void loadJson(Circom_CalcWit *ctx, std::string filename) {
     u64 h = fnv1a(it.key());
     std::vector<FrElement> v;
     json2FrElements(it.value(),v);
+    uint signalSize = ctx->getInputSignalSize(h);
+    if (v.size() < signalSize) {
+	std::ostringstream errStrStream;
+	errStrStream << "Error loading signal " << it.key() << ": Not enough values\n";
+	throw std::runtime_error(errStrStream.str() );
+    }
+    if (v.size() > signalSize) {
+	std::ostringstream errStrStream;
+	errStrStream << "Error loading signal " << it.key() << ": Too many values\n";
+	throw std::runtime_error(errStrStream.str() );
+    }
     for (uint i = 0; i<v.size(); i++){
       try {
 	// std::cout << it.key() << "," << i << " => " << Fr_element2str(&(v[i])) << '\n';
 	ctx->setInputSignal(h,i,v[i]);
       } catch (std::runtime_error e) {
 	std::ostringstream errStrStream;
-	errStrStream << "Error loading variable: " << it.key() << "\n" << e.what();
+	errStrStream << "Error setting signal: " << it.key() << "\n" << e.what();
 	throw std::runtime_error(errStrStream.str() );
       }
     }

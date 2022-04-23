@@ -47,29 +47,37 @@ Circom_CalcWit::~Circom_CalcWit() {
   // ...
 }
 
-void Circom_CalcWit::setInputSignal(u64 h, uint i,  FrElement & val){
-  if (inputSignalAssignedCounter == 0) {
-    fprintf(stderr, "No more signals to be assigned\n");
-    assert(false);
-  }
+uint Circom_CalcWit::getInputSignalHashPosition(u64 h) {
   uint n = get_size_of_input_hashmap();
   uint pos = (uint)(h % (u64)n);
   if (circuit->InputHashMap[pos].hash!=h){
     uint inipos = pos;
     pos++;
     while (pos != inipos) {
-      if (circuit->InputHashMap[pos].hash==h) break;
+      if (circuit->InputHashMap[pos].hash==h) return pos;
       if (circuit->InputHashMap[pos].hash==0) {
-	fprintf(stderr, "Signals not found\n");
+	fprintf(stderr, "Signal not found\n");
 	assert(false);
       }
       pos = (pos+1)%n; 
     }
-    if (pos == inipos) {
-      fprintf(stderr, "Signals not found\n");
-      assert(false);
-    }
+    fprintf(stderr, "Signals not found\n");
+    assert(false);
   }
+  return pos;
+}
+
+void Circom_CalcWit::setInputSignal(u64 h, uint i,  FrElement & val){
+  if (inputSignalAssignedCounter == 0) {
+    fprintf(stderr, "No more signals to be assigned\n");
+    assert(false);
+  }
+  uint pos = getInputSignalHashPosition(h);
+  if (i >= circuit->InputHashMap[pos].signalsize) {
+    fprintf(stderr, "Input signal array access exceeds the size\n");
+    assert(false);
+  }
+  
   uint si = circuit->InputHashMap[pos].signalid+i;
   if (inputSignalAssigned[si-get_main_input_signal_start()]) {
     fprintf(stderr, "Signal assigned twice: %d\n", si);
@@ -81,6 +89,11 @@ void Circom_CalcWit::setInputSignal(u64 h, uint i,  FrElement & val){
   if (inputSignalAssignedCounter == 0) {
     run(this);
   }
+}
+
+u64 Circom_CalcWit::getInputSignalSize(u64 h) {
+  uint pos = getInputSignalHashPosition(h);
+  return circuit->InputHashMap[pos].signalsize;
 }
 
 std::string Circom_CalcWit::getTrace(u64 id_cmp){

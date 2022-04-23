@@ -14,7 +14,7 @@ const T_FR_ELEMENT: &str = "FrElement";
 
 // Structs
 const S_CIRCOM_HASH_ENTRY: &str = "Circom_HashEntry";
-const CIRCOM_HASH_ENTRY_FIELDS: [&str; 2] = ["hash", "signalid"];
+const CIRCOM_HASH_ENTRY_FIELDS: [&str; 3] = ["hash", "signalid", "signalsize"];
 const S_CIRCOM_COMPONENT: &str = "Circom_Component";
 const CIRCOM_COMPONENT_FIELDS: [&str; 4] =
     ["templateID", "signalStart", "inputCounter", "subcomponents"];
@@ -23,7 +23,7 @@ const IO_DEF_FIELDS: [&str; 2] = ["offset", "lengths"];
 
 // Global variables
 pub const SIZE_INPUT_HASHMAP: usize = 256;
-const G_INPUT_HASHMAP: &str = "inputHashMap"; // type HashSignalPair[256]
+const G_INPUT_HASHMAP: &str = "inputHashMap"; // type HashSignalInfo[256]
 const G_RM_INPUT_SIGNAL_COUNTER: &str = "remainingInputSignalCounter"; // type u32
 const G_INPUT_SIGNAL_SET: &str = "inputSignalSetMap"; // type bool[M]
 const G_WITNESS_TO_SIGNAL: &str = "witness2signalList"; // type u64[W]
@@ -428,25 +428,28 @@ pub fn collect_function_headers(functions: Vec<String>) -> Vec<String> {
 
 //--------------- generate all kinds of Data for the .dat file ---------------
 
-pub fn generate_hash_map(signal_name_list: &Vec<(String, usize)>) -> Vec<(u64, u64)> {
+pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>) -> Vec<(u64, u64, u64)> {
     assert!(signal_name_list.len() <= 256);
     let len = 256;
-    let mut hash_map = vec![(0, 0); len];
+    let mut hash_map = vec![(0, 0, 0); len];
     for i in 0..signal_name_list.len() {
         let h = hasher(&signal_name_list[i].0);
         let mut p = (h % 256) as usize;
         while hash_map[p].1 != 0 {
             p = (p + 1) % 256;
         }
-        hash_map[p] = (h, signal_name_list[i].1 as u64);
+        hash_map[p] = (h, signal_name_list[i].1 as u64, signal_name_list[i].2 as u64);
     }
     hash_map
 }
 
-pub fn generate_dat_from_hash_map(map: &Vec<(u64, u64)>) -> Vec<u8> {
+pub fn generate_dat_from_hash_map(map: &Vec<(u64, u64, u64)>) -> Vec<u8> {
     let mut hash_map_data = vec![];
-    for (h, s) in map {
+    for (h, p, s) in map {
         let mut v: Vec<u8> = h.to_be_bytes().to_vec();
+        v.reverse();
+        hash_map_data.append(&mut v);
+        v = p.to_be_bytes().to_vec();
         v.reverse();
         hash_map_data.append(&mut v);
         v = s.to_be_bytes().to_vec();
@@ -608,8 +611,8 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     //dfile.write_all(&p)?;
     //dfile.flush()?;
 
-    let aux_removing_third: Vec<(String, usize)> = producer.get_main_input_list().iter().map(|(x, y , _z)| (x.clone(), *y)).collect();
-    let map = generate_hash_map(&aux_removing_third);
+    let aux = producer.get_main_input_list();
+    let map = generate_hash_map(&aux);
     let hashmap = generate_dat_from_hash_map(&map); //bytes u64 --> u64
                                                     //let hml = 256 as u32;
                                                     //dfile.write_all(&hml.to_be_bytes())?;
