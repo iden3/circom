@@ -147,9 +147,33 @@ ComplexSymbol : Symbol = {
     },
 };
 
+SignalConstraintSymbol : Symbol = {
+    <name:IDENTIFIER> <dims:ParseArrayAcc*> "<==" <rhe: ParseExpression>
+    => Symbol {
+        name,
+        is_array: dims,
+        init: Option::Some(rhe),
+    },
+};
+
+SignalSimpleSymbol : Symbol = {
+    <name:IDENTIFIER> <dims:ParseArrayAcc*> "<--" <rhe: ParseExpression>
+    => Symbol {
+        name,
+        is_array: dims,
+        init: Option::Some(rhe),
+    },
+};
+
+
 SomeSymbol : Symbol = {
     ComplexSymbol,
     SimpleSymbol,
+}
+
+SignalSymbol : Symbol = {
+    SimpleSymbol,
+    SignalConstraintSymbol,
 }
 
 // A declaration is the definition of a type followed by the initialization
@@ -160,21 +184,28 @@ ParseDeclaration : Statement = {
             let meta = Meta::new(s,e);
             let xtype = VariableType::Var;
             symbols.push(symbol);
-            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols)
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
     },
     <s:@L> "component" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
             let xtype = VariableType::Component;
             symbols.push(symbol);
-            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols)
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
     },
-    <s:@L><xtype: SignalHeader> <symbols:(<SimpleSymbol> ",")*> <symbol: SimpleSymbol>  <e:@R>
+    <s:@L><xtype: SignalHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol>  <e:@R>
     => {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
             symbols.push(symbol);
-            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols)
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignConstraintSignal)
+    },
+    <s:@L><xtype: SignalHeader> <symbols:(<SignalSimpleSymbol> ",")*> <symbol: SignalSimpleSymbol>  <e:@R>
+    => {
+            let mut symbols = symbols;
+            let meta = Meta::new(s,e);
+            symbols.push(symbol);
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignSignal)
     },
 };
 ParseSubstitution : Statement = {
