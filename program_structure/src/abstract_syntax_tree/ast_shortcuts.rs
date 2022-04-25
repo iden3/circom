@@ -49,6 +49,7 @@ pub fn split_declaration_into_single_nodes(
     meta: Meta,
     xtype: VariableType,
     symbols: Vec<Symbol>,
+    op: AssignOp,
 ) -> Statement {
     let mut initializations = Vec::new();
 
@@ -60,10 +61,9 @@ pub fn split_declaration_into_single_nodes(
         let possible_init = symbol.init;
         let single_declaration = build_declaration(with_meta, has_type, name, dimensions);
         initializations.push(single_declaration);
-
         if let Option::Some(init) = possible_init {
             let substitution =
-                build_substitution(meta.clone(), symbol.name, vec![], AssignOp::AssignVar, init);
+                build_substitution(meta.clone(), symbol.name, vec![], op, init);
             initializations.push(substitution);
         }
     }
