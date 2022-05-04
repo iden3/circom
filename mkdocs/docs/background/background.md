@@ -61,7 +61,12 @@ If we have an arithmetic circuit with signals `s_1,...,s_n`, then we define a **
 
 Note that constraint **must be quadratic, linear or constant equations**, and sometimes, by doing small modifications \(like a change of variable or gathering two constraints\), it is possible to reduce the number of constraints or variables. In general, circuits will have several constraints \(typically, one per multiplicative gate\). The set of constraints describing the circuit is called **rank-1 constraint system** \(R1CS\):
 
-`(a_11*s_1 + ... + a_1n*s_n)*(b_11*s_1 + ... + b_1n*s_n) + (c_11*s_1 + ... + c_1n*s_n) = 0 (a_21*s_1 + ... + a_2n*s_n)*(b_21*s_1 + ... + b_2n*s_n) + (c_21*s_1 + ... + c_1n*s_n) = 0 (a_31*s_1 + ... + a_3n*s_n)*(b_31*s_1 + ... + b_3n*s_n) + (c_31*s_1 + ... + c_1n*s_n) = 0 ... (a_n1*s_1 + ... + a_nm*s_n)*(b_n1*s_1 + ... + b_nm*s_n) + (c_n1*s_1 + ... + c_nm*s_n) = 0`
+`(a_11*s_1 + ... + a_1n*s_n)*(b_11*s_1 + ... + b_1n*s_n) + (c_11*s_1 + ... + c_1n*s_n) = 0 
+(a_21*s_1 + ... + a_2n*s_n)*(b_21*s_1 + ... + b_2n*s_n) + (c_21*s_1 + ... + c_1n*s_n) = 0 
+(a_31*s_1 + ... + a_3n*s_n)*(b_31*s_1 + ... + b_3n*s_n) + (c_31*s_1 + ... + c_1n*s_n) = 0 
+... 
+...
+(a_n1*s_1 + ... + a_nm*s_n)*(b_n1*s_1 + ... + b_nm*s_n) + (c_n1*s_1 + ... + c_nm*s_n) = 0`
 
 Remember that operations inside the circuit are performed modulo a certain prime `p`. So, all equations above are defined `modulo p`.
 
@@ -92,5 +97,5 @@ An assignment of the signals is called a **witness**. For example, `{a = 2, b = 
 
 ## Summary <a id="summary"></a>
 
-​**In summary, zk-SNARK proofs are an specific type of zero-knowledge proofs that allow you to prove that you know a a set of signals \(witness\) that match all the constraints of a circuit without revealing any of the signals except the public inputs and the outputs.**
+​**In summary, zk-SNARK proofs are an specific type of zero-knowledge proofs that allow you to prove that you know a set of signals \(witness\) that match all the constraints of a circuit without revealing any of the signals except the public inputs and the outputs.**
 
