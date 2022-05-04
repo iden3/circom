@@ -56,7 +56,7 @@ test directory it includes its own tests. In the tools directory it includes pro
 
 ## circom_tester
 
-The `circomtester` is a npm package that provides tools for testing `circom` circtuits.
+The `circomtester` is a npm package that provides tools for testing `circom` circuits.
 
 ## ffjavascript
 
