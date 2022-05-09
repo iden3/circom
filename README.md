@@ -15,7 +15,7 @@
 
 [Circom](https://iden3.io/circom) is a novel domain-specific language for defining arithmetic circuits that can be used to generate zero-knowledge proofs. `Circom compiler` is a circom language compiler written in Rust that can be used to generate a R1CS file with a set of associated constraints and a program (written either in C++ or WebAssembly) to efficiently compute a valid assignment to all wires of the circuit. One of the main particularities of `circom` is its modularity that allows the programmers to define parameterizable circuits called templates, which can be instantiated to form larger circuits. The idea of building circuits from small individual components makes it easier to test, review, audit, or formally verify large and complex `circom` circuits. In this regard, `circom` users can create their own custom templates or instantiate templates from [circomLib](https://github.com/iden3/circomlib), a publicly available library that counts with hundreds of circuits such as comparators, hash functions, digital signatures, binary and decimal converters, and many more. Circomlib is publicly available to practitioners and developers.
 
-The implementations of proving systems are also available in our libraries including [SnarkJS](https://github.com/iden3/snarkjs), written in Javascript and Pure Web Assembly, [wasmsnark](https://github.com/iden3/wasmsnark) written in native Web Assembly, [rapidSnark](https://github.com/iden3/rapidsnark) written in C++ and Intel Assembly.
+The implementations of proving systems are also available in our libraries including [snarkjs](https://github.com/iden3/snarkjs), written in Javascript and Pure Web Assembly, [wasmsnark](https://github.com/iden3/wasmsnark) written in native Web Assembly, [rapidSnark](https://github.com/iden3/rapidsnark) written in C++ and Intel Assembly.
 
 Circom aims to provide developers a holistic framework to construct arithmetic circuits through an easy-to-use interface and abstracting the complexity of the proving mechanisms.
 
@@ -36,7 +36,7 @@ Refer to [Installation section](Installing the circom ecosystem)
 The previous `circom 1` compiler written in Javascript is deprecated, but [circom 1 repository](https://github.com/iden3/circom_old) is still available
 
 # Community
-Thank you for considering contributing to the circom & SnarkJS framework!
+Thank you for considering contributing to the circom & snarkjs framework!
 
 As the `circom` and `snarkjs` community grows new tools, circuits, or projects have appeared. Here we link some of them:
 
