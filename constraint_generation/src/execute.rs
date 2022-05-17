@@ -16,7 +16,7 @@ use super::{
     UsefulConstants,
 };
 use circom_algebra::num_bigint::BigInt;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 type AExpr = ArithmeticExpressionGen<String>;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -986,7 +986,7 @@ fn execute_template_call(
     let is_parallel = program_archive.get_template_data(id).is_parallel();
     let args_names = program_archive.get_template_data(id).get_name_of_params();
     let template_body = program_archive.get_template_data(id).get_body_as_vec();
-    let mut args_to_values = HashMap::new();
+    let mut args_to_values = BTreeMap::new();
     debug_assert_eq!(args_names.len(), parameter_values.len());
     let mut instantiation_name = format!("{}(", id);
     for (name, value) in args_names.iter().zip(parameter_values) {
