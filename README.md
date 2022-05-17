@@ -29,7 +29,7 @@ Basic background on Zero-knowledge proofs can be found on [Background section](h
 
 # Install
 
-Refer to [Installation section](Installing the circom ecosystem)
+Refer to [Installation section](https://docs.circom.io/getting-started/installation/)
 
 ## :warning: Deprecation note
 
