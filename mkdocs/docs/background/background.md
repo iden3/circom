@@ -71,7 +71,7 @@ Note that constraint **must be quadratic, linear or constant equations**, and so
 
 `...`
 
-`(a_n1*s_1 + ... + a_nm*s_n)*(b_n1*s_1 + ... + b_nm*s_n) + (c_n1*s_1 + ... + c_nm*s_n) = 0`
+`(a_m1*s_1 + ... + a_mn*s_n)*(b_m1*s_1 + ... + b_mn*s_n) + (c_m1*s_1 + ... + c_mn*s_n) = 0`
 
 Remember that operations inside the circuit are performed modulo a certain prime `p`. So, all equations above are defined `modulo p`.
 
