@@ -10,6 +10,7 @@
 -	Single signal declaration with initialization added for both <== and <--.
 -	Input signal size check added in wasm/JS and C++ generated code.
 -	Recommendation of using C++ when the memory needed is beyond WebAssembly limit added.
+-	Making deterministic the R1CS file: constraints will be always written in the R1CS file in the same order. 
 
 #### Fixed Bugs
 -	Bug in C++ error trace management for asserts in functions.
