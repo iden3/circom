@@ -52,8 +52,7 @@ pub fn run_parser(file: String, version: &str) -> Result<(ProgramArchive, Report
     } else if main_components.len() > 1 {
         let report = errors::MultipleMainError::produce_report();
         Err((file_library, vec![report]))
-    }
-    else{
+    } else {
         let (main_id, main_component) = main_components.pop().unwrap();
         let result_program_archive = 
             ProgramArchive::new(file_library, main_id, main_component, definitions);
