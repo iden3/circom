@@ -421,7 +421,7 @@ impl CustomGatesAppliedSection {
             self.writer.flush().map_err(|_err| {})?;
 
             for signal in custom_gate_signals {
-                let (signal_stream, signal_size) = bigint_as_bytes(&BigInt::from(signal), 4);
+                let (signal_stream, signal_size) = bigint_as_bytes(&BigInt::from(signal), 8);
                 self.size += signal_size;
                 self.writer.write(&signal_stream).map_err(|_err| {})?;
                 self.writer.flush().map_err(|_err| {})?;
