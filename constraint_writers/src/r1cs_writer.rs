@@ -371,7 +371,7 @@ impl CustomGatesUsedSection {
             self.writer.flush().map_err(|_err| {})?;
 
             for parameter in custom_gate_parameters {
-                let (parameter_stream, parameter_size) = bigint_as_bytes(&parameter, 32);
+                let (parameter_stream, parameter_size) = bigint_as_bytes(&parameter, self.field_size);
                 self.size += parameter_size;
                 self.writer.write(&parameter_stream).map_err(|_err| {})?;
                 self.writer.flush().map_err(|_err| {})?;
