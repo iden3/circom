@@ -13,9 +13,7 @@ fn produce_tree_witness(tree: &Tree, witness: &mut Vec<usize>) {
         Vec::push(witness, *signal);
     }
     for edge in Tree::get_edges(tree) {
-        if !tree.dag.nodes[edge.get_goes_to()].is_custom_gate {
-            let subtree = Tree::go_to_subtree(tree, edge);
-            produce_tree_witness(&subtree, witness);
-        }
+        let subtree = Tree::go_to_subtree(tree, edge);
+        produce_tree_witness(&subtree, witness);
     }
 }
