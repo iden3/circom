@@ -59,7 +59,10 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
 
     let mut custom_gates_applied_section = R1CSWriter::start_custom_gates_applied_section(r1cs)?;
     let application_data = {
-        fn find_indexes(occurring_order: Vec<String>, application_data: Vec<(String, Vec<usize>)>) -> CustomGatesAppliedData {
+        fn find_indexes(
+            occurring_order: Vec<String>,
+            application_data: Vec<(String, Vec<usize>)>
+        ) -> CustomGatesAppliedData {
             let mut application_data_mut = vec![];
             for (custom_gate_name, constraints) in application_data {
                 let mut index = 0;
@@ -71,13 +74,17 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
             application_data_mut
         }
 
-        fn traverse_tree(dag: &DAG, tree: &Tree, application_data: &mut Vec<(String, Vec<usize>)>) {
+        fn traverse_tree(
+            dag: &DAG,
+            tree: &Tree,
+            application_data: &mut Vec<(String, Vec<usize>)>
+        ) {
             let mut index = 0;
             for edge in Tree::get_edges(tree) {
                 let node = &dag.nodes[edge.get_goes_to()];
-                let possible_custom_gate_constraints = tree.custom_gates_constraints[index].clone();
+                let custom_gate_constraints = tree.custom_gates_constraints[index].clone();
                 if node.is_custom_gate() {
-                    if let Some(constraints) = possible_custom_gate_constraints {
+                    if let Some(constraints) = custom_gate_constraints {
                         application_data.push((node.template_name.clone(), constraints));
                     } else {
                         unreachable!();
