@@ -41,27 +41,29 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
     let r1cs = signal_section.end_section()?;
 
     let mut custom_gates_used_section = R1CSWriter::start_custom_gates_used_section(r1cs)?;
-    let usage_data = {
-        let mut usage_data_mut = vec![];
+    let (usage_data, occurring_order) = {
+        let mut usage_data = vec![];
+        let mut occurring_order = vec![];
         for node in &dag.nodes {
             if node.is_custom_gate() {
                 let mut name = node.template_name.clone();
+                occurring_order.push(name.clone());
                 while name.pop() != Some('(') {};
-                usage_data_mut.push((name, node.parameter_instances().clone()));
+                usage_data.push((name, node.parameter_instances().clone()));
             }
         }
-        usage_data_mut
+        (usage_data, occurring_order)
     };
     custom_gates_used_section.write_custom_gates_usages(usage_data)?;
     let r1cs = custom_gates_used_section.end_section()?;
 
     let mut custom_gates_applied_section = R1CSWriter::start_custom_gates_applied_section(r1cs)?;
     let application_data = {
-        fn find_indexes(dag: &DAG, application_data: Vec<(String, Vec<usize>)>) -> CustomGatesAppliedData {
+        fn find_indexes(occurring_order: Vec<String>, application_data: Vec<(String, Vec<usize>)>) -> CustomGatesAppliedData {
             let mut application_data_mut = vec![];
             for (custom_gate_name, constraints) in application_data {
                 let mut index = 0;
-                while dag.nodes[index].template_name != custom_gate_name {
+                while occurring_order[index] != custom_gate_name {
                     index += 1;
                 }
                 application_data_mut.push((index, constraints));
@@ -86,9 +88,9 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
                 index += 1;
             }
         }
-        let mut application_data_mut = vec![];
-        traverse_tree(dag, &tree, &mut application_data_mut);
-        find_indexes(dag, application_data_mut)
+        let mut application_data = vec![];
+        traverse_tree(dag, &tree, &mut application_data);
+        find_indexes(occurring_order, application_data)
     };
     custom_gates_applied_section.write_custom_gates_applications(application_data)?;
     let _r1cs = custom_gates_applied_section.end_section();
