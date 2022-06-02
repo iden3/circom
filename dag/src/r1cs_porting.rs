@@ -9,7 +9,7 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
     let r1cs = R1CSWriter::new(output.to_string(), field_size)?;
 
     let mut constraint_section = R1CSWriter::start_constraints_section(r1cs)?;
-    let wires = write_constraint_section(&mut constraint_section, &mut log, &tree)?;
+    let wires = write_constraint_section(&mut constraint_section, &mut log, &tree)? + 1; // adding 1 to include the signal used to represent value 1 in the field (signal one)
     let labels = wires;
     let constraint_counter = constraint_section.constraints_written();
     let r1cs = constraint_section.end_section()?;
