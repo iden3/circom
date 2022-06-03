@@ -74,11 +74,8 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
             application_data_mut
         }
 
-        fn traverse_tree(
-            dag: &DAG,
-            tree: &Tree,
-            application_data: &mut Vec<(String, Vec<usize>)>
-        ) {
+        fn traverse_tree(tree: &Tree, application_data: &mut Vec<(String, Vec<usize>)>) {
+            let dag = tree.dag;
             let mut index = 0;
             for edge in Tree::get_edges(tree) {
                 let node = &dag.nodes[edge.get_goes_to()];
@@ -90,13 +87,13 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
                         unreachable!();
                     }
                 } else {
-                    traverse_tree(dag, &Tree::go_to_subtree(tree, edge), application_data);
+                    traverse_tree(&Tree::go_to_subtree(tree, edge), application_data);
                 }
                 index += 1;
             }
         }
         let mut application_data = vec![];
-        traverse_tree(dag, &tree, &mut application_data);
+        traverse_tree(&tree, &mut application_data);
         find_indexes(occurring_order, application_data)
     };
     custom_gates_applied_section.write_custom_gates_applications(application_data)?;
