@@ -148,12 +148,20 @@ fn build_function_instances(
 fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool) -> WASMProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
-    let prime = UsefulConstants::new().get_p().clone();
+    let prime = UsefulConstants::new(&vcp.prime).get_p().clone();
     let mut producer = WASMProducer::default();
     let stats = vcp.get_stats();
     producer.main_header = vcp.get_main_instance().unwrap().template_header.clone();
     producer.main_signal_offset = 1;
     producer.prime = prime.to_str_radix(10);
+    producer.prime_str = vcp.prime.clone();
+    producer.fr_memory_size = match vcp.prime.as_str(){
+        "goldilocks" => 412,
+        "bn128" => 1948,
+        "bls12381" => 1948,
+        _ => unreachable!()
+    };
+    //producer.fr_memory_size = 412 if goldilocks and 1948 for bn128 and bls12381
     // for each created component we store three u32, for each son we store a u32 in its father
     producer.size_of_component_tree = stats.all_created_components * 3 + stats.all_needed_subcomponents_indexes;
     producer.total_number_of_signals = stats.all_signals + 1;
@@ -181,12 +189,13 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool) -> 
 fn initialize_c_producer(vcp: &VCP, database: &TemplateDB) -> CProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
-    let prime = UsefulConstants::new().get_p().clone();
+    let prime = UsefulConstants::new(&vcp.prime).get_p().clone();
     let mut producer = CProducer::default();
     let stats = vcp.get_stats();
     producer.main_header = vcp.get_main_instance().unwrap().template_header.clone();
     producer.main_signal_offset = 1;
     producer.prime = prime.to_str_radix(10);
+    producer.prime_str = vcp.prime.clone();
     producer.size_of_component_tree = stats.all_created_components * 3 + stats.all_needed_subcomponents_indexes;
     producer.total_number_of_signals = stats.all_signals + 1;
     producer.size_32_bit = prime.bits() / 32 + if prime.bits() % 32 != 0 { 1 } else { 0 };
