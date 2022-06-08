@@ -25,5 +25,4 @@ jobs:
       with:
         name: circom
         path: |
-          ${{ steps.compile.outputs.BUILT_ARCHIVE }}
-          ${{ steps.compile.outputs.BUILT_CHECKSUM }}
+          target/release/circom
