@@ -3794,7 +3794,7 @@
     get_local $pA
     get_local $pA
     i64.load offset=8
-    i64.const 0
+    i64.const 18446744073709551615
     i64.and
     i64.store offset=8
     get_local $pA
