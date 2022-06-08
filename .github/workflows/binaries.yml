@@ -25,5 +25,5 @@ jobs:
       with:
         name: circom
         path: |
-          mkdocs/docs/binaries/ubuntu/${{ steps.compile.outputs.BUILT_ARCHIVE }}
-          mkdocs/docs/binaries/ubuntu/${{ steps.compile.outputs.BUILT_CHECKSUM }}
+          ${{ steps.compile.outputs.BUILT_ARCHIVE }}
+          ${{ steps.compile.outputs.BUILT_CHECKSUM }}
