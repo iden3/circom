@@ -23,7 +23,7 @@ jobs:
       run: cargo test --verbose
       
     - name: Tar files
-      run: tar -cvf circom.tar  /home/runner/work/circom/circom/target/release/
+      run: tar -cvf circom.tar  -C /home/runner/work/circom/circom/target/release circom
 
     - name: Upload binary
       uses: actions/upload-artifact@v3
