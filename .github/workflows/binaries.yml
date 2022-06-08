@@ -2,7 +2,7 @@ name: release circom binaries
 
 on:
   push:
-    branches: [ "master", "add_build_release_github_action" ]
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
 
@@ -27,8 +27,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./mkdocs/docs/binaries/circom-linux.zip
+        upload_url: mkdocs/docs/binaries/
+        asset_path: ./circom-linux.zip
         asset_name: circom-linux.zip
         asset_content_type: application/zip
 
