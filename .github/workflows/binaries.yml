@@ -18,11 +18,16 @@ jobs:
     - name: Compile
       id: compile
       run: cargo build --verbose --release
+
     - name: Run tests
       run: cargo test --verbose
+      
+    - name: Tar files
+      run: tar -cvf circom.tar  /home/runner/work/circom/circom/target/release/
+
     - name: Upload binary
       uses: actions/upload-artifact@v3
       with:
         name: circom
         path: |
-          /home/runner/work/circom/circom/target/release/circom
+          circom.tar
