@@ -2,7 +2,7 @@ name: release circom binaries
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "add_build_release_github_action" ]
   pull_request:
     branches: [ "master" ]
 
