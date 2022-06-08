@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-ubuntu:
+  build-linux:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,12 +22,12 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
       
-    - name: Tar files
-      run: tar -cvf circom.tar  /home/runner/work/circom/circom/target/release/
+    - name: Zip files
+      run: zip -r circom-linux /home/runner/work/circom/circom/target/release/circom
 
     - name: Upload binary
       uses: actions/upload-artifact@v3
       with:
-        name: circom
+        name: circom-linux
         path: |
-          circom.tar
+          circom-linux.zip
