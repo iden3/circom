@@ -18,6 +18,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: download artifacts
+      id: download_artifacts
       uses: actions/download-artifact@v3
       with:
         name: uploads    
@@ -27,8 +28,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: https://github.com/iden3/circom/tree/master/mkdocs/docs/binaries/
-        asset_path: ./circom-linux.zip
+        upload_url: ${{ steps.download_artifacts.outputs.upload_url }}
+        asset_path: ./mkdocs/docs/binaries/circom-linux.zip
         asset_name: circom-linux.zip
         asset_content_type: application/zip
 
