@@ -40,9 +40,6 @@ jobs:
     - name: Compile
       id: compile
       run: cargo build --verbose --release
-
-    - name: Run tests
-      run: cargo test --verbose
       
     - name: Zip files
       run: zip -r circom-linux /home/runner/work/circom/circom/target/release/circom
