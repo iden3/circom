@@ -21,7 +21,9 @@ pub struct ExecutedTemplate {
     pub report_name: String,
     pub inputs: SignalCollector,
     pub outputs: SignalCollector,
+    pub ordered_signals: Vec<String>,
     pub constraints: Vec<Constraint>,
+    pub custom_gate_constraints: HashMap<String, HashMap<String, String>>,
     pub intermediates: SignalCollector,
     pub components: ComponentCollector,
     pub number_of_components: usize,
@@ -29,6 +31,7 @@ pub struct ExecutedTemplate {
     pub parameter_instances: ParameterContext,
     pub is_parallel: bool,
     pub has_parallel_sub_cmp: bool,
+    pub is_custom_gate: bool,
     connexions: Vec<Connexion>,
 }
 
@@ -40,6 +43,7 @@ impl ExecutedTemplate {
         instance: ParameterContext,
         code: Statement,
         is_parallel: bool,
+        is_custom_gate: bool,
     ) -> ExecutedTemplate {
         let public_inputs: HashSet<_> = public.iter().cloned().collect();
         ExecutedTemplate {
@@ -47,15 +51,18 @@ impl ExecutedTemplate {
             public_inputs,
             is_parallel,
             has_parallel_sub_cmp: false,
+            is_custom_gate,
             code: code.clone(),
             template_name: name,
             parameter_instances: instance,
             inputs: SignalCollector::new(),
             outputs: SignalCollector::new(),
             intermediates: SignalCollector::new(),
+            ordered_signals: Vec::new(),
             components: ComponentCollector::new(),
             number_of_components: 0,
             constraints: Vec::new(),
+            custom_gate_constraints: HashMap::new(),
             connexions: Vec::new(),
         }
     }
@@ -82,6 +89,27 @@ impl ExecutedTemplate {
         self.intermediates.push((intermediate_name.to_string(), dimensions.to_vec()));
     }
 
+    pub fn add_ordered_signal(&mut self, signal_name: &str, dimensions: &[usize]) {
+        fn generate_symbols(name: String, current: usize, dimensions: &[usize]) -> Vec<String> {
+            let symbol_name = name.clone();
+            if current == dimensions.len() {
+                vec![name]
+            } else {
+                let mut generated_symbols = vec![];
+                let mut index = 0;
+                while index < dimensions[current] {
+                    let new_name = format!("{}[{}]", symbol_name, index);
+                    generated_symbols.append(&mut generate_symbols(new_name, current + 1, dimensions));
+                    index += 1;
+                }
+                generated_symbols
+            }
+        }
+        for signal in generate_symbols(signal_name.to_string(), 0, dimensions) {
+            self.ordered_signals.push(signal);
+        }
+    }
+
     pub fn add_component(&mut self, component_name: &str, dimensions: &[usize]) {
         self.components.push((component_name.to_string(), dimensions.to_vec()));
         self.number_of_components += dimensions.iter().fold(1, |p, c| p * (*c));
@@ -89,6 +117,10 @@ impl ExecutedTemplate {
 
     pub fn add_constraint(&mut self, constraint: Constraint) {
         self.constraints.push(constraint);
+    }
+
+    pub fn treat_custom_gate_constraint(&mut self, custom_gate: String, left: String, right: String) {
+        self.custom_gate_constraints.entry(custom_gate).or_insert(HashMap::new()).insert(left, right);
     }
 
     pub fn template_name(&self) -> &String {
@@ -112,10 +144,27 @@ impl ExecutedTemplate {
     }
 
     pub fn insert_in_dag(&mut self, dag: &mut DAG) {
-        dag.add_node(self.report_name.clone(), self.is_parallel);
+        let parameter_instances = {
+            let mut parameters = vec![];
+            for (_, data) in self.parameter_instances.clone() {
+                let (_, values) = data.destruct();
+                for value in as_big_int(values) {
+                    parameters.push(value);
+                }
+            }
+            parameters
+        };
+        dag.add_node(
+            self.report_name.clone(),
+            parameter_instances,
+            self.ordered_signals.clone(),
+            self.is_parallel,
+            self.is_custom_gate
+        );
         self.build_signals(dag);
         self.build_connexions(dag);
         self.build_constraints(dag);
+        self.build_custom_gates_constraints(dag);
     }
 
     fn build_signals(&self, dag: &mut DAG) {
@@ -144,6 +193,7 @@ impl ExecutedTemplate {
             generate_symbols(dag, state, &config);
         }
     }
+
     fn build_connexions(&mut self, dag: &mut DAG) {
         self.connexions.sort_by(|l, r| {
             use std::cmp::Ordering;
@@ -168,6 +218,7 @@ impl ExecutedTemplate {
         self.has_parallel_sub_cmp = dag.nodes[dag.main_id()].has_parallel_sub_cmp();
         dag.set_number_of_subcomponents_indexes(self.number_of_components);
     }
+
     fn build_constraints(&self, dag: &mut DAG) {
         for c in &self.constraints {
             let correspondence = dag.get_main().unwrap().correspondence();
@@ -175,6 +226,24 @@ impl ExecutedTemplate {
             dag.add_constraint(cc);
         }
     }
+
+    fn build_custom_gates_constraints(&self, dag: &mut DAG) {
+        for cnn in &self.connexions {
+            let constraint = if let Some(custom_gate_constraints) = self.custom_gate_constraints.get(&cnn.full_name) {
+                let mut signal_correspondence = vec![];
+                for signal in dag.nodes[cnn.inspect.goes_to].ordered_signals() {
+                    let signal_name = format!("{}.{}", cnn.full_name, signal);
+                    let correspondence = custom_gate_constraints.get(&signal_name).unwrap();
+                    signal_correspondence.push(*dag.nodes[dag.main_id()].correspondence().get(correspondence).unwrap());
+                }
+                Some(signal_correspondence)
+            } else {
+                None
+            };
+            dag.add_custom_gate_constraint(constraint);
+        }
+    }
+
     pub fn export_to_circuit(self, instances: &[TemplateInstance]) -> TemplateInstance {
         use SignalType::*;
         fn build_triggers(

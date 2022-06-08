@@ -517,7 +517,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         relevant
     };
 
-    let linear_substitutions = if apply_linear {
+    let linear_substitutions = if remove_unused {
         let now = SystemTime::now();
         let (subs, mut cons) = linear_simplification(
             &mut substitution_log,
@@ -563,7 +563,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         crate::state_utils::empty_encoding_constraints(&mut smp.dag_encoding);
         let _dur = now.elapsed().unwrap().as_millis();
         // println!("Storages built in {} ms", dur);
-        no_rounds -= 1;
+        if remove_unused { no_rounds -= 1; }
         (with_linear, storage)
     };
 
@@ -571,7 +571,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     let _ = round_id;
     let mut linear = with_linear;
     let mut apply_round = apply_linear && no_rounds > 0 && !linear.is_empty();
-    let mut non_linear_map = if apply_round || remove_unused{
+    let mut non_linear_map = if apply_round || remove_unused {
         // println!("Building non-linear map");
         let now = SystemTime::now();
         let non_linear_map = build_non_linear_signal_map(&constraint_storage);
@@ -615,7 +615,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     }
 
     for constraint in linear {
-        if remove_unused{
+        if remove_unused {
             let signals =  C::take_cloned_signals(&constraint);
             let c_id = constraint_storage.add_constraint(constraint);
             for signal in signals {
@@ -627,14 +627,13 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
                     non_linear_map.insert(signal, new);
                 }
             }
-        }
-        else{
+        } else {
             constraint_storage.add_constraint(constraint);
         }
     }
     for constraint in lconst {
-        if remove_unused{
-            let signals =  C::take_cloned_signals(&constraint);
+        if remove_unused {
+            let signals = C::take_cloned_signals(&constraint);
             let c_id = constraint_storage.add_constraint(constraint);
             for signal in signals {
                 if let Some(list) = non_linear_map.get_mut(&signal) {
@@ -645,8 +644,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
                     non_linear_map.insert(signal, new);
                 }
             }
-        }
-        else{
+        } else {
             constraint_storage.add_constraint(constraint);
         }
     }
