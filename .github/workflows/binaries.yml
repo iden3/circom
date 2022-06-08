@@ -14,9 +14,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --verbose
+    - uses: actions/checkout@master
     - name: Run tests
       run: cargo test --verbose
-
+    - name: Compile
+      id: compile
+      run: cargo build --verbose
+    - name: Upload binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: circom
+        path: |
+          mkdocs/docs/binaries/ubuntu/${{ steps.compile.outputs.BUILT_ARCHIVE }}
+          mkdocs/docs/binaries/ubuntu/${{ steps.compile.outputs.BUILT_CHECKSUM }}
