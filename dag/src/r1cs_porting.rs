@@ -92,12 +92,13 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
                 index += 1;
             }
         }
+        
         let mut application_data = vec![];
         traverse_tree(&tree, &mut application_data);
         find_indexes(occurring_order, application_data)
     };
     custom_gates_applied_section.write_custom_gates_applications(application_data)?;
-    let _r1cs = custom_gates_applied_section.end_section();
+    let _r1cs = custom_gates_applied_section.end_section()?;
 
     Log::print(&log);
     Result::Ok(())
