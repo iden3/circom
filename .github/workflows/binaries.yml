@@ -17,7 +17,7 @@ jobs:
     - uses: actions/checkout@master
     - name: Compile
       id: compile
-      run: cargo build --verbose
+      run: cargo build --verbose --release
     - name: Run tests
       run: cargo test --verbose
     - name: Upload binary
@@ -25,4 +25,4 @@ jobs:
       with:
         name: circom
         path: |
-          /home/runner/work/circom/circom/target
+          /home/runner/work/circom/circom/release/circom
