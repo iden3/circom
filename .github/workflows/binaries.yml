@@ -25,4 +25,4 @@ jobs:
       with:
         name: circom
         path: |
-          target/release/circom
+          target/release/
