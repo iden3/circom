@@ -25,4 +25,4 @@ jobs:
       with:
         name: circom
         path: |
-          /home/runner/work/circom/circom/release/circom
+          /home/runner/work/circom/circom/target/release/circom
