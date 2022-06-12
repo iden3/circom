@@ -9,11 +9,20 @@ struct CHolder {
     constant_equalities: LinkedList<Constraint>,
 }
 
-fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder) -> usize {
+fn map_tree(
+    tree: &Tree,
+    witness: &mut Vec<usize>,
+    c_holder: &mut CHolder,
+    forbidden: &mut HashSet<usize>,
+    deleted: &mut HashSet<usize>
+) -> usize {
     let mut no_constraints = 0;
 
     for signal in &tree.signals {
         Vec::push(witness, *signal);
+        if tree.dag.nodes[tree.node_id].is_custom_gate {
+            deleted.insert(*signal);
+        }
     }
 
     for constraint in &tree.constraints {
@@ -28,9 +37,17 @@ fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder) -> us
         }
     }
 
+    for custom_gate_constraint in &tree.custom_gates_constraints {
+        if let Some(constraint) = custom_gate_constraint {
+            for signal in constraint {
+                forbidden.insert(*signal);
+            }
+        }
+    }
+
     for edge in Tree::get_edges(tree) {
         let subtree = Tree::go_to_subtree(tree, edge);
-        no_constraints += map_tree(&subtree, witness, c_holder);
+        no_constraints += map_tree(&subtree, witness, c_holder, forbidden, deleted);
     }
     no_constraints
 }
@@ -94,10 +111,12 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
     let no_public_inputs = dag.public_inputs();
     let no_public_outputs = dag.public_outputs();
     let no_private_inputs = dag.private_inputs();
-    let forbidden = dag.get_main().unwrap().forbidden_if_main.clone();
+    let mut forbidden = dag.get_main().unwrap().forbidden_if_main.clone();
+    let mut deleted = HashSet::new();
     let mut c_holder = CHolder::default();
     let mut signal_map = vec![0];
-    let no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder);
+    let no_constraints =
+        map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut forbidden, &mut deleted);
     let max_signal = Vec::len(&signal_map);
     let name_encoding = produce_encoding(no_constraints, init_id, dag.nodes, dag.adjacency);
     let _dur = now.elapsed().unwrap().as_millis();
@@ -108,6 +127,7 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
         no_public_outputs,
         no_private_inputs,
         forbidden,
+        deleted,
         max_signal,
         dag_encoding: name_encoding,
         linear: c_holder.linear,

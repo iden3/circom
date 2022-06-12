@@ -110,6 +110,7 @@ pub struct Simplifier {
     pub no_public_outputs: usize,
     pub no_private_inputs: usize,
     pub forbidden: HashSet<usize>,
+    pub deleted: HashSet<usize>,
     pub cons_equalities: LinkedList<C>,
     pub equalities: LinkedList<C>,
     pub linear: LinkedList<C>,

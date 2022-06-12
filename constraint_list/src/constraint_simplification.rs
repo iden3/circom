@@ -442,7 +442,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     let max_signal = smp.max_signal;
     let mut cons_equalities = std::mem::replace(&mut smp.cons_equalities, LinkedList::new());
     let mut linear = std::mem::replace(&mut smp.linear, LinkedList::new());
-    let mut deleted = HashSet::new();
+    let mut deleted = smp.deleted.clone();
     let mut lconst = LinkedList::new();
     let mut no_rounds = smp.no_rounds;
     let remove_unused = apply_linear;
