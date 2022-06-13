@@ -26,8 +26,12 @@ pub struct SignalInfo {
 }
 pub struct EncodingNode {
     pub id: usize,
+    pub name: String,
+    pub parameters: Vec<BigInt>,
     pub signals: Vec<SignalInfo>,
     pub non_linear: LinkedList<C>,
+    pub custom_gate_constraints: Vec<Option<Vec<usize>>>,
+    pub is_custom_gate: bool,
 }
 
 pub struct EncodingEdge {
@@ -65,6 +69,7 @@ pub struct EncodingIterator<'a> {
     pub offset: usize,
     pub signals: Vec<SignalInfo>,
     pub non_linear: LinkedList<C>,
+    pub custom_gates_constraints: Vec<Option<Vec<usize>>>,
 }
 
 impl<'a> EncodingIterator<'a> {
@@ -76,6 +81,7 @@ impl<'a> EncodingIterator<'a> {
             path: "main".to_string(),
             signals: Vec::new(),
             node_id: encoding.init,
+            custom_gates_constraints: Vec::new(),
         };
         state_utils::build_encoding_iterator(iter)
     }
@@ -88,6 +94,7 @@ impl<'a> EncodingIterator<'a> {
             path: format!("{}.{}", iterator.path, edge.path),
             non_linear: LinkedList::new(),
             signals: Vec::new(),
+            custom_gates_constraints: Vec::new(),
         };
         state_utils::build_encoding_iterator(iter)
     }
