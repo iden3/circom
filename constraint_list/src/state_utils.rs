@@ -17,6 +17,7 @@ pub fn build_encoding_iterator(mut iterator: EncodingIterator) -> EncodingIterat
     let node_id = iterator.node_id;
     let path = iterator.path;
     let mut non_linear = LinkedList::new();
+    let mut custom_gates_constraints = Vec::new();
     let mut signals = Vec::new();
     for signal in &encoding.nodes[node_id].signals {
         let new_signal =
@@ -28,8 +29,22 @@ pub fn build_encoding_iterator(mut iterator: EncodingIterator) -> EncodingIterat
         let constraint = C::apply_offset(constraint, offset);
         LinkedList::push_back(&mut non_linear, constraint);
     }
+
+    for custom_gate_constraints in &encoding.nodes[node_id].custom_gate_constraints {
+        if let Some(constraints) = custom_gate_constraints {
+            let mut constraints_mut = vec![];
+            for constraint in constraints {
+                Vec::push(&mut constraints_mut, constraint + offset);
+            }
+            Vec::push(&mut custom_gates_constraints, Some(constraints_mut));
+        } else {
+            Vec::push(&mut custom_gates_constraints, None);
+        }
+    }
+
     iterator.path = path;
     iterator.non_linear = non_linear;
     iterator.signals = signals;
+    iterator.custom_gates_constraints = custom_gates_constraints;
     iterator
 }
