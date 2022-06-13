@@ -79,8 +79,8 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
             let mut index = 0;
             for edge in Tree::get_edges(tree) {
                 let node = &dag.nodes[edge.get_goes_to()];
-                let custom_gate_constraints = tree.custom_gates_constraints[index].clone();
                 if node.is_custom_gate() {
+                    let custom_gate_constraints = tree.custom_gates_constraints[index].clone();
                     if let Some(constraints) = custom_gate_constraints {
                         application_data.push((node.template_name.clone(), constraints));
                     } else {
