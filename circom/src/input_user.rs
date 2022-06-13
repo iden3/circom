@@ -13,7 +13,7 @@ pub struct Input {
     pub out_c_code: PathBuf,
     pub out_c_dat: PathBuf,
     pub out_sym: PathBuf,
-    pub field: &'static str,
+    //pub field: &'static str,
     pub c_flag: bool,
     pub wasm_flag: bool,
     pub wat_flag: bool,
@@ -29,10 +29,10 @@ pub struct Input {
     pub inspect_constraints_flag: bool,
     pub no_rounds: usize,
     pub flag_verbose: bool,
+    pub prime: String,
 }
 
-const P_0: &'static str =
-    "21888242871839275222246405745257275088548364400416034343698204186575808495617";
+
 const R1CS: &'static str = "r1cs";
 const WAT: &'static str = "wat";
 const WASM: &'static str = "wasm";
@@ -41,6 +41,7 @@ const JS: &'static str = "js";
 const DAT: &'static str = "dat";
 const SYM: &'static str = "sym";
 const JSON: &'static str = "json";
+
 
 impl Input {
     pub fn new() -> Result<Input, ()> {
@@ -53,7 +54,7 @@ impl Input {
         let output_js_path = Input::build_folder(&output_path, &file_name, JS);
         let o_style = input_processing::get_simplification_style(&matches)?;
         Result::Ok(Input {
-            field: P_0,
+            //field: P_BN128,
             input_program: input,
             out_r1cs: Input::build_output(&output_path, &file_name, R1CS),
             out_wat_code: Input::build_output(&output_js_path, &file_name, WAT),
@@ -84,15 +85,16 @@ impl Input {
             reduced_simplification_flag: o_style == SimplificationStyle::O1,
             parallel_simplification_flag: input_processing::get_parallel_simplification(&matches),
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
-            flag_verbose: input_processing::get_flag_verbose(&matches)
+            flag_verbose: input_processing::get_flag_verbose(&matches), 
+            prime: input_processing::get_prime(&matches)?,
         })
     }
 
     fn build_folder(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
         let mut file = output_path.clone();
-	let folder_name = format!("{}_{}",filename,ext);
-	file.push(folder_name);
-	file
+	    let folder_name = format!("{}_{}",filename,ext);
+	    file.push(folder_name);
+	    file
     }
     
     fn build_output(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
@@ -183,6 +185,9 @@ impl Input {
     }
     pub fn no_rounds(&self) -> usize {
         self.no_rounds
+    }
+    pub fn prime(&self) -> String{
+        self.prime.clone()
     }
 }
 mod input_processing {
@@ -277,6 +282,26 @@ mod input_processing {
 
     pub fn get_flag_verbose(matches: &ArgMatches) -> bool {
         matches.is_present("flag_verbose")
+    }
+
+    pub fn get_prime(matches: &ArgMatches) -> Result<String, ()> {
+        
+        match matches.is_present("prime"){
+            true => 
+               {
+                   let prime_value = matches.value_of("prime").unwrap();
+                   if prime_value == "bn128"
+                      || prime_value == "bls12381"
+                      || prime_value == "goldilocks"{
+                        Ok(String::from(matches.value_of("prime").unwrap()))
+                    }
+                    else{
+                        Result::Err(eprintln!("{}", Colour::Red.paint("invalid prime number")))
+                    }
+               }
+               
+            false => Ok(String::from("bn128")),
+        }
     }
 
     pub fn view() -> ArgMatches<'static> {
@@ -396,6 +421,14 @@ mod input_processing {
                     .long("verbose")
                     .takes_value(false)
                     .help("Shows logs during compilation"),
+            )
+            .arg (
+                Arg::with_name("prime")
+                    .short("prime")
+                    .long("prime")
+                    .takes_value(true)
+                    .default_value("bn128")
+                    .help("To choose the prime number to use to generate the circuit. Receives the name of the curve (bn128, bls12381, goldilocks)"),
             )
             .get_matches()
     }
