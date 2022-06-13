@@ -94,7 +94,15 @@ fn map_node_to_encoding(id: usize, node: Node) -> EncodingNode {
     }
     signals.sort_by(|a, b| a.id.cmp(&b.id));
 
-    EncodingNode { id, signals, non_linear }
+    EncodingNode {
+        id,
+        name: node.template_name,
+        parameters: node.parameter_instances,
+        signals,
+        non_linear,
+        custom_gate_constraints: node.custom_gates_constraints,
+        is_custom_gate: node.is_custom_gate,
+    }
 }
 
 fn map_edge_to_encoding(edge: Edge) -> EncodingEdge {
