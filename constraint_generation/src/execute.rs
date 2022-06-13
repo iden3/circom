@@ -251,10 +251,10 @@ fn execute_statement(
                                 let (inner, outer) = reorder(left, right, &custom_gate_name);
                                 node.treat_custom_gate_constraint(custom_gate_name, inner, outer);
                             } else {
-                                unreachable!();
+                                unreachable!("Assignments to/from custom gates' signals must be of the form signal <== signal");
                             }
                         } else {
-                            unreachable!();
+                            unreachable!("Assignments to/from custom gates' signals must be of the form signal <== signal");
                         }
                     }
                 }
