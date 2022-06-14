@@ -97,7 +97,6 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
     };
     custom_gates_applied_section.write_custom_gates_applications(application_data)?;
     let _r1cs = custom_gates_applied_section.end_section()?;
-
     Log::print(&log);
     Result::Ok(())
 }

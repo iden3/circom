@@ -117,6 +117,10 @@ impl ExecutedTemplate {
         self.constraints.push(constraint);
     }
 
+    pub fn treat_custom_gate_constraint(&mut self, custom_gate: String, left: String, right: String) {
+        self.custom_gate_constraints.entry(custom_gate).or_insert(HashMap::new()).insert(left, right);
+    }
+
     pub fn template_name(&self) -> &String {
         &self.template_name
     }
@@ -159,6 +163,7 @@ impl ExecutedTemplate {
         self.build_signals(dag);
         self.build_connexions(dag);
         self.build_constraints(dag);
+        self.build_custom_gates_constraints(dag);
     }
 
     fn build_signals(&self, dag: &mut DAG) {
@@ -187,6 +192,7 @@ impl ExecutedTemplate {
             generate_symbols(dag, state, &config);
         }
     }
+
     fn build_connexions(&mut self, dag: &mut DAG) {
         self.connexions.sort_by(|l, r| {
             use std::cmp::Ordering;
@@ -211,6 +217,7 @@ impl ExecutedTemplate {
         self.has_parallel_sub_cmp = dag.nodes[dag.main_id()].has_parallel_sub_cmp();
         dag.set_number_of_subcomponents_indexes(self.number_of_components);
     }
+
     fn build_constraints(&self, dag: &mut DAG) {
         for c in &self.constraints {
             let correspondence = dag.get_main().unwrap().correspondence();
@@ -218,6 +225,24 @@ impl ExecutedTemplate {
             dag.add_constraint(cc);
         }
     }
+
+    fn build_custom_gates_constraints(&self, dag: &mut DAG) {
+        for cnn in &self.connexions {
+            let constraint = if let Some(custom_gate_constraints) = self.custom_gate_constraints.get(&cnn.full_name) {
+                let mut signal_correspondence = vec![];
+                for signal in dag.nodes[cnn.inspect.goes_to].ordered_signals() {
+                    let signal_name = format!("{}.{}", cnn.full_name, signal);
+                    let correspondence = custom_gate_constraints.get(&signal_name).unwrap();
+                    signal_correspondence.push(*dag.nodes[dag.main_id()].correspondence().get(correspondence).unwrap());
+                }
+                Some(signal_correspondence)
+            } else {
+                None
+            };
+            dag.add_custom_gate_constraint(constraint);
+        }
+    }
+
     pub fn export_to_circuit(self, instances: &[TemplateInstance]) -> TemplateInstance {
         use SignalType::*;
         fn build_triggers(

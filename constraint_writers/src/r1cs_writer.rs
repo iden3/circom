@@ -381,6 +381,7 @@ impl CustomGatesUsedSection {
         Result::Ok(())
     }
 
+
     pub fn end_section(mut self) -> Result<R1CSWriter, ()> {
         end_section(&mut self.writer, self.go_back, self.size)?;
         let mut sections = self.sections;
@@ -422,6 +423,106 @@ impl CustomGatesAppliedSection {
 
             for signal in custom_gate_signals {
                 let (signal_stream, signal_size) = bigint_as_bytes(&BigInt::from(signal), 4);
+                self.size += signal_size;
+                self.writer.write(&signal_stream).map_err(|_err| {})?;
+                self.writer.flush().map_err(|_err| {})?;
+            }
+        }
+
+        Result::Ok(())
+    }
+
+    pub fn end_section(mut self) -> Result<R1CSWriter, ()> {
+        end_section(&mut self.writer, self.go_back, self.size)?;
+        let mut sections = self.sections;
+        let index = self.index;
+        sections[index] = true;
+        Result::Ok(R1CSWriter {
+            writer: self.writer,
+            field_size: self.field_size,
+            sections
+        })
+    }
+}
+
+pub type CustomGatesUsedData = Vec<(String, Vec<BigInt>)>;
+impl CustomGatesUsedSection {
+    pub fn write_custom_gates_usages(&mut self, data: CustomGatesUsedData) -> Result<(), ()> {
+        let no_custom_gates = data.len();
+        let (no_custom_gates_stream, no_custom_gates_size) =
+            bigint_as_bytes(&BigInt::from(no_custom_gates), 4);
+        self.size += no_custom_gates_size;
+        self.writer.write_all(&no_custom_gates_stream).map_err(|_err| {})?;
+        self.writer.flush().map_err(|_err| {})?;
+
+        for custom_gate in data {
+            let custom_gate_name = custom_gate.0;
+            let custom_gate_name_stream = custom_gate_name.as_bytes();
+            self.size += custom_gate_name_stream.len() + 1;
+            self.writer.write_all(custom_gate_name_stream).map_err(|_err| {})?;
+            self.writer.write_all(&[0]).map_err(|_err| {})?;
+            self.writer.flush().map_err(|_err| {})?;
+
+            let custom_gate_parameters = custom_gate.1;
+            let no_custom_gate_parameters = custom_gate_parameters.len();
+            let (no_custom_gate_parameters_stream, no_custom_gate_parameters_size) =
+                bigint_as_bytes(&BigInt::from(no_custom_gate_parameters), 4);
+            self.size += no_custom_gate_parameters_size;
+            self.writer.write_all(&no_custom_gate_parameters_stream).map_err(|_err| {})?;
+            self.writer.flush().map_err(|_err| {})?;
+
+            for parameter in custom_gate_parameters {
+                let (parameter_stream, parameter_size) = bigint_as_bytes(&parameter, self.field_size);
+                self.size += parameter_size;
+                self.writer.write(&parameter_stream).map_err(|_err| {})?;
+                self.writer.flush().map_err(|_err| {})?;
+            }
+        }
+
+        Result::Ok(())
+    }
+
+    pub fn end_section(mut self) -> Result<R1CSWriter, ()> {
+        end_section(&mut self.writer, self.go_back, self.size)?;
+        let mut sections = self.sections;
+        let index = self.index;
+        sections[index] = true;
+        Result::Ok(R1CSWriter {
+            writer: self.writer,
+            field_size: self.field_size,
+            sections
+        })
+    }
+}
+
+pub type CustomGatesAppliedData = Vec<(usize, Vec<usize>)>;
+impl CustomGatesAppliedSection {
+    pub fn write_custom_gates_applications(&mut self, data: CustomGatesAppliedData) -> Result<(), ()> {
+        let no_custom_gate_applications = data.len();
+        let (no_custom_gate_applications_stream, no_custom_gate_applications_size) =
+            bigint_as_bytes(&BigInt::from(no_custom_gate_applications), 4);
+        self.size += no_custom_gate_applications_size;
+        self.writer.write_all(&no_custom_gate_applications_stream).map_err(|_err| {})?;
+        self.writer.flush().map_err(|_err| {})?;
+
+        for custom_gate_application in data {
+            let custom_gate_index = custom_gate_application.0;
+            let (custom_gate_index_stream, custom_gate_index_size) =
+                bigint_as_bytes(&BigInt::from(custom_gate_index), 4);
+            self.size += custom_gate_index_size;
+            self.writer.write_all(&custom_gate_index_stream).map_err(|_err| {})?;
+            self.writer.flush().map_err(|_err| {})?;
+
+            let custom_gate_signals = custom_gate_application.1;
+            let no_custom_gate_signals = custom_gate_signals.len();
+            let (no_custom_gate_signals_stream, no_custom_gate_signals_size) =
+                bigint_as_bytes(&BigInt::from(no_custom_gate_signals), 4);
+            self.size += no_custom_gate_signals_size;
+            self.writer.write_all(&no_custom_gate_signals_stream).map_err(|_err| {})?;
+            self.writer.flush().map_err(|_err| {})?;
+
+            for signal in custom_gate_signals {
+                let (signal_stream, signal_size) = bigint_as_bytes(&BigInt::from(signal), 8);
                 self.size += signal_size;
                 self.writer.write(&signal_stream).map_err(|_err| {})?;
                 self.writer.flush().map_err(|_err| {})?;

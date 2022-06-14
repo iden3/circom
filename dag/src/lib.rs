@@ -11,7 +11,6 @@ use constraint_writers::ConstraintExporter;
 use program_structure::constants::UsefulConstants;
 use program_structure::error_definition::ReportCollection;
 use std::collections::{HashMap, HashSet};
-
 type Signal = usize;
 type Constraint = circom_algebra::algebra::Constraint<usize>;
 type Substitution = circom_algebra::algebra::Substitution<usize>;
@@ -29,17 +28,19 @@ pub struct Tree<'a> {
     pub forbidden: HashSet<usize>,
     pub id_to_name: HashMap<usize, String>,
     pub constraints: Vec<Constraint>,
+    pub custom_gates_constraints: Vec<Option<Vec<Signal>>>,
 }
 
 impl<'a> Tree<'a> {
     pub fn new(dag: &DAG) -> Tree {
-        let constants = UsefulConstants::new();
+        let constants = UsefulConstants::new(&dag.prime);
         let field = constants.get_p().clone();
         let root = dag.get_main().unwrap();
         let node_id = dag.main_id();
         let offset = dag.get_entry().unwrap().in_number;
         let path = dag.get_entry().unwrap().label.clone();
         let constraints = root.constraints.clone();
+        let custom_gates_constraints = root.custom_gates_constraints.clone();
         let mut id_to_name = HashMap::new();
         let mut signals: Vec<_> = Vec::new();
         let forbidden: HashSet<_> =
@@ -51,12 +52,22 @@ impl<'a> Tree<'a> {
             }
         }
         signals.sort();
-        Tree { field, dag, path, offset, node_id, signals, forbidden, id_to_name, constraints }
+        Tree {
+            field,
+            dag,
+            path,
+            offset,
+            node_id,
+            signals,
+            forbidden,
+            id_to_name,
+            constraints,
+            custom_gates_constraints,
+        }
     }
 
     pub fn go_to_subtree(current: &'a Tree, edge: &Edge) -> Tree<'a> {
-        let constants = UsefulConstants::new();
-        let field = constants.get_p().clone();
+        let field = current.field.clone();
         let dag = current.dag;
         let node_id = edge.goes_to;
         let node = &current.dag.nodes[node_id];
@@ -72,13 +83,29 @@ impl<'a> Tree<'a> {
             }
         }
         signals.sort();
-        let constraints: Vec<_> = node
-            .constraints
-            .iter()
-            .filter(|c| !c.is_empty())
-            .map(|c| Constraint::apply_offset(c, offset))
-            .collect();
-        Tree { field, dag, path, offset, node_id, signals, forbidden, id_to_name, constraints }
+        let constraints = node.constraints.iter().filter(|c| !c.is_empty()).map(|c|
+            Constraint::apply_offset(c, offset)
+        ).collect();
+        let custom_gates_constraints = node.custom_gates_constraints.iter().map(|component| {
+            if let Some(custom_gate) = component {
+                Some(custom_gate.iter().map(|s| *s + offset).collect())
+            } else {
+                None
+            }
+        }).collect::<Vec<Option<Vec<Signal>>>>();
+
+        Tree {
+            field,
+            dag,
+            path,
+            offset,
+            node_id,
+            signals,
+            forbidden,
+            id_to_name,
+            constraints,
+            custom_gates_constraints,
+        }
     }
 
     pub fn get_edges(tree: &'a Tree) -> &'a Vec<Edge> {
@@ -150,6 +177,7 @@ pub struct Node {
     forbidden_if_main: HashSet<usize>,
     io_signals: Vec<usize>,
     constraints: Vec<Constraint>,
+    custom_gates_constraints: Vec<Option<Vec<Signal>>>,
     is_parallel: bool,
     has_parallel_sub_cmp: bool,
     is_custom_gate: bool,
@@ -216,6 +244,10 @@ impl Node {
         self.constraints.push(constraint)
     }
 
+    fn add_custom_gate_constraint(&mut self, custom_gate_constraint: Option<Vec<Signal>>) {
+        self.custom_gates_constraints.push(custom_gate_constraint)
+    }
+
     fn set_number_of_subcomponents_indexes(&mut self, number_scmp: usize) {
         self.number_of_subcomponents_indexes = number_scmp
     }
@@ -228,12 +260,20 @@ impl Node {
         self.locals.contains(&s)
     }
 
+    pub fn parameter_instances(&self) -> &Vec<BigInt> {
+        &self.parameter_instances
+    }
+
     pub fn number_of_signals(&self) -> usize {
         self.number_of_signals
     }
 
     pub fn correspondence(&self) -> &HashMap<String, usize> {
         &self.signal_correspondence
+    }
+
+    pub fn ordered_signals(&self) -> &Vec<String> {
+        &self.ordered_signals
     }
 
     pub fn constraints(&self) -> &[Constraint] {
@@ -281,11 +321,11 @@ impl Node {
     }
 }
 
-#[derive(Default)]
 pub struct DAG {
     pub one_signal: usize,
     pub nodes: Vec<Node>,
     pub adjacency: Vec<Vec<Edge>>,
+    pub prime: String,
 }
 
 impl ConstraintExporter for DAG {
@@ -303,8 +343,13 @@ impl ConstraintExporter for DAG {
 }
 
 impl DAG {
-    pub fn new() -> DAG {
-        DAG::default()
+    pub fn new(prime: &String) -> DAG {
+        DAG{
+            prime : prime.clone(),
+            one_signal: 0,
+            nodes: Vec::new(),
+            adjacency: Vec::new(),
+        }
     }
 
     pub fn add_edge(&mut self, to: usize, label: &str) -> Option<&Edge> {
@@ -383,6 +428,12 @@ impl DAG {
     pub fn add_constraint(&mut self, constraint: Constraint) {
         if let Option::Some(node) = self.get_mut_main() {
             node.add_constraint(constraint);
+        }
+    }
+
+    pub fn add_custom_gate_constraint(&mut self, custom_gate_constraint: Option<Vec<Signal>>) {
+        if let Option::Some(node) = self.get_mut_main() {
+            node.add_custom_gate_constraint(custom_gate_constraint);
         }
     }
 
@@ -509,4 +560,5 @@ pub struct SimplificationFlags {
     pub flag_s: bool,
     pub parallel_flag: bool,
     pub port_substitution: bool,
+    pub prime : String,
 }

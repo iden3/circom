@@ -566,6 +566,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         if remove_unused {
             no_rounds -= 1;
         }
+
         (with_linear, storage)
     };
 
@@ -629,14 +630,13 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
                     non_linear_map.insert(signal, new);
                 }
             }
-        }
-        else{
+        } else {
             constraint_storage.add_constraint(constraint);
         }
     }
     for constraint in lconst {
-        if remove_unused{
-            let signals =  C::take_cloned_signals(&constraint);
+        if remove_unused {
+            let signals = C::take_cloned_signals(&constraint);
             let c_id = constraint_storage.add_constraint(constraint);
             for signal in signals {
                 if let Some(list) = non_linear_map.get_mut(&signal) {
@@ -647,8 +647,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
                     non_linear_map.insert(signal, new);
                 }
             }
-        }
-        else{
+        } else {
             constraint_storage.add_constraint(constraint);
         }
     }
