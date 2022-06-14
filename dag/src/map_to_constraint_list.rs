@@ -9,11 +9,19 @@ struct CHolder {
     constant_equalities: LinkedList<Constraint>,
 }
 
-fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder) -> usize {
+fn map_tree(
+    tree: &Tree,
+    witness: &mut Vec<usize>,
+    c_holder: &mut CHolder,
+    forbidden: &mut HashSet<usize>
+) -> usize {
     let mut no_constraints = 0;
 
     for signal in &tree.signals {
         Vec::push(witness, *signal);
+        if tree.dag.nodes[tree.node_id].is_custom_gate {
+            forbidden.insert(*signal);
+        }
     }
 
     for constraint in &tree.constraints {
@@ -30,7 +38,7 @@ fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder) -> us
 
     for edge in Tree::get_edges(tree) {
         let subtree = Tree::go_to_subtree(tree, edge);
-        no_constraints += map_tree(&subtree, witness, c_holder);
+        no_constraints += map_tree(&subtree, witness, c_holder, forbidden);
     }
     no_constraints
 }
@@ -62,6 +70,7 @@ fn produce_encoding(
 
 fn map_node_to_encoding(id: usize, node: Node) -> EncodingNode {
     let mut signals = Vec::new();
+    let mut ordered_signals = Vec::new();
     let locals = node.locals;
     let mut non_linear = LinkedList::new();
     for c in node.constraints {
@@ -69,6 +78,12 @@ fn map_node_to_encoding(id: usize, node: Node) -> EncodingNode {
             LinkedList::push_back(&mut non_linear, c);
         }
     }
+
+    for signal in node.ordered_signals {
+        let signal_numbering = node.signal_correspondence.get(&signal).unwrap();
+        ordered_signals.push(*signal_numbering);
+    }
+
     for (name, id) in node.signal_correspondence {
         if HashSet::contains(&locals, &id) {
             let new_signal = SignalInfo { name, id };
@@ -77,7 +92,15 @@ fn map_node_to_encoding(id: usize, node: Node) -> EncodingNode {
     }
     signals.sort_by(|a, b| a.id.cmp(&b.id));
 
-    EncodingNode { id, signals, non_linear }
+    EncodingNode {
+        id,
+        name: node.template_name,
+        parameters: node.parameters,
+        signals,
+        ordered_signals,
+        non_linear,
+        is_custom_gate: node.is_custom_gate,
+    }
 }
 
 fn map_edge_to_encoding(edge: Edge) -> EncodingEdge {
@@ -94,10 +117,10 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
     let no_public_inputs = dag.public_inputs();
     let no_public_outputs = dag.public_outputs();
     let no_private_inputs = dag.private_inputs();
-    let forbidden = dag.get_main().unwrap().forbidden_if_main.clone();
+    let mut forbidden = dag.get_main().unwrap().forbidden_if_main.clone();
     let mut c_holder = CHolder::default();
     let mut signal_map = vec![0];
-    let no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder);
+    let no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut forbidden);
     let max_signal = Vec::len(&signal_map);
     let name_encoding = produce_encoding(no_constraints, init_id, dag.nodes, dag.adjacency);
     let _dur = now.elapsed().unwrap().as_millis();

@@ -27,6 +27,10 @@ ParsePragma : Version = { // maybe change to usize instead of BigInt
     => version,
 };
 
+// Pragma to indicate that we are using PLONK with custom gates.
+ParseCustomGates : () = {
+    "pragma" "ultraPlonk" ";" => ()
+}
 
 // Includes are added at the start of the file.
 // Their structure is the following: #include "path to the file"
@@ -36,22 +40,14 @@ ParseInclude : String = {
 };
 
 // Parsing a program requires:
-// Parsing the "pragma" instruction, if there is one
-// Parsing "includes" instructions, if there is anyone,
-// Parsing function and template definitions,
+// Parsing the version pragma, if there is one
+// Parsing the custom gates pragma, if there is one
+// Parsing "includes" instructions, if there is anyone
+// Parsing function and template definitions
 // Parsing the declaration of the main component
 pub ParseAst : AST = {
-    <s:@L> <pragma: ParsePragma> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent> <e:@R>
-    => AST::new(Meta::new(s,e), Option::Some(pragma), includes,definitions,Option::Some(main)),
-
-    <s:@L> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent> <e:@R>
-    => AST::new(Meta::new(s,e),Option::None, includes,definitions,Option::Some(main)),
-
-    <s:@L> <pragma: ParsePragma> <includes: ParseInclude*> <definitions: ParseDefinition*> <e:@R>
-    => AST::new(Meta::new(s,e), Option::Some(pragma), includes,definitions,Option::None),
-
-    <s:@L> <includes: ParseInclude*> <definitions: ParseDefinition*> <e:@R>
-    => AST::new(Meta::new(s,e), Option::None,includes,definitions,Option::None),
+    <s:@L> <version: ParsePragma?> <custom_gates: ParseCustomGates?> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent?> <e:@R>
+    => AST::new(Meta::new(s,e), version, custom_gates.is_some(), includes, definitions, main),
 };
 
 // ====================================================================
@@ -84,9 +80,16 @@ pub ParseDefinition : Definition = {
     <s:@L> "template" <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
     => match arg_names {
         None
-        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some()),
+        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), false),
         Some(a)
-        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some()),
+        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), false),
+    },
+    <s:@L> "custom_gate" <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
+    => match arg_names {
+        None
+        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), true),
+        Some(a)
+        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), true),
     },
 };
 
@@ -192,6 +195,13 @@ ParseDeclaration : Statement = {
             let xtype = VariableType::Component;
             symbols.push(symbol);
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
+    },
+    <s:@L> "custom_component" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
+        let mut symbols = symbols;
+        let meta = Meta::new(s,e);
+        let xtype = VariableType::Component;
+        symbols.push(symbol);
+        ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
     },
     <s:@L><xtype: SignalHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol>  <e:@R>
     => {
