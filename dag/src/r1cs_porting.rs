@@ -1,6 +1,6 @@
 use super::{Constraint, Tree, DAG};
 use constraint_writers::log_writer::Log;
-use constraint_writers::r1cs_writer::{ConstraintSection, HeaderData, R1CSWriter};
+use constraint_writers::r1cs_writer::{ConstraintSection, CustomGatesAppliedData, HeaderData, R1CSWriter};
 
 pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
     let tree = Tree::new(dag);
@@ -33,11 +33,71 @@ pub fn write(dag: &DAG, output: &str) -> Result<(), ()> {
     let mut header_section = R1CSWriter::start_header_section(r1cs)?;
     header_section.write_section(header_data)?;
     let r1cs = header_section.end_section()?;
+
     let mut signal_section = R1CSWriter::start_signal_section(r1cs)?;
     for signal in 0..labels {
         signal_section.write_signal_usize(signal)?;
     }
-    let _r1cs = signal_section.end_section()?;
+    let r1cs = signal_section.end_section()?;
+
+    let mut custom_gates_used_section = R1CSWriter::start_custom_gates_used_section(r1cs)?;
+    let (usage_data, occurring_order) = {
+        let mut usage_data = vec![];
+        let mut occurring_order = vec![];
+        for node in &dag.nodes {
+            if node.is_custom_gate() {
+                let mut name = node.template_name.clone();
+                occurring_order.push(name.clone());
+                while name.pop() != Some('(') {};
+                usage_data.push((name, node.parameters().clone()));
+            }
+        }
+        (usage_data, occurring_order)
+    };
+    custom_gates_used_section.write_custom_gates_usages(usage_data)?;
+    let r1cs = custom_gates_used_section.end_section()?;
+
+    let mut custom_gates_applied_section = R1CSWriter::start_custom_gates_applied_section(r1cs)?;
+    let application_data = {
+        fn find_indexes(
+            occurring_order: Vec<String>,
+            application_data: Vec<(String, Vec<usize>)>
+        ) -> CustomGatesAppliedData {
+            let mut new_application_data = vec![];
+            for (custom_gate_name, signals) in application_data {
+                let mut index = 0;
+                while occurring_order[index] != custom_gate_name {
+                    index += 1;
+                }
+                new_application_data.push((index, signals));
+            }
+            new_application_data
+        }
+
+        fn traverse_tree(tree: &Tree, application_data: &mut Vec<(String, Vec<usize>)>) {
+            let node = &tree.dag.nodes[tree.node_id];
+            if node.is_custom_gate() {
+                let mut signals = vec![];
+                for signal in &node.ordered_signals {
+                    let signal_numbering = node.signal_correspondence.get(signal).unwrap();
+                    signals.push(*signal_numbering + tree.offset);
+                }
+                application_data.push((node.template_name.clone(), signals));
+            } else {
+                for edge in Tree::get_edges(tree) {
+                    let subtree = Tree::go_to_subtree(tree, edge);
+                    traverse_tree(&subtree, application_data);
+                }
+            }
+        }
+
+        let mut application_data = vec![];
+        traverse_tree(&tree, &mut application_data);
+        find_indexes(occurring_order, application_data)
+    };
+    custom_gates_applied_section.write_custom_gates_applications(application_data)?;
+    let _r1cs = custom_gates_applied_section.end_section()?;
+
     Log::print(&log);
     Result::Ok(())
 }

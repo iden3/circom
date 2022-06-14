@@ -29,7 +29,7 @@ impl Merger {
         let mut reports = vec![];
         for definition in definitions {
             let (name, meta) = match definition {
-                Definition::Template { name, args, arg_location, body, meta, parallel } => {
+                Definition::Template { name, args, arg_location, body, meta, parallel, is_custom_gate } => {
                     if self.contains_function(&name) || self.contains_template(&name) {
                         (Option::Some(name), meta)
                     } else {
@@ -42,6 +42,7 @@ impl Merger {
                             arg_location,
                             &mut self.fresh_id,
                             parallel,
+                            is_custom_gate,
                         );
                         self.get_mut_template_info().insert(name.clone(), new_data);
                         (Option::None, meta)
