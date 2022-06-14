@@ -484,6 +484,7 @@ fn execute_signal_declaration(
 ) {
     use SignalType::*;
     if let Option::Some(node) = actual_node {
+        node.add_ordered_signal(signal_name, dimensions);
         match signal_type {
             Input => {
                 environment_shortcut_add_input(environment, signal_name, dimensions);
@@ -984,6 +985,7 @@ fn execute_template_call(
     debug_assert!(runtime.block_type == BlockType::Known);
     let is_main = std::mem::replace(&mut runtime.public_inputs, vec![]);
     let is_parallel = program_archive.get_template_data(id).is_parallel();
+    let is_custom_gate = program_archive.get_template_data(id).is_custom_gate();
     let args_names = program_archive.get_template_data(id).get_name_of_params();
     let template_body = program_archive.get_template_data(id).get_body_as_vec();
     let mut args_to_values = BTreeMap::new();
@@ -1010,7 +1012,8 @@ fn execute_template_call(
             instantiation_name,
             args_to_values,
             code,
-            is_parallel
+            is_parallel,
+            is_custom_gate
         ));
         let ret = execute_sequence_of_statements(
             template_body,
