@@ -8,6 +8,6 @@ parser/target/
 program_structure/target/
 type_analysis/target/
 .idea/
-.vscode
+.vscode/
 .DS_Store
 Cargo.lock
