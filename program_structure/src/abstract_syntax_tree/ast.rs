@@ -80,7 +80,6 @@ impl Meta {
 pub struct AST {
     pub meta: Meta,
     pub compiler_version: Option<Version>,
-    pub custom_gates: bool,
     pub includes: Vec<String>,
     pub definitions: Vec<Definition>,
     pub main_component: Option<MainComponent>,
@@ -89,12 +88,11 @@ impl AST {
     pub fn new(
         meta: Meta,
         compiler_version: Option<Version>,
-        custom_gates: bool,
         includes: Vec<String>,
         definitions: Vec<Definition>,
         main_component: Option<MainComponent>,
     ) -> AST {
-        AST { meta, compiler_version, custom_gates, includes, definitions, main_component }
+        AST { meta, compiler_version, includes, definitions, main_component }
     }
 }
 
@@ -107,7 +105,6 @@ pub enum Definition {
         arg_location: FileLocation,
         body: Statement,
         parallel: bool,
-        is_custom_gate: bool,
     },
     Function {
         meta: Meta,
@@ -124,7 +121,6 @@ pub fn build_template(
     arg_location: FileLocation,
     body: Statement,
     parallel: bool,
-    is_custom_gate: bool,
 ) -> Definition {
     Definition::Template {
         meta,
@@ -133,7 +129,6 @@ pub fn build_template(
         arg_location,
         body,
         parallel,
-        is_custom_gate,
     }
 }
 
