@@ -16,6 +16,7 @@ pub struct CProducer {
     pub size_32_bit: usize,
     pub size_32_shift: usize,
     pub prime: String,
+    pub prime_str: String,
     pub main_input_list: InputList,
     pub witness_to_signal_list: SignalList,
     pub io_map: TemplateInstanceIOMap,
@@ -58,6 +59,7 @@ impl Default for CProducer {
             main_signal_offset: 1,
             prime: "21888242871839275222246405745257275088548364400416034343698204186575808495617"
                 .to_string(),
+            prime_str: "bn128".to_string(),
             number_of_main_outputs: 1,
             number_of_main_inputs: 2,
             main_input_list: [("in1".to_string(), 2, 1), ("in2".to_string(), 3, 1)].to_vec(), //[].to_vec(),
