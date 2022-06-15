@@ -18,7 +18,7 @@ use super::{
     ast::*, ArithmeticError, FileID, ProgramArchive, Report, ReportCode, ReportCollection
 };
 use circom_algebra::num_bigint::BigInt;
-
+use std::collections::BTreeMap;
 type AExpr = ArithmeticExpressionGen<String>;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -57,7 +57,6 @@ impl RuntimeInformation {
 struct FoldedValue {
     pub arithmetic_slice: Option<AExpressionSlice>,
     pub node_pointer: Option<NodePointer>,
-    pub custom_gate_name: Option<String>,
 }
 impl FoldedValue {
     pub fn valid_arithmetic_slice(f_value: &FoldedValue) -> bool {
@@ -70,11 +69,7 @@ impl FoldedValue {
 
 impl Default for FoldedValue {
     fn default() -> Self {
-        FoldedValue {
-            arithmetic_slice: Option::None,
-            node_pointer: Option::None,
-            custom_gate_name: Option::None
-        }
+        FoldedValue { arithmetic_slice: Option::None, node_pointer: Option::None }
     }
 }
 
@@ -196,22 +191,10 @@ fn execute_statement(
             Option::None
         }
         Substitution { meta, var, access, op, rhe, .. } => {
-            let access_information = treat_accessing(
-                meta,
-                access,
-                program_archive,
-                runtime,
-                flag_verbose
-            )?;
+            let access_information = treat_accessing(meta, access, program_archive, runtime, flag_verbose)?;
             let r_folded = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
-            let possible_constraint = perform_assign(
-                meta,
-                var,
-                &access_information,
-                r_folded,
-                actual_node,
-                runtime
-            )?;
+            let possible_constraint =
+                perform_assign(meta, var, &access_information, r_folded, actual_node, runtime)?;
             if let (Option::Some(node), AssignOp::AssignConstraintSignal) = (actual_node, op) {
                 debug_assert!(possible_constraint.is_some());
                 let constrained = possible_constraint.unwrap();
@@ -228,40 +211,7 @@ fn execute_statement(
                     let symbol = AExpr::Signal { symbol: constrained.left };
                     let expr = AExpr::sub(&symbol, &constrained.right, &p);
                     let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
-                    if constrained.custom_gate_name.is_none() {
-                        node.add_constraint(ctr);
-                    } else {
-                        // From a previous semantic analysis we know that in this case we must
-                        // have that constrained.right is an AExpr::Signal, so we can safely unwrap
-                        // the name of the signal in the right hand side of the expression.
-                        debug_assert!(matches!(symbol, AExpr::Signal {..}));
-                        debug_assert!(matches!(constrained.right, AExpr::Signal {..}));
-                        if let AExpr::Signal { symbol: left } = symbol {
-                            if let AExpr::Signal { symbol: right } = constrained.right {
-                                let custom_gate_name = constrained.custom_gate_name.unwrap();
-                                fn reorder(
-                                    left: String,
-                                    right: String,
-                                    custom_gate_name: &String
-                                ) -> (String, String) {
-                                    if left.starts_with(custom_gate_name) {
-                                        (left, right)
-                                    } else {
-                                        debug_assert!(right.starts_with(custom_gate_name));
-                                        (right, left)
-                                    }
-                                }
-
-                                // Assignment of the form left <== right
-                                let (inner, outer) = reorder(left, right, &custom_gate_name);
-                                node.treat_custom_gate_constraint(custom_gate_name, inner, outer);
-                            } else {
-                                unreachable!();
-                            }
-                        } else {
-                            unreachable!();
-                        }
-                    }
+                    node.add_constraint(ctr);
                 }
             }
             Option::None
@@ -538,7 +488,6 @@ fn execute_signal_declaration(
 ) {
     use SignalType::*;
     if let Option::Some(node) = actual_node {
-        node.add_ordered_signal(signal_name, dimensions);
         match signal_type {
             Input => {
                 environment_shortcut_add_input(environment, signal_name, dimensions);
@@ -565,7 +514,6 @@ fn execute_signal_declaration(
 struct Constrained {
     left: String,
     right: AExpr,
-    custom_gate_name: Option<String>,
 }
 fn perform_assign(
     meta: &Meta,
@@ -578,8 +526,9 @@ fn perform_assign(
     use super::execution_data::type_definitions::SubComponentData;
     let environment = &mut runtime.environment;
     let full_symbol = create_symbol(symbol, &accessing_information);
-    let possible_custom_gate_name = r_folded.custom_gate_name.clone();
-    let possible_arithmetic_expression = if ExecutionEnvironment::has_variable(environment, symbol) { // review!
+
+    let possible_arithmetic_expression = if ExecutionEnvironment::has_variable(environment, symbol)
+    {
         debug_assert!(accessing_information.signal_access.is_none());
         debug_assert!(accessing_information.after_signal.is_empty());
         let environment_result = ExecutionEnvironment::get_mut_variable_mut(environment, symbol);
@@ -656,7 +605,7 @@ fn perform_assign(
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-        Option::Some((safe_unwrap_to_single_arithmetic_expression(r_folded, line!()), None))
+        Option::Some(safe_unwrap_to_single_arithmetic_expression(r_folded, line!()))
     } else if ExecutionEnvironment::has_component(environment, symbol) {
         let environment_response = ExecutionEnvironment::get_mut_component_res(environment, symbol);
         let component_slice = treat_result_with_environment_error(
@@ -716,28 +665,14 @@ fn perform_assign(
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
             )?;
-            let custom_gate = if component.is_custom_gate { Some(symbol.to_string()) } else { None };
-            Option::Some((AExpressionSlice::unwrap_to_single(arithmetic_slice), custom_gate))
+            Option::Some(AExpressionSlice::unwrap_to_single(arithmetic_slice))
         }
     } else {
         unreachable!();
     };
-    if let Option::Some((arithmetic_expression, custom_gate_name)) = possible_arithmetic_expression {
-        if custom_gate_name.is_none() {
-            let ret = Constrained { 
-                left: full_symbol, 
-                right: arithmetic_expression, 
-                custom_gate_name: possible_custom_gate_name, 
-            };
-            Result::Ok(Some(ret))
-        } else {
-            let ret = Constrained {
-                left: full_symbol,
-                right: arithmetic_expression,
-                custom_gate_name
-            };
-            Result::Ok(Some(ret))
-        }
+    if let Option::Some(arithmetic_expression) = possible_arithmetic_expression {
+        let ret = Constrained { left: full_symbol, right: arithmetic_expression };
+        Result::Ok(Some(ret))
     } else {
         Result::Ok(None)
     }
@@ -974,11 +909,6 @@ fn execute_component(
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
-    let custom_gate_name = if checked_component.is_custom_gate {
-        Some(symbol.to_string())
-    } else {
-        None
-    };
     if let Option::Some(signal_name) = &access_information.signal_access {
         let access_after_signal = &access_information.after_signal;
         let signal = treat_result_with_memory_error(
@@ -995,13 +925,8 @@ fn execute_component(
             &runtime.call_trace,
         )?;
         let symbol = create_symbol(symbol, &access_information);
-        let result = signal_to_arith(symbol, slice).map(|s|
-            FoldedValue {
-                arithmetic_slice: Option::Some(s),
-                custom_gate_name,
-                ..FoldedValue::default()
-            }
-        );
+        let result = signal_to_arith(symbol, slice)
+            .map(|s| FoldedValue { arithmetic_slice: Option::Some(s), ..FoldedValue::default() });
         treat_result_with_memory_error(
             result,
             meta,
@@ -1011,7 +936,6 @@ fn execute_component(
     } else {
         Result::Ok(FoldedValue {
             node_pointer: checked_component.node_pointer,
-            custom_gate_name,
             ..FoldedValue::default()
         })
     }
@@ -1064,14 +988,14 @@ fn execute_template_call(
     debug_assert!(runtime.block_type == BlockType::Known);
     let is_main = std::mem::replace(&mut runtime.public_inputs, vec![]);
     let is_parallel = program_archive.get_template_data(id).is_parallel();
-    let is_custom_gate = program_archive.get_template_data(id).is_custom_gate();
     let args_names = program_archive.get_template_data(id).get_name_of_params();
     let template_body = program_archive.get_template_data(id).get_body_as_vec();
-    let mut args_to_values = vec![];
+    let mut args_to_values = BTreeMap::new();
+    debug_assert_eq!(args_names.len(), parameter_values.len());
     let mut instantiation_name = format!("{}(", id);
     for (name, value) in args_names.iter().zip(parameter_values) {
         instantiation_name.push_str(&format!("{},", value.to_string()));
-        args_to_values.push((name.clone(), value.clone()));
+        args_to_values.insert(name.clone(), value.clone());
     }
     if !parameter_values.is_empty() {
         instantiation_name.pop();
@@ -1090,8 +1014,7 @@ fn execute_template_call(
             instantiation_name,
             args_to_values,
             code,
-            is_parallel,
-            is_custom_gate,
+            is_parallel
         ));
         let ret = execute_sequence_of_statements(
             template_body,

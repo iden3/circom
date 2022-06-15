@@ -18,7 +18,6 @@ pub struct TemplateData {
     input_signals: SignalInfo,
     output_signals: SignalInfo,
     is_parallel: bool,
-    is_custom_gate: bool,
 }
 
 impl TemplateData {
@@ -31,7 +30,6 @@ impl TemplateData {
         param_location: FileLocation,
         elem_id: &mut usize,
         is_parallel: bool,
-        is_custom_gate: bool,
     ) -> TemplateData {
         body.fill(file_id, elem_id);
         let mut input_signals = SignalInfo::new();
@@ -47,7 +45,6 @@ impl TemplateData {
             input_signals,
             output_signals,
             is_parallel,
-            is_custom_gate,
         }
     }
     pub fn get_file_id(&self) -> FileID {
@@ -97,9 +94,6 @@ impl TemplateData {
     }
     pub fn is_parallel(&self) -> bool {
         self.is_parallel
-    }
-    pub fn is_custom_gate(&self) -> bool {
-        self.is_custom_gate
     }
 }
 

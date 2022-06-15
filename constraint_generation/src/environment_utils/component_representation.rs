@@ -8,7 +8,6 @@ pub struct ComponentRepresentation {
     unassigned_inputs: HashMap<String, SliceCapacity>,
     inputs: HashMap<String, SignalSlice>,
     outputs: HashMap<String, SignalSlice>,
-    pub is_custom_gate: bool,
 }
 
 impl Default for ComponentRepresentation {
@@ -18,7 +17,6 @@ impl Default for ComponentRepresentation {
             unassigned_inputs: HashMap::new(),
             inputs: HashMap::new(),
             outputs: HashMap::new(),
-            is_custom_gate: false,
         }
     }
 }
@@ -29,7 +27,6 @@ impl Clone for ComponentRepresentation {
             unassigned_inputs: self.unassigned_inputs.clone(),
             inputs: self.inputs.clone(),
             outputs: self.outputs.clone(),
-            is_custom_gate: self.is_custom_gate,
         }
     }
 }
@@ -52,8 +49,9 @@ impl ComponentRepresentation {
         for (symbol, route) in node.inputs() {
             let signal_slice = SignalSlice::new_with_route(route, &false);
             let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
-            if signal_slice_size > 0 {
-                unassigned_inputs.insert(symbol.clone(), signal_slice_size);
+            if signal_slice_size > 0{
+                unassigned_inputs
+                    .insert(symbol.clone(), signal_slice_size);
             }
             inputs.insert(symbol.clone(), signal_slice);
         }
@@ -67,11 +65,9 @@ impl ComponentRepresentation {
             unassigned_inputs,
             inputs,
             outputs,
-            is_custom_gate: node.is_custom_gate,
         };
         Result::Ok(())
     }
-
     pub fn signal_has_value(
         component: &ComponentRepresentation,
         signal_name: &str,
@@ -92,7 +88,6 @@ impl ComponentRepresentation {
         let enabled = *SignalSlice::get_reference_to_single_value(slice, access)?;
         Result::Ok(enabled)
     }
-    
     pub fn get_signal(&self, signal_name: &str) -> Result<&SignalSlice, MemoryError> {
         if self.node_pointer.is_none() {
             return Result::Err(MemoryError::InvalidAccess);
