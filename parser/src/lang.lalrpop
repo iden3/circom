@@ -77,19 +77,12 @@ pub ParseDefinition : Definition = {
         Some(a)
         => build_function(Meta::new(s,e),name,a,args..arge,body),
     },
-    <s:@L> "template" <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
+    <s:@L> "template" <parallel: "parallel"?> <custom_gate: "custom"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
     => match arg_names {
         None
-        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), false),
+        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), custom_gate.is_some()),
         Some(a)
-        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), false),
-    },
-    <s:@L> "custom_gate" <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
-    => match arg_names {
-        None
-        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), true),
-        Some(a)
-        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), true),
+        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), custom_gate.is_some()),
     },
 };
 
@@ -195,13 +188,6 @@ ParseDeclaration : Statement = {
             let xtype = VariableType::Component;
             symbols.push(symbol);
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
-    },
-    <s:@L> "custom_component" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
-        let mut symbols = symbols;
-        let meta = Meta::new(s,e);
-        let xtype = VariableType::Component;
-        symbols.push(symbol);
-        ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
     },
     <s:@L><xtype: SignalHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol>  <e:@R>
     => {
