@@ -31,9 +31,8 @@ pub fn run_parser(file: String, version: &str) -> Result<(ProgramArchive, Report
     while let Some(crr_file) = FileStack::take_next(&mut file_stack) {
         let (path, src) = open_file(crr_file).map_err(|e| (file_library.clone(), vec![e]))?;
         let file_id = file_library.add_file(path.clone(), src.clone());
-        let program = 
-            parser_logic::parse_file(&src, file_id).map_err(|e| (file_library.clone(), vec![e]))?;
-
+        let program = parser_logic::parse_file(&src, file_id)
+            .map_err(|e| (file_library.clone(), vec![e]))?;
         if let Some(main) = program.main_component {
             main_components.push((file_id, main));
         }
@@ -77,27 +76,23 @@ fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src*/ {
         .map_err(|e| FileOsError::produce_report(e))
 }
 
-fn parse_number_version(version: &str) -> Version{
+fn parse_number_version(version: &str) -> Version {
     let version_splitted: Vec<&str> = version.split(".").collect();
-
     (usize::from_str(version_splitted[0]).unwrap(), usize::from_str(version_splitted[1]).unwrap(), usize::from_str(version_splitted[2]).unwrap())
 }
 
-fn check_number_version(file_path: String, version_file: Option<Version>, version_compiler: Version) -> Result<ReportCollection, Report>{
+fn check_number_version(file_path: String, version_file: Option<Version>, version_compiler: Version) -> Result<ReportCollection, Report> {
     use errors::{CompilerVersionError, NoCompilerVersionWarning};
     if let Some(required_version) = version_file {
-
         if required_version.0 == version_compiler.0 
         && required_version.1 == version_compiler.1 
-        && required_version.2 <= version_compiler.2{
+        && required_version.2 <= version_compiler.2 {
             Ok(vec![])
-        }
-        else{
+        } else {
             let report = CompilerVersionError::produce_report(CompilerVersionError{path: file_path, required_version: required_version, version: version_compiler});
             Err(report)
         }
-    }
-    else{
+    } else {
         let report = NoCompilerVersionWarning::produce_report(NoCompilerVersionWarning{path: file_path, version: version_compiler});
         Ok(vec![report])
     }
