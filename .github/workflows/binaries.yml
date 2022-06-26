@@ -1,8 +1,9 @@
 name: Publish binaries
-on:
-  push:
-    tags:
-      - '*'
+on: [ push ]
+  #  push:
+  #    tags:
+  #      - '*'
+  #    branches: [ master ]
 
 env:
   CARGO_TERM_COLOR: always
