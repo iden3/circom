@@ -19,7 +19,7 @@ jobs:
             asset_name: circom-linux-amd64
           - os: windows-latest
             artifact_name: circom.exe
-            asset_name: circom-windows-amd64
+            asset_name: circom-windows-amd64.exe
           - os: macos-latest
             artifact_name: circom
             asset_name: circom-macos-amd64
