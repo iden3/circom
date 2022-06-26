@@ -1,9 +1,8 @@
 name: Publish binaries
-on: [ push ]
-  #  push:
-  #    tags:
-  #      - '*'
-  #    branches: [ master ]
+on:
+  push:
+    tags:
+      - '*'
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,6 +36,5 @@ jobs:
         with:
           file: target/release/${{ matrix.artifact_name }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: "v2.0.5"
-          #${{ github.ref }}
+          tag: ${{ github.ref }}
           asset_name: ${{ matrix.asset_name }}
