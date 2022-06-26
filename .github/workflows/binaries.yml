@@ -37,5 +37,6 @@ jobs:
         with:
           file: target/release/${{ matrix.artifact_name }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
+          tag: "v2.0.5"
+          #${{ github.ref }}
           asset_name: ${{ matrix.asset_name }}
