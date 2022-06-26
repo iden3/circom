@@ -30,15 +30,12 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build
-        run: cargo build --verbose --release --locked
-
-      - name: Tar files
-        run: tar -cvf circom.tar  -C /home/runner/work/circom/circom/target/release circom
+        run: cargo build --verbose --release
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
-          file: target/release/circom.tar
+          file: target/release/${{ matrix.artifact_name }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ matrix.asset_name }}
