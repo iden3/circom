@@ -95,16 +95,9 @@ impl AST {
         definitions: Vec<Definition>,
         main_component: Option<MainComponent>,
     ) -> AST {
-        let custom_gates_declared = { // this can be further optimized
-            let mut declared = false;
-            for definition in &definitions {
-                declared = declared || match definition {
-                    Definition::Template { is_custom_gate: true, .. } => true,
-                    _ => false
-                };
-            }
-            declared
-        };
+        let custom_gates_declared = definitions.iter().any(
+            |definition| matches!(definition, Definition::Template { is_custom_gate: true, .. })
+        );
         AST {
             meta,
             compiler_version,
