@@ -10,7 +10,8 @@ lalrpop_mod!(pub lang);
 mod errors;
 mod include_logic;
 mod parser_logic;
-use include_logic::FileStack;
+use include_logic::{FileStack, IncludesGraph};
+use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::{FileLibrary};
 use program_structure::program_archive::ProgramArchive;
@@ -27,21 +28,25 @@ pub fn run_parser(
     let mut definitions = Vec::new();
     let mut main_components = Vec::new();
     let mut file_stack = FileStack::new(PathBuf::from(file));
+    let mut includes_graph = IncludesGraph::new();
     let mut warnings = Vec::new();
 
     while let Some(crr_file) = FileStack::take_next(&mut file_stack) {
-        let (path, src) = open_file(crr_file).map_err(|e| (file_library.clone(), vec![e]))?;
+        let (path, src) = open_file(crr_file.clone())
+            .map_err(|e| (file_library.clone(), vec![e]))?;
         let file_id = file_library.add_file(path.clone(), src.clone());
         let program = parser_logic::parse_file(&src, file_id)
             .map_err(|e| (file_library.clone(), vec![e]))?;
         if let Some(main) = program.main_component {
             main_components.push((file_id, main));
         }
+        includes_graph.add_node(crr_file, program.custom_gates, program.custom_gates_declared);
         let includes = program.includes;
         definitions.push((file_id, program.definitions));
         for include in includes {
-            FileStack::add_include(&mut file_stack, include)
+            FileStack::add_include(&mut file_stack, include.clone())
                 .map_err(|e| (file_library.clone(), vec![e]))?;
+            includes_graph.add_edge(include).map_err(|e| (file_library.clone(), vec![e]))?;
         }
         warnings.append(
             &mut check_number_version(
@@ -59,6 +64,17 @@ pub fn run_parser(
         let report = errors::MultipleMainError::produce_report();
         Err((file_library, vec![report]))
     } else {
+        warnings.append(
+            &mut includes_graph.get_problematic_paths().iter().map(|path|
+                Report::warning(
+                    format!(
+                        "Missing custom gates' pragma in the following chain of includes {}",
+                        IncludesGraph::display_path(path)
+                    ),
+                    ReportCode::CustomGatesPragmaWarning
+                )
+            ).collect()
+        );
         let (main_id, main_component) = main_components.pop().unwrap();
         let result_program_archive = 
             ProgramArchive::new(file_library, main_id, main_component, definitions);
@@ -73,7 +89,7 @@ pub fn run_parser(
     }
 }
 
-fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src*/ {
+fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src */ {
     use errors::FileOsError;
     use std::fs::read_to_string;
     let path_str = format!("{:?}", path);
