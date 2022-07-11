@@ -46,6 +46,7 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
         Report::print_reports(&warnings, &files);
     }
     if config.flag_f {
+        let _tree_constraints = dag.map_to_constraint_tree();
         sync_dag_and_vcp(&mut vcp, &mut dag);
         Result::Ok((Box::new(dag), vcp))
     } else {

@@ -9,7 +9,12 @@ struct CHolder {
     constant_equalities: LinkedList<Constraint>,
 }
 
-fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder) -> usize {
+pub struct TreeConstraints {
+    constraints: LinkedList<Constraint>,
+    subcomponents: LinkedList<TreeConstraints>,
+}
+
+fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder, tree_constraints: &mut TreeConstraints) -> usize {
     let mut no_constraints = 0;
 
     for signal in &tree.signals {
@@ -26,11 +31,17 @@ fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder) -> us
         } else {
             no_constraints += 1;
         }
+        tree_constraints.constraints.push_back(constraint.clone());
     }
 
     for edge in Tree::get_edges(tree) {
         let subtree = Tree::go_to_subtree(tree, edge);
-        no_constraints += map_tree(&subtree, witness, c_holder);
+        let mut subtree_constraints = TreeConstraints{ 
+            constraints: LinkedList::new(), 
+            subcomponents: LinkedList::new() 
+        };
+        no_constraints += map_tree(&subtree, witness, c_holder, &mut subtree_constraints);
+        tree_constraints.subcomponents.push_back(subtree_constraints);
     }
     no_constraints
 }
@@ -84,7 +95,7 @@ fn map_edge_to_encoding(edge: Edge) -> EncodingEdge {
     EncodingEdge { goes_to: edge.goes_to, path: edge.label, offset: edge.in_number }
 }
 
-pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
+pub fn map(dag: DAG, flags: SimplificationFlags,) -> ConstraintList {
     use std::time::SystemTime;
     // println!("Start of dag to list mapping");
     let now = SystemTime::now();
@@ -96,12 +107,18 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
     let no_private_inputs = dag.private_inputs();
     let forbidden = dag.get_main().unwrap().forbidden_if_main.clone();
     let mut c_holder = CHolder::default();
+    let mut tree_constraints = TreeConstraints{ 
+        constraints: LinkedList::new(), 
+        subcomponents: LinkedList::new() 
+    };
     let mut signal_map = vec![0];
-    let no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder);
+    let no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut tree_constraints);
     let max_signal = Vec::len(&signal_map);
     let name_encoding = produce_encoding(no_constraints, init_id, dag.nodes, dag.adjacency);
     let _dur = now.elapsed().unwrap().as_millis();
     // println!("End of dag to list mapping: {} ms", dur);
+    print_tree_constraints(&tree_constraints);
+
     Simplifier {
         field,
         no_public_inputs,
@@ -119,4 +136,44 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
         port_substitution: flags.port_substitution,
     }
     .simplify_constraints()
+}
+
+pub fn map_tree_constraints(dag: &DAG) -> TreeConstraints {
+
+    let mut c_holder = CHolder::default();
+    let mut tree_constraints = TreeConstraints{ 
+        constraints: LinkedList::new(), 
+        subcomponents: LinkedList::new() 
+    };
+    let mut signal_map = vec![0];
+    let _no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut tree_constraints);
+    
+    print_tree_constraints(&tree_constraints);
+    tree_constraints
+}
+
+
+
+fn print_tree_constraints(tree: &TreeConstraints){
+    println!("Mostrando nuevo nodo, sus constraints son:");
+    for constraint in &tree.constraints{
+        println!("  Mostrando constraint:");
+        println!("    Mostrando A:");
+        for (signal, value) in constraint.a(){
+            println!("      Signal: {}, value: {}", signal, value.to_string());
+        }
+        println!("    Mostrando B:");
+        for (signal, value) in constraint.b(){
+            println!("      Signal: {}, value: {}", signal, value.to_string());
+        }
+        println!("    Mostrando C:");
+        for (signal, value) in constraint.c(){
+            println!("      Signal: {}, value: {}", signal, value.to_string());
+        }
+    }
+    println!("");
+    for node in &tree.subcomponents{
+        print_tree_constraints(node);
+    }
+
 }

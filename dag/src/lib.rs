@@ -11,6 +11,7 @@ use constraint_writers::ConstraintExporter;
 use program_structure::constants::UsefulConstants;
 use program_structure::error_definition::ReportCollection;
 use std::collections::{HashMap, HashSet};
+use crate::map_to_constraint_list::TreeConstraints;
 
 type Signal = usize;
 type Constraint = circom_algebra::algebra::Constraint<usize>;
@@ -470,6 +471,9 @@ impl DAG {
 
     pub fn map_to_list(self, flags: SimplificationFlags) -> ConstraintList {
         map_to_constraint_list::map(self, flags)
+    }
+    pub fn map_to_constraint_tree(&self) -> TreeConstraints {
+        map_to_constraint_list::map_tree_constraints(&self)
     }
 }
 
