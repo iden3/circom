@@ -30,6 +30,8 @@ pub struct Tree<'a> {
     pub forbidden: HashSet<usize>,
     pub id_to_name: HashMap<usize, String>,
     pub constraints: Vec<Constraint>,
+    pub inputs_length: usize,
+    pub outputs_length: usize,
 }
 
 impl<'a> Tree<'a> {
@@ -52,7 +54,21 @@ impl<'a> Tree<'a> {
             }
         }
         signals.sort();
-        Tree { field, dag, path, offset, node_id, signals, forbidden, id_to_name, constraints }
+        let inputs_length = root.number_of_inputs();
+        let outputs_length = root.number_of_outputs();
+        Tree { 
+            field, 
+            dag, 
+            path, 
+            offset, 
+            node_id, 
+            signals, 
+            forbidden, 
+            id_to_name, 
+            constraints,
+            inputs_length,
+            outputs_length,
+        }
     }
 
     pub fn go_to_subtree(current: &'a Tree, edge: &Edge) -> Tree<'a> {
@@ -73,13 +89,27 @@ impl<'a> Tree<'a> {
             }
         }
         signals.sort();
+        let inputs_length = node.number_of_inputs();
+        let outputs_length = node.number_of_outputs();
         let constraints: Vec<_> = node
             .constraints
             .iter()
             .filter(|c| !c.is_empty())
             .map(|c| Constraint::apply_offset(c, offset))
             .collect();
-        Tree { field, dag, path, offset, node_id, signals, forbidden, id_to_name, constraints }
+        Tree { 
+            field, 
+            dag, 
+            path, 
+            offset, 
+            node_id, 
+            signals, 
+            forbidden, 
+            id_to_name, 
+            constraints,
+            inputs_length,
+            outputs_length,
+        }
     }
 
     pub fn get_edges(tree: &'a Tree) -> &'a Vec<Edge> {

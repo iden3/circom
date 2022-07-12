@@ -8,9 +8,12 @@ struct CHolder {
     equalities: LinkedList<Constraint>,
     constant_equalities: LinkedList<Constraint>,
 }
-
+#[derive(Default)]
 pub struct TreeConstraints {
     constraints: LinkedList<Constraint>,
+    number_inputs: usize,
+    number_outputs: usize,
+    signals: LinkedList<usize>,
     subcomponents: LinkedList<TreeConstraints>,
 }
 
@@ -18,8 +21,12 @@ fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder, tree_
     let mut no_constraints = 0;
 
     for signal in &tree.signals {
+        tree_constraints.signals.push_back(signal.clone());
         Vec::push(witness, *signal);
     }
+
+    tree_constraints.number_inputs = tree.inputs_length;
+    tree_constraints.number_outputs = tree.outputs_length;
 
     for constraint in &tree.constraints {
         if Constraint::is_constant_equality(constraint) {
@@ -36,10 +43,7 @@ fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder, tree_
 
     for edge in Tree::get_edges(tree) {
         let subtree = Tree::go_to_subtree(tree, edge);
-        let mut subtree_constraints = TreeConstraints{ 
-            constraints: LinkedList::new(), 
-            subcomponents: LinkedList::new() 
-        };
+        let mut subtree_constraints = TreeConstraints::default();
         no_constraints += map_tree(&subtree, witness, c_holder, &mut subtree_constraints);
         tree_constraints.subcomponents.push_back(subtree_constraints);
     }
@@ -107,10 +111,7 @@ pub fn map(dag: DAG, flags: SimplificationFlags,) -> ConstraintList {
     let no_private_inputs = dag.private_inputs();
     let forbidden = dag.get_main().unwrap().forbidden_if_main.clone();
     let mut c_holder = CHolder::default();
-    let mut tree_constraints = TreeConstraints{ 
-        constraints: LinkedList::new(), 
-        subcomponents: LinkedList::new() 
-    };
+    let mut tree_constraints = TreeConstraints::default();
     let mut signal_map = vec![0];
     let no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut tree_constraints);
     let max_signal = Vec::len(&signal_map);
@@ -141,10 +142,7 @@ pub fn map(dag: DAG, flags: SimplificationFlags,) -> ConstraintList {
 pub fn map_tree_constraints(dag: &DAG) -> TreeConstraints {
 
     let mut c_holder = CHolder::default();
-    let mut tree_constraints = TreeConstraints{ 
-        constraints: LinkedList::new(), 
-        subcomponents: LinkedList::new() 
-    };
+    let mut tree_constraints = TreeConstraints::default();
     let mut signal_map = vec![0];
     let _no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut tree_constraints);
     
@@ -171,6 +169,16 @@ fn print_tree_constraints(tree: &TreeConstraints){
             println!("      Signal: {}, value: {}", signal, value.to_string());
         }
     }
+    if tree.signals.is_empty() {
+        println!("El nodo no tiene señales");
+    } else{
+        println!("Tiene un total de {} señales comenzando en {}", 
+            tree.signals.len(), 
+            tree.signals.front().unwrap()
+        );
+    }
+    println!("Numero de inputs: {}", tree.number_inputs);
+    println!("Numero de outputs: {}", tree.number_outputs);
     println!("");
     for node in &tree.subcomponents{
         print_tree_constraints(node);
