@@ -13,7 +13,8 @@ pub struct TreeConstraints {
     constraints: LinkedList<Constraint>,
     number_inputs: usize,
     number_outputs: usize,
-    signals: LinkedList<usize>,
+    number_signals: usize,
+    initial_signal: usize,
     subcomponents: LinkedList<TreeConstraints>,
 }
 
@@ -21,10 +22,13 @@ fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder, tree_
     let mut no_constraints = 0;
 
     for signal in &tree.signals {
-        tree_constraints.signals.push_back(signal.clone());
         Vec::push(witness, *signal);
     }
 
+    tree_constraints.number_signals = tree.signals.len();
+    if tree_constraints.number_signals > 0{
+        tree_constraints.initial_signal = tree.signals[0];
+    }
     tree_constraints.number_inputs = tree.inputs_length;
     tree_constraints.number_outputs = tree.outputs_length;
 
@@ -169,14 +173,9 @@ fn print_tree_constraints(tree: &TreeConstraints){
             println!("      Signal: {}, value: {}", signal, value.to_string());
         }
     }
-    if tree.signals.is_empty() {
-        println!("El nodo no tiene señales");
-    } else{
-        println!("Tiene un total de {} señales comenzando en {}", 
-            tree.signals.len(), 
-            tree.signals.front().unwrap()
-        );
-    }
+
+    println!("Tiene un total de {} señales comenzando en {}", tree.number_signals, tree.initial_signal); 
+
     println!("Numero de inputs: {}", tree.number_inputs);
     println!("Numero de outputs: {}", tree.number_outputs);
     println!("");
