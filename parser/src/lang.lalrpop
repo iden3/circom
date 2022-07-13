@@ -27,9 +27,9 @@ ParsePragma : Version = { // maybe change to usize instead of BigInt
     => version,
 };
 
-// Pragma to indicate that we are using PLONK with custom gates.
+// Pragma to indicate that we are allowing the definition of custom gates.
 ParseCustomGates : () = {
-    "pragma" "ultraPlonk" ";" => ()
+    "pragma" "custom_templates" ";" => ()
 }
 
 // Includes are added at the start of the file.
@@ -77,7 +77,7 @@ pub ParseDefinition : Definition = {
         Some(a)
         => build_function(Meta::new(s,e),name,a,args..arge,body),
     },
-    <s:@L> "template" <custom_gate: "custom"?> <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
+    <s:@L> "template" <custom_gate: "custom"?> <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?> <arge:@R> ")" <body: ParseBlock> <e:@R>
     => match arg_names {
         None
         => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), custom_gate.is_some()),
