@@ -2,21 +2,15 @@ use super::{Constraint, Edge, Node, SimplificationFlags, Tree, DAG};
 use constraint_list::{ConstraintList, DAGEncoding, EncodingEdge, EncodingNode, SignalInfo, Simplifier};
 use program_structure::utils::constants::UsefulConstants;
 use std::collections::{HashSet, LinkedList};
+use crate::TreeConstraints;
+
 #[derive(Default)]
 struct CHolder {
     linear: LinkedList<Constraint>,
     equalities: LinkedList<Constraint>,
     constant_equalities: LinkedList<Constraint>,
 }
-#[derive(Default)]
-pub struct TreeConstraints {
-    constraints: LinkedList<Constraint>,
-    number_inputs: usize,
-    number_outputs: usize,
-    number_signals: usize,
-    initial_signal: usize,
-    subcomponents: LinkedList<TreeConstraints>,
-}
+
 
 fn map_tree(tree: &Tree, witness: &mut Vec<usize>, c_holder: &mut CHolder, tree_constraints: &mut TreeConstraints) -> usize {
     let mut no_constraints = 0;

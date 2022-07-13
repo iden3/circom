@@ -11,7 +11,7 @@ use constraint_writers::ConstraintExporter;
 use program_structure::constants::UsefulConstants;
 use program_structure::error_definition::ReportCollection;
 use std::collections::{HashMap, HashSet};
-use crate::map_to_constraint_list::TreeConstraints;
+use std::collections::LinkedList;
 
 type Signal = usize;
 type Constraint = circom_algebra::algebra::Constraint<usize>;
@@ -19,6 +19,16 @@ type Substitution = circom_algebra::algebra::Substitution<usize>;
 type Range = std::ops::Range<usize>;
 
 pub type FastSubAccess = HashMap<usize, Substitution>;
+
+#[derive(Default)]
+pub struct TreeConstraints {
+    constraints: LinkedList<Constraint>,
+    number_inputs: usize,
+    number_outputs: usize,
+    number_signals: usize,
+    initial_signal: usize,
+    subcomponents: LinkedList<TreeConstraints>,
+}
 
 pub struct Tree<'a> {
     dag: &'a DAG,

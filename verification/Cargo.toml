@@ -1,0 +1,14 @@
+[package]
+name = "verification"
+version = "2.0.0"
+authors = ["Costa Group"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+constraint_writers = { path = "../constraint_writers" }
+circom_algebra = { path = "../circom_algebra" }
+json = "0.12.4"
+threadpool = "1.0"
+num_cpus = "1.0"
