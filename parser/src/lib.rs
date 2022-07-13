@@ -64,26 +64,28 @@ pub fn run_parser(
         let report = errors::MultipleMainError::produce_report();
         Err((file_library, vec![report]))
     } else {
-        warnings.append(
-            &mut includes_graph.get_problematic_paths().iter().map(|path|
-                Report::warning(
-                    format!(
-                        "Missing custom gates' pragma in the following chain of includes {}",
-                        IncludesGraph::display_path(path)
-                    ),
-                    ReportCode::CustomGatesPragmaWarning
-                )
-            ).collect()
-        );
-        let (main_id, main_component) = main_components.pop().unwrap();
-        let result_program_archive = 
-            ProgramArchive::new(file_library, main_id, main_component, definitions);
-        match result_program_archive {
-            Err((lib, rep)) => {
-                Err((lib, rep))
-            }
-            Ok(program_archive) => {
-                Ok((program_archive, warnings))
+        let errors: ReportCollection = includes_graph.get_problematic_paths().iter().map(|path|
+            Report::error(
+                format!(
+                    "Missing custom gates' pragma in the following chain of includes {}",
+                    IncludesGraph::display_path(path)
+                ),
+                ReportCode::CustomGatesPragmaError
+            )
+        ).collect();
+        if errors.len() > 0 {
+            Err((file_library, errors))
+        } else {
+            let (main_id, main_component) = main_components.pop().unwrap();
+            let result_program_archive =
+                ProgramArchive::new(file_library, main_id, main_component, definitions);
+            match result_program_archive {
+                Err((lib, rep)) => {
+                    Err((lib, rep))
+                }
+                Ok(program_archive) => {
+                    Ok((program_archive, warnings))
+                }
             }
         }
     }

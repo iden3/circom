@@ -71,7 +71,7 @@ pub enum ReportCode {
     CustomGateIntermediateSignalWarning,
     CustomGateConstraint,
     CustomGateSubComponent,
-    CustomGatesPragmaWarning,
+    CustomGatesPragmaError,
 }
 impl fmt::Display for ReportCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -145,7 +145,7 @@ impl fmt::Display for ReportCode {
             CustomGateIntermediateSignalWarning => "CG01",
             CustomGateConstraint => "CG02",
             CustomGateSubComponent => "CG03",
-            CustomGatesPragmaWarning => "CG04",
+            CustomGatesPragmaError => "CG04",
         };
         f.write_str(string_format)
     }
