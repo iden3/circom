@@ -81,6 +81,7 @@ pub struct AST {
     pub meta: Meta,
     pub compiler_version: Option<Version>,
     pub custom_gates: bool,
+    pub custom_gates_declared: bool,
     pub includes: Vec<String>,
     pub definitions: Vec<Definition>,
     pub main_component: Option<MainComponent>,
@@ -94,7 +95,18 @@ impl AST {
         definitions: Vec<Definition>,
         main_component: Option<MainComponent>,
     ) -> AST {
-        AST { meta, compiler_version, custom_gates, includes, definitions, main_component }
+        let custom_gates_declared = definitions.iter().any(
+            |definition| matches!(definition, Definition::Template { is_custom_gate: true, .. })
+        );
+        AST {
+            meta,
+            compiler_version,
+            custom_gates,
+            custom_gates_declared,
+            includes,
+            definitions,
+            main_component
+        }
     }
 }
 
