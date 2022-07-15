@@ -32,9 +32,6 @@ pub fn check_naming_correctness(program_archive: &ProgramArchive) -> Result<(), 
         );
         instances.push(instance);
     }
-    {
-    }
-
     if let Err(mut r) = analyze_main(program_archive) {
         reports.append(&mut r);
     }
@@ -67,7 +64,7 @@ fn analyze_main(program: &ProgramArchive) -> Result<(), Vec<Report>> {
     let mut reports = vec![];
     if let Expression::Call { id, .. } = call {
         if program.contains_template(id) {
-            let inputs  =  program.get_template_data(id).get_inputs();
+            let inputs = program.get_template_data(id).get_inputs();
             for signal in signals {
                 if !inputs.contains_key(signal) {
                     let mut report = Report::error(
