@@ -2,6 +2,7 @@ use super::analysis_utilities::*;
 use super::very_concrete_program::*;
 use program_structure::ast::*;
 use std::collections::HashSet;
+use num_traits::{ToPrimitive};
 
 struct SearchInfo {
     environment: E,
@@ -171,11 +172,33 @@ fn infer_type_variable(expr: &Expression, _state: &State, context: &mut SearchIn
     }
 }
 
+fn cast_dimension(ae_index: &Expression) -> Option<usize> {
+    use Expression::Number;
+
+    if let Number(_, value) = ae_index {
+        value.to_usize()
+    } else {
+        Option::None
+    }
+}
+
 fn infer_type_array(expr: &Expression, state: &State, context: &mut SearchInfo) -> Option<VCT> {
-    use Expression::ArrayInLine;
+    use Expression::{ArrayInLine, UniformArray};
     if let ArrayInLine { values, .. } = expr {
         let mut lengths = vec![values.len()];
         let with_type = infer_type_expresion(&values[0], state, context);
+        with_type.map(|mut l| {
+            lengths.append(&mut l);
+            lengths
+        })
+    } else if let UniformArray { value, dimension, .. } = expr {
+        let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
+            dimension
+        } else {
+            unreachable!()
+        };
+        let mut lengths = vec![usable_dimension];
+        let with_type = infer_type_expresion(&value, state, context);
         with_type.map(|mut l| {
             lengths.append(&mut l);
             lengths

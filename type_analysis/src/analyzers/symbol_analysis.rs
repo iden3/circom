@@ -388,6 +388,24 @@ fn analyze_expression(
                 );
             }
         }
+        Expression::UniformArray{ value, dimension, .. } => {
+            analyze_expression(
+                value,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+            analyze_expression(
+                dimension,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+        },
         _ => {}
     }
 }

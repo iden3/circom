@@ -385,6 +385,41 @@ fn execute_expression(
             }
             FoldedValue { arithmetic_slice: Option::Some(array_slice), ..FoldedValue::default() }
         }
+        UniformArray { meta, value, dimension, .. } => {
+            let f_dimension = execute_expression(dimension, program_archive, runtime, flag_verbose)?;
+            let arithmetic_dimension = safe_unwrap_to_single_arithmetic_expression(f_dimension, line!());
+            let usable_dimension = if let Option::Some(dimension) = cast_index(&arithmetic_dimension) {
+                dimension
+            } else {
+                unreachable!()
+            };
+
+            let f_value = execute_expression(value, program_archive, runtime, flag_verbose)?;
+            let slice_value = safe_unwrap_to_arithmetic_slice(f_value, line!());
+            
+            let mut dims = vec![usable_dimension];
+            for dim in slice_value.route() {
+                dims.push(*dim);
+            }
+
+            let mut array_slice = AExpressionSlice::new_with_route(&dims, &AExpr::default());
+            let mut row: SliceCapacity = 0;
+            while row < usable_dimension {
+                let memory_insert_result = AExpressionSlice::insert_values(
+                    &mut array_slice,
+                    &[row],
+                    &slice_value,
+                );
+                treat_result_with_memory_error(
+                    memory_insert_result,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                row += 1;
+            }
+            FoldedValue { arithmetic_slice: Option::Some(array_slice), ..FoldedValue::default() }
+        }
         InfixOp { meta, lhe, infix_op, rhe, .. } => {
             let l_fold = execute_expression(lhe, program_archive, runtime, flag_verbose)?;
             let r_fold = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
@@ -1161,6 +1196,14 @@ fn cast_indexing(ae_indexes: &[AExpr]) -> Option<Vec<SliceCapacity>> {
     Option::Some(sc_indexes)
 }
 
+fn cast_index(ae_index: &AExpr) -> Option<SliceCapacity> {
+    if !ae_index.is_number() {
+        return Option::None;
+    }
+    let index = AExpr::get_usize(ae_index).unwrap();
+    Option::Some(index)
+}
+
 /*
     Usable representation of a series of accesses performed over a symbol.
     AccessingInformation {
@@ -1278,7 +1321,10 @@ fn treat_result_with_memory_error<C>(
                 ),
                 MemoryError::OutOfBoundsError => {
                     Report::error("Out of bounds exception".to_string(), RuntimeError)
-                }
+                },
+                MemoryError::MismatchedDimensions => {
+                    Report::error(" Typing error found: mismatched dimensions".to_string(), RuntimeError)
+                },
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
                 }

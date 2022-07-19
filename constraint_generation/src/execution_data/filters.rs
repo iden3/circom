@@ -169,5 +169,11 @@ fn apply_computed_expr(expr: &mut Expression, analysis: &Analysis) {
         ArrayInLine { values, .. } => {
             apply_computed_expr_vec(values, analysis);
         }
+        UniformArray { value, dimension, .. } => {
+            *value = Box::new(computed_or_original(analysis, value));
+            *dimension = Box::new(computed_or_original(analysis, dimension));
+            apply_computed_expr(value, analysis);
+            apply_computed_expr(dimension, analysis);
+        }
     }
 }

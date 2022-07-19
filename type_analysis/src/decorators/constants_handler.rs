@@ -221,6 +221,7 @@ fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
         }
         Variable { name, .. } => variable(name, environment),
         ArrayInLine { .. } => array_inline(),
+        UniformArray { .. } => uniform_array(),
     }
 }
 
@@ -237,6 +238,9 @@ fn call(params: &[Expression], environment: &Constants) -> bool {
     constant
 }
 fn array_inline() -> bool {
+    false
+}
+fn uniform_array() -> bool {
     false
 }
 fn variable(name: &str, environment: &Constants) -> bool {
@@ -380,6 +384,7 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
     match expr {
         Number(meta, value) => expand_number(meta, value),
         ArrayInLine { meta, values } => expand_array(meta, values, environment),
+        UniformArray { meta, value, dimension} => expand_uniform_array(meta, *value, *dimension, environment),
         Call { id, meta, args } => expand_call(id, meta, args, environment),
         InfixOp { meta, lhe, rhe, infix_op } => {
             expand_infix(meta, *lhe, infix_op, *rhe, environment)
@@ -407,6 +412,17 @@ fn expand_array(
         values.push(new_expression);
     }
     build_array_in_line(meta, values)
+}
+
+fn expand_uniform_array(
+    meta: Meta,
+    old_value: Expression,
+    old_dimension: Expression,
+    environment: &ExpressionHolder,
+) -> Expression {
+    let value = expand_expression(old_value, environment);
+    let dimension = expand_expression(old_dimension, environment);
+    build_uniform_array(meta, value, dimension)
 }
 
 fn expand_call(

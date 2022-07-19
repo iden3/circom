@@ -252,6 +252,11 @@ pub enum Expression {
         meta: Meta,
         values: Vec<Expression>,
     },
+    UniformArray {
+        meta: Meta,
+        value: Box<Expression>, 
+        dimension: Box<Expression>,
+    }
 }
 
 #[derive(Clone)]
