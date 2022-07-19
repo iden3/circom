@@ -175,5 +175,11 @@ fn analyse_expression(
                 analyse_expression(value, function_names, reports);
             }
         }
+        UniformArray {value, dimension, .. } => {
+            analyse_expression(value, function_names, reports);
+            analyse_expression(dimension, function_names, reports);
+
+
+        }
     }
 }
