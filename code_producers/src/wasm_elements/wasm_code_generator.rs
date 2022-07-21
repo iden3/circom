@@ -495,6 +495,10 @@ pub fn generate_imports_list() -> Vec<WasmInstruction> {
             .to_string(),
     );
     imports.push(
+        "(import \"runtime\" \"printErrorMessage\" (func $printErrorMessage (type $_t_void)))"
+            .to_string(),
+    );
+    imports.push(
         "(import \"runtime\" \"showSharedRWMemory\" (func $showSharedRWMemory (type $_t_void)))"
             .to_string(),
     );
@@ -893,6 +897,7 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(" (local $sip i32) ;; signal+position number".to_string());
     instructions.push(" (local $sipm i32) ;; position in the signal memory".to_string());
     instructions.push(" (local $vint i32)".to_string());
+    instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
     instructions.push(set_constant(&producer.get_remaining_input_signal_counter().to_string()));
     instructions.push(load32(None));
     instructions.push(set_local("$ns"));
@@ -990,6 +995,11 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(set_constant(&producer.get_component_tree_start().to_string()));
     let funcname = format!("${}_run", producer.get_main_header());
     instructions.push(call(&funcname));
+    instructions.push(tee_local(producer.get_merror_tag()));
+    instructions.push(add_if()); // if 7
+    instructions.push(get_local("$merror"));    
+    instructions.push(call("$exceptionHandler"));
+    instructions.push(add_end()); // end if 7
     instructions.push(add_end()); // end if 6
     instructions.push(add_end()); // end else if 4
     instructions.push(add_end()); // end else if 3

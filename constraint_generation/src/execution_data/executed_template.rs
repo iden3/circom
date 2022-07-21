@@ -192,6 +192,7 @@ impl ExecutedTemplate {
                     runs: instances[data.goes_to].template_header.clone(),
                     template_id: data.goes_to,
                     external_signals: instances[data.goes_to].signals.clone(),
+                    has_inputs: instances[data.goes_to].number_of_inputs > 0,
                 };
                 triggers.push(trigger);
             }
