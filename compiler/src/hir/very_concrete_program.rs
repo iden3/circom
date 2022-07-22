@@ -177,6 +177,7 @@ pub struct VCPConfig {
     pub templates: Vec<TemplateInstance>,
     pub templates_in_mixed: Vec<usize>,
     pub program: ProgramArchive,
+    pub prime: String,
 }
 
 #[derive(Clone)]
@@ -189,6 +190,7 @@ pub struct VCP {
     pub templates: Vec<TemplateInstance>,
     pub quick_knowledge: HashMap<String, VCT>,
     pub templates_in_mixed: Vec<usize>,
+    pub prime: String,
 }
 impl VCP {
     pub fn new(config: VCPConfig) -> VCP {
@@ -201,6 +203,7 @@ impl VCP {
             templates_in_mixed: config.templates_in_mixed,
             functions: vec![],
             quick_knowledge: HashMap::new(),
+            prime: config.prime,
         };
         super::merger::run_preprocessing(&mut vcp, config.program);
         vcp

@@ -9,11 +9,13 @@ use super::environment_utils::{
         ComponentSlice, MemoryError, MemorySlice, SignalSlice, SliceCapacity,
     },
 };
+
+use program_structure::constants::UsefulConstants;
+
 use super::execution_data::analysis::Analysis;
 use super::execution_data::{ExecutedProgram, ExecutedTemplate, NodePointer};
 use super::{
-    ast::*, ArithmeticError, FileID, ProgramArchive, Report, ReportCode, ReportCollection,
-    UsefulConstants,
+    ast::*, ArithmeticError, FileID, ProgramArchive, Report, ReportCode, ReportCollection
 };
 use circom_algebra::num_bigint::BigInt;
 use std::collections::BTreeMap;
@@ -37,17 +39,17 @@ struct RuntimeInformation {
     pub exec_program: ExecutedProgram,
 }
 impl RuntimeInformation {
-    pub fn new(current_file: FileID, id_max: usize) -> RuntimeInformation {
+    pub fn new(current_file: FileID, id_max: usize, prime: &String) -> RuntimeInformation {
         RuntimeInformation {
             current_file,
             block_type: BlockType::Known,
             analysis: Analysis::new(id_max),
             public_inputs: vec![],
-            constants: UsefulConstants::new(),
+            constants: UsefulConstants::new(prime),
             call_trace: Vec::new(),
             runtime_errors: ReportCollection::new(),
             environment: ExecutionEnvironment::new(),
-            exec_program: ExecutedProgram::new(),
+            exec_program: ExecutedProgram::new(prime),
         }
     }
 }
@@ -78,10 +80,11 @@ enum ExecutionError {
 
 pub fn constraint_execution(
     program_archive: &ProgramArchive,
-    flag_verbose: bool
+    flag_verbose: bool, 
+    prime: &String,
 ) -> Result<ExecutedProgram, ReportCollection> {
     let main_file_id = program_archive.get_file_id_main();
-    let mut runtime_information = RuntimeInformation::new(*main_file_id, program_archive.id_max);
+    let mut runtime_information = RuntimeInformation::new(*main_file_id, program_archive.id_max, prime);
     runtime_information.public_inputs = program_archive.get_public_inputs_main_component().clone();
     let folded_value_result = execute_expression(
         program_archive.get_main_expression(),
@@ -102,10 +105,11 @@ pub fn execute_constant_expression(
     expression: &Expression,
     program_archive: &ProgramArchive,
     environment: ExecutionEnvironment,
-    flag_verbose: bool
+    flag_verbose: bool,
+    prime: &String,
 ) -> Result<BigInt, ReportCollection> {
     let current_file = expression.get_meta().get_file_id();
-    let mut runtime_information = RuntimeInformation::new(current_file, program_archive.id_max);
+    let mut runtime_information = RuntimeInformation::new(current_file, program_archive.id_max, prime);
     runtime_information.environment = environment;
     let folded_value_result =
         execute_expression(expression, program_archive, &mut runtime_information, flag_verbose);
@@ -484,6 +488,7 @@ fn execute_signal_declaration(
 ) {
     use SignalType::*;
     if let Option::Some(node) = actual_node {
+        node.add_ordered_signal(signal_name, dimensions);
         match signal_type {
             Input => {
                 environment_shortcut_add_input(environment, signal_name, dimensions);
@@ -984,6 +989,7 @@ fn execute_template_call(
     debug_assert!(runtime.block_type == BlockType::Known);
     let is_main = std::mem::replace(&mut runtime.public_inputs, vec![]);
     let is_parallel = program_archive.get_template_data(id).is_parallel();
+    let is_custom_gate = program_archive.get_template_data(id).is_custom_gate();
     let args_names = program_archive.get_template_data(id).get_name_of_params();
     let template_body = program_archive.get_template_data(id).get_body_as_vec();
     let mut args_to_values = BTreeMap::new();
@@ -1010,7 +1016,8 @@ fn execute_template_call(
             instantiation_name,
             args_to_values,
             code,
-            is_parallel
+            is_parallel,
+            is_custom_gate
         ));
         let ret = execute_sequence_of_statements(
             template_body,

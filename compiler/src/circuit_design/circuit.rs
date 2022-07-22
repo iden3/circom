@@ -40,7 +40,7 @@ impl WriteWasm for Circuit {
         code_aux = generate_memory_def_list(&producer);
         code.append(&mut code_aux);
 
-        code_aux = fr_types();
+        code_aux = fr_types(&producer.prime_str);
         code.append(&mut code_aux);
 
         code_aux = generate_types_list();
@@ -48,7 +48,7 @@ impl WriteWasm for Circuit {
         code_aux = generate_exports_list();
         code.append(&mut code_aux);
 
-        code_aux = fr_code();
+        code_aux = fr_code(&producer.prime_str);
         code.append(&mut code_aux);
 
         code_aux = desp_io_subcomponent_generator(&producer);
@@ -118,7 +118,7 @@ impl WriteWasm for Circuit {
         code_aux = generate_table_of_template_runs(&producer);
         code.append(&mut code_aux);
 
-        code_aux = fr_data();
+        code_aux = fr_data(&producer.prime_str);
         code.append(&mut code_aux);
 
         code_aux = generate_data_list(&producer);
@@ -143,7 +143,7 @@ impl WriteWasm for Circuit {
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})?;
 
-        code_aux = fr_types();
+        code_aux = fr_types(&producer.prime_str);
         code = merge_code(code_aux);
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})?;
@@ -158,7 +158,7 @@ impl WriteWasm for Circuit {
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})?;
 
-        code_aux = fr_code();
+        code_aux = fr_code(&producer.prime_str);
         code = merge_code(code_aux);
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})?;
@@ -270,7 +270,7 @@ impl WriteWasm for Circuit {
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})?;
 
-        code_aux = fr_data();
+        code_aux = fr_data(&producer.prime_str);
         code = merge_code(code_aux);
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})?;
@@ -415,22 +415,22 @@ impl Circuit {
     pub fn produce_c<W: Write>(&self, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let c_folder_path = Path::new(c_folder.clone()).to_path_buf();
-        c_code_generator::generate_main_cpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_circom_hpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_hpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_hpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_cpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_cpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_asm_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_make_file(&c_folder_path,run_name,&self.c_producer).map_err(|_err| {})?;	
+        c_code_generator::generate_main_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_circom_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_fr_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_calcwit_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_fr_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_calcwit_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_fr_asm_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_make_file(&c_folder_path,run_name,&self.c_producer, &self.c_producer.prime_str).map_err(|_err| {})?;	
         c_code_generator::generate_dat_file(c_dat, &self.c_producer).map_err(|_err| {})?;
         self.write_c(c_circuit, &self.c_producer)
     }
     pub fn produce_wasm<W: Write>(&self, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let js_folder_path = Path::new(js_folder.clone()).to_path_buf();
-        wasm_code_generator::generate_generate_witness_js_file(&js_folder_path).map_err(|_err| {})?;
-        wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path).map_err(|_err| {})?;
+        wasm_code_generator::generate_generate_witness_js_file(&js_folder_path, &self.wasm_producer.prime_str).map_err(|_err| {})?;
+        wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path, &self.wasm_producer.prime_str).map_err(|_err| {})?;
         self.write_wasm(writer, &self.wasm_producer)
     }
 }
