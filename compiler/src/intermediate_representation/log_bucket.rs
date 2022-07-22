@@ -9,6 +9,7 @@ pub struct LogBucket {
     pub message_id: usize,
     pub print: InstructionPointer,
     pub is_parallel: bool,
+    pub label: Option<String>,
 }
 
 impl IntoInstruction for LogBucket {
@@ -66,8 +67,12 @@ impl WriteC for LogBucket {
         let to_string_call = build_call("Fr_element2str".to_string(), vec![argument_result]);
         let temp_var = "temp".to_string();
         let into_temp = format!("char* temp = {}", to_string_call);
-        let print_c =
-            build_call("printf".to_string(), vec!["\"%s\\n\"".to_string(), temp_var.clone()]);
+        let print_c = if let Some(label) = &self.label {
+            let label_str = format!("\"{}\"", label.to_string());
+            build_call("printf".to_string(), vec!["\"%s: %s\\n\"".to_string(), label_str, temp_var.clone()])
+        } else {
+            build_call("printf".to_string(), vec!["\"%s\\n\"".to_string(), temp_var.clone()])
+        };
         let delete_temp = format!("delete [] {}", temp_var);
         let mut log_c = argument_code;
         log_c.push("{".to_string());
