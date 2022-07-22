@@ -550,7 +550,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_raw_prime_start(),
-        wasm_hexa(32, &p)
+        wasm_hexa(producer.get_size_32_bit()*4, &p)
     ));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
@@ -569,7 +569,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
         producer.get_witness_signal_id_list_start(),
         s
     ));
-    wdata.push(format!("(data (i32.const {}) \"{}\")",producer.get_signal_memory_start(),"\\00\\00\\00\\00\\00\\00\\00\\80\\01\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00")); //setting 'one' as long normal 1
+    wdata.push(format!("(data (i32.const {}) \"{}{}\")",producer.get_signal_memory_start(),"\\00\\00\\00\\00\\00\\00\\00\\80",wasm_hexa(producer.get_size_32_bit()*4, &BigInt::from(1)))); //setting 'one' as long normal 1
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_template_instance_to_io_signal_start(),
@@ -1071,15 +1071,12 @@ pub fn copy_32_in_shared_rw_memory_generator(producer: &WASMProducer) -> Vec<Was
     instructions.push(set_constant(&producer.get_shared_rw_memory_start().to_string()));
     instructions.push(set_constant("0"));
     instructions.push(store32(Some("4")));
-    instructions.push(set_constant(&producer.get_shared_rw_memory_start().to_string()));
-    instructions.push(set_constant_64("0"));
-    instructions.push(store64(Some("8")));
-    instructions.push(set_constant(&producer.get_shared_rw_memory_start().to_string()));
-    instructions.push(set_constant_64("0"));
-    instructions.push(store64(Some("16")));
-    instructions.push(set_constant(&producer.get_shared_rw_memory_start().to_string()));
-    instructions.push(set_constant_64("0"));
-    instructions.push(store64(Some("24")));
+    for i in 1..producer.get_size_32_bit()/2 {
+	let pos = 8*i;
+	instructions.push(set_constant(&producer.get_shared_rw_memory_start().to_string()));
+	instructions.push(set_constant_64("0"));
+	instructions.push(store64(Some(&pos.to_string())));
+    }
     instructions.push(")".to_string());
     instructions
 }
@@ -1112,7 +1109,7 @@ pub fn get_witness_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     instructions.push(shl32());
     instructions.push(add32()); // address of the witness in the witness list
     instructions.push(load32(None)); // number of the signal in the signal Memory
-    instructions.push(set_constant("40"));
+    instructions.push(set_constant(&format!("{}",producer.get_size_32_bit()*4+8)));//40
     instructions.push(mul32());
     instructions.push(set_constant(&producer.get_signal_memory_start().to_string()));
     instructions.push(add32()); // address of the signal in the signal Memory
@@ -1443,26 +1440,41 @@ fn get_file_instructions(name: &str) -> Vec<WasmInstruction> {
     instructions
 }
 
-pub fn fr_types() -> Vec<WasmInstruction> {
+pub fn fr_types(prime: &String) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
-    let file = include_str!("fr-types.wat");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr-types.wat"),
+        "bls12381" => include_str!("bls12381/fr-types.wat"),
+        "goldilocks" => include_str!("goldilocks/fr-types.wat"),
+        _ => unreachable!(),
+    };    
     for line in file.lines() {
         instructions.push(line.to_string());
     }
     instructions
 }
 
-pub fn fr_data() -> Vec<WasmInstruction> {
+pub fn fr_data(prime: &String) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
-    let file = include_str!("fr-data.wat");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr-data.wat"),
+        "bls12381" => include_str!("bls12381/fr-data.wat"),
+        "goldilocks" => include_str!("goldilocks/fr-data.wat"),
+        _ => unreachable!(),
+    };    
     for line in file.lines() {
         instructions.push(line.to_string());
     }
     instructions
 }
-pub fn fr_code() -> Vec<WasmInstruction> {
+pub fn fr_code(prime: &String) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
-    let file = include_str!("fr-code.wat");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr-code.wat"),
+        "bls12381" => include_str!("bls12381/fr-code.wat"),
+        "goldilocks" => include_str!("goldilocks/fr-code.wat"),
+        _ => unreachable!(),
+    };    
     for line in file.lines() {
         instructions.push(line.to_string());
     }
@@ -1488,7 +1500,7 @@ pub fn generate_utils_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
 }
  */
 
-pub fn generate_generate_witness_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_generate_witness_js_file(js_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("generate_witness");
@@ -1496,7 +1508,12 @@ pub fn generate_generate_witness_js_file(js_folder: &PathBuf) -> std::io::Result
     let file_name = file_path.to_str().unwrap();
     let mut js_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("generate_witness.js");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/generate_witness.js"),
+        "bls12381" => include_str!("bls12381/generate_witness.js"),
+        "goldilocks" => include_str!("goldilocks/generate_witness.js"),
+        _ => unreachable!(),
+    };    
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -1505,7 +1522,7 @@ pub fn generate_generate_witness_js_file(js_folder: &PathBuf) -> std::io::Result
     Ok(())
 }
 
-pub fn generate_witness_calculator_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_witness_calculator_js_file(js_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("witness_calculator");
@@ -1513,7 +1530,12 @@ pub fn generate_witness_calculator_js_file(js_folder: &PathBuf) -> std::io::Resu
     let file_name = file_path.to_str().unwrap();
     let mut js_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("witness_calculator.js");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/witness_calculator.js"),
+        "bls12381" => include_str!("bls12381/witness_calculator.js"),
+        "goldilocks" => include_str!("goldilocks/witness_calculator.js"),
+        _ => unreachable!(),
+    };    
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
