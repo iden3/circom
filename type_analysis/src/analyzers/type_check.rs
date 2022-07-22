@@ -242,7 +242,7 @@ fn type_statement(
                 );
             }
         }
-        LogCall { arg, meta } | Assert { arg, meta } => {
+        LogCall { arg, meta, .. } | Assert { arg, meta } => {
             let arg_response = type_expression(arg, program_archive, analysis_information);
             let arg_type = if let Result::Ok(t) = arg_response {
                 t
