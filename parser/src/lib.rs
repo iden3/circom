@@ -67,7 +67,7 @@ pub fn run_parser(
         let errors: ReportCollection = includes_graph.get_problematic_paths().iter().map(|path|
             Report::error(
                 format!(
-                    "Missing custom gates' pragma in the following chain of includes {}",
+                    "Missing custom templates pragma in the following chain of includes {}",
                     IncludesGraph::display_path(path)
                 ),
                 ReportCode::CustomGatesPragmaError
