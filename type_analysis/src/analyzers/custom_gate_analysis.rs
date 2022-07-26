@@ -33,14 +33,14 @@ pub fn custom_gate_analysis(
                 match xtype {
                     Signal(SignalType::Intermediate, _) => {
                         let mut warning = Report::warning(
-                            String::from("Intermediate signal inside custom gate"),
+                            String::from("Intermediate signal inside custom template"),
                             ReportCode::CustomGateIntermediateSignalWarning
                         );
                         warning.add_primary(
                             meta.location.clone(),
                             meta.file_id.unwrap(),
                             format!(
-                                "Intermediate signal {} declared in custom gate {}",
+                                "Intermediate signal {} declared in custom template {}",
                                 name,
                                 custom_gate_name
                             )
@@ -49,14 +49,14 @@ pub fn custom_gate_analysis(
                     }
                     Component => {
                         let mut error = Report::error(
-                            String::from("Component inside custom gate"),
+                            String::from("Component inside custom template"),
                             ReportCode::CustomGateSubComponent
                         );
                         error.add_primary(
                             meta.location.clone(),
                             meta.file_id.unwrap(),
                             format!(
-                                "Component {} declared in custom gate {}",
+                                "Component {} declared in custom template {}",
                                 name,
                                 custom_gate_name
                             )
@@ -71,7 +71,7 @@ pub fn custom_gate_analysis(
                 match op {
                     AssignConstraintSignal => {
                         let mut error = Report::error(
-                            String::from("Added constraint inside custom gate"),
+                            String::from("Added constraint inside custom template"),
                             ReportCode::CustomGateConstraint
                         );
                         error.add_primary(
@@ -86,7 +86,7 @@ pub fn custom_gate_analysis(
             }
             ConstraintEquality { meta, .. } => {
                 let mut error = Report::error(
-                    String::from("Added constraint inside custom gate"),
+                    String::from("Added constraint inside custom template"),
                     ReportCode::CustomGateConstraint
                 );
                 error.add_primary(
