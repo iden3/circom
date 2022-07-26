@@ -111,7 +111,7 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
     use std::time::SystemTime;
     // println!("Start of dag to list mapping");
     let now = SystemTime::now();
-    let constants = UsefulConstants::new();
+    let constants = UsefulConstants::new(&dag.prime);
     let field = constants.get_p().clone();
     let init_id = dag.main_id();
     let no_public_inputs = dag.public_inputs();

@@ -1,21 +1,21 @@
 use super::analysis::Analysis;
 use program_structure::ast::*;
 
-pub fn apply_unused(stmt: &mut Statement, analysis: &Analysis) {
-    clean_dead_code(stmt, analysis);
+pub fn apply_unused(stmt: &mut Statement, analysis: &Analysis, prime: &String) {
+    clean_dead_code(stmt, analysis, prime);
 }
 
-fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis) -> bool {
+fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis, prime: &String) -> bool {
     use circom_algebra::modular_arithmetic::as_bool;
     use Statement::*;
     match stmt {
-        While { stmt, .. } => clean_dead_code(stmt, analysis),
+        While { stmt, .. } => clean_dead_code(stmt, analysis, prime),
         IfThenElse { if_case, else_case, cond, meta } => {
-            let field = program_structure::constants::UsefulConstants::new().get_p().clone();
+            let field = program_structure::constants::UsefulConstants::new(prime).get_p().clone();
             let empty_block = Box::new(Block { meta: meta.clone(), stmts: vec![] });
-            let if_case_empty = clean_dead_code(if_case, analysis);
+            let if_case_empty = clean_dead_code(if_case, analysis, prime);
             let else_case_empty =
-                if let Some(case) = else_case { clean_dead_code(case, analysis) } else { true };
+                if let Some(case) = else_case { clean_dead_code(case, analysis, prime) } else { true };
             if else_case_empty {
                 *else_case = None;
             }
@@ -34,7 +34,7 @@ fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis) -> bool {
             for mut w in work {
                 let id = w.get_meta().elem_id;
                 if Analysis::is_reached(analysis, id) {
-                    let empty = clean_dead_code(&mut w, analysis);
+                    let empty = clean_dead_code(&mut w, analysis, prime);
                     if !empty {
                         stmts.push(w)
                     }

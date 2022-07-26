@@ -121,8 +121,8 @@ fn check_number_version(
     use errors::{CompilerVersionError, NoCompilerVersionWarning};
     if let Some(required_version) = version_file {
         if required_version.0 == version_compiler.0 
-        && required_version.1 == version_compiler.1 
-        && required_version.2 <= version_compiler.2 {
+        && (required_version.1 < version_compiler.1 ||  
+         (required_version.1 == version_compiler.1 && required_version.2 <= version_compiler.2)) {
             Ok(vec![])
         } else {
             let report = CompilerVersionError::produce_report(

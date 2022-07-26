@@ -2,7 +2,7 @@ use super::modular_arithmetic;
 pub use super::modular_arithmetic::ArithmeticError;
 use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeSet};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 
@@ -984,6 +984,19 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
     }
 }
 
+impl<C: Default + Clone + Display + Hash + Eq + std::cmp::Ord> Substitution<C> {
+    pub fn take_cloned_signals_ordered(&self) -> BTreeSet<C> {
+        let cq: C = ArithmeticExpression::constant_coefficient();
+        let mut signals = BTreeSet::new();
+        for s in self.to.keys() {
+            if cq != *s {
+                signals.insert(s.clone());
+            }
+        }
+        signals
+    }
+}
+
 impl Substitution<usize> {
     pub fn apply_offset(&self, offset: usize) -> Substitution<usize> {
         let constant: usize = Substitution::constant_coefficient();
@@ -1168,6 +1181,24 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
             ArithmeticExpression::Linear { coefficients: self.b },
             ArithmeticExpression::Linear { coefficients: self.c }
         )
+    }
+
+}
+
+impl<C: Default + Clone + Display + Hash + Eq + std::cmp::Ord> Constraint<C> {
+    pub fn take_cloned_signals_ordered(&self) -> BTreeSet<C> {
+        let mut signals = BTreeSet::new();
+        for signal in self.a().keys() {
+            signals.insert(signal.clone());
+        }
+        for signal in self.b().keys() {
+            signals.insert(signal.clone());
+        }
+        for signal in self.c().keys() {
+            signals.insert(signal.clone());
+        }
+        signals.remove(&Constraint::constant_coefficient());
+        signals
     }
 
 }
