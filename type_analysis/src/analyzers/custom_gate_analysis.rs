@@ -50,7 +50,7 @@ pub fn custom_gate_analysis(
                     Component => {
                         let mut error = Report::error(
                             String::from("Component inside custom template"),
-                            ReportCode::CustomGateSubComponent
+                            ReportCode::CustomGateSubComponentError
                         );
                         error.add_primary(
                             meta.location.clone(),
@@ -72,7 +72,7 @@ pub fn custom_gate_analysis(
                     AssignConstraintSignal => {
                         let mut error = Report::error(
                             String::from("Added constraint inside custom template"),
-                            ReportCode::CustomGateConstraint
+                            ReportCode::CustomGateConstraintError
                         );
                         error.add_primary(
                             meta.location.clone(),
@@ -87,7 +87,7 @@ pub fn custom_gate_analysis(
             ConstraintEquality { meta, .. } => {
                 let mut error = Report::error(
                     String::from("Added constraint inside custom template"),
-                    ReportCode::CustomGateConstraint
+                    ReportCode::CustomGateConstraintError
                 );
                 error.add_primary(
                     meta.location.clone(),
