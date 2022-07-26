@@ -4,6 +4,7 @@ use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::ConstraintExporter;
 use program_structure::program_archive::ProgramArchive;
 
+
 pub struct ExecutionConfig {
     pub r1cs: String,
     pub sym: String,
@@ -18,6 +19,7 @@ pub struct ExecutionConfig {
     pub r1cs_flag: bool,
     pub json_substitution_flag: bool,
     pub json_constraint_flag: bool,
+    pub prime: String,
 }
 
 pub fn execute_project(
@@ -34,6 +36,7 @@ pub fn execute_project(
         flag_p: config.flag_p,
         flag_verbose: config.flag_verbose,
         inspect_constraints: config.inspect_constraints_flag,
+        prime : config.prime,
     };
     let (exporter, vcp) = build_circuit(program_archive, build_config)?;
     if config.r1cs_flag {

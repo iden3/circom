@@ -1,5 +1,16 @@
 # Release notes
 
+## June 23, 2022 circom 2.0.5
+
+#### Extensions
+- Removing non-determinism in linear constraints that cannot be removed.
+- Making deterministic the code generation. 
+- Adding signal one in the wires counting for optimization option '-O0'.
+
+
+#### Fixed Bugs
+- Bug in conditional creation of components inside loops
+
 ## April 24, 2022 circom 2.0.4
 
 #### Extensions
