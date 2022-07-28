@@ -69,7 +69,7 @@ impl IncludesGraph {
         custom_gates_pragma: bool,
         custom_gates_usage: bool
     ) {
-        self.nodes.push(IncludesNode { path: path.clone(), custom_gates_pragma });
+        self.nodes.push(IncludesNode { path, custom_gates_pragma });
         if custom_gates_usage {
             self.custom_gates_nodes.push(self.nodes.len() - 1);
         }
