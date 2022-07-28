@@ -55,7 +55,7 @@ pub struct IncludesNode {
 pub struct IncludesGraph {
     nodes: Vec<IncludesNode>,
     adjacency: HashMap<PathBuf, Vec<usize>>,
-    custom_gates_nodes: Vec<PathBuf>,
+    custom_gates_nodes: Vec<usize>,
 }
 
 impl IncludesGraph {
@@ -71,7 +71,7 @@ impl IncludesGraph {
     ) {
         self.nodes.push(IncludesNode { path: path.clone(), custom_gates_pragma });
         if custom_gates_usage {
-            self.custom_gates_nodes.push(path.clone());
+            self.custom_gates_nodes.push(self.nodes.len() - 1);
         }
     }
 
@@ -89,11 +89,9 @@ impl IncludesGraph {
 
     pub fn get_problematic_paths(&self) -> Vec<Vec<PathBuf>> {
         let mut problematic_paths = Vec::new();
-        for file in &self.custom_gates_nodes {
-            let path_covered = vec![file.clone()];
-            let traversed_edges = HashSet::new();
+        for from in &self.custom_gates_nodes {
             problematic_paths.append(
-                &mut self.traverse(file, true, path_covered, traversed_edges)
+                &mut self.traverse(*from, Vec::new(), HashSet::new())
             );
         }
         problematic_paths
@@ -101,41 +99,39 @@ impl IncludesGraph {
 
     fn traverse(
         &self,
-        from: &PathBuf,
-        ok: bool,
+        from: usize,
         path: Vec<PathBuf>,
-        traversed_edges: HashSet<(PathBuf, PathBuf)>
+        traversed_edges: HashSet<(usize, usize)>
     ) -> Vec<Vec<PathBuf>> {
         let mut problematic_paths = Vec::new();
-        if let Some(edges) = self.adjacency.get(from) {
+        let (from_path, using_pragma) = {
+            let node = &self.nodes[from];
+            (&node.path, node.custom_gates_pragma)
+        };
+        let new_path = {
+            let mut new_path = path.clone();
+            new_path.push(from_path.clone());
+            new_path
+        };
+        if !using_pragma {
+            problematic_paths.push(new_path.clone());
+        }
+        if let Some(edges) = self.adjacency.get(from_path) {
             for to in edges {
-                let next = &self.nodes[*to];
-                let edge = (from.clone(), next.path.clone());
+                let edge = (from, *to);
                 if !traversed_edges.contains(&edge) {
-                    let new_path = {
-                        let mut new_path = path.clone();
-                        new_path.push(next.path.clone());
-                        new_path
-                    };
                     let new_traversed_edges = {
                         let mut new_traversed_edges = traversed_edges.clone();
-                        new_traversed_edges.insert((from.clone(), next.path.clone()));
+                        new_traversed_edges.insert(edge);
                         new_traversed_edges
                     };
                     problematic_paths.append(
-                        &mut self.traverse(
-                            &next.path,
-                            ok && next.custom_gates_pragma,
-                            new_path,
-                            new_traversed_edges
-                        )
+                        &mut self.traverse(*to, new_path.clone(), new_traversed_edges)
                     );
                 }
             }
-            problematic_paths
-        } else {
-            if ok { vec![] } else { vec![path] }
         }
+        problematic_paths
     }
 
     pub fn display_path(path: &Vec<PathBuf>) -> String {
