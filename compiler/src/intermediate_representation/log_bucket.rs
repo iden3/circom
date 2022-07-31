@@ -59,6 +59,7 @@ impl WriteWasm for LogBucket {
             
             let mut trunc_label = label.clone();
             trunc_label.truncate(producer.get_size_of_message_in_bytes());
+            trunc_label.push('\0'); // terminate message with a null byte
 
             // write out the label one character at a time
             for (i, c) in trunc_label.chars().enumerate() {
@@ -66,11 +67,6 @@ impl WriteWasm for LogBucket {
                 instructions.push(set_constant(&(c as usize).to_string()));
                 instructions.push(store32(None));
             }
-
-            // terminate message with a null byte
-            instructions.push(set_constant(&(producer.get_message_buffer_start() + trunc_label.chars().count()).to_string()));
-            instructions.push(set_constant("0"));
-            instructions.push(store32(None));
 
             // initialize message buffer position to 0
             instructions.push(set_constant(&producer.get_message_buffer_counter_position().to_string()));
