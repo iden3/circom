@@ -48,11 +48,37 @@ impl WriteWasm for LogBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; log bucket".to_string());
-	}
+    	}
         let mut instructions_print = self.print.produce_wasm(producer);
         instructions.append(&mut instructions_print);
         instructions.push(call("$copyFr2SharedRWMemory"));
+        if let Some(label) = &self.label {
+            if producer.needs_comments() {
+                instructions.push(";; log label".to_string());
+            }
+            
+            let mut trunc_label = label.clone();
+            trunc_label.truncate(producer.get_size_of_message_in_bytes());
+
+            // write out the label one character at a time
+            for (i, c) in trunc_label.chars().enumerate() {
+                instructions.push(set_constant(&(producer.get_message_buffer_start() + i).to_string()));
+                instructions.push(set_constant(&(c as usize).to_string()));
+                instructions.push(store32(None));
+            }
+
+            // terminate message with a null byte
+            instructions.push(set_constant(&(producer.get_message_buffer_start() + trunc_label.chars().count()).to_string()));
+            instructions.push(set_constant("0"));
+            instructions.push(store32(None));
+
+            // initialize message buffer position to 0
+            instructions.push(set_constant(&producer.get_message_buffer_counter_position().to_string()));
+            instructions.push(set_constant("0"));
+            instructions.push(store32(None));
+        }
         instructions.push(call("$showSharedRWMemory"));
+        
         if producer.needs_comments() {
             instructions.push(";; end of log bucket".to_string());
 	}
