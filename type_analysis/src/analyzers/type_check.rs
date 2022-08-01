@@ -242,7 +242,31 @@ fn type_statement(
                 );
             }
         }
-        LogCall { arg, meta, .. } | Assert { arg, meta } => {
+        LogCall { arg, meta, label, .. } => {
+            let arg_response = type_expression(arg, program_archive, analysis_information);
+            let arg_type = if let Result::Ok(t) = arg_response {
+                t
+            } else {
+                return;
+            };
+            if let Some(label) = label {
+                if label.len() > 240 {
+                    add_report(
+                        ReportCode::LabelTooLongError(label.len()),
+                        meta,
+                        &mut analysis_information.reports,
+                    )
+                }
+            }
+            if arg_type.is_template() || arg_type.dim() > 0 {
+                add_report(
+                    ReportCode::MustBeSingleArithmetic,
+                    meta,
+                    &mut analysis_information.reports,
+                )
+            }
+        }
+        Assert { arg, meta } => {
             let arg_response = type_expression(arg, program_archive, analysis_information);
             let arg_type = if let Result::Ok(t) = arg_response {
                 t
@@ -760,6 +784,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         WrongNumberOfArguments(expected, got) => {
             format!("Expecting {} arguments, {} where obtained", expected, got)
         }
+        LabelTooLongError(len) => format!("Label too long. Label is {} characters but must be <240", len),
         _ => panic!("Unimplemented error code"),
     };
     report.add_primary(location, file_id, message);
