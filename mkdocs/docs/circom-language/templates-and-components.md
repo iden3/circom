@@ -110,6 +110,12 @@ component main {public [in]} = A(1);
 
 During the compilation of this code, we obtain the next warning message: _"There is no output signal."_.
 
+## Custom templates
+
+Since version 2.0.6, the language allows the definition of a new type of templates, custom templates. This new construction works similarly to standard templates: they are declared analogously, just adding the keyword `custom` in its declaration after `template`; and are instantiated in the exact same way.
+
+However, the way in which their computation is encoded is treated differently from standard templates. Instead of producing r1cs constraints, the usage of each defined custom template will be trated in a later stage by [snarkjs](../index.md#snarkjs) to generate and validate the zk proof, in this case using the PLONK scheme. Information about the definition and usages of custom templates will be exported in the `.r1cs` file (see [here](https://github.com/iden3/r1csfile/blob/master/doc/r1cs_bin_format.md)). This means that custom templates cannot introduce any constraint inside they body, nor declare any subcomponent.
+
 ## Components
 
 A component defines an arithmetic circuit and, as such, it receives N input signals and produces M output signals and K intermediate signals. Additionally, it can produce a set of constraints.
