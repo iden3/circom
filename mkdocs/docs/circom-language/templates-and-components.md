@@ -112,9 +112,19 @@ During the compilation of this code, we obtain the next warning message: _"There
 
 ## Custom templates
 
-Since version 2.0.6, the language allows the definition of a new type of templates, custom templates. This new construction works similarly to standard templates: they are declared analogously, just adding the keyword `custom` in its declaration after `template`; and are instantiated in the exact same way.
+Since version 2.0.6, the language allows the definition of a new type of templates, custom templates. This new construction works similarly to standard templates: they are declared analogously, just adding the keyword `custom` in its declaration after `template`; and are instantiated in the exact same way. That is, a custom template `Example` is defined and then instantiated as follows:
 
-However, the way in which their computation is encoded is treated differently from standard templates. Instead of producing r1cs constraints, the usage of each defined custom template will be trated in a later stage by [snarkjs](../index.md#snarkjs) to generate and validate the zk proof, in this case using the PLONK scheme. Information about the definition and usages of custom templates will be exported in the `.r1cs` file (see [here](https://github.com/iden3/r1csfile/blob/master/doc/r1cs_bin_format.md)). This means that custom templates cannot introduce any constraint inside they body, nor declare any subcomponent.
+```text
+pragma custom_templates;
+
+template custom Example() {}
+
+template UsingExample() {
+   component example = Example();
+}
+```
+
+However, the way in which their computation is encoded is different from the one for standard templates. Instead of producing r1cs constraints, the usage of each defined custom template will be treated in a later stage by [snarkjs](../index.md#snarkjs) to generate and validate the zk proof, in this case using the PLONK scheme (and using the custom template's definitions as PLONK's custom gates, see [here](TBC) how). Information about the definition and usages of custom templates will be exported in the `.r1cs` file (see [here](https://github.com/iden3/r1csfile/blob/master/doc/r1cs_bin_format.md) sections 4 and 5). This means that custom templates cannot introduce any constraint inside their body, nor declare any subcomponent.
 
 ## Components
 
