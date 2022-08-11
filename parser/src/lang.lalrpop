@@ -365,7 +365,7 @@ Listable: Vec<Expression> = {
 };
 
 ParseString : LogArgument = {
-     "\"" <e: STRING> "\"" 
+     <e: STRING>
     => {
         build_log_string(e)
     },
