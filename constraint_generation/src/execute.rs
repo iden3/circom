@@ -300,20 +300,22 @@ fn execute_statement(
             ExecutionEnvironment::remove_variable_block(&mut runtime.environment);
             return_value
         }
-        LogCall { arg, .. } => {
+        LogCall { args, .. } => {
             if flag_verbose{
-                let f_result = execute_expression(arg, program_archive, runtime, flag_verbose)?;
-                let arith = safe_unwrap_to_single_arithmetic_expression(f_result, line!());
-                if AExpr::is_number(&arith){
-                    println!("{}", arith);
-                }
-                else{
-                    println!("Unknown")
-                }
+                for arglog in args {
+                    if let LogArgument::LogExp(arg) = arglog{
+                        let f_result = execute_expression(arg, program_archive, runtime, flag_verbose)?;
+                        let arith = safe_unwrap_to_single_arithmetic_expression(f_result, line!());
+                        if AExpr::is_number(&arith){
+                            println!("{}", arith);
+                        }
+                        else{
+                            println!("Unknown")
+                        }
+                    }
+                    }
             }
             Option::None
-
-
         }
         Assert { arg, meta, .. } => {
             let f_result = execute_expression(arg, program_archive, runtime, flag_verbose)?;

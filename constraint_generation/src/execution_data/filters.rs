@@ -86,9 +86,13 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
             apply_computed_expr(lhe, analysis);
             apply_computed_expr(rhe, analysis);
         }
-        LogCall { arg, .. } => {
-            *arg = computed_or_original(analysis, arg);
-            apply_computed_expr(arg, analysis);
+        LogCall { args, .. } => {
+            for arglog in args {
+                if let LogArgument::LogExp(arg) = arglog{
+                    *arg = computed_or_original(analysis, arg);
+                    apply_computed_expr(arg, analysis);
+                }
+            }
         }
         Assert { arg, .. } => {
             *arg = computed_or_original(analysis, arg);

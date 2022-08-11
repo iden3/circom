@@ -77,7 +77,12 @@ pub fn visit_return(bucket: &mut ReturnBucket, function_to_arena_size: &HashMap<
 }
 
 pub fn visit_log(bucket: &mut LogBucket, function_to_arena_size: &HashMap<String, usize>) {
-    visit_instruction(&mut bucket.print, function_to_arena_size);
+    for print in bucket.argsprint.clone() {
+        if let LogBucketArgs::LogExp(mut exp) = print { 
+            visit_instruction(&mut exp, function_to_arena_size);
+        }
+    }
+    
 }
 
 pub fn visit_assert(bucket: &mut AssertBucket, function_to_arena_size: &HashMap<String, usize>) {

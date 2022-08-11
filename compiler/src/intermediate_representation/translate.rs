@@ -1,5 +1,6 @@
 use super::ir_interface::*;
 use crate::hir::very_concrete_program::*;
+use crate::intermediate_representation::log_bucket::LogBucketArgs;
 use constant_tracking::ConstantTracker;
 use num_bigint_dig::BigInt;
 use program_structure::ast::*;
@@ -90,6 +91,8 @@ struct State {
     component_address_stack: usize,
     is_parallel: bool,
     code: InstructionList,
+    // string_table
+    pub string_table: HashMap<String, usize>,
 }
 
 impl State {
@@ -114,6 +117,7 @@ impl State {
             fresh_cmp_id: cmp_id_offset,
             max_stack_depth: 0,
             code: vec![],
+            string_table : HashMap::new(),
         }
     }
     fn reserve(fresh: &mut usize, size: usize) -> usize {
@@ -581,14 +585,32 @@ fn translate_assert(stmt: Statement, state: &mut State, context: &Context) {
 
 fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::LogCall;
-    if let LogCall { meta, arg, .. } = stmt {
+    if let LogCall { meta, args, .. } = stmt {
         let line = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
-        let code = translate_expression(arg, state, context);
+        let mut logbucket_args = Vec::new();
+        for arglog in args {
+            match arglog {
+                LogArgument::LogExp(arg) => {
+                    let code = translate_expression(arg, state, context);
+                    logbucket_args.push(LogBucketArgs::LogExp(code));
+                }
+                LogArgument::LogStr(exp) => {
+                    match state.string_table.get(&exp) {
+                        Some( idx) => {logbucket_args.push(LogBucketArgs::LogString(*idx));},
+                        None => {
+                            logbucket_args.push(LogBucketArgs::LogString(state.string_table.len()));
+                            state.string_table.insert(exp, state.string_table.len());
+                        },
+                    }
+                    
+                }
+            }
+        }
         let log = LogBucket {
             line,
             message_id: state.message_id,
-            print: code,
-            is_parallel: state.is_parallel
+            is_parallel: state.is_parallel,
+            argsprint: logbucket_args,
         }.allocate();
         state.code.push(log);
     }
