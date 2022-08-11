@@ -157,7 +157,7 @@ fn produce_vcf_log_call(stmt: &Statement, state: &mut State, environment: &E) {
             if let LogArgument::LogExp(arg) = arglog {
                 produce_vcf_expr(arg, state, environment);
             }
-            else {unreachable!(); }
+            else {}// unimplemented!(); }
         }
     } else {
         unreachable!();
