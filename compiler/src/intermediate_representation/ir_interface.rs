@@ -10,6 +10,7 @@ pub use super::log_bucket::LogBucket;
 pub use super::loop_bucket::LoopBucket;
 pub use super::return_bucket::ReturnBucket;
 pub use super::store_bucket::StoreBucket;
+pub use super::log_bucket::LogBucketArgs;
 pub use super::types::{InstrContext, ValueType};
 pub use super::value_bucket::ValueBucket;
 

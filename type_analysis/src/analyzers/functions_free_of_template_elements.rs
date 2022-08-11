@@ -101,7 +101,14 @@ fn analyse_statement(
             analyse_expression(lhe, function_names, reports);
             analyse_expression(rhe, function_names, reports);
         }
-        LogCall { arg, .. } | Assert { arg, .. } => {
+        LogCall { args, .. } => {
+            for logarg in args {
+                if let LogArgument::LogExp(arg) = logarg {
+                    analyse_expression(arg, function_names, reports);
+                }
+            }
+        }
+        Assert { arg, .. } => {
             analyse_expression(arg, function_names, reports);
         }
         Return { value, .. } => {

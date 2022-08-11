@@ -1,4 +1,5 @@
 use crate::intermediate_representation::ir_interface::*;
+
 pub fn build_list(instructions: &mut InstructionList, fresh: usize) -> usize {
     let mut max_depth = 0;
     for i in instructions {
@@ -87,7 +88,17 @@ pub fn build_return(bucket: &mut ReturnBucket, fresh: usize) -> usize {
 }
 
 pub fn build_log(bucket: &mut LogBucket, fresh: usize) -> usize {
-    build_instruction(&mut bucket.print, fresh)
+    let mut in_log = usize::min_value();
+    for arglog in bucket.argsprint.clone() {
+        match arglog {
+            LogBucketArgs::LogExp(mut arg) => {
+                let new_log = build_instruction(&mut arg, fresh);
+                in_log = std::cmp::max(in_log, new_log);
+            }
+            LogBucketArgs::LogString(..) => {}
+        }
+    }
+    in_log
 }
 
 pub fn build_assert(bucket: &mut AssertBucket, fresh: usize) -> usize {

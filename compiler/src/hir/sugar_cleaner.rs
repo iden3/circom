@@ -164,8 +164,15 @@ fn extend_return(stmt: &mut Statement, state: &mut State, context: &Context) -> 
 
 fn extend_log_call(stmt: &mut Statement, state: &mut State, context: &Context) -> Vec<Statement> {
     use Statement::LogCall;
-    if let LogCall { arg, .. } = stmt {
-        extend_expression(arg, state, context).initializations
+    if let LogCall { args, .. } = stmt {
+        let mut initializations = Vec::new();
+        for arglog in args {
+            if let LogArgument::LogExp(arg) = arglog {
+                let mut exp = extend_expression(arg, state, context);
+                initializations.append(&mut exp.initializations);
+            }
+        }
+        initializations
     } else {
         unreachable!()
     }

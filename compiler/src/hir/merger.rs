@@ -152,8 +152,13 @@ fn produce_vcf_assert(stmt: &Statement, state: &mut State, environment: &E) {
 
 fn produce_vcf_log_call(stmt: &Statement, state: &mut State, environment: &E) {
     use Statement::LogCall;
-    if let LogCall { arg, .. } = stmt {
-        produce_vcf_expr(arg, state, environment);
+    if let LogCall { args, .. } = stmt {
+        for arglog in args {
+            if let LogArgument::LogExp(arg) = arglog {
+                produce_vcf_expr(arg, state, environment);
+            }
+            else {unreachable!(); }
+        }
     } else {
         unreachable!();
     }
@@ -392,8 +397,12 @@ fn link_while(stmt: &mut Statement, state: &State, env: &mut E) {
 
 fn link_log_call(stmt: &mut Statement, state: &State, env: &mut E) {
     use Statement::LogCall;
-    if let LogCall { arg, .. } = stmt {
-        link_expression(arg, state, env);
+    if let LogCall { args, .. } = stmt {
+        for arglog in args {
+            if let LogArgument::LogExp(arg) = arglog{
+                link_expression(arg, state, env);
+            }
+        }   
     } else {
         unreachable!();
     }

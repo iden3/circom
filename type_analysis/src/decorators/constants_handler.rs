@@ -277,7 +277,7 @@ fn expand_statement(stmt: &mut Statement, environment: &mut ExpressionHolder) {
         Declaration { dimensions, .. } => expand_declaration(dimensions, environment),
         Substitution { access, rhe, .. } => expand_substitution(access, rhe, environment),
         ConstraintEquality { lhe, rhe, .. } => expand_constraint_equality(lhe, rhe, environment),
-        LogCall { arg, .. } => expand_log_call(arg, environment),
+        LogCall { args, .. } => expand_log_call(args, environment),
         Assert { arg, .. } => expand_assert(arg, environment),
         Block { stmts, .. } => expand_block(stmts, environment),
     }
@@ -359,8 +359,12 @@ fn expand_constraint_equality(
     *rhe = expand_expression(rhe.clone(), environment);
 }
 
-fn expand_log_call(arg: &mut Expression, environment: &ExpressionHolder) {
-    *arg = expand_expression(arg.clone(), environment);
+fn expand_log_call(args: &mut Vec<LogArgument>, environment: &ExpressionHolder) {
+    for arglog in args {
+        if let LogArgument::LogExp(arg) = arglog {
+            *arg = expand_expression(arg.clone(), environment);
+        }
+    }
 }
 
 fn expand_assert(arg: &mut Expression, environment: &ExpressionHolder) {

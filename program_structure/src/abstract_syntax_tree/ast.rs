@@ -202,7 +202,7 @@ pub enum Statement {
     },
     LogCall {
         meta: Meta,
-        arg: Expression,
+        args: Vec<LogArgument>,
     },
     Block {
         meta: Meta,
@@ -329,6 +329,19 @@ pub enum TypeReduction {
     Component,
     Signal,
 }
+
+#[derive(Clone)]
+pub enum LogArgument {
+    LogStr(String),
+    LogExp(Expression),
+}
+pub fn build_log_string(acc: String) -> LogArgument {
+    LogArgument::LogStr(acc)
+}
+pub fn build_log_expression(expr: Expression) -> LogArgument {
+    LogArgument::LogExp(expr)
+}
+
 
 #[derive(Default, Clone)]
 pub struct TypeKnowledge {
