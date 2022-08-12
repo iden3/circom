@@ -5,16 +5,16 @@ use code_producers::wasm_elements::*;
 
 
 #[derive(Clone)]
-pub enum LogBucketArgs {
+pub enum LogBucketArg {
     LogExp(InstructionPointer),
-    LogString(usize)
+    LogStr(usize)
 }
 
 #[derive(Clone)]
 pub struct LogBucket {
     pub line: usize,
     pub message_id: usize,
-    pub argsprint: Vec<LogBucketArgs>,
+    pub argsprint: Vec<LogBucketArg>,
     pub is_parallel: bool,
 }
 
@@ -45,7 +45,7 @@ impl ToString for LogBucket {
         let template_id = self.message_id.to_string();
         let mut ret = String::new();
         for print in self.argsprint.clone() {
-            if let LogBucketArgs::LogExp(exp) = print {
+            if let LogBucketArg::LogExp(exp) = print {
                 let print = exp.to_string();
                 let log = format!("LOG(line: {},template_id: {},evaluate: {})", line, template_id, print);
                 ret = ret + &log;
@@ -63,7 +63,7 @@ impl WriteWasm for LogBucket {
             instructions.push(";; log bucket".to_string());
 	    }
         for logarg in self.argsprint.clone() {
-            if let LogBucketArgs::LogExp(exp) = logarg {
+            if let LogBucketArg::LogExp(exp) = logarg {
                 let mut instructions_print = exp.produce_wasm(producer);
                 instructions.append(&mut instructions_print);
                 instructions.push(call("$copyFr2SharedRWMemory"));
@@ -82,7 +82,7 @@ impl WriteC for LogBucket {
         use c_code_generator::*;
         let mut log_c = Vec::new();
         for logarg in self.argsprint.clone() {
-            if let LogBucketArgs::LogExp(exp) = logarg {
+            if let LogBucketArg::LogExp(exp) = logarg {
                 let (mut argument_code, argument_result) = exp.produce_c(producer);
                 let to_string_call = build_call("Fr_element2str".to_string(), vec![argument_result]);
                 let temp_var = "temp".to_string();

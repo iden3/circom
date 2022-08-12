@@ -313,7 +313,10 @@ fn execute_statement(
                             println!("Unknown")
                         }
                     }
+                    else if let LogArgument::LogStr(str) = arglog {
+                            println!("{}",str);
                     }
+                }
             }
             Option::None
         }
