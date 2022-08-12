@@ -91,11 +91,11 @@ pub fn build_log(bucket: &mut LogBucket, fresh: usize) -> usize {
     let mut in_log = usize::min_value();
     for arglog in bucket.argsprint.clone() {
         match arglog {
-            LogBucketArgs::LogExp(mut arg) => {
+            LogBucketArg::LogExp(mut arg) => {
                 let new_log = build_instruction(&mut arg, fresh);
                 in_log = std::cmp::max(in_log, new_log);
             }
-            LogBucketArgs::LogString(..) => {}
+            LogBucketArg::LogStr(..) => {}
         }
     }
     in_log

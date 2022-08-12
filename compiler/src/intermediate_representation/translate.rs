@@ -1,6 +1,6 @@
 use super::ir_interface::*;
 use crate::hir::very_concrete_program::*;
-use crate::intermediate_representation::log_bucket::LogBucketArgs;
+use crate::intermediate_representation::log_bucket::LogBucketArg;
 use constant_tracking::ConstantTracker;
 use num_bigint_dig::BigInt;
 use program_structure::ast::*;
@@ -592,13 +592,13 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
             match arglog {
                 LogArgument::LogExp(arg) => {
                     let code = translate_expression(arg, state, context);
-                    logbucket_args.push(LogBucketArgs::LogExp(code));
+                    logbucket_args.push(LogBucketArg::LogExp(code));
                 }
                 LogArgument::LogStr(exp) => {
                     match state.string_table.get(&exp) {
-                        Some( idx) => {logbucket_args.push(LogBucketArgs::LogString(*idx));},
+                        Some( idx) => {logbucket_args.push(LogBucketArg::LogStr(*idx));},
                         None => {
-                            logbucket_args.push(LogBucketArgs::LogString(state.string_table.len()));
+                            logbucket_args.push(LogBucketArg::LogStr(state.string_table.len()));
                             state.string_table.insert(exp, state.string_table.len());
                         },
                     }
