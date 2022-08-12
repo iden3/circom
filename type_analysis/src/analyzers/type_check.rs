@@ -259,15 +259,6 @@ fn type_statement(
                         )
                     }
                 }
-                else if let LogArgument::LogStr(label) = arglog {     
-                    if label.len() > 240 {
-                        add_report(
-                            ReportCode::LabelTooLongError(label.len()),
-                            meta,
-                            &mut analysis_information.reports,
-                        )
-                    }
-                }
             }
         }
         Assert { arg, meta } => {
@@ -788,7 +779,6 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         WrongNumberOfArguments(expected, got) => {
             format!("Expecting {} arguments, {} where obtained", expected, got)
         }
-        LabelTooLongError(len) => {format!("Label too long. Label is {} characters but must be <240", len)},
         _ => panic!("Unimplemented error code"),
     };
     report.add_primary(location, file_id, message);

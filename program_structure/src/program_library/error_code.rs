@@ -72,7 +72,6 @@ pub enum ReportCode {
     CustomGateConstraint,
     CustomGateSubComponent,
     CustomGatesPragmaError,
-    LabelTooLongError(usize),
 }
 impl fmt::Display for ReportCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -147,7 +146,6 @@ impl fmt::Display for ReportCode {
             CustomGateConstraint => "CG02",
             CustomGateSubComponent => "CG03",
             CustomGatesPragmaError => "CG04",
-            LabelTooLongError(..) => "L01",
         };
         f.write_str(string_format)
     }
