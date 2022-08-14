@@ -1,4 +1,6 @@
 pub mod c_code_generator;
+use std::collections::HashMap;
+
 pub use crate::components::*;
 
 pub type CInstruction = String;
@@ -25,6 +27,7 @@ pub struct CProducer {
     pub field_tracking: Vec<String>,
     version: usize,
     name_tag: String,
+    string_table: HashMap<usize, String>,
 }
 
 impl Default for CProducer {
@@ -88,6 +91,7 @@ impl Default for CProducer {
             // fix values
             version: 2,
             name_tag: "name".to_string(),
+            string_table : HashMap::new(),
         }
     }
 }
@@ -149,5 +153,13 @@ impl CProducer {
     }
     pub fn get_size_32_bit(&self) -> usize {
         self.size_32_bit
+    }
+
+    pub fn get_string_table(&self) -> &HashMap<usize,String> {
+        &self.string_table
+    }
+
+    pub fn set_string_table(&mut self, string_table: HashMap<usize,String>) {
+        self.string_table = string_table;
     }
 }
