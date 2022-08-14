@@ -1,4 +1,6 @@
 pub mod wasm_code_generator;
+use std::collections::HashMap;
+
 use crate::components::*;
 
 type WasmInstruction = String;
@@ -48,6 +50,7 @@ pub struct WASMProducer {
     create_loop_sub_cmp_tag: String,
     create_loop_offset_tag: String,
     create_loop_counter_tag: String,
+    string_table:  HashMap<usize,String>,
 }
 
 impl Default for WASMProducer {
@@ -103,6 +106,7 @@ impl Default for WASMProducer {
             create_loop_sub_cmp_tag: "$createloopsubcmp".to_string(),
             create_loop_offset_tag: "$createloopoffset".to_string(),
             create_loop_counter_tag: "$createloopcounter".to_string(),
+            string_table: HashMap::new(),
         }
     }
 }
@@ -363,5 +367,13 @@ impl WASMProducer {
     }
     pub fn needs_comments(&self) -> bool{
         self.wat_flag
+    }
+
+    pub fn get_string_table(&self) -> &HashMap<usize,String> {
+        &self.string_table
+    }
+
+    pub fn set_string_table(&mut self, string_table: HashMap<usize,String>) {
+        self.string_table = string_table;
     }
 }

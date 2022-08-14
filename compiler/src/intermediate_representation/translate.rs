@@ -92,7 +92,7 @@ struct State {
     is_parallel: bool,
     code: InstructionList,
     // string_table
-    pub string_table: HashMap<String, usize>,
+    string_table: HashMap<String, usize>,
 }
 
 impl State {
@@ -1170,6 +1170,7 @@ pub struct CodeInfo<'a> {
     pub functions: &'a HashMap<String, Vec<Length>>,
     pub field_tracker: FieldTracker,
     pub component_to_parallel: HashMap<String, bool>,
+    pub string_table: HashMap<String, usize>
 }
 
 pub struct CodeOutput {
@@ -1179,6 +1180,7 @@ pub struct CodeOutput {
     pub next_cmp_id: usize,
     pub code: InstructionList,
     pub constant_tracker: FieldTracker,
+    pub string_table: HashMap<String, usize>,
 }
 
 pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
@@ -1190,6 +1192,7 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         code_info.field_tracker,
         code_info.component_to_parallel,
     );
+    state.string_table = code_info.string_table;
     initialize_components(&mut state, code_info.components);
     initialize_signals(&mut state, code_info.signals);
     initialize_constants(&mut state, code_info.constants);
@@ -1219,5 +1222,6 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         stack_depth: state.max_stack_depth,
         signal_depth: state.signal_stack,
         constant_tracker: state.field_tracker,
+        string_table : state.string_table
     }
 }
