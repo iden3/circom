@@ -13,8 +13,10 @@ fn main() {
     let result = start();
     if result.is_err() {
         eprintln!("{}", Colour::Red.paint("previous errors were found"));
+        std::process::exit(exitcode::DATAERR);
     } else {
         println!("{}", Colour::Green.paint("Everything went okay, circom safe"));
+        std::process::exit(exitcode::OK);
     }
 }
 

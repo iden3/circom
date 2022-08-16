@@ -30,6 +30,7 @@ pub struct Input {
     pub no_rounds: usize,
     pub flag_verbose: bool,
     pub prime: String,
+    pub link_libraries : Vec<PathBuf>
 }
 
 
@@ -53,6 +54,7 @@ impl Input {
         let output_c_path = Input::build_folder(&output_path, &file_name, CPP);
         let output_js_path = Input::build_folder(&output_path, &file_name, JS);
         let o_style = input_processing::get_simplification_style(&matches)?;
+        let link_libraries = input_processing::get_link_libraries(&matches);
         Result::Ok(Input {
             //field: P_BN128,
             input_program: input,
@@ -87,6 +89,7 @@ impl Input {
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
             flag_verbose: input_processing::get_flag_verbose(&matches), 
             prime: input_processing::get_prime(&matches)?,
+            link_libraries
         })
     }
 
@@ -101,6 +104,10 @@ impl Input {
         let mut file = output_path.clone();
         file.push(format!("{}.{}",filename,ext));
         file
+    }
+
+    pub fn get_link_libraries(&self) -> &Vec<PathBuf> {
+        &self.link_libraries
     }
 
     pub fn input_file(&self) -> &str {
@@ -396,6 +403,13 @@ mod input_processing {
                     .help("Compiles the circuit to wat"),
             )
             .arg(
+                Arg::with_name("link_libraries")
+                .short("l")
+                .takes_value(true)
+                .multiple(true)
+                .help("Add directory to library search path"),
+            )
+            .arg(
                 Arg::with_name("print_c")
                     .long("c")
                     .short("c")
@@ -431,5 +445,16 @@ mod input_processing {
                     .help("To choose the prime number to use to generate the circuit. Receives the name of the curve (bn128, bls12381, goldilocks)"),
             )
             .get_matches()
+    }
+
+    pub fn get_link_libraries(matches: &ArgMatches) -> Vec<PathBuf> {
+        let mut link_libraries = Vec::new();
+        let m = matches.values_of("link_libraries");
+        if let Some(paths) = m {
+            for path in paths.into_iter() {
+                link_libraries.push(Path::new(path).to_path_buf());
+            }
+        }
+        link_libraries
     }
 }
