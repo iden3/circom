@@ -50,6 +50,7 @@ pub struct WASMProducer {
     create_loop_sub_cmp_tag: String,
     create_loop_offset_tag: String,
     create_loop_counter_tag: String,
+    merror_tag: String,
     string_table:  HashMap<usize,String>,
 }
 
@@ -106,6 +107,7 @@ impl Default for WASMProducer {
             create_loop_sub_cmp_tag: "$createloopsubcmp".to_string(),
             create_loop_offset_tag: "$createloopoffset".to_string(),
             create_loop_counter_tag: "$createloopcounter".to_string(),
+	    merror_tag: "$merror".to_string(),
             string_table: HashMap::new(),
         }
     }
@@ -364,6 +366,9 @@ impl WASMProducer {
     }
     pub fn get_create_loop_counter_tag(&self) -> &str {
         &self.create_loop_counter_tag
+    }
+    pub fn get_merror_tag(&self) -> &str {
+	&self.merror_tag
     }
     pub fn needs_comments(&self) -> bool{
         self.wat_flag

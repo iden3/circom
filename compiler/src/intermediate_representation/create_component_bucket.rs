@@ -23,6 +23,7 @@ pub struct CreateCmpBucket {
     pub component_offset: usize,
     pub component_offset_jump:usize, 
     pub number_of_cmp: usize,
+    pub has_inputs: bool,
     pub is_parallel: bool,
 }
 
@@ -86,8 +87,25 @@ impl WriteWasm for CreateCmpBucket {
         instructions.push(add32());
         if self.number_of_cmp == 1 {
             instructions.push(call(&format!("${}_create", self.symbol)));
-            instructions.push(store32(None)); //store the offset given by create in the subcomponent address
-	    } else {
+            if !self.has_inputs {
+                instructions.push(tee_local(producer.get_temp_tag())); //here we use $temp to keep the offset created subcomponet
+                instructions.push(store32(None)); //store the offset given by create in the subcomponent address
+                instructions.push(get_local(producer.get_temp_tag()));
+                instructions.push(call(&format!("${}_run", self.symbol)));
+                instructions.push(tee_local(producer.get_merror_tag()));
+                instructions.push(add_if());
+                instructions.push(set_constant(&self.message_id.to_string()));
+                instructions.push(set_constant(&self.line.to_string()));
+                instructions.push(call("$buildBufferMessage"));
+                instructions.push(call("$printErrorMessage"));		
+                instructions.push(get_local(producer.get_merror_tag()));    
+                instructions.push(add_return());
+                instructions.push(add_end());
+            }
+            else {
+                instructions.push(store32(None)); //store the offset given by create in the subcomponent address
+            }
+	} else {
             instructions.push(set_local(producer.get_create_loop_offset_tag()));
             if self.number_of_cmp == self.defined_positions.len() {
                 instructions.push(set_constant(&self.number_of_cmp.to_string()));
@@ -98,7 +116,24 @@ impl WriteWasm for CreateCmpBucket {
                 instructions.push(get_local(producer.get_create_loop_offset_tag()));
                 //sub_component signal address start
                 instructions.push(call(&format!("${}_create", self.symbol)));
-                instructions.push(store32(None)); //store the offset given by create in the subcomponent address
+                if !self.has_inputs {
+                    instructions.push(tee_local(producer.get_temp_tag())); //here we use $temp to keep the offset created subcomponet
+                    instructions.push(store32(None)); //store the offset given by create in the subcomponent address
+                    instructions.push(get_local(producer.get_temp_tag()));
+                    instructions.push(call(&format!("${}_run", self.symbol)));
+                    instructions.push(tee_local(producer.get_merror_tag()));
+                    instructions.push(add_if());
+                    instructions.push(set_constant(&self.message_id.to_string()));
+                    instructions.push(set_constant(&self.line.to_string()));
+                    instructions.push(call("$buildBufferMessage"));
+                    instructions.push(call("$printErrorMessage"));
+                    instructions.push(get_local(producer.get_merror_tag()));    
+                    instructions.push(add_return());
+                    instructions.push(add_end());
+		}
+                else {
+                    instructions.push(store32(None)); //store the offset given by create in the subcomponent address
+		}
                 instructions.push(get_local(producer.get_create_loop_counter_tag()));
                 instructions.push(set_constant("1"));
                 instructions.push(sub32());

@@ -58,6 +58,7 @@ pub struct Trigger {
     pub component_name: String,
     pub indexed_with: Vec<usize>,
     pub external_signals: Vec<Signal>,
+    pub has_inputs: bool,
 }
 
 #[derive(Clone)]
