@@ -301,9 +301,14 @@ impl WASMProducer {
     pub fn get_message_list_start(&self) -> usize {
         self.get_message_buffer_start() + self.size_of_message_buffer_in_bytes
     }
-    pub fn get_constant_numbers_start(&self) -> usize {
+    pub fn get_string_list_start(&self) -> usize {
         self.get_message_list_start() + self.size_of_message_in_bytes * self.message_list.len()
     }
+
+    pub fn get_constant_numbers_start(&self) -> usize {
+        self.get_string_list_start() + self.size_of_message_in_bytes * self.string_table.len()
+    }
+    
     pub fn get_var_stack_memory_start(&self) -> usize {
         self.get_constant_numbers_start() + (self.size_32_bit + 2) * 4 * self.field_tracking.len()
     }
