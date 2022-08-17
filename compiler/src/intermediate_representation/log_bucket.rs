@@ -63,13 +63,22 @@ impl WriteWasm for LogBucket {
             instructions.push(";; log bucket".to_string());
 	    }
         for logarg in self.argsprint.clone() {
-            if let LogBucketArg::LogExp(exp) = logarg {
-                let mut instructions_print = exp.produce_wasm(producer);
-                instructions.append(&mut instructions_print);
-                instructions.push(call("$copyFr2SharedRWMemory"));
-                instructions.push(call("$showSharedRWMemory"));
+	    match &logarg {
+                LogBucketArg::LogExp(exp) => {
+                    let mut instructions_print = exp.produce_wasm(producer);
+                    instructions.append(&mut instructions_print);
+                    instructions.push(call("$copyFr2SharedRWMemory"));
+                    instructions.push(call("$showSharedRWMemory"));
+	        }
+		LogBucketArg::LogStr(stringid) => {
+                    let pos = producer.get_string_list_start() +
+                              stringid * producer.get_size_of_message_in_bytes();
+                    instructions.push(set_constant(&pos.to_string()));
+                    instructions.push(call("$buildBufferMessage"));
+                    instructions.push(call("$writeBufferMessage"));                    
+	        }
             }
-        }
+	}
         if producer.needs_comments() {
             instructions.push(";; end of log bucket".to_string());
 	}

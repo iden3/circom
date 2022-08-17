@@ -1183,6 +1183,73 @@ pub fn get_message_char_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions
 }
 
+pub fn build_log_message_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
+    let mut instructions = vec![];
+    let header = "(func $buildLogMessage (type $_t_i32)".to_string();
+    instructions.push(header);
+    instructions.push(" (param $m i32)".to_string()); //string position
+    instructions.push(" (local $em i32)".to_string()); //position in error message
+    instructions.push(" (local $bm i32)".to_string()); //position in buffer
+    instructions.push(" (local $mc i32)".to_string()); //message char
+    instructions.push(get_local("$m"));
+    instructions.push(set_local("$em"));
+    instructions.push(set_constant(&producer.get_message_buffer_start().to_string()));
+    instructions.push(set_local("$bm"));
+    instructions.push(add_block());
+    instructions.push(add_loop()); //move bytes until end of message or zero found
+                                   // check if end of message
+    let final_pos = producer.get_size_of_message_in_bytes() + producer.get_message_buffer_start();
+    instructions.push(set_constant(&final_pos.to_string()));
+    instructions.push(get_local("$em"));
+    instructions.push(eq32());
+    instructions.push(br_if("1")); // jump to end of block 1
+    instructions.push(get_local("$em"));
+    instructions.push(load32_8u(None));
+    instructions.push(set_local("$mc"));
+    instructions.push(get_local("$mc"));
+    instructions.push(eqz32());
+    instructions.push(br_if("1")); // jump to end of block 1
+    instructions.push(get_local("$bm"));
+    instructions.push(get_local("$mc"));
+    instructions.push(store32_8(None));
+    instructions.push(get_local("$em"));
+    instructions.push(set_constant("1"));
+    instructions.push(add32());
+    instructions.push(set_local("$em"));
+    instructions.push(get_local("$bm"));
+    instructions.push(set_constant("1"));
+    instructions.push(add32());
+    instructions.push(set_local("$bm"));
+    instructions.push(br("0"));
+    instructions.push(add_end());
+    instructions.push(add_end());
+    //fill rest of buffer with 0's
+    instructions.push(add_block());
+    instructions.push(add_loop());
+    instructions.push(get_local("$bm"));
+    let buff_final_pos =
+        producer.get_message_buffer_start() + producer.get_size_of_message_buffer_in_bytes();
+    instructions.push(set_constant(&buff_final_pos.to_string()));
+    instructions.push(eq32());
+    instructions.push(br_if("1")); //jump to the end of block
+    instructions.push(get_local("$bm"));
+    instructions.push(set_constant("0"));
+    instructions.push(store32_8(None)); // stores the digit in the buffer
+    instructions.push(get_local("$bm"));
+    instructions.push(set_constant("1"));
+    instructions.push(add32());
+    instructions.push(set_local("$bm"));
+    instructions.push(br("0")); // jump to the loop
+    instructions.push(add_end());
+    instructions.push(add_end());
+    // initialize message buffer position to 0
+    instructions.push(set_constant(&producer.get_message_buffer_counter_position().to_string()));
+    instructions.push(set_constant("0"));
+    instructions.push(store32(None));
+    instructions.push(")".to_string());
+    instructions
+}
+
 pub fn build_buffer_message_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
     let header = "(func $buildBufferMessage (type $_t_i32i32)".to_string();
@@ -1699,6 +1766,9 @@ mod tests {
         code_aux = build_buffer_message_generator(&producer);
         code.append(&mut code_aux);
 
+        code_aux = build_log_message_generator(&producer);
+        code.append(&mut code_aux);
+	
         //code_aux = main_sample_generator(&producer);
         //code.append(&mut code_aux);
 
