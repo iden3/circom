@@ -609,17 +609,17 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
     let st = producer.get_string_table();
     let s = producer.get_string_list_start();
     for i in 0..st.len() {
-        if st[&i].len() < producer.get_size_of_message_in_bytes() {
+        if st[i].len() < producer.get_size_of_message_in_bytes() {
             wdata.push(format!(
                 "(data (i32.const {}) \"{}\\00\")",
                 s + i * producer.get_size_of_message_in_bytes(),
-                st[&i]
+                st[i]
             ));
         } else {
             wdata.push(format!(
                 "(data (i32.const {}) \"{}\\00\")",
                 s + i * producer.get_size_of_message_in_bytes(),
-                &st[&i][..producer.get_size_of_message_in_bytes()-1]
+                &st[i][..producer.get_size_of_message_in_bytes()-1]
             ));
         }
     }
