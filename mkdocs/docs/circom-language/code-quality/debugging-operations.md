@@ -8,5 +8,9 @@ log(c.b);
 log(x==y);
 ```
 
+Since circom 2.0.6, operation `log` admits several non-conditional expressions and also strings written in the standard way. For instance:
+```text
+log("The expected result is ",135," but the value of a is",a);
+```
 
 
