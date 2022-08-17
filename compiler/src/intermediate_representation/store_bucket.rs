@@ -245,6 +245,15 @@ impl WriteWasm for StoreBucket {
                     LocationRule::Indexed { .. } => {
                         if let Some(name) = &my_template_header {
                             instructions.push(call(&format!("${}_run", name)));
+                            instructions.push(tee_local(producer.get_merror_tag()));
+                            instructions.push(add_if());
+                            instructions.push(set_constant(&self.message_id.to_string()));
+                            instructions.push(set_constant(&self.line.to_string()));
+                            instructions.push(call("$buildBufferMessage"));
+                            instructions.push(call("$printErrorMessage"));
+                            instructions.push(get_local(producer.get_merror_tag()));    
+                            instructions.push(add_return());
+                            instructions.push(add_end());
                         } else {
                             assert!(false);
                         }
@@ -254,8 +263,17 @@ impl WriteWasm for StoreBucket {
                         instructions.push(load32(None)); // get template id
                         instructions.push(call_indirect(
                             &"$runsmap".to_string(),
-                            &"(type $_t_i32)".to_string(),
+                            &"(type $_t_i32ri32)".to_string(),
                         ));
+                        instructions.push(tee_local(producer.get_merror_tag()));
+                        instructions.push(add_if());
+                        instructions.push(set_constant(&self.message_id.to_string()));
+                        instructions.push(set_constant(&self.line.to_string()));
+                        instructions.push(call("$buildBufferMessage"));
+                        instructions.push(call("$printErrorMessage"));
+                        instructions.push(get_local(producer.get_merror_tag()));    
+                        instructions.push(add_return());
+                        instructions.push(add_end());
                     }
                 }
 		if producer.needs_comments() {

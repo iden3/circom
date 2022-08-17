@@ -1,10 +1,8 @@
 [package]
 name = "code_producers"
-version = "2.0.1"
-authors = ["hermeGarcia <hermegarcianavarro@gmail.com>"]
+version = "2.0.4"
+authors = ["Costa Group UCM","iden3"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 handlebars = "4.1.3"

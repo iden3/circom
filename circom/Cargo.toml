@@ -1,10 +1,16 @@
 [package]
 name = "circom"
 version = "2.0.6"
-authors = ["Costa Group UCM & iden3"]
-edition = "2021"
+authors = ["Costa Group UCM","iden3"]
+edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "circom is a zkSnark circuit compiler"
+homepage = "https://iden3.io/circom"
+documentation = "https://docs.circom.io"
+repository = "https://github.com/iden3/circom"
+readme = "README.md"
+keywords = ["zkproofs", "zksanrks","circuits","compiler"]
+categories = ["compilers"]
 
 [dependencies]
 parser = {path = "../parser"}

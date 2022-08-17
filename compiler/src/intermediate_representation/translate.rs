@@ -319,11 +319,12 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
             sub_cmp_id: symbol.access_instruction.clone(),
             template_id: c_info.template_id,
             signal_offset: c_info.offset,
-	        component_offset: c_info.component_offset,
+	    component_offset: c_info.component_offset,
+            has_inputs: c_info.has_inputs,
             number_of_cmp: compute_number_cmp(&symbol.dimensions),
             dimensions: symbol.dimensions,
             signal_offset_jump: offset_jump,
-	     component_offset_jump: component_offset_jump,
+	    component_offset_jump: component_offset_jump,
         }
         .allocate();
         state.code.push(creation_instr);
@@ -381,6 +382,7 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
             template_id: c_info.template_id,
             signal_offset: c_info.offset,
 	    component_offset: c_info.component_offset,
+            has_inputs: c_info.has_inputs,
             number_of_cmp: 1,
             signal_offset_jump: 0,
 	    component_offset_jump: 0,
