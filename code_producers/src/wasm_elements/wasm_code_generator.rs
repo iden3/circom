@@ -499,6 +499,10 @@ pub fn generate_imports_list() -> Vec<WasmInstruction> {
             .to_string(),
     );
     imports.push(
+        "(import \"runtime\" \"writeBufferMessage\" (func $writeBufferMessage (type $_t_void)))"
+            .to_string(),
+    );
+    imports.push(
         "(import \"runtime\" \"showSharedRWMemory\" (func $showSharedRWMemory (type $_t_void)))"
             .to_string(),
     );
