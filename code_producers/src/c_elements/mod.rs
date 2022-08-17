@@ -1,5 +1,4 @@
 pub mod c_code_generator;
-use std::collections::HashMap;
 
 pub use crate::components::*;
 
@@ -27,7 +26,7 @@ pub struct CProducer {
     pub field_tracking: Vec<String>,
     version: usize,
     name_tag: String,
-    string_table: HashMap<usize, String>,
+    string_table: Vec<String>,
 }
 
 impl Default for CProducer {
@@ -91,7 +90,7 @@ impl Default for CProducer {
             // fix values
             version: 2,
             name_tag: "name".to_string(),
-            string_table : HashMap::new(),
+            string_table : Vec::new(),
         }
     }
 }
@@ -155,11 +154,11 @@ impl CProducer {
         self.size_32_bit
     }
 
-    pub fn get_string_table(&self) -> &HashMap<usize,String> {
+    pub fn get_string_table(&self) -> &Vec<String> {
         &self.string_table
     }
 
-    pub fn set_string_table(&mut self, string_table: HashMap<usize,String>) {
+    pub fn set_string_table(&mut self, string_table: Vec<String>) {
         self.string_table = string_table;
     }
 }
