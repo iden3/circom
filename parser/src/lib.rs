@@ -50,11 +50,18 @@ pub fn run_parser(
         }
         warnings.append(
             &mut check_number_version(
-                path,
+                path.clone(),
                 program.compiler_version,
                 parse_number_version(version)
             ).map_err(|e| (file_library.clone(), vec![e]))?
         );
+        if program.custom_gates {
+            check_custom_gates_version(
+                path,
+                program.compiler_version,
+                parse_number_version(version)
+            ).map_err(|e| (file_library.clone(), vec![e]))?
+        }
     }
 
     if main_components.len() == 0 {
@@ -67,7 +74,8 @@ pub fn run_parser(
         let errors: ReportCollection = includes_graph.get_problematic_paths().iter().map(|path|
             Report::error(
                 format!(
-                    "Missing custom gates' pragma in the following chain of includes {}",
+                    "Missing custom templates pragma in file {} because of the following chain of includes {}",
+                    path.last().unwrap().display(),
                     IncludesGraph::display_path(path)
                 ),
                 ReportCode::CustomGatesPragmaError
@@ -136,4 +144,44 @@ fn check_number_version(
         );
         Ok(vec![report])
     }
+}
+
+fn check_custom_gates_version(
+    file_path: String,
+    version_file: Option<Version>,
+    version_compiler: Version
+) -> Result<(), Report> {
+    let custom_gates_version: Version = (2, 0, 6);
+    if let Some(required_version) = version_file {
+        if required_version.0 < custom_gates_version.0 ||
+            (required_version.0 == custom_gates_version.0 && required_version.1 < custom_gates_version.1) ||
+            (required_version.0 == custom_gates_version.0 && required_version.1 == custom_gates_version.1 && required_version.2 < custom_gates_version.2) {
+            let report = Report::error(
+                format!(
+                    "File {} requires at least version {:?} to use custom templates (currently {:?})",
+                    file_path,
+                    custom_gates_version,
+                    required_version
+                ),
+                ReportCode::CustomGatesVersionError
+            );
+            return Err(report);
+        }
+    } else {
+        if version_compiler.0 < custom_gates_version.0 ||
+            (version_compiler.0 == custom_gates_version.0 && version_compiler.1 < custom_gates_version.1) ||
+            (version_compiler.0 == custom_gates_version.0 && version_compiler.1 == custom_gates_version.1 && version_compiler.2 < custom_gates_version.2) {
+            let report = Report::error(
+                format!(
+                    "File {} does not include pragma version and the compiler version (currently {:?}) should be at least {:?} to use custom templates",
+                    file_path,
+                    version_compiler,
+                    custom_gates_version
+                ),
+                ReportCode::CustomGatesVersionError
+            );
+            return Err(report);
+        }
+    }
+    Ok(())
 }
