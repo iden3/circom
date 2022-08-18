@@ -27,7 +27,7 @@ ParsePragma : Version = { // maybe change to usize instead of BigInt
     => version,
 };
 
-// Pragma to indicate that we are allowing the definition of custom gates.
+// Pragma to indicate that we are allowing the definition of custom templates.
 ParseCustomGates : () = {
     "pragma" "custom_templates" ";" => ()
 }
@@ -41,7 +41,7 @@ ParseInclude : String = {
 
 // Parsing a program requires:
 // Parsing the version pragma, if there is one
-// Parsing the custom gates pragma, if there is one
+// Parsing the custom templates pragma, if there is one
 // Parsing "includes" instructions, if there is anyone
 // Parsing function and template definitions
 // Parsing the declaration of the main component
