@@ -608,6 +608,7 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
                 }
             }
         }
+        
         let log = LogBucket {
             line,
             message_id: state.message_id,

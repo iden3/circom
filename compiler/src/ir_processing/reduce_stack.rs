@@ -90,7 +90,9 @@ pub fn reduce_log(mut bucket: LogBucket) -> Instruction {
                 new_args_prints.push(LogBucketArg::LogExp(print_aux));
 
             },
-            LogBucketArg::LogStr(..) => {},
+            LogBucketArg::LogStr(s) => {
+                new_args_prints.push(LogBucketArg::LogStr(s));
+            },
         }
         
     }

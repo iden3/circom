@@ -98,7 +98,7 @@ impl WriteC for LogBucket {
     fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
         use c_code_generator::*;
         let mut log_c = Vec::new();
-        for logarg in self.argsprint.clone() {
+        for logarg in &self.argsprint {
             if let LogBucketArg::LogExp(exp) = logarg {
                 let (mut argument_code, argument_result) = exp.produce_c(producer);
                 let to_string_call = build_call("Fr_element2str".to_string(), vec![argument_result]);
@@ -113,6 +113,21 @@ impl WriteC for LogBucket {
                 log_c.push(format!("{};", print_c));
                 log_c.push(format!("{};", delete_temp));
                 log_c.push("}".to_string());
+            }
+            else if let LogBucketArg::LogStr(string_id) = logarg {
+                let string_value = &producer.get_string_table()[*string_id];
+
+                let print_c =
+                    build_call(
+                        "printf".to_string(), 
+                        vec![format!("\"{}\\n\"", string_value)]
+                    );
+                log_c.push("{".to_string());
+                log_c.push(format!("{};", print_c));
+                log_c.push("}".to_string());
+            }
+            else{
+                unreachable!();
             }
         }
         (log_c, "".to_string())
