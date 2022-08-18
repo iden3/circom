@@ -313,8 +313,7 @@ ParseStatement2 : Statement = {
     <s:@L> <lhe: ParseExpression> "===" <rhe: ParseExpression> ";" <e:@R>
     => build_constraint_equality(Meta::new(s,e),lhe,rhe),
 
-    <s:@L> "log" "(" <args: LogListable> ")" ";" <e:@R>
-    => build_log_call(Meta::new(s,e),args),
+    ParseStatementLog,
 
     <s:@L> "assert" "(" <arg: ParseExpression> ")" ";" <e:@R>
     => build_assert(Meta::new(s,e),arg),
@@ -322,6 +321,13 @@ ParseStatement2 : Statement = {
     ParseBlock
 };
 
+ParseStatementLog : Statement = {
+    <s:@L> "log" "(" <args: LogListable> ")" ";" <e:@R>
+    => build_log_call(Meta::new(s,e),args),
+
+    <s:@L> "log" "(" ")" ";" <e:@R>
+    => build_log_call(Meta::new(s,e),Vec::new()),
+};
 
 ParseStatement3 : Statement = {
     <dec: ParseDeclaration> ";"
