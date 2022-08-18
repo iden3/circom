@@ -74,14 +74,14 @@ impl WriteWasm for LogBucket {
                     let pos = producer.get_string_list_start() +
                               stringid * producer.get_size_of_message_in_bytes();
                     instructions.push(set_constant(&pos.to_string()));
-                    instructions.push(call("$buildBufferMessage"));
+                    instructions.push(call("$buildLogMessage"));
                     instructions.push(call("$writeBufferMessage"));                    
 	        }
             }
 	}
 	// add nl
         instructions.push(set_constant(&producer.get_message_buffer_start().to_string()));
-        instructions.push(set_constant("0x0a000000"));
+        instructions.push(set_constant("0x0000000a"));
         instructions.push(store32(None)); // stores \n000 
         instructions.push(set_constant(&producer.get_message_buffer_counter_position().to_string()));
         instructions.push(set_constant("0"));
