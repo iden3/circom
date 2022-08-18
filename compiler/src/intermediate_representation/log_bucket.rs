@@ -105,7 +105,7 @@ impl WriteC for LogBucket {
                 let temp_var = "temp".to_string();
                 let into_temp = format!("char* temp = {}", to_string_call);
                 let print_c =
-                    build_call("printf".to_string(), vec!["\"%s\\n\"".to_string(), temp_var.clone()]);
+                    build_call("printf".to_string(), vec!["\"%s\"".to_string(), temp_var.clone()]);
                 let delete_temp = format!("delete [] {}", temp_var);
                 log_c.append(&mut argument_code);
                 log_c.push("{".to_string());
@@ -120,7 +120,7 @@ impl WriteC for LogBucket {
                 let print_c =
                     build_call(
                         "printf".to_string(), 
-                        vec![format!("\"{}\\n\"", string_value)]
+                        vec![format!("\"{}\"", string_value)]
                     );
                 log_c.push("{".to_string());
                 log_c.push(format!("{};", print_c));
@@ -130,6 +130,13 @@ impl WriteC for LogBucket {
                 unreachable!();
             }
         }
+        let print_end_line = build_call(
+            "printf".to_string(), 
+            vec![format!("\"\\n\"")]
+        );
+        log_c.push("{".to_string());
+                log_c.push(format!("{};", print_end_line));
+                log_c.push("}".to_string());
         (log_c, "".to_string())
     }
 }
