@@ -341,10 +341,10 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags) -> Circuit {
 
 pub fn create_table_usize_to_string( string_table : HashMap<String,usize>) -> Vec<String> {
     let size = string_table.len();
-    let mut table_usize_to_string = Vec::with_capacity(size);
+    let mut table_usize_to_string =  vec![String::new(); size];
+
     for (string, us) in string_table {
-            assert!(us < size);
-            table_usize_to_string.insert(us, string);
+        table_usize_to_string[us] = string;
     } 
     table_usize_to_string
 }
