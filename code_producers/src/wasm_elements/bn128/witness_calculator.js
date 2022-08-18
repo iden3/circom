@@ -40,6 +40,9 @@ module.exports = async function builder(code, options) {
 		errStr += getMessage() + "\n";
                 // console.error(getMessage());
 	    },
+	    writeBufferMessage : function() {
+                process.stdout.write(getMessage());
+	    },
 	    showSharedRWMemory : function() {
 		printSharedRWMemory ();
             }
