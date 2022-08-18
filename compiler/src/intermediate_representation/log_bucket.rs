@@ -79,6 +79,14 @@ impl WriteWasm for LogBucket {
 	        }
             }
 	}
+	// add nl
+        instructions.push(set_constant(&producer.get_message_buffer_start().to_string()));
+        instructions.push(set_constant("0x0a000000"));
+        instructions.push(store32(None)); // stores \n000 
+        instructions.push(set_constant(&producer.get_message_buffer_counter_position().to_string()));
+        instructions.push(set_constant("0"));
+        instructions.push(store32(None));
+        instructions.push(call("$writeBufferMessage"));
         if producer.needs_comments() {
             instructions.push(";; end of log bucket".to_string());
 	}
