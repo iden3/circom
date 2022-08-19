@@ -123,6 +123,7 @@ pub struct Simplifier {
     pub no_rounds: usize,
     pub parallel_flag: bool,
     pub flag_s: bool,
+    pub flag_old_heuristics: bool,
     pub port_substitution: bool,
 }
 impl Simplifier {
