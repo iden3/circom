@@ -587,7 +587,6 @@ fn translate_assert(stmt: Statement, state: &mut State, context: &Context) {
 
 fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::LogCall;
-
     if let LogCall { meta, args, .. } = stmt {
         let line = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let mut logbucket_args = Vec::new();
@@ -613,7 +612,6 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
         let log = LogBucket {
             line,
             message_id: state.message_id,
-
             is_parallel: state.is_parallel,
             argsprint: logbucket_args,
         }.allocate();

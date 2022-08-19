@@ -79,11 +79,7 @@ module.exports = async function builder(code, options) {
 	    arr[shared_rw_memory_size-1-j] = instance.exports.readSharedRWMemory(j);
 	}
 	const label = getMessage();
-    if(label){
-        console.log(label + ':', fromArray32(arr));
-    }else{
-        console.log(fromArray32(arr));
-    }
+    console.log(fromArray32(arr));
     }
 
 };

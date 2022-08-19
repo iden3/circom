@@ -61,7 +61,6 @@ impl WriteWasm for LogBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; log bucket".to_string());
-
 	    }
         for logarg in self.argsprint.clone() {
 	    match &logarg {
@@ -98,7 +97,6 @@ impl WriteWasm for LogBucket {
 impl WriteC for LogBucket {
     fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
         use c_code_generator::*;
-
         let mut log_c = Vec::new();
         for logarg in &self.argsprint {
             if let LogBucketArg::LogExp(exp) = logarg {
