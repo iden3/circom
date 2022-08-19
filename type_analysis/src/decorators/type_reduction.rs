@@ -39,7 +39,10 @@ fn reduce_types_in_statement(stmt: &mut Statement, environment: &mut Environment
         IfThenElse { cond, if_case, else_case, .. } => {
             reduce_types_in_conditional(cond, if_case, else_case, environment)
         }
-        LogCall { arg, .. } => reduce_types_in_expression(arg, environment),
+        LogCall { args, .. } => {
+                reduce_types_in_log_call(args, environment)
+            
+        },
         Assert { arg, .. } => reduce_types_in_expression(arg, environment),
         Return { value, .. } => reduce_types_in_expression(value, environment),
         ConstraintEquality { lhe, rhe, .. } => {
@@ -47,6 +50,15 @@ fn reduce_types_in_statement(stmt: &mut Statement, environment: &mut Environment
         }
     }
 }
+
+fn reduce_types_in_log_call(args: &mut Vec<LogArgument>, environment: &Environment){
+    for arg in args {
+        if let LogArgument::LogExp(exp) = arg {
+            reduce_types_in_expression(exp, environment);
+        }
+    }
+}
+
 fn reduce_types_in_expression(expression: &mut Expression, environment: &Environment) {
     use Expression::*;
     match expression {
@@ -60,6 +72,10 @@ fn reduce_types_in_expression(expression: &mut Expression, environment: &Environ
         }
         Call { args, .. } => reduce_types_in_vec_of_expressions(args, environment),
         ArrayInLine { values, .. } => reduce_types_in_vec_of_expressions(values, environment),
+        UniformArray { value, dimension, .. } => {
+            reduce_types_in_expression(value, environment);
+            reduce_types_in_expression(dimension, environment);
+        }
         Number(..) => {}
     }
 }

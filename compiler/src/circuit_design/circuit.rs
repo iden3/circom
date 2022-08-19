@@ -105,6 +105,9 @@ impl WriteWasm for Circuit {
         code_aux = build_buffer_message_generator(&producer);
         code.append(&mut code_aux);
 
+        code_aux = build_log_message_generator(&producer);
+        code.append(&mut code_aux);
+
         // Actual code from the program
 
         for f in &self.functions {
@@ -249,6 +252,11 @@ impl WriteWasm for Circuit {
         writer.flush().map_err(|_| {})?;
 
         code_aux = build_buffer_message_generator(&producer);
+        code = merge_code(code_aux);
+        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        writer.flush().map_err(|_| {})?;
+
+        code_aux = build_log_message_generator(&producer);
         code = merge_code(code_aux);
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})?;

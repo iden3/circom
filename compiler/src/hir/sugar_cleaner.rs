@@ -1,5 +1,7 @@
 use super::very_concrete_program::*;
 use program_structure::ast::*;
+use num_traits::{ToPrimitive};
+
 
 struct ExtendedSyntax {
     initializations: Vec<Statement>,
@@ -164,8 +166,15 @@ fn extend_return(stmt: &mut Statement, state: &mut State, context: &Context) -> 
 
 fn extend_log_call(stmt: &mut Statement, state: &mut State, context: &Context) -> Vec<Statement> {
     use Statement::LogCall;
-    if let LogCall { arg, .. } = stmt {
-        extend_expression(arg, state, context).initializations
+    if let LogCall { args, .. } = stmt {
+        let mut initializations = Vec::new();
+        for arglog in args {
+            if let LogArgument::LogExp(arg) = arglog {
+                let mut exp = extend_expression(arg, state, context);
+                initializations.append(&mut exp.initializations);
+            }
+        }
+        initializations
     } else {
         unreachable!()
     }
@@ -275,7 +284,7 @@ fn extend_switch(expr: &mut Expression, state: &mut State, context: &Context) ->
 }
 
 fn extend_array(expr: &mut Expression, state: &mut State, context: &Context) -> ExtendedSyntax {
-    use Expression::ArrayInLine;
+    use Expression::{ArrayInLine, UniformArray};
     if let ArrayInLine { values, .. } = expr {
         let mut initializations = vec![];
         for v in values.iter_mut() {
@@ -284,6 +293,16 @@ fn extend_array(expr: &mut Expression, state: &mut State, context: &Context) -> 
         }
         sugar_filter(values, state, &mut initializations);
         ExtendedSyntax { initializations }
+    } else if let UniformArray { value, dimension, .. } = expr {
+        let mut value_expand = extend_expression(value, state, context);
+        let mut dimension_expand = extend_expression(dimension, state, context);
+        value_expand.initializations.append(&mut dimension_expand.initializations);
+        let mut extended = value_expand;
+        let mut expr = vec![*value.clone(), *dimension.clone()];
+        sugar_filter(&mut expr, state, &mut extended.initializations);
+        *dimension = Box::new(expr.pop().unwrap());
+        *value = Box::new(expr.pop().unwrap());
+        extended
     } else {
         unreachable!();
     }
@@ -492,9 +511,19 @@ fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     }
 }
 
+fn cast_dimension(ae_index: &Expression) -> Option<usize> {
+    use Expression::Number;
+
+    if let Number(_, value) = ae_index {
+        value.to_usize()
+    } else {
+        Option::None
+    }
+}
+
 fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use num_bigint_dig::BigInt;
-    use Expression::{ArrayInLine, Number};
+    use Expression::{ArrayInLine, Number, UniformArray};
     use Statement::Substitution;
     if let Substitution { var, access, op, rhe, meta } = stmt {
         if let ArrayInLine { values, .. } = rhe {
@@ -512,6 +541,30 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                     access: accessed_with,
                     meta: meta.clone(),
                     rhe: v,
+                };
+                stmts.push(sub);
+                index += 1;
+            }
+        } else if let UniformArray { value, dimension, .. } = rhe {
+            let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
+                dimension
+            } else {
+                unreachable!()
+            };
+            let mut index: usize = 0;
+            while index < usable_dimension {
+                let mut index_meta = meta.clone();
+                index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
+                let expr_index = Number(index_meta, BigInt::from(index));
+                let as_access = Access::ArrayAccess(expr_index);
+                let mut accessed_with = access.clone();
+                accessed_with.push(as_access);
+                let sub = Substitution {
+                    op,
+                    var: var.clone(),
+                    access: accessed_with,
+                    meta: meta.clone(),
+                    rhe: *value.clone(),
                 };
                 stmts.push(sub);
                 index += 1;

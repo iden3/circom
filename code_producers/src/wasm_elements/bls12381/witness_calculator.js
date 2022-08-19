@@ -13,31 +13,34 @@ module.exports = async function builder(code, options) {
 
     let wc;
 
+    let errStr = "";
     
     const instance = await WebAssembly.instantiate(wasmModule, {
         runtime: {
             exceptionHandler : function(code) {
-                let errStr;
+		let err;
                 if (code == 1) {
-                    errStr= "Signal not found. ";
+                    err = "Signal not found.\n";
                 } else if (code == 2) {
-                    errStr= "Too many signals set. ";
+                    err = "Too many signals set.\n";
                 } else if (code == 3) {
-                    errStr= "Signal already set. ";
+                    err = "Signal already set.\n";
 		} else if (code == 4) {
-                    errStr= "Assert Failed. ";
+                    err = "Assert Failed.\n";
 		} else if (code == 5) {
-                    errStr= "Not enough memory. ";
+                    err = "Not enough memory.\n";
 		} else if (code == 6) {
-                    errStr= "Input signal array access exceeds the size";
+                    err = "Input signal array access exceeds the size.\n";
 		} else {
-		    errStr= "Unknown error\n";
+		    err = "Unknown error.\n";
                 }
-		// get error message from wasm
-		errStr += getMessage();
-                throw new Error(errStr);
+                throw new Error(err + errStr);
             },
-	    showSharedRWMemory: function() {
+	    printErrorMessage : function() {
+		errStr += getMessage() + "\n";
+                // console.error(getMessage());
+	    },
+	    showSharedRWMemory : function() {
 		printSharedRWMemory ();
             }
 
@@ -130,8 +133,8 @@ class WitnessCalculator {
 		throw new Error(`Too many values for input signal ${k}\n`);
 	    }
             for (let i=0; i<fArr.length; i++) {
-        const arrFr = toArray32(BigInt(fArr[i])%this.prime,this.n32)
-        for (let j=0; j<this.n32; j++) {
+                const arrFr = toArray32(BigInt(fArr[i])%this.prime,this.n32)
+                for (let j=0; j<this.n32; j++) {
 		    this.instance.exports.writeSharedRWMemory(j,arrFr[this.n32-1-j]);
 		}
 		try {
