@@ -1,6 +1,6 @@
 # Release notes
 
-## July 23, 2022 circom 2.0.5
+## July 23, 2022 circom 2.0.6
 
 #### Extensions
 - Adding three new prime numbers in circom and a flag to choose which one to use. 
