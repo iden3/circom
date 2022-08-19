@@ -1,4 +1,4 @@
-use program_structure::ast::{Access, Expression, Meta, Statement};
+use program_structure::ast::{Access, Expression, Meta, Statement, LogArgument};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::{self, FileID, FileLocation};
@@ -220,8 +220,12 @@ fn analyze_statement(
                 reports.push(report);
             }
         }
-        Statement::LogCall { arg, .. } => {
-            analyze_expression(arg, file_id, function_info, template_info, reports, environment)
+        Statement::LogCall { args, .. } => {
+            for logarg in args {
+                if let LogArgument::LogExp(arg) = logarg {
+                    analyze_expression(arg, file_id, function_info, template_info, reports, environment);
+                }
+            }
         }
         Statement::Assert { arg, .. } => {
             analyze_expression(arg, file_id, function_info, template_info, reports, environment)
@@ -385,6 +389,24 @@ fn analyze_expression(
                 );
             }
         }
+        Expression::UniformArray{ value, dimension, .. } => {
+            analyze_expression(
+                value,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+            analyze_expression(
+                dimension,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+        },
         _ => {}
     }
 }

@@ -1,5 +1,6 @@
 use super::ir_interface::*;
 use crate::hir::very_concrete_program::*;
+use crate::intermediate_representation::log_bucket::LogBucketArg;
 use constant_tracking::ConstantTracker;
 use num_bigint_dig::BigInt;
 use program_structure::ast::*;
@@ -90,6 +91,8 @@ struct State {
     component_address_stack: usize,
     is_parallel: bool,
     code: InstructionList,
+    // string_table
+    string_table: HashMap<String, usize>,
 }
 
 impl State {
@@ -114,6 +117,7 @@ impl State {
             fresh_cmp_id: cmp_id_offset,
             max_stack_depth: 0,
             code: vec![],
+            string_table : HashMap::new(),
         }
     }
     fn reserve(fresh: &mut usize, size: usize) -> usize {
@@ -315,11 +319,12 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
             sub_cmp_id: symbol.access_instruction.clone(),
             template_id: c_info.template_id,
             signal_offset: c_info.offset,
-	        component_offset: c_info.component_offset,
+	    component_offset: c_info.component_offset,
+            has_inputs: c_info.has_inputs,
             number_of_cmp: compute_number_cmp(&symbol.dimensions),
             dimensions: symbol.dimensions,
             signal_offset_jump: offset_jump,
-	     component_offset_jump: component_offset_jump,
+	    component_offset_jump: component_offset_jump,
         }
         .allocate();
         state.code.push(creation_instr);
@@ -377,6 +382,7 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
             template_id: c_info.template_id,
             signal_offset: c_info.offset,
 	    component_offset: c_info.component_offset,
+            has_inputs: c_info.has_inputs,
             number_of_cmp: 1,
             signal_offset_jump: 0,
 	    component_offset_jump: 0,
@@ -581,15 +587,35 @@ fn translate_assert(stmt: Statement, state: &mut State, context: &Context) {
 
 fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::LogCall;
-    if let LogCall { meta, arg, label, .. } = stmt {
+
+    if let LogCall { meta, args, .. } = stmt {
         let line = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
-        let code = translate_expression(arg, state, context);
+        let mut logbucket_args = Vec::new();
+        for arglog in args {
+            match arglog {
+                LogArgument::LogExp(arg) => {
+                    let code = translate_expression(arg, state, context);
+                    logbucket_args.push(LogBucketArg::LogExp(code));
+                }
+                LogArgument::LogStr(exp) => {
+                    match state.string_table.get(&exp) {
+                        Some( idx) => {logbucket_args.push(LogBucketArg::LogStr(*idx));},
+                        None => {
+                            logbucket_args.push(LogBucketArg::LogStr(state.string_table.len()));
+                            state.string_table.insert(exp, state.string_table.len());
+                        },
+                    }
+                    
+                }
+            }
+        }
+        
         let log = LogBucket {
             line,
             message_id: state.message_id,
-            print: code,
+
             is_parallel: state.is_parallel,
-            label: label,
+            argsprint: logbucket_args,
         }.allocate();
         state.code.push(log);
     }
@@ -1149,6 +1175,7 @@ pub struct CodeInfo<'a> {
     pub functions: &'a HashMap<String, Vec<Length>>,
     pub field_tracker: FieldTracker,
     pub component_to_parallel: HashMap<String, bool>,
+    pub string_table: HashMap<String, usize>
 }
 
 pub struct CodeOutput {
@@ -1158,6 +1185,7 @@ pub struct CodeOutput {
     pub next_cmp_id: usize,
     pub code: InstructionList,
     pub constant_tracker: FieldTracker,
+    pub string_table: HashMap<String, usize>,
 }
 
 pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
@@ -1169,6 +1197,7 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         code_info.field_tracker,
         code_info.component_to_parallel,
     );
+    state.string_table = code_info.string_table;
     initialize_components(&mut state, code_info.components);
     initialize_signals(&mut state, code_info.signals);
     initialize_constants(&mut state, code_info.constants);
@@ -1198,5 +1227,6 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         stack_depth: state.max_stack_depth,
         signal_depth: state.signal_stack,
         constant_tracker: state.field_tracker,
+        string_table : state.string_table
     }
 }

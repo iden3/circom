@@ -280,6 +280,11 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
         ArrayInLine { values, .. } | Call { args: values, .. } => {
             expression_iterator(values, Known, Unknown, environment)
         }
+        UniformArray { value, dimension, .. } => {
+            let tag_value = tag(value, environment);
+            let tag_dimension = tag(dimension, environment);
+            max(tag_value, tag_dimension)
+        }
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             let tag_cond = tag(cond, environment);
             let tag_true = tag(if_true, environment);
@@ -397,6 +402,7 @@ fn unknown_index(exp: &Expression, environment: &Environment) -> bool {
             }
             (false, bucket)
         }
+        UniformArray{ value, dimension, .. } => (false, vec![value.as_ref(), dimension.as_ref()]),
     };
     let mut has_unknown_index = init;
     let mut index = 0;

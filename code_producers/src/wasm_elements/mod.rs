@@ -1,4 +1,5 @@
 pub mod wasm_code_generator;
+
 use crate::components::*;
 
 type WasmInstruction = String;
@@ -48,6 +49,8 @@ pub struct WASMProducer {
     create_loop_sub_cmp_tag: String,
     create_loop_offset_tag: String,
     create_loop_counter_tag: String,
+    merror_tag: String,
+    string_table:  Vec<String>,
 }
 
 impl Default for WASMProducer {
@@ -103,6 +106,8 @@ impl Default for WASMProducer {
             create_loop_sub_cmp_tag: "$createloopsubcmp".to_string(),
             create_loop_offset_tag: "$createloopoffset".to_string(),
             create_loop_counter_tag: "$createloopcounter".to_string(),
+	        merror_tag: "$merror".to_string(),
+            string_table: Vec::new(),
         }
     }
 }
@@ -295,9 +300,14 @@ impl WASMProducer {
     pub fn get_message_list_start(&self) -> usize {
         self.get_message_buffer_start() + self.size_of_message_buffer_in_bytes
     }
-    pub fn get_constant_numbers_start(&self) -> usize {
+    pub fn get_string_list_start(&self) -> usize {
         self.get_message_list_start() + self.size_of_message_in_bytes * self.message_list.len()
     }
+
+    pub fn get_constant_numbers_start(&self) -> usize {
+        self.get_string_list_start() + self.size_of_message_in_bytes * self.string_table.len()
+    }
+    
     pub fn get_var_stack_memory_start(&self) -> usize {
         self.get_constant_numbers_start() + (self.size_32_bit + 2) * 4 * self.field_tracking.len()
     }
@@ -361,7 +371,18 @@ impl WASMProducer {
     pub fn get_create_loop_counter_tag(&self) -> &str {
         &self.create_loop_counter_tag
     }
+    pub fn get_merror_tag(&self) -> &str {
+	&self.merror_tag
+    }
     pub fn needs_comments(&self) -> bool{
         self.wat_flag
+    }
+
+    pub fn get_string_table(&self) -> &Vec<String> {
+        &self.string_table
+    }
+
+    pub fn set_string_table(&mut self, string_table: Vec<String>) {
+        self.string_table = string_table;
     }
 }

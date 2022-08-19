@@ -82,7 +82,22 @@ pub fn reduce_loop(mut bucket: LoopBucket) -> Instruction {
 }
 
 pub fn reduce_log(mut bucket: LogBucket) -> Instruction {
-    bucket.print = Allocate::allocate(reduce_instruction(*bucket.print));
+    let mut new_args_prints : Vec<LogBucketArg> = Vec::new();
+    for print in bucket.argsprint {
+        match print {
+            LogBucketArg::LogExp(exp)=> {
+                let print_aux = Allocate::allocate(reduce_instruction(*exp));
+                new_args_prints.push(LogBucketArg::LogExp(print_aux));
+
+            },
+            LogBucketArg::LogStr(s) => {
+                new_args_prints.push(LogBucketArg::LogStr(s));
+            },
+        }
+        
+    }
+    
+    bucket.argsprint = new_args_prints;
     IntoInstruction::into_instruction(bucket)
 }
 

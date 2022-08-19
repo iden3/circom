@@ -41,7 +41,8 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(format!(" (param {} i32)", producer.get_signal_offset_tag()));
         instructions.push("(result i32)".to_string());
         instructions.push(format!(" (local {} i32)", producer.get_offset_tag())); //here is a local var to be returned
-                                                                                        instructions.push(set_constant(&producer.get_component_free_pos().to_string()));
+        instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
+        instructions.push(set_constant(&producer.get_component_free_pos().to_string()));
         instructions.push(load32(None));
         instructions.push(set_local(producer.get_offset_tag()));
         // set component id
@@ -66,20 +67,16 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(set_constant(&nbytes_component.to_string()));
         instructions.push(add32());
         instructions.push(store32(None));
-        //if has no intput should be run
-        if self.number_of_inputs == 0 {
-            instructions.push(get_local(producer.get_offset_tag()));
-            instructions.push(call(&format!("${}_run", self.header)));
-        }
         //add the position of the component in the tree as result
         instructions.push(get_local(producer.get_offset_tag()));
         instructions.push(")".to_string());
 
         // run function code
 
-        let funcdef2 = format!("(func ${}_run (type $_t_i32)", self.header);
+        let funcdef2 = format!("(func ${}_run (type $_t_i32ri32)", self.header);
         instructions.push(funcdef2);
         instructions.push(format!(" (param {} i32)", producer.get_offset_tag()));
+	instructions.push("(result i32)".to_string()); //state 0 = OK; > 0 error
         instructions.push(format!(" (local {} i32)", producer.get_cstack_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_signal_start_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_sub_cmp_tag()));
@@ -95,6 +92,7 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(format!(" (local {} i32)", producer.get_create_loop_sub_cmp_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_create_loop_offset_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_create_loop_counter_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
         let local_info_size_u32 = producer.get_local_info_size_u32(); // in the future we can add some info like pointer to run father or text father
                                                                       //set lvar (start of auxiliar memory for vars)
         instructions.push(set_constant("0"));
@@ -137,6 +135,7 @@ impl WriteWasm for TemplateCodeInfo {
         //free stack
         let mut free_stack_code = free_stack(producer);
         instructions.append(&mut free_stack_code);
+        instructions.push(set_constant("0"));	
         instructions.push(")".to_string());
         instructions
     }

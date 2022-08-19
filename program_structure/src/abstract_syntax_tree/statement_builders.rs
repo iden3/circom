@@ -53,8 +53,28 @@ pub fn build_constraint_equality(meta: Meta, lhe: Expression, rhe: Expression) -
     ConstraintEquality { meta, lhe, rhe }
 }
 
-pub fn build_log_call(meta: Meta, arg: Expression, label: Option<String>) -> Statement {
-    LogCall { meta, arg, label }
+
+pub fn build_log_call(meta: Meta, args: Vec<LogArgument>) -> Statement {
+    let mut new_args = Vec::new();
+    for arg in args {
+        match arg {
+            LogArgument::LogExp(..) => { new_args.push(arg);}
+            LogArgument::LogStr(str) => { new_args.append(&mut split_string(str));}
+        }
+    }
+    LogCall { meta, args: new_args }
+}
+
+fn split_string(str: String) -> Vec<LogArgument> {
+    let mut v = vec![];
+    let sub_len = 230;
+    let mut cur = str;
+    while !cur.is_empty() {
+        let (chunk, rest) = cur.split_at(std::cmp::min(sub_len, cur.len()));
+        v.push(LogArgument::LogStr(chunk.to_string()));
+        cur = rest.to_string();
+    }
+    v
 }
 
 pub fn build_assert(meta: Meta, arg: Expression) -> Statement {
