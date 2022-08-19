@@ -81,9 +81,7 @@ enum ExecutionError {
 pub fn constraint_execution(
     program_archive: &ProgramArchive,
     flag_verbose: bool, 
-    prime: &String,
-) -> Result<ExecutedProgram, ReportCollection> {
-    let main_file_id = program_archive.get_file_id_main();
+    prime: &String,) -> Result<(ExecutedProgram, ReportCollection), ReportCollection> {    let main_file_id = program_archive.get_file_id_main();
     let mut runtime_information = RuntimeInformation::new(*main_file_id, program_archive.id_max, prime);
     runtime_information.public_inputs = program_archive.get_public_inputs_main_component().clone();
     let folded_value_result = execute_expression(
@@ -96,7 +94,7 @@ pub fn constraint_execution(
         Result::Err(_) => Result::Err(runtime_information.runtime_errors),
         Result::Ok(folded_value) => {
             debug_assert!(FoldedValue::valid_node_pointer(&folded_value));
-            Result::Ok(runtime_information.exec_program)
+            Result::Ok((runtime_information.exec_program, runtime_information.runtime_errors))
         }
     }
 }
@@ -156,7 +154,7 @@ fn execute_statement(
                 arithmetic_values
                     .push(safe_unwrap_to_single_arithmetic_expression(f_dimensions, line!()));
             }
-            treat_result_with_memory_error(
+            treat_result_with_memory_error_void(
                 valid_array_declaration(&arithmetic_values),
                 meta,
                 &mut runtime.runtime_errors,
@@ -385,7 +383,7 @@ fn execute_expression(
                     &[row],
                     &arithmetic_slice_array[row],
                 );
-                treat_result_with_memory_error(
+                treat_result_with_memory_error_void(
                     memory_insert_result,
                     meta,
                     &mut runtime.runtime_errors,
@@ -420,7 +418,7 @@ fn execute_expression(
                     &[row],
                     &slice_value,
                 );
-                treat_result_with_memory_error(
+                treat_result_with_memory_error_void(
                     memory_insert_result,
                     meta,
                     &mut runtime.runtime_errors,
@@ -589,7 +587,7 @@ fn perform_assign(
                 AExpressionSlice::new_with_route(symbol_content.route(), &AExpr::NonQuadratic);
             let memory_result =
                 AExpressionSlice::insert_values(symbol_content, &vec![], &new_value);
-            treat_result_with_memory_error(
+            treat_result_with_memory_error_void(
                 memory_result,
                 meta,
                 &mut runtime.runtime_errors,
@@ -601,7 +599,7 @@ fn perform_assign(
                 &accessing_information.before_signal,
                 &r_slice,
             );
-            treat_result_with_memory_error(
+            treat_result_with_memory_error_void(
                 memory_result,
                 meta,
                 &mut runtime.runtime_errors,
@@ -641,7 +639,7 @@ fn perform_assign(
                 &SignalSlice::new(&true),
             )
         };
-        treat_result_with_memory_error(
+        treat_result_with_memory_error_void(
             access_response,
             meta,
             &mut runtime.runtime_errors,
@@ -684,7 +682,7 @@ fn perform_assign(
                 node_pointer,
                 &runtime.exec_program,
             );
-            treat_result_with_memory_error(
+            treat_result_with_memory_error_void(
                 memory_result,
                 meta,
                 &mut runtime.runtime_errors,
@@ -701,7 +699,7 @@ fn perform_assign(
                 &signal_accessed,
                 &accessing_information.after_signal,
             );
-            treat_result_with_memory_error(
+            treat_result_with_memory_error_void(
                 memory_response,
                 meta,
                 &mut runtime.runtime_errors,
@@ -1314,6 +1312,47 @@ fn treat_result_with_arithmetic_error<C>(
     }
 }
 
+fn treat_result_with_memory_error_void(
+    memory_error: Result<(), MemoryError>,
+    meta: &Meta,
+    runtime_errors: &mut ReportCollection,
+    call_trace: &[String],
+) -> Result<(), ()> {
+    use ReportCode::RuntimeError;
+    match memory_error {
+        Result::Ok(()) => Result::Ok(()),
+        Result::Err(MemoryError::MismatchedDimensionsWeak) => {
+                    let report = Report::warning("Typing warning: Mismatched dimensions, assigning to an array an expression of smaller length, the remaining positions are assigned to 0".to_string(), RuntimeError);
+                    add_report_to_runtime(report, meta, runtime_errors, call_trace);
+                    Ok(())
+                },
+        Result::Err(memory_error) => {
+            let report = match memory_error {
+                MemoryError::InvalidAccess => {
+                    Report::error("Exception caused by invalid access".to_string(), RuntimeError)
+                }
+                MemoryError::AssignmentError => Report::error(
+                    "Exception caused by invalid assignment".to_string(),
+                    RuntimeError,
+                ),
+                MemoryError::OutOfBoundsError => {
+                    Report::error("Out of bounds exception".to_string(), RuntimeError)
+                },
+                MemoryError::MismatchedDimensions => {
+                    Report::error(" Typing error found: mismatched dimensions, assigning to an array an expression of greater length".to_string(), RuntimeError)
+                },
+
+                MemoryError::UnknownSizeDimension => {
+                    Report::error("Array dimension with unknown size".to_string(), RuntimeError)
+                }
+                _ => unreachable!(),
+            };
+            add_report_to_runtime(report, meta, runtime_errors, call_trace);
+            Result::Err(())
+        }
+    }
+}
+
 fn treat_result_with_memory_error<C>(
     memory_error: Result<C, MemoryError>,
     meta: &Meta,
@@ -1341,6 +1380,7 @@ fn treat_result_with_memory_error<C>(
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
                 }
+                _ => unreachable!(),
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Err(())
