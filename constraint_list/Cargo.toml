@@ -1,10 +1,9 @@
 [package]
 name = "constraint_list"
-version = "2.0.0"
-authors = ["hermeGarcia <hermegarcianavarro@gmail.com>"]
+version = "2.0.4"
+authors = ["Costa Group UCM","iden3"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 constraint_writers = { path = "../constraint_writers" }

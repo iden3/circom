@@ -221,6 +221,7 @@ fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
         }
         Variable { name, .. } => variable(name, environment),
         ArrayInLine { .. } => array_inline(),
+        UniformArray { .. } => uniform_array(),
     }
 }
 
@@ -237,6 +238,9 @@ fn call(params: &[Expression], environment: &Constants) -> bool {
     constant
 }
 fn array_inline() -> bool {
+    false
+}
+fn uniform_array() -> bool {
     false
 }
 fn variable(name: &str, environment: &Constants) -> bool {
@@ -277,7 +281,7 @@ fn expand_statement(stmt: &mut Statement, environment: &mut ExpressionHolder) {
         Declaration { dimensions, .. } => expand_declaration(dimensions, environment),
         Substitution { access, rhe, .. } => expand_substitution(access, rhe, environment),
         ConstraintEquality { lhe, rhe, .. } => expand_constraint_equality(lhe, rhe, environment),
-        LogCall { arg, .. } => expand_log_call(arg, environment),
+        LogCall { args, .. } => expand_log_call(args, environment),
         Assert { arg, .. } => expand_assert(arg, environment),
         Block { stmts, .. } => expand_block(stmts, environment),
     }
@@ -359,8 +363,12 @@ fn expand_constraint_equality(
     *rhe = expand_expression(rhe.clone(), environment);
 }
 
-fn expand_log_call(arg: &mut Expression, environment: &ExpressionHolder) {
-    *arg = expand_expression(arg.clone(), environment);
+fn expand_log_call(args: &mut Vec<LogArgument>, environment: &ExpressionHolder) {
+    for arglog in args {
+        if let LogArgument::LogExp(arg) = arglog {
+            *arg = expand_expression(arg.clone(), environment);
+        }
+    }
 }
 
 fn expand_assert(arg: &mut Expression, environment: &ExpressionHolder) {
@@ -380,6 +388,7 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
     match expr {
         Number(meta, value) => expand_number(meta, value),
         ArrayInLine { meta, values } => expand_array(meta, values, environment),
+        UniformArray { meta, value, dimension} => expand_uniform_array(meta, *value, *dimension, environment),
         Call { id, meta, args } => expand_call(id, meta, args, environment),
         InfixOp { meta, lhe, rhe, infix_op } => {
             expand_infix(meta, *lhe, infix_op, *rhe, environment)
@@ -407,6 +416,17 @@ fn expand_array(
         values.push(new_expression);
     }
     build_array_in_line(meta, values)
+}
+
+fn expand_uniform_array(
+    meta: Meta,
+    old_value: Expression,
+    old_dimension: Expression,
+    environment: &ExpressionHolder,
+) -> Expression {
+    let value = expand_expression(old_value, environment);
+    let dimension = expand_expression(old_dimension, environment);
+    build_uniform_array(meta, value, dimension)
 }
 
 fn expand_call(

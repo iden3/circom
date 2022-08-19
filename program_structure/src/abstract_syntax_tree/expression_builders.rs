@@ -44,3 +44,7 @@ pub fn build_call(meta: Meta, id: String, args: Vec<Expression>) -> Expression {
 pub fn build_array_in_line(meta: Meta, values: Vec<Expression>) -> Expression {
     ArrayInLine { meta, values }
 }
+
+pub fn build_uniform_array(meta: Meta, value: Expression, dimension: Expression) -> Expression {
+    UniformArray { meta, value: Box::new(value), dimension: Box::new(dimension) }
+}
