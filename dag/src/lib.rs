@@ -478,4 +478,5 @@ pub struct SimplificationFlags {
     pub flag_s: bool,
     pub parallel_flag: bool,
     pub port_substitution: bool,
+    pub flag_old_heuristics: bool,
 }

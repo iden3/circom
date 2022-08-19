@@ -12,6 +12,7 @@ pub struct ExecutionConfig {
     pub flag_s: bool,
     pub flag_f: bool,
     pub flag_p: bool,
+    pub flag_old_heuristics:bool,
     pub flag_verbose: bool,
     pub inspect_constraints_flag: bool,
     pub sym_flag: bool,
@@ -34,6 +35,7 @@ pub fn execute_project(
         flag_p: config.flag_p,
         flag_verbose: config.flag_verbose,
         inspect_constraints: config.inspect_constraints_flag,
+        flag_old_heuristics: config.flag_old_heuristics,
     };
     let (exporter, vcp) = build_circuit(program_archive, build_config)?;
     if config.r1cs_flag {
