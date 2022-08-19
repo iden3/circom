@@ -6,6 +6,7 @@ pub enum MemoryError {
     InvalidAccess,
     UnknownSizeDimension,
     MismatchedDimensions,
+    MismatchedDimensionsWeak
 }
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;
@@ -90,7 +91,10 @@ impl<C: Clone> MemorySlice<C> {
         i = 0;
 
         while i < new_values.route.len() {
-            if new_values.route[i] != memory_slice.route[initial_index_new + i] {
+            if new_values.route[i] < memory_slice.route[initial_index_new + i] {
+                return Result::Err(MemoryError::MismatchedDimensionsWeak);
+            }
+            if new_values.route[i] > memory_slice.route[initial_index_new + i] {
                 return Result::Err(MemoryError::MismatchedDimensions);
             }
             i += 1;
@@ -177,6 +181,19 @@ impl<C: Clone> MemorySlice<C> {
                     cell += 1;
                 }
                 Result::Ok(())
+            },
+            Result::Err(MemoryError::MismatchedDimensionsWeak) => {
+                let mut cell = MemorySlice::get_initial_cell(memory_slice, access)?;
+                // if MemorySlice::get_number_of_cells(new_values)
+                //     > (MemorySlice::get_number_of_cells(memory_slice) - cell)
+                // {
+                //     return Result::Err(MemoryError::OutOfBoundsError);
+                // }
+                for value in new_values.values.iter() {
+                    memory_slice.values[cell] = value.clone();
+                    cell += 1;
+                }
+                Result::Err(MemoryError::MismatchedDimensionsWeak)
             },
             Result::Err(error) => return Err(error),
         }
