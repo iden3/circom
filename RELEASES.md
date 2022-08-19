@@ -1,5 +1,13 @@
 # Release notes
 
+## July 23, 2022 circom 2.0.6
+
+#### Extensions
+- Adding three new prime numbers in circom and a flag to choose which one to use. 
+- Adding custom templates to circom. (Documentation is [here](https://github.com/iden3/circom/edit/master/mkdocs/docs/circom-language/custom-templates-snarkjs.md)). 
+- Adding published binaries for mac, linux and windows.
+
+
 ## June 23, 2022 circom 2.0.5
 
 #### Extensions

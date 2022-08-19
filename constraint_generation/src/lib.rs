@@ -28,6 +28,7 @@ pub struct BuildConfig {
     pub flag_f: bool,
     pub flag_p: bool,
     pub flag_verbose: bool,
+    pub flag_old_heuristics: bool,
     pub inspect_constraints: bool,
     pub prime: String,
 }
@@ -86,6 +87,7 @@ fn simplification_process(vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> Cons
         parallel_flag: config.flag_p,
         port_substitution: config.flag_json_sub,
         no_rounds: config.no_rounds,
+        flag_old_heuristics: config.flag_old_heuristics,
         prime : config.prime.clone(),
     };
     let list = DAG::map_to_list(dag, flags);
