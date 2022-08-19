@@ -39,10 +39,10 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
     let (exe, warnings) = instantiation(&program, config.flag_verbose, &config.prime).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
+    Report::print_reports(&warnings, &files);
     let (mut dag, mut vcp, warnings) = export(exe, program, config.flag_verbose).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
-    Report::print_reports(&warnings, &files);
     if config.inspect_constraints {
         Report::print_reports(&warnings, &files);
     }
@@ -64,7 +64,7 @@ fn instantiation(program: &ProgramArchive, flag_verbose: bool, prime: &String) -
             let success = Colour::Green.paint("template instances");
             let nodes_created = format!("{}: {}", success, no_nodes);
             println!("{}", &nodes_created);
-            InstantiationResponse::Ok(program_exe,warnings)
+            InstantiationResponse::Ok((program_exe,warnings))
         }
         Err(reports) => InstantiationResponse::Err(reports),
     }
