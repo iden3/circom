@@ -291,7 +291,7 @@ mod input_processing {
 
     pub fn get_flag_old_heuristics(matches: &ArgMatches) -> bool {
         matches.is_present("flag_old_heuristics")
-
+    }
     pub fn get_prime(matches: &ArgMatches) -> Result<String, ()> {
         
         match matches.is_present("prime"){
@@ -435,6 +435,7 @@ mod input_processing {
                     .long("use_old_simplification_heuristics")
                     .takes_value(false)
                     .help("Applies the old version of the heuristics when performing linear simplification"),
+            )
             .arg (
                 Arg::with_name("prime")
                     .short("prime")
