@@ -53,7 +53,6 @@ pub fn build_constraint_equality(meta: Meta, lhe: Expression, rhe: Expression) -
     ConstraintEquality { meta, lhe, rhe }
 }
 
-
 pub fn build_log_call(meta: Meta, args: Vec<LogArgument>) -> Statement {
     let mut new_args = Vec::new();
     for arg in args {
