@@ -273,6 +273,23 @@ fn look_for_type_in_expression(
             &values[0],
         )
         .map(|v| v + 1),
+        Expression::UniformArray { value, .. } => {
+            let value_type = look_for_type_in_expression(
+                function_name,
+                environment,
+                explored_functions,
+                function_data,
+                function_info,
+                value,
+            );
+            if value_type.is_some(){
+                Option::Some(value_type.unwrap() + 1)
+            }
+            else{
+                None
+            }
+            
+        }
         Expression::Call { id, args, .. } => {
             if explored_functions.contains(id) {
                 return Option::None;

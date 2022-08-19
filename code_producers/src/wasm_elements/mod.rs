@@ -106,7 +106,7 @@ impl Default for WASMProducer {
             create_loop_sub_cmp_tag: "$createloopsubcmp".to_string(),
             create_loop_offset_tag: "$createloopoffset".to_string(),
             create_loop_counter_tag: "$createloopcounter".to_string(),
-	    merror_tag: "$merror".to_string(),
+	        merror_tag: "$merror".to_string(),
             string_table: Vec::new(),
         }
     }

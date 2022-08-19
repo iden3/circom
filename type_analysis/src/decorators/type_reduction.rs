@@ -72,6 +72,10 @@ fn reduce_types_in_expression(expression: &mut Expression, environment: &Environ
         }
         Call { args, .. } => reduce_types_in_vec_of_expressions(args, environment),
         ArrayInLine { values, .. } => reduce_types_in_vec_of_expressions(values, environment),
+        UniformArray { value, dimension, .. } => {
+            reduce_types_in_expression(value, environment);
+            reduce_types_in_expression(dimension, environment);
+        }
         Number(..) => {}
     }
 }
