@@ -1171,27 +1171,15 @@ pub fn get_message_char_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(set_constant("0"));
     instructions.push(add_return());
     instructions.push(add_else());
-
     instructions.push(set_constant(&producer.get_message_buffer_start().to_string()));
     instructions.push(get_local("$c"));
     instructions.push(add32());
-    instructions.push(load32_8u(None)); // load value at current position in buffer
-
-    instructions.push(add_if()); // if the value is nonzero, increment buffer counter position
+    instructions.push(load32_8u(None));
     instructions.push(set_constant(&producer.get_message_buffer_counter_position().to_string()));
     instructions.push(get_local("$c"));
     instructions.push(set_constant("1"));
     instructions.push(add32());
     instructions.push(store32(None)); // new current position in buffer
-    instructions.push(add_end());
-
-    // we have to load the current value at the buffer position again because we consumed
-    // the value for the if statement
-    instructions.push(set_constant(&producer.get_message_buffer_start().to_string()));
-    instructions.push(get_local("$c"));
-    instructions.push(add32());
-    instructions.push(load32_8u(None)); // load value at current position in buffer
-
     instructions.push(add_return());
     instructions.push(add_end());
     instructions.push(set_constant("0"));
