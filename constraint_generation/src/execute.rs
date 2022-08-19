@@ -307,16 +307,17 @@ fn execute_statement(
                         let f_result = execute_expression(arg, program_archive, runtime, flag_verbose)?;
                         let arith = safe_unwrap_to_single_arithmetic_expression(f_result, line!());
                         if AExpr::is_number(&arith){
-                            println!("{}", arith);
+                            print!("{}", arith);
                         }
                         else{
-                            println!("Unknown")
+                            print!("Unknown")
                         }
                     }
                     else if let LogArgument::LogStr(s) = arglog {
-                            println!("{}",s);
+                            print!("{}",s);
                     }
                 }
+                println!("");
             }
             Option::None
         }
