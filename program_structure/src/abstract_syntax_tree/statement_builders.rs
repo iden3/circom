@@ -53,8 +53,8 @@ pub fn build_constraint_equality(meta: Meta, lhe: Expression, rhe: Expression) -
     ConstraintEquality { meta, lhe, rhe }
 }
 
-pub fn build_log_call(meta: Meta, arg: Expression) -> Statement {
-    LogCall { meta, arg }
+pub fn build_log_call(meta: Meta, arg: Expression, label: Option<String>) -> Statement {
+    LogCall { meta, arg, label }
 }
 
 pub fn build_assert(meta: Meta, arg: Expression) -> Statement {

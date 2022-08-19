@@ -314,7 +314,10 @@ ParseStatement2 : Statement = {
     => build_constraint_equality(Meta::new(s,e),lhe,rhe),
 
     <s:@L> "log" "(" <arg: ParseExpression> ")" ";" <e:@R>
-    => build_log_call(Meta::new(s,e),arg),
+    => build_log_call(Meta::new(s,e),arg,None),
+
+    <s:@L> "log" "(" <label: STRING> "," <arg: ParseExpression> ")" ";" <e:@R>
+    => build_log_call(Meta::new(s,e),arg,Some(label)),
 
     <s:@L> "assert" "(" <arg: ParseExpression> ")" ";" <e:@R>
     => build_assert(Meta::new(s,e),arg),

@@ -581,14 +581,15 @@ fn translate_assert(stmt: Statement, state: &mut State, context: &Context) {
 
 fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::LogCall;
-    if let LogCall { meta, arg, .. } = stmt {
+    if let LogCall { meta, arg, label, .. } = stmt {
         let line = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let code = translate_expression(arg, state, context);
         let log = LogBucket {
             line,
             message_id: state.message_id,
             print: code,
-            is_parallel: state.is_parallel
+            is_parallel: state.is_parallel,
+            label: label,
         }.allocate();
         state.code.push(log);
     }

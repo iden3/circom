@@ -9,6 +9,7 @@ pub struct LogBucket {
     pub message_id: usize,
     pub print: InstructionPointer,
     pub is_parallel: bool,
+    pub label: Option<String>,
 }
 
 impl IntoInstruction for LogBucket {
@@ -47,11 +48,33 @@ impl WriteWasm for LogBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; log bucket".to_string());
-	}
+    	}
         let mut instructions_print = self.print.produce_wasm(producer);
         instructions.append(&mut instructions_print);
         instructions.push(call("$copyFr2SharedRWMemory"));
+        if let Some(label) = &self.label {
+            if producer.needs_comments() {
+                instructions.push(";; log label".to_string());
+            }
+            
+            let mut trunc_label = label.clone();
+            trunc_label.truncate(producer.get_size_of_message_in_bytes());
+            trunc_label.push('\0'); // terminate message with a null byte
+
+            // write out the label one character at a time
+            for (i, c) in trunc_label.chars().enumerate() {
+                instructions.push(set_constant(&(producer.get_message_buffer_start() + i).to_string()));
+                instructions.push(set_constant(&(c as usize).to_string()));
+                instructions.push(store32(None));
+            }
+
+            // initialize message buffer position to 0
+            instructions.push(set_constant(&producer.get_message_buffer_counter_position().to_string()));
+            instructions.push(set_constant("0"));
+            instructions.push(store32(None));
+        }
         instructions.push(call("$showSharedRWMemory"));
+        
         if producer.needs_comments() {
             instructions.push(";; end of log bucket".to_string());
 	}
@@ -66,8 +89,12 @@ impl WriteC for LogBucket {
         let to_string_call = build_call("Fr_element2str".to_string(), vec![argument_result]);
         let temp_var = "temp".to_string();
         let into_temp = format!("char* temp = {}", to_string_call);
-        let print_c =
-            build_call("printf".to_string(), vec!["\"%s\\n\"".to_string(), temp_var.clone()]);
+        let print_c = if let Some(label) = &self.label {
+            let label_str = format!("\"{}\"", label.to_string());
+            build_call("printf".to_string(), vec!["\"%s: %s\\n\"".to_string(), label_str, temp_var.clone()])
+        } else {
+            build_call("printf".to_string(), vec!["\"%s\\n\"".to_string(), temp_var.clone()])
+        };
         let delete_temp = format!("delete [] {}", temp_var);
         let mut log_c = argument_code;
         log_c.push("{".to_string());
