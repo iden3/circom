@@ -16,7 +16,6 @@ pub struct LogBucket {
     pub message_id: usize,
     pub argsprint: Vec<LogBucketArg>,
     pub is_parallel: bool,
-    pub label: Option<String>,
 }
 
 impl IntoInstruction for LogBucket {
