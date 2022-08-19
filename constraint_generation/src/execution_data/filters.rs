@@ -86,9 +86,13 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
             apply_computed_expr(lhe, analysis);
             apply_computed_expr(rhe, analysis);
         }
-        LogCall { arg, .. } => {
-            *arg = computed_or_original(analysis, arg);
-            apply_computed_expr(arg, analysis);
+        LogCall { args, .. } => {
+            for arglog in args {
+                if let LogArgument::LogExp(arg) = arglog{
+                    *arg = computed_or_original(analysis, arg);
+                    apply_computed_expr(arg, analysis);
+                }
+            }
         }
         Assert { arg, .. } => {
             *arg = computed_or_original(analysis, arg);
@@ -168,6 +172,12 @@ fn apply_computed_expr(expr: &mut Expression, analysis: &Analysis) {
         }
         ArrayInLine { values, .. } => {
             apply_computed_expr_vec(values, analysis);
+        }
+        UniformArray { value, dimension, .. } => {
+            *value = Box::new(computed_or_original(analysis, value));
+            *dimension = Box::new(computed_or_original(analysis, dimension));
+            apply_computed_expr(value, analysis);
+            apply_computed_expr(dimension, analysis);
         }
     }
 }

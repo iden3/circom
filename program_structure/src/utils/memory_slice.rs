@@ -5,6 +5,8 @@ pub enum MemoryError {
     AssignmentError,
     InvalidAccess,
     UnknownSizeDimension,
+    MismatchedDimensions,
+    MismatchedDimensionsWeak
 }
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;
@@ -48,6 +50,7 @@ impl<C: Clone> MemorySlice<C> {
         memory_slice: &MemorySlice<C>,
         access: &[SliceCapacity],
     ) -> Result<SliceCapacity, MemoryError> {
+        
         if access.len() > memory_slice.route.len() {
             return Result::Err(MemoryError::OutOfBoundsError);
         }
@@ -65,6 +68,40 @@ impl<C: Clone> MemorySlice<C> {
         }
         Result::Ok(cell)
     }
+    pub fn check_correct_dims(
+        memory_slice: &MemorySlice<C>,
+        access: &[SliceCapacity],
+        new_values: &MemorySlice<C>,
+    ) -> Result<(), MemoryError> {
+
+        if access.len() + new_values.route.len() > memory_slice.route.len() {
+            return Result::Err(MemoryError::OutOfBoundsError);
+        }
+
+        let mut i: SliceCapacity = 0;
+        
+        while i < access.len() {
+            if access[i] >= memory_slice.route[i] {
+                return Result::Err(MemoryError::OutOfBoundsError);
+            }
+            i += 1;
+        }
+
+        let initial_index_new: SliceCapacity = i;
+        i = 0;
+
+        while i < new_values.route.len() {
+            if new_values.route[i] < memory_slice.route[initial_index_new + i] {
+                return Result::Err(MemoryError::MismatchedDimensionsWeak);
+            }
+            if new_values.route[i] > memory_slice.route[initial_index_new + i] {
+                return Result::Err(MemoryError::MismatchedDimensions);
+            }
+            i += 1;
+        }
+        Result::Ok(())
+    }
+
     // Returns the new route and the total number of cells
     // that a slice with such route will have
     fn generate_new_route_from_access(
@@ -131,17 +168,35 @@ impl<C: Clone> MemorySlice<C> {
         access: &[SliceCapacity],
         new_values: &MemorySlice<C>,
     ) -> Result<(), MemoryError> {
-        let mut cell = MemorySlice::get_initial_cell(memory_slice, access)?;
-        if MemorySlice::get_number_of_cells(new_values)
-            > (MemorySlice::get_number_of_cells(memory_slice) - cell)
-        {
-            return Result::Err(MemoryError::OutOfBoundsError);
+        match MemorySlice::check_correct_dims(memory_slice, access, new_values){
+            Result::Ok(_) => {
+                let mut cell = MemorySlice::get_initial_cell(memory_slice, access)?;
+                // if MemorySlice::get_number_of_cells(new_values)
+                //     > (MemorySlice::get_number_of_cells(memory_slice) - cell)
+                // {
+                //     return Result::Err(MemoryError::OutOfBoundsError);
+                // }
+                for value in new_values.values.iter() {
+                    memory_slice.values[cell] = value.clone();
+                    cell += 1;
+                }
+                Result::Ok(())
+            },
+            Result::Err(MemoryError::MismatchedDimensionsWeak) => {
+                let mut cell = MemorySlice::get_initial_cell(memory_slice, access)?;
+                // if MemorySlice::get_number_of_cells(new_values)
+                //     > (MemorySlice::get_number_of_cells(memory_slice) - cell)
+                // {
+                //     return Result::Err(MemoryError::OutOfBoundsError);
+                // }
+                for value in new_values.values.iter() {
+                    memory_slice.values[cell] = value.clone();
+                    cell += 1;
+                }
+                Result::Err(MemoryError::MismatchedDimensionsWeak)
+            },
+            Result::Err(error) => return Err(error),
         }
-        for value in new_values.values.iter() {
-            memory_slice.values[cell] = value.clone();
-            cell += 1;
-        }
-        Result::Ok(())
     }
 
     pub fn access_values(
@@ -175,7 +230,6 @@ impl<C: Clone> MemorySlice<C> {
     pub fn is_single(&self) -> bool {
         self.route.is_empty()
     }
-
     /*
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         !   Calling this function with a MemorySlice  !

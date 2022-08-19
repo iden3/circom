@@ -72,7 +72,6 @@ pub enum ReportCode {
     CustomGateConstraintError,
     CustomGateSubComponentError,
     CustomGatesPragmaError,
-    LabelTooLongError(usize),
     CustomGatesVersionError,
 }
 impl fmt::Display for ReportCode {
@@ -148,7 +147,6 @@ impl fmt::Display for ReportCode {
             CustomGateConstraintError => "CG02",
             CustomGateSubComponentError => "CG03",
             CustomGatesPragmaError => "CG04",
-            LabelTooLongError(..) => "L01",
             CustomGatesVersionError => "CG05",
         };
         f.write_str(string_format)
