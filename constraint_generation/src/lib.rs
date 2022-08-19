@@ -15,7 +15,6 @@ use dag::DAG;
 use execution_data::executed_program::ExportResult;
 use execution_data::ExecutedProgram;
 use program_structure::ast::{self};
-use program_structure::constants::UsefulConstants;
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::FileID;
@@ -31,13 +30,14 @@ pub struct BuildConfig {
     pub flag_verbose: bool,
     pub flag_old_heuristics: bool,
     pub inspect_constraints: bool,
+    pub prime: String,
 }
 
 pub type ConstraintWriter = Box<dyn ConstraintExporter>;
 type BuildResponse = Result<(ConstraintWriter, VCP), ()>;
 pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildResponse {
     let files = program.file_library.clone();
-    let exe = instantiation(&program, config.flag_verbose).map_err(|r| {
+    let exe = instantiation(&program, config.flag_verbose, &config.prime).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
     let (mut dag, mut vcp, warnings) = export(exe, program, config.flag_verbose).map_err(|r| {
@@ -56,8 +56,8 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
 }
 
 type InstantiationResponse = Result<ExecutedProgram, ReportCollection>;
-fn instantiation(program: &ProgramArchive, flag_verbose: bool) -> InstantiationResponse {
-    let execution_result = execute::constraint_execution(&program, flag_verbose);
+fn instantiation(program: &ProgramArchive, flag_verbose: bool, prime: &String) -> InstantiationResponse {
+    let execution_result = execute::constraint_execution(&program, flag_verbose, prime);
     match execution_result {
         Ok(program_exe) => {
             let no_nodes = program_exe.number_of_nodes();
@@ -88,6 +88,7 @@ fn simplification_process(vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> Cons
         port_substitution: config.flag_json_sub,
         no_rounds: config.no_rounds,
         flag_old_heuristics: config.flag_old_heuristics,
+        prime : config.prime.clone(),
     };
     let list = DAG::map_to_list(dag, flags);
     VCP::add_witness_list(vcp, Rc::new(list.get_witness_as_vec()));

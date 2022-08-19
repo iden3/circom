@@ -16,6 +16,7 @@ pub struct WASMProducer {
     pub number_of_components: usize,
     pub main_header: String,
     pub prime: String,
+    pub prime_str: String,
     pub main_input_list: InputList,
     pub witness_to_signal_list: SignalList,
     pub io_map: TemplateInstanceIOMap,
@@ -60,6 +61,7 @@ impl Default for WASMProducer {
             main_signal_offset: 1,
             prime: "21888242871839275222246405745257275088548364400416034343698204186575808495617"
                 .to_string(),
+            prime_str: "bn128".to_string(),
             fr_memory_size: 1948,
             size_32_bit: 8,
             size_32_shift: 5,

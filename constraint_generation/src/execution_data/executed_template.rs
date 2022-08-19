@@ -21,14 +21,16 @@ pub struct ExecutedTemplate {
     pub report_name: String,
     pub inputs: SignalCollector,
     pub outputs: SignalCollector,
-    pub constraints: Vec<Constraint>,
     pub intermediates: SignalCollector,
+    pub ordered_signals: Vec<String>,
+    pub constraints: Vec<Constraint>,
     pub components: ComponentCollector,
     pub number_of_components: usize,
     pub public_inputs: HashSet<String>,
     pub parameter_instances: ParameterContext,
     pub is_parallel: bool,
     pub has_parallel_sub_cmp: bool,
+    pub is_custom_gate: bool,
     connexions: Vec<Connexion>,
 }
 
@@ -40,6 +42,7 @@ impl ExecutedTemplate {
         instance: ParameterContext,
         code: Statement,
         is_parallel: bool,
+        is_custom_gate: bool
     ) -> ExecutedTemplate {
         let public_inputs: HashSet<_> = public.iter().cloned().collect();
         ExecutedTemplate {
@@ -47,15 +50,17 @@ impl ExecutedTemplate {
             public_inputs,
             is_parallel,
             has_parallel_sub_cmp: false,
+            is_custom_gate,
             code: code.clone(),
             template_name: name,
             parameter_instances: instance,
             inputs: SignalCollector::new(),
             outputs: SignalCollector::new(),
             intermediates: SignalCollector::new(),
+            ordered_signals: Vec::new(),
+            constraints: Vec::new(),
             components: ComponentCollector::new(),
             number_of_components: 0,
-            constraints: Vec::new(),
             connexions: Vec::new(),
         }
     }
@@ -80,6 +85,27 @@ impl ExecutedTemplate {
 
     pub fn add_intermediate(&mut self, intermediate_name: &str, dimensions: &[usize]) {
         self.intermediates.push((intermediate_name.to_string(), dimensions.to_vec()));
+    }
+
+    pub fn add_ordered_signal(&mut self, signal_name: &str, dimensions: &[usize]) {
+        fn generate_symbols(name: String, current: usize, dimensions: &[usize]) -> Vec<String> {
+            let symbol_name = name.clone();
+            if current == dimensions.len() {
+                vec![name]
+            } else {
+                let mut generated_symbols = vec![];
+                let mut index = 0;
+                while index < dimensions[current] {
+                    let new_name = format!("{}[{}]", symbol_name, index);
+                    generated_symbols.append(&mut generate_symbols(new_name, current + 1, dimensions));
+                    index += 1;
+                }
+                generated_symbols
+            }
+        }
+        for signal in generate_symbols(signal_name.to_string(), 0, dimensions) {
+            self.ordered_signals.push(signal);
+        }
     }
 
     pub fn add_component(&mut self, component_name: &str, dimensions: &[usize]) {
@@ -112,7 +138,24 @@ impl ExecutedTemplate {
     }
 
     pub fn insert_in_dag(&mut self, dag: &mut DAG) {
-        dag.add_node(self.report_name.clone(), self.is_parallel);
+        let parameters = {
+            let mut parameters = vec![];
+            for (_, data) in self.parameter_instances.clone() {
+                let (_, values) = data.destruct();
+                for value in as_big_int(values) {
+                    parameters.push(value);
+                }
+            }
+            parameters
+        }; // repeated code from function build_arguments in export_to_circuit
+
+        dag.add_node(
+            self.report_name.clone(),
+            parameters,
+            self.ordered_signals.clone(), // pensar si calcularlo en este momento para no hacer clone
+            self.is_parallel,
+            self.is_custom_gate
+        );
         self.build_signals(dag);
         self.build_connexions(dag);
         self.build_constraints(dag);

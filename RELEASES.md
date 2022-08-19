@@ -1,5 +1,24 @@
 # Release notes
 
+## July 23, 2022 circom 2.0.6
+
+#### Extensions
+- Adding three new prime numbers in circom and a flag to choose which one to use. 
+- Adding custom templates to circom. (Documentation is [here](https://github.com/iden3/circom/edit/master/mkdocs/docs/circom-language/custom-templates-snarkjs.md)). 
+- Adding published binaries for mac, linux and windows.
+
+
+## June 23, 2022 circom 2.0.5
+
+#### Extensions
+- Removing non-determinism in linear constraints that cannot be removed.
+- Making deterministic the code generation. 
+- Adding signal one in the wires counting for optimization option '-O0'.
+
+
+#### Fixed Bugs
+- Bug in conditional creation of components inside loops
+
 ## April 24, 2022 circom 2.0.4
 
 #### Extensions
@@ -10,6 +29,7 @@
 -	Single signal declaration with initialization added for both <== and <--.
 -	Input signal size check added in wasm/JS and C++ generated code.
 -	Recommendation of using C++ when the memory needed is beyond WebAssembly limit added.
+-	Making deterministic the R1CS file: constraints will be always written in the R1CS file in the same order. 
 
 #### Fixed Bugs
 -	Bug in C++ error trace management for asserts in functions.

@@ -7,11 +7,11 @@ extern crate lalrpop_util;
 
 lalrpop_mod!(pub lang);
 
-
 mod errors;
 mod include_logic;
 mod parser_logic;
-use include_logic::FileStack;
+use include_logic::{FileStack, IncludesGraph};
+use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::{FileLibrary};
 use program_structure::program_archive::ProgramArchive;
@@ -20,30 +20,48 @@ use std::str::FromStr;
 
 pub type Version = (usize, usize, usize);
 
-
-pub fn run_parser(file: String, version: &str) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
+pub fn run_parser(
+    file: String,
+    version: &str
+) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
     let mut file_library = FileLibrary::new();
     let mut definitions = Vec::new();
     let mut main_components = Vec::new();
     let mut file_stack = FileStack::new(PathBuf::from(file));
+    let mut includes_graph = IncludesGraph::new();
     let mut warnings = Vec::new();
 
     while let Some(crr_file) = FileStack::take_next(&mut file_stack) {
-        let (path, src) = open_file(crr_file).map_err(|e| (file_library.clone(), vec![e]))?;
+        let (path, src) = open_file(crr_file.clone())
+            .map_err(|e| (file_library.clone(), vec![e]))?;
         let file_id = file_library.add_file(path.clone(), src.clone());
-        let program = 
-            parser_logic::parse_file(&src, file_id).map_err(|e| (file_library.clone(), vec![e]))?;
-
+        let program = parser_logic::parse_file(&src, file_id)
+            .map_err(|e| (file_library.clone(), vec![e]))?;
         if let Some(main) = program.main_component {
             main_components.push((file_id, main));
         }
+        includes_graph.add_node(crr_file, program.custom_gates, program.custom_gates_declared);
         let includes = program.includes;
         definitions.push((file_id, program.definitions));
         for include in includes {
-            FileStack::add_include(&mut file_stack, include)
+            FileStack::add_include(&mut file_stack, include.clone())
                 .map_err(|e| (file_library.clone(), vec![e]))?;
+            includes_graph.add_edge(include).map_err(|e| (file_library.clone(), vec![e]))?;
         }
-        warnings.append(&mut check_number_version(path, program.compiler_version, parse_number_version(version)).map_err(|e| (file_library.clone(), vec![e]))?);
+        warnings.append(
+            &mut check_number_version(
+                path.clone(),
+                program.compiler_version,
+                parse_number_version(version)
+            ).map_err(|e| (file_library.clone(), vec![e]))?
+        );
+        if program.custom_gates {
+            check_custom_gates_version(
+                path,
+                program.compiler_version,
+                parse_number_version(version)
+            ).map_err(|e| (file_library.clone(), vec![e]))?
+        }
     }
 
     if main_components.len() == 0 {
@@ -52,23 +70,36 @@ pub fn run_parser(file: String, version: &str) -> Result<(ProgramArchive, Report
     } else if main_components.len() > 1 {
         let report = errors::MultipleMainError::produce_report();
         Err((file_library, vec![report]))
-    }
-    else{
-        let (main_id, main_component) = main_components.pop().unwrap();
-        let result_program_archive = 
-            ProgramArchive::new(file_library, main_id, main_component, definitions);
-        match result_program_archive {
-            Err((lib, rep)) => {
-                Err((lib, rep))
-            }
-            Ok(program_archive) => {
-                Ok((program_archive, warnings))
+    } else {
+        let errors: ReportCollection = includes_graph.get_problematic_paths().iter().map(|path|
+            Report::error(
+                format!(
+                    "Missing custom templates pragma in file {} because of the following chain of includes {}",
+                    path.last().unwrap().display(),
+                    IncludesGraph::display_path(path)
+                ),
+                ReportCode::CustomGatesPragmaError
+            )
+        ).collect();
+        if errors.len() > 0 {
+            Err((file_library, errors))
+        } else {
+            let (main_id, main_component) = main_components.pop().unwrap();
+            let result_program_archive =
+                ProgramArchive::new(file_library, main_id, main_component, definitions);
+            match result_program_archive {
+                Err((lib, rep)) => {
+                    Err((lib, rep))
+                }
+                Ok(program_archive) => {
+                    Ok((program_archive, warnings))
+                }
             }
         }
     }
 }
 
-fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src*/ {
+fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src */ {
     use errors::FileOsError;
     use std::fs::read_to_string;
     let path_str = format!("{:?}", path);
@@ -78,28 +109,79 @@ fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src*/ {
         .map_err(|e| FileOsError::produce_report(e))
 }
 
-fn parse_number_version(version: &str) -> Version{
+fn parse_number_version(version: &str) -> Version {
     let version_splitted: Vec<&str> = version.split(".").collect();
-
     (usize::from_str(version_splitted[0]).unwrap(), usize::from_str(version_splitted[1]).unwrap(), usize::from_str(version_splitted[2]).unwrap())
 }
 
-fn check_number_version(file_path: String, version_file: Option<Version>, version_compiler: Version) -> Result<ReportCollection, Report>{
+fn check_number_version(
+    file_path: String,
+    version_file: Option<Version>,
+    version_compiler: Version
+) -> Result<ReportCollection, Report> {
     use errors::{CompilerVersionError, NoCompilerVersionWarning};
     if let Some(required_version) = version_file {
-
         if required_version.0 == version_compiler.0 
-        && required_version.1 == version_compiler.1 
-        && required_version.2 <= version_compiler.2{
+        && (required_version.1 < version_compiler.1 ||  
+         (required_version.1 == version_compiler.1 && required_version.2 <= version_compiler.2)) {
             Ok(vec![])
-        }
-        else{
-            let report = CompilerVersionError::produce_report(CompilerVersionError{path: file_path, required_version: required_version, version: version_compiler});
+        } else {
+            let report = CompilerVersionError::produce_report(
+                CompilerVersionError{
+                    path: file_path,
+                    required_version,
+                    version: version_compiler
+                }
+            );
             Err(report)
         }
-    }
-    else{
-        let report = NoCompilerVersionWarning::produce_report(NoCompilerVersionWarning{path: file_path, version: version_compiler});
+    } else {
+        let report = NoCompilerVersionWarning::produce_report(
+            NoCompilerVersionWarning{
+                path: file_path,
+                version: version_compiler
+            }
+        );
         Ok(vec![report])
     }
+}
+
+fn check_custom_gates_version(
+    file_path: String,
+    version_file: Option<Version>,
+    version_compiler: Version
+) -> Result<(), Report> {
+    let custom_gates_version: Version = (2, 0, 6);
+    if let Some(required_version) = version_file {
+        if required_version.0 < custom_gates_version.0 ||
+            (required_version.0 == custom_gates_version.0 && required_version.1 < custom_gates_version.1) ||
+            (required_version.0 == custom_gates_version.0 && required_version.1 == custom_gates_version.1 && required_version.2 < custom_gates_version.2) {
+            let report = Report::error(
+                format!(
+                    "File {} requires at least version {:?} to use custom templates (currently {:?})",
+                    file_path,
+                    custom_gates_version,
+                    required_version
+                ),
+                ReportCode::CustomGatesVersionError
+            );
+            return Err(report);
+        }
+    } else {
+        if version_compiler.0 < custom_gates_version.0 ||
+            (version_compiler.0 == custom_gates_version.0 && version_compiler.1 < custom_gates_version.1) ||
+            (version_compiler.0 == custom_gates_version.0 && version_compiler.1 == custom_gates_version.1 && version_compiler.2 < custom_gates_version.2) {
+            let report = Report::error(
+                format!(
+                    "File {} does not include pragma version and the compiler version (currently {:?}) should be at least {:?} to use custom templates",
+                    file_path,
+                    version_compiler,
+                    custom_gates_version
+                ),
+                ReportCode::CustomGatesVersionError
+            );
+            return Err(report);
+        }
+    }
+    Ok(())
 }

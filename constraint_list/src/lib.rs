@@ -26,8 +26,12 @@ pub struct SignalInfo {
 }
 pub struct EncodingNode {
     pub id: usize,
+    pub name: String,
+    pub parameters: Vec<BigInt>,
     pub signals: Vec<SignalInfo>,
+    pub ordered_signals: Vec<usize>,
     pub non_linear: LinkedList<C>,
+    pub is_custom_gate: bool,
 }
 
 pub struct EncodingEdge {

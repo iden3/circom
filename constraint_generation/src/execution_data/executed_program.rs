@@ -13,11 +13,16 @@ pub type ExportResult = Result<(DAG, VCP, ReportCollection), ReportCollection>;
 pub struct ExecutedProgram {
     pub model: Vec<ExecutedTemplate>,
     pub template_to_nodes: HashMap<String, Vec<NodePointer>>,
+    pub prime: String,
 }
 
 impl ExecutedProgram {
-    pub fn new() -> ExecutedProgram {
-        ExecutedProgram::default()
+    pub fn new(prime: &String) -> ExecutedProgram {
+        ExecutedProgram{
+            model: Vec::new(),
+            template_to_nodes: HashMap::new(),
+            prime: prime.clone(),
+        }
     }
     pub fn identify_node(&self, name: &str, context: &ParameterContext) -> Option<NodePointer> {
         if !self.template_to_nodes.contains_key(name) {
@@ -49,7 +54,7 @@ impl ExecutedProgram {
     ) -> NodePointer {
         use super::filters::*;
         // Clean code
-        apply_unused(&mut node.code, &analysis);
+        apply_unused(&mut node.code, &analysis, &self.prime);
         apply_computed(&mut node.code, &analysis);
         // Insert template
         let possible_index = self.identify_node(node.template_name(), node.parameter_instances());
@@ -77,7 +82,7 @@ impl ExecutedProgram {
         }
 
         let mut warnings = vec![];
-        let mut dag = DAG::new();
+        let mut dag = DAG::new(&self.prime);
         let mut temp_instances = Vec::with_capacity(self.model.len());
         let mut mixed_instances = vec![false; self.model.len()];
 
@@ -98,8 +103,8 @@ impl ExecutedProgram {
         warnings.append(&mut w);
 
         let dag_stats = produce_dags_stats(&dag);
-        crate::compute_constants::manage_functions(&mut program, flag_verbose)?;
-        crate::compute_constants::compute_vct(&mut temp_instances, &program, flag_verbose)?;
+        crate::compute_constants::manage_functions(&mut program, flag_verbose, &self.prime)?;
+        crate::compute_constants::compute_vct(&mut temp_instances, &program, flag_verbose, &self.prime)?;
         let mut mixed = vec![];
         let mut index = 0;
         for in_mixed in mixed_instances {
@@ -115,6 +120,7 @@ impl ExecutedProgram {
             templates: temp_instances,
             templates_in_mixed: mixed,
             program,
+            prime: self.prime,
         };
         let vcp = VCP::new(config);
         Result::Ok((dag, vcp, warnings))

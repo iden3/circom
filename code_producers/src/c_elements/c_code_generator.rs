@@ -675,7 +675,7 @@ pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageLi
     instructions
 }
 
-pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_main_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("main");
@@ -683,7 +683,12 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("main.cpp");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/main.cpp"),
+        "bls12381" => include_str!("bls12381/main.cpp"),
+        "goldilocks" => include_str!("goldilocks/main.cpp"),
+        _ => unreachable!(),
+    };
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -692,7 +697,7 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_circom_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("circom");
@@ -700,7 +705,12 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("circom.hpp");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/circom.hpp"),
+        "bls12381" => include_str!("bls12381/circom.hpp"),
+        "goldilocks" => include_str!("goldilocks/circom.hpp"),
+        _ => unreachable!(),
+    };
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -709,7 +719,7 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_fr_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -717,7 +727,12 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("fr.hpp");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr.hpp"),
+        "bls12381" => include_str!("bls12381/fr.hpp"),
+        "goldilocks" => include_str!("goldilocks/fr.hpp"),
+        _ => unreachable!(),
+    };
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -726,7 +741,7 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_calcwit_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
@@ -734,7 +749,12 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("calcwit.hpp");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/calcwit.hpp"),
+        "bls12381" => include_str!("bls12381/calcwit.hpp"),
+        "goldilocks" => include_str!("goldilocks/calcwit.hpp"),
+        _ => unreachable!(),
+    };
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -743,7 +763,7 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_fr_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -751,7 +771,12 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("fr.cpp");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr.cpp"),
+        "bls12381" => include_str!("bls12381/fr.cpp"),
+        "goldilocks" => include_str!("goldilocks/fr.cpp"),
+        _ => unreachable!(),
+    };
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -760,7 +785,7 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_calcwit_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
@@ -768,7 +793,12 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("calcwit.cpp");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/calcwit.cpp"),
+        "bls12381" => include_str!("bls12381/calcwit.cpp"),
+        "goldilocks" => include_str!("goldilocks/calcwit.cpp"),
+        _ => unreachable!(),
+    };
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -777,7 +807,7 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_fr_asm_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -785,7 +815,12 @@ pub fn generate_fr_asm_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("fr.asm");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr.asm"),
+        "bls12381" => include_str!("bls12381/fr.asm"),
+        "goldilocks" => include_str!("goldilocks/fr.asm"),
+        _ => unreachable!(),
+    };    
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -798,15 +833,21 @@ pub fn generate_make_file(
     c_folder: &PathBuf,
     run_name: &str,
     producer: &CProducer,
+    prime: &String,
 ) -> std::io::Result<()> {
     use std::io::BufWriter;
 
-    const MAKEFILE_TEMPLATE: &str = include_str!("./makefile");
+    let makefile_template: &str = match prime.as_ref(){
+        "bn128" => include_str!("bn128/makefile"),
+        "bls12381" => include_str!("bls12381/makefile"),
+        "goldilocks" => include_str!("goldilocks/makefile"),
+        _ => unreachable!(),
+    };  
 
     let template = handlebars::Handlebars::new();
     let code = template
         .render_template(
-            MAKEFILE_TEMPLATE,
+            makefile_template,
             &json!({
                 "run_name": run_name,
                 "has_parallelism": producer.has_parallelism,
