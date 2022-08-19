@@ -27,6 +27,10 @@ ParsePragma : Version = { // maybe change to usize instead of BigInt
     => version,
 };
 
+// Pragma to indicate that we are allowing the definition of custom templates.
+ParseCustomGates : () = {
+    "pragma" "custom_templates" ";" => ()
+}
 
 // Includes are added at the start of the file.
 // Their structure is the following: #include "path to the file"
@@ -36,22 +40,14 @@ ParseInclude : String = {
 };
 
 // Parsing a program requires:
-// Parsing the "pragma" instruction, if there is one
-// Parsing "includes" instructions, if there is anyone,
-// Parsing function and template definitions,
+// Parsing the version pragma, if there is one
+// Parsing the custom templates pragma, if there is one
+// Parsing "includes" instructions, if there is anyone
+// Parsing function and template definitions
 // Parsing the declaration of the main component
 pub ParseAst : AST = {
-    <s:@L> <pragma: ParsePragma> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent> <e:@R>
-    => AST::new(Meta::new(s,e), Option::Some(pragma), includes,definitions,Option::Some(main)),
-
-    <s:@L> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent> <e:@R>
-    => AST::new(Meta::new(s,e),Option::None, includes,definitions,Option::Some(main)),
-
-    <s:@L> <pragma: ParsePragma> <includes: ParseInclude*> <definitions: ParseDefinition*> <e:@R>
-    => AST::new(Meta::new(s,e), Option::Some(pragma), includes,definitions,Option::None),
-
-    <s:@L> <includes: ParseInclude*> <definitions: ParseDefinition*> <e:@R>
-    => AST::new(Meta::new(s,e), Option::None,includes,definitions,Option::None),
+    <s:@L> <version: ParsePragma?> <custom_gates: ParseCustomGates?> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent?> <e:@R>
+    => AST::new(Meta::new(s,e), version, custom_gates.is_some(), includes, definitions, main),
 };
 
 // ====================================================================
@@ -81,12 +77,12 @@ pub ParseDefinition : Definition = {
         Some(a)
         => build_function(Meta::new(s,e),name,a,args..arge,body),
     },
-    <s:@L> "template" <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
+    <s:@L> "template" <custom_gate: "custom"?> <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?> <arge:@R> ")" <body: ParseBlock> <e:@R>
     => match arg_names {
         None
-        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some()),
+        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), custom_gate.is_some()),
         Some(a)
-        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some()),
+        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), custom_gate.is_some()),
     },
 };
 

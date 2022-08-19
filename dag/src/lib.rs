@@ -11,7 +11,6 @@ use constraint_writers::ConstraintExporter;
 use program_structure::constants::UsefulConstants;
 use program_structure::error_definition::ReportCollection;
 use std::collections::{HashMap, HashSet};
-
 type Signal = usize;
 type Constraint = circom_algebra::algebra::Constraint<usize>;
 type Substitution = circom_algebra::algebra::Substitution<usize>;
@@ -33,7 +32,7 @@ pub struct Tree<'a> {
 
 impl<'a> Tree<'a> {
     pub fn new(dag: &DAG) -> Tree {
-        let constants = UsefulConstants::new();
+        let constants = UsefulConstants::new(&dag.prime);
         let field = constants.get_p().clone();
         let root = dag.get_main().unwrap();
         let node_id = dag.main_id();
@@ -55,8 +54,7 @@ impl<'a> Tree<'a> {
     }
 
     pub fn go_to_subtree(current: &'a Tree, edge: &Edge) -> Tree<'a> {
-        let constants = UsefulConstants::new();
-        let field = constants.get_p().clone();
+        let field = current.field.clone();
         let dag = current.dag;
         let node_id = edge.goes_to;
         let node = &current.dag.nodes[node_id];
@@ -137,6 +135,7 @@ impl Edge {
 pub struct Node {
     entry: Edge,
     template_name: String,
+    parameters: Vec<BigInt>,
     number_of_signals: usize,
     number_of_components: usize,
     intermediates_length: usize,
@@ -144,24 +143,37 @@ pub struct Node {
     inputs_length: usize,
     outputs_length: usize,
     signal_correspondence: HashMap<String, Signal>,
+    ordered_signals: Vec<String>,
     locals: HashSet<usize>,
     forbidden_if_main: HashSet<usize>,
     io_signals: Vec<usize>,
     constraints: Vec<Constraint>,
     is_parallel: bool,
     has_parallel_sub_cmp: bool,
+    is_custom_gate: bool,
     number_of_subcomponents_indexes: usize,
 }
 
 impl Node {
-    fn new(id: usize, template_name: String, is_parallel:bool) -> Node {
-        Node { 
+    fn new(
+        id: usize,
+        template_name: String,
+        parameters: Vec<BigInt>,
+        ordered_signals: Vec<String>,
+        is_parallel: bool,
+        is_custom_gate: bool
+    ) -> Node {
+        Node {
             template_name, entry: Edge::new_entry(id),
-            number_of_components: 1, 
-            is_parallel, 
-            has_parallel_sub_cmp: false, 
+            parameters,
+            number_of_components: 1,
+            ordered_signals,
+            is_parallel,
+            has_parallel_sub_cmp: false,
+            is_custom_gate,
             forbidden_if_main: vec![0].into_iter().collect(),
-            ..Node::default() }
+            ..Node::default()
+        }
     }
 
     fn add_input(&mut self, name: String, is_public: bool) {
@@ -204,6 +216,10 @@ impl Node {
 
     fn set_number_of_subcomponents_indexes(&mut self, number_scmp: usize) {
         self.number_of_subcomponents_indexes = number_scmp
+    }
+
+    pub fn parameters(&self) -> &Vec<BigInt> {
+        &self.parameters
     }
 
     fn is_local_signal(&self, s: usize) -> bool {
@@ -254,16 +270,20 @@ impl Node {
         self.has_parallel_sub_cmp
     }
 
+    pub fn is_custom_gate(&self) -> bool {
+        self.is_custom_gate
+    }
+
     pub fn number_of_subcomponents_indexes(&self) -> usize {
         self.number_of_subcomponents_indexes
     }
 }
 
-#[derive(Default)]
 pub struct DAG {
     pub one_signal: usize,
     pub nodes: Vec<Node>,
     pub adjacency: Vec<Vec<Edge>>,
+    pub prime: String,
 }
 
 impl ConstraintExporter for DAG {
@@ -281,8 +301,13 @@ impl ConstraintExporter for DAG {
 }
 
 impl DAG {
-    pub fn new() -> DAG {
-        DAG::default()
+    pub fn new(prime: &String) -> DAG {
+        DAG{
+            prime : prime.clone(),
+            one_signal: 0,
+            nodes: Vec::new(),
+            adjacency: Vec::new(),
+        }
     }
 
     pub fn add_edge(&mut self, to: usize, label: &str) -> Option<&Edge> {
@@ -324,9 +349,18 @@ impl DAG {
         }
     }
 
-    pub fn add_node(&mut self, template_name: String, is_parallel:bool) -> usize {
+    pub fn add_node(
+        &mut self,
+        template_name: String,
+        parameters: Vec<BigInt>,
+        ordered_signals: Vec<String>,
+        is_parallel: bool,
+        is_custom_gate: bool
+    ) -> usize {
         let id = self.nodes.len();
-        self.nodes.push(Node::new(id, template_name, is_parallel));
+        self.nodes.push(
+            Node::new(id, template_name, parameters, ordered_signals, is_parallel, is_custom_gate)
+        );
         self.adjacency.push(vec![]);
         id
     }
@@ -479,4 +513,5 @@ pub struct SimplificationFlags {
     pub parallel_flag: bool,
     pub port_substitution: bool,
     pub flag_old_heuristics: bool,
+    pub prime : String,
 }

@@ -68,6 +68,11 @@ pub enum ReportCode {
     OneConstraintIntermediate,
     NoOutputInInstance,
     ErrorWat2Wasm,
+    CustomGateIntermediateSignalWarning,
+    CustomGateConstraintError,
+    CustomGateSubComponentError,
+    CustomGatesPragmaError,
+    CustomGatesVersionError,
 }
 impl fmt::Display for ReportCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -138,6 +143,11 @@ impl fmt::Display for ReportCode {
             OneConstraintIntermediate => "CA02",
             NoOutputInInstance => "CA03",
             ErrorWat2Wasm => "W01",
+            CustomGateIntermediateSignalWarning => "CG01",
+            CustomGateConstraintError => "CG02",
+            CustomGateSubComponentError => "CG03",
+            CustomGatesPragmaError => "CG04",
+            CustomGatesVersionError => "CG05",
         };
         f.write_str(string_format)
     }

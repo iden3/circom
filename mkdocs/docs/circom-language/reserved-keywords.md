@@ -20,6 +20,6 @@ The list of reserved keywords is the following:
 * **assert:** Check the condition at construction time.
 * **include:** Include code of the indicated file.
 * **pragma circom**: Instruction to check the compiler version.
-
+* **pragma custom_templates**: Instruction to indicate the usage of custom templates.
 
 
