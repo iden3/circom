@@ -116,6 +116,7 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
         no_rounds: flags.no_rounds,
         flag_s: flags.flag_s,
         parallel_flag: flags.parallel_flag,
+        flag_old_heuristics: flags.flag_old_heuristics,
         port_substitution: flags.port_substitution,
     }
     .simplify_constraints()

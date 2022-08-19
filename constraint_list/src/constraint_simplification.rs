@@ -276,6 +276,7 @@ fn linear_simplification(
     forbidden: Arc<HashSet<usize>>,
     no_labels: usize,
     field: &BigInt,
+    use_old_heuristics: bool,
 ) -> (LinkedList<S>, LinkedList<C>) {
     use circom_algebra::simplification_utils::full_simplification;
     use circom_algebra::simplification_utils::Config;
@@ -298,6 +299,7 @@ fn linear_simplification(
             constraints: cluster.constraints,
             forbidden: Arc::clone(&forbidden),
             num_signals: cluster.num_signals,
+            use_old_heuristics,
         };
         let job = move || {
             // println!("cluster: {}", id);
@@ -441,6 +443,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     let mut substitution_log =
         if smp.port_substitution { Some(SubstitutionJSON::new(SUB_LOG).unwrap()) } else { None };
     let apply_linear = !smp.flag_s;
+    let use_old_heuristics = smp.flag_old_heuristics;
     let field = smp.field.clone();
     let forbidden = Arc::new(std::mem::replace(&mut smp.forbidden, HashSet::with_capacity(0)));
     let no_labels = Simplifier::no_labels(smp);
@@ -531,6 +534,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
             Arc::clone(&forbidden),
             no_labels,
             &field,
+            use_old_heuristics,
         );
         // println!("Building substitution map");
         let now0 = SystemTime::now();
@@ -596,6 +600,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
             Arc::clone(&forbidden),
             no_labels,
             &field,
+            use_old_heuristics,
         );
 
         for sub in &substitutions {

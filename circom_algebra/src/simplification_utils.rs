@@ -528,6 +528,7 @@ pub struct Config<T> {
     pub constraints: LinkedList<C>,
     pub forbidden: T,
     pub num_signals: usize,
+    pub use_old_heuristics: bool,
 }
 
 pub struct Simplified {
@@ -543,7 +544,10 @@ where
     //debug_new_substitutions(&config);
     let min = 350;
     let max = 1000000;
-    let apply_less_ocurrences = config.constraints.len() >= min && config.constraints.len() < max;
+    let apply_less_ocurrences = 
+        config.constraints.len() >= min && 
+        config.constraints.len() < max && 
+        !config.use_old_heuristics;
 
     let field = config.field;
     let mut constraints = config.constraints;
