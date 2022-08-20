@@ -1598,7 +1598,7 @@ pub fn generate_utils_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
 }
  */
 
-pub fn generate_generate_witness_js_file(js_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_generate_witness_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("generate_witness");
@@ -1606,12 +1606,7 @@ pub fn generate_generate_witness_js_file(js_folder: &PathBuf, prime: &String) ->
     let file_name = file_path.to_str().unwrap();
     let mut js_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/generate_witness.js"),
-        "bls12381" => include_str!("bls12381/generate_witness.js"),
-        "goldilocks" => include_str!("goldilocks/generate_witness.js"),
-        _ => unreachable!(),
-    };    
+    let file = include_str!("common/generate_witness.js");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -1620,7 +1615,7 @@ pub fn generate_generate_witness_js_file(js_folder: &PathBuf, prime: &String) ->
     Ok(())
 }
 
-pub fn generate_witness_calculator_js_file(js_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_witness_calculator_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("witness_calculator");
@@ -1628,12 +1623,7 @@ pub fn generate_witness_calculator_js_file(js_folder: &PathBuf, prime: &String) 
     let file_name = file_path.to_str().unwrap();
     let mut js_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/witness_calculator.js"),
-        "bls12381" => include_str!("bls12381/witness_calculator.js"),
-        "goldilocks" => include_str!("goldilocks/witness_calculator.js"),
-        _ => unreachable!(),
-    };    
+    let file = include_str!("common/witness_calculator.js");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
