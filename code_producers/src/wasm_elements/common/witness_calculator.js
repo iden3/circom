@@ -14,6 +14,7 @@ module.exports = async function builder(code, options) {
     let wc;
 
     let errStr = "";
+    let msgStr = "";
     
     const instance = await WebAssembly.instantiate(wasmModule, {
         runtime: {
@@ -41,7 +42,19 @@ module.exports = async function builder(code, options) {
                 // console.error(getMessage());
 	    },
 	    writeBufferMessage : function() {
-                process.stdout.write(getMessage());
+			const msg = getMessage();
+			// Any calls to `log()` will always end with a `\n`, so that's when we print and reset
+			if (msg === "\n") {
+				console.log(msgStr);
+				msgStr = "";
+			} else {
+				// If we've buffered other content, put a space in between the items
+				if (msgStr !== "") {
+					msgStr += " "
+				}
+				// Then append the message to the message we are creating
+				msgStr += msg;
+			}
 	    },
 	    showSharedRWMemory : function() {
 		printSharedRWMemory ();
@@ -82,9 +95,13 @@ module.exports = async function builder(code, options) {
 	    arr[shared_rw_memory_size-1-j] = instance.exports.readSharedRWMemory(j);
 	}
 
-	process.stdout.write(fromArray32(arr).toString());
-	//console.log(fromArray32(arr));
-    }
+	// If we've buffered other content, put a space in between the items
+	if (msgStr !== "") {
+		msgStr += " "
+	}
+	// Then append the value to the message we are creating
+	msgStr += (fromArray32(arr).toString());
+	}
 
 };
 
