@@ -532,7 +532,6 @@ pub fn generate_exports_list() -> Vec<WasmInstruction> {
     let mut exports = vec![];
     exports.push("(export \"memory\" (memory 0))".to_string());
     exports.push("(export \"getVersion\" (func $getVersion))".to_string());
-    exports.push("(export \"getMajorVersion\" (func $getMajorVersion))".to_string());
     exports.push("(export \"getMinorVersion\" (func $getMinorVersion))".to_string());
     exports.push("(export \"getPatchVersion\" (func $getPatchVersion))".to_string());
     exports.push("(export \"getSharedRWMemoryStart\" (func $getSharedRWMemoryStart))".to_string());
@@ -776,10 +775,6 @@ pub fn get_version_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     let header = "(func $getVersion (type $_t_ri32)".to_string();
     instructions.push(header);
     instructions.push(set_constant(&producer.get_version().to_string()));
-    instructions.push(")".to_string());
-    let header = "(func $getMajorVersion (type $_t_ri32)".to_string();
-    instructions.push(header);
-    instructions.push(set_constant(&producer.get_major_version().to_string()));
     instructions.push(")".to_string());
     let header = "(func $getMinorVersion (type $_t_ri32)".to_string();
     instructions.push(header);

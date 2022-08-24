@@ -103,9 +103,6 @@ impl CProducer {
     pub fn get_version(&self) -> usize {
         self.major_version
     }
-    pub fn get_major_version(&self) -> usize {
-        self.major_version
-    }
     pub fn get_minor_version(&self) -> usize {
         self.minor_version
     }
