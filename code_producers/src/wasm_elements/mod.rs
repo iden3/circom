@@ -1,6 +1,6 @@
 pub mod wasm_code_generator;
 
-use crate::{components::*, get_number_version};
+use crate::components::*;
 
 type WasmInstruction = String;
 
@@ -25,9 +25,9 @@ pub struct WASMProducer {
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
     pub wat_flag: bool,
-    major_version: usize,
-    minor_version: usize,
-    patch_version: usize,
+    pub major_version: usize,
+    pub minor_version: usize,
+    pub patch_version: usize,
     stack_free_pos: usize,
     local_info_size_u32: usize,
     size_of_message_buffer_in_bytes: usize,
@@ -61,7 +61,6 @@ impl Default for WASMProducer {
         //my_map.insert(0,[(0,0),(1,2),(2,4)].to_vec());
         //my_map.insert(1,[(0,0),(1,1)].to_vec());
         //my_map.insert(2,[(0,0),(1,1),(2,3)].to_vec());
-        let (major_version, minor_version, patch_version) = get_number_version();
         WASMProducer {
             main_header: "Main_0".to_string(),
             main_signal_offset: 1,
@@ -84,9 +83,9 @@ impl Default for WASMProducer {
             template_instance_list: [].to_vec(),
             field_tracking: [].to_vec(),
             wat_flag: true,
-            major_version,
-            minor_version,
-            patch_version,
+            major_version: 0,
+            minor_version: 0,
+            patch_version: 0,
             stack_free_pos: 0,
             local_info_size_u32: 0, // in the future we can add some info like pointer to run father or text father
             size_of_message_buffer_in_bytes: 256,

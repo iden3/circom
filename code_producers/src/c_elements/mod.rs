@@ -1,6 +1,6 @@
 pub mod c_code_generator;
 
-pub use crate::{components::*, get_number_version};
+pub use crate::components::*;
 
 pub type CInstruction = String;
 pub struct CProducer {
@@ -24,9 +24,9 @@ pub struct CProducer {
     pub template_instance_list: TemplateList,
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
-    major_version: usize,
-    minor_version: usize,
-    patch_version: usize,
+    pub major_version: usize,
+    pub minor_version: usize,
+    pub patch_version: usize,
     name_tag: String,
     string_table: Vec<String>,
 }
@@ -57,7 +57,6 @@ impl Default for CProducer {
                 IODef { code: 2, offset: 5, lengths: [2, 6].to_vec() },
             ],
         );
-        let (major_version, minor_version, patch_version) = get_number_version();
         CProducer {
             main_header: "Main_0".to_string(),
             has_parallelism: false,
@@ -90,9 +89,9 @@ impl Default for CProducer {
             size_32_shift: 5,
             io_map: my_map, //TemplateInstanceIOMap::new(),
             template_instance_list: [].to_vec(),
-            major_version,
-            minor_version,
-            patch_version,
+            major_version: 0,
+            minor_version: 0,
+            patch_version: 0,
             name_tag: "name".to_string(),
             string_table: Vec::new(),
         }

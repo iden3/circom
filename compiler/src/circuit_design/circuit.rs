@@ -392,9 +392,9 @@ impl WriteC for Circuit {
 }
 
 impl Circuit {
-    pub fn build(vcp: VCP, flags: CompilationFlags) -> Self {
+    pub fn build(vcp: VCP, flags: CompilationFlags, version: &str) -> Self {
         use super::build::build_circuit;
-        build_circuit(vcp, flags)
+        build_circuit(vcp, flags, version)
     }
     pub fn add_template_code(&mut self, template_info: TemplateCodeInfo) -> ID {
         let id = self.templates.len();
