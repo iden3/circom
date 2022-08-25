@@ -98,6 +98,7 @@ impl WriteC for LogBucket {
     fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
         use c_code_generator::*;
         let mut log_c = Vec::new();
+        let mut index = 0;
         for logarg in &self.argsprint {
             if let LogBucketArg::LogExp(exp) = logarg {
                 let (mut argument_code, argument_result) = exp.produce_c(producer);
@@ -129,14 +130,25 @@ impl WriteC for LogBucket {
             else{
                 unreachable!();
             }
+            if index != self.argsprint.len() - 1 { 
+                let print_c =
+                    build_call(
+                        "printf".to_string(), 
+                        vec![format!("\" \"")]
+                    );
+                log_c.push("{".to_string());
+                log_c.push(format!("{};", print_c));
+                log_c.push("}".to_string());
+            }
+            index += 1;
         }
         let print_end_line = build_call(
             "printf".to_string(), 
             vec![format!("\"\\n\"")]
         );
         log_c.push("{".to_string());
-                log_c.push(format!("{};", print_end_line));
-                log_c.push("}".to_string());
+        log_c.push(format!("{};", print_end_line));
+        log_c.push("}".to_string());
         (log_c, "".to_string())
     }
 }

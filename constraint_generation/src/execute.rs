@@ -300,6 +300,7 @@ fn execute_statement(
         }
         LogCall { args, .. } => {
             if flag_verbose{
+                let mut index = 0;
                 for arglog in args {
                     if let LogArgument::LogExp(arg) = arglog{
                         let f_result = execute_expression(arg, program_archive, runtime, flag_verbose)?;
@@ -314,6 +315,10 @@ fn execute_statement(
                     else if let LogArgument::LogStr(s) = arglog {
                             print!("{}",s);
                     }
+                    if index != args.len()-1{
+                        print!(" ");
+                    }
+                    index += 1;
                 }
                 println!("");
             }
