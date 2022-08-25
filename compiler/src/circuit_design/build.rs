@@ -151,7 +151,7 @@ fn build_function_instances(
 }
 
 // WASM producer builder
-fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool) -> WASMProducer {
+fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, version: &str) -> WASMProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
     let prime = UsefulConstants::new(&vcp.prime).get_p().clone();
@@ -189,10 +189,11 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool) -> 
     producer.template_instance_list = build_template_list(vcp);
     producer.field_tracking.clear();
     producer.wat_flag = wat_flag;
+    (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
 }
 
-fn initialize_c_producer(vcp: &VCP, database: &TemplateDB) -> CProducer {
+fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
     let prime = UsefulConstants::new(&vcp.prime).get_p().clone();
@@ -221,7 +222,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB) -> CProducer {
     producer.io_map = build_io_map(vcp, database);
     producer.template_instance_list = build_template_list(vcp);
     producer.field_tracking.clear();
-    
+    (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
 }
 
@@ -293,21 +294,31 @@ fn write_main_inputs_log(vcp: &VCP) {
     }
 }
 
+fn get_number_version(version: &str) -> (usize, usize, usize) {
+    use std::str::FromStr;
+    let version_splitted: Vec<&str> = version.split(".").collect();
+    (
+        usize::from_str(version_splitted[0]).unwrap(),
+        usize::from_str(version_splitted[1]).unwrap(),
+        usize::from_str(version_splitted[2]).unwrap(),
+    )
+}
+
 struct CircuitInfo {
     file_library: FileLibrary,
     functions: HashMap<String, Vec<usize>>,
     template_database: TemplateDB,
 }
 
-pub fn build_circuit(vcp: VCP, flag: CompilationFlags) -> Circuit {
+pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit {
     use crate::ir_processing::set_arena_size_in_calls;
     if flag.main_inputs_log {
         write_main_inputs_log(&vcp);
     }
     let template_database = TemplateDB::build(&vcp.templates);
     let mut circuit = Circuit::default();
-    circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag);
-    circuit.c_producer = initialize_c_producer(&vcp, &template_database);
+    circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
+    circuit.c_producer = initialize_c_producer(&vcp, &template_database, version);
 
     let field_tracker = FieldTracker::new();
     let circuit_info = CircuitInfo {

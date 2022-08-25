@@ -9,9 +9,9 @@ pub struct Config {
     pub wat_flag: bool,
 }
 
-pub fn run_compiler(vcp: VCP, config: Config) -> Result<Circuit, ()> {
+pub fn run_compiler(vcp: VCP, config: Config, version: &str) -> Result<Circuit, ()> {
     let flags = CompilationFlags { main_inputs_log: config.produce_input_log, wat_flag: config.wat_flag };
-    let circuit = Circuit::build(vcp, flags);
+    let circuit = Circuit::build(vcp, flags, version);
     if config.debug_output {
         produce_debug_output(&circuit)?;
     }
