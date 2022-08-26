@@ -126,6 +126,9 @@ void loadJson(Circom_CalcWit *ctx, std::string filename) {
   
   u64 nItems = j.size();
   // printf("Items : %llu\n",nItems);
+  if (nItems == 0){
+    ctx->tryRunCircuit();
+  }
   for (json::iterator it = j.begin(); it != j.end(); ++it) {
     // std::cout << it.key() << " => " << it.value() << '\n';
     u64 h = fnv1a(it.key());
