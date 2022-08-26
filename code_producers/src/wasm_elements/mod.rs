@@ -25,7 +25,9 @@ pub struct WASMProducer {
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
     pub wat_flag: bool,
-    version: usize,
+    pub major_version: usize,
+    pub minor_version: usize,
+    pub patch_version: usize,
     stack_free_pos: usize,
     local_info_size_u32: usize,
     size_of_message_buffer_in_bytes: usize,
@@ -81,8 +83,9 @@ impl Default for WASMProducer {
             template_instance_list: [].to_vec(),
             field_tracking: [].to_vec(),
             wat_flag: true,
-            // fix values
-            version: 2,
+            major_version: 0,
+            minor_version: 0,
+            patch_version: 0,
             stack_free_pos: 0,
             local_info_size_u32: 0, // in the future we can add some info like pointer to run father or text father
             size_of_message_buffer_in_bytes: 256,
@@ -142,7 +145,13 @@ impl WASMProducer {
         }
     */
     pub fn get_version(&self) -> usize {
-        self.version
+        self.major_version
+    }
+    pub fn get_minor_version(&self) -> usize {
+        self.minor_version
+    }
+    pub fn get_patch_version(&self) -> usize {
+        self.patch_version
     }
     pub fn get_main_header(&self) -> &str {
         &self.main_header
