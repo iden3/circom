@@ -435,6 +435,18 @@ fn type_expression(
                 Result::Ok(FoldedType::arithmetic_type(0))
             }
         }
+        ParallelOp {rhe, .. } =>{
+            let rhe_type = type_expression(rhe, program_archive, analysis_information)?;
+            if rhe_type.is_template()  {
+                Result::Ok(rhe_type)
+            } else {
+                add_report_and_end(
+                    ReportCode::ParallelOperatorWithWrongTypes,
+                    rhe.get_meta(),
+                    &mut analysis_information.reports,
+                )
+            }
+        }
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             let cond_response = type_expression(cond, program_archive, analysis_information);
             let if_true_response = type_expression(if_true, program_archive, analysis_information);
@@ -792,6 +804,9 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         InvalidArrayType => "Components can not be declared inside inline arrays".to_string(),
         InfixOperatorWithWrongTypes | PrefixOperatorWithWrongTypes => {
             "Type not allowed by the operator".to_string()
+        }
+        ParallelOperatorWithWrongTypes  => {
+            "Type not allowed by the operator parallel (needs a template)".to_string()
         }
         InvalidPartialArray => "Only variable arrays can be accessed partially".to_string(),
         UninitializedSymbolInExpression => "The type of this symbol is not known".to_string(),

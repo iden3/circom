@@ -208,7 +208,9 @@ fn extend_expression(
         extend_infix(expr, state, context)
     } else if expr.is_switch() {
         extend_switch(expr, state, context)
-    } else {
+    } else if expr.is_parallel(){
+        extend_parallel(expr, state, context)
+    }else {
         unreachable!()
     }
 }
@@ -239,6 +241,19 @@ fn extend_variable(expr: &mut Expression, state: &mut State, context: &Context) 
 fn extend_prefix(expr: &mut Expression, state: &mut State, context: &Context) -> ExtendedSyntax {
     use Expression::PrefixOp;
     if let PrefixOp { rhe, .. } = expr {
+        let mut extended = extend_expression(rhe, state, context);
+        let mut expr = vec![*rhe.clone()];
+        sugar_filter(&mut expr, state, &mut extended.initializations);
+        *rhe = Box::new(expr.pop().unwrap());
+        extended
+    } else {
+        unreachable!()
+    }
+}
+
+fn extend_parallel(expr: &mut Expression, state: &mut State, context: &Context) -> ExtendedSyntax {
+    use Expression::ParallelOp;
+    if let ParallelOp { rhe, .. } = expr {
         let mut extended = extend_expression(rhe, state, context);
         let mut expr = vec![*rhe.clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);

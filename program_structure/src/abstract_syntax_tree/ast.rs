@@ -254,6 +254,10 @@ pub enum Expression {
         if_true: Box<Expression>,
         if_false: Box<Expression>,
     },
+    ParallelOp{
+        meta: Meta,
+        rhe: Box<Expression>,
+    },
     Variable {
         meta: Meta,
         name: String,

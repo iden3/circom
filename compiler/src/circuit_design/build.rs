@@ -3,11 +3,11 @@ use crate::circuit_design::function::FunctionCodeInfo;
 use crate::circuit_design::template::TemplateCodeInfo;
 use crate::hir::very_concrete_program::*;
 use crate::intermediate_representation::translate;
-use crate::intermediate_representation::translate::{CodeInfo, FieldTracker, TemplateDB};
+use crate::intermediate_representation::translate::{CodeInfo, FieldTracker, TemplateDB, ParallelClusters};
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use program_structure::file_definition::FileLibrary;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[cfg(debug_assertions)]
 fn matching_lengths_and_offsets(list: &InputOutputList) {
@@ -26,9 +26,21 @@ fn build_template_instances(
     ti: Vec<TemplateInstance>,
     mut field_tracker: FieldTracker,
 ) -> (FieldTracker, HashMap<String,usize>) {
+
+    fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
+        let mut jump = 0;
+        let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
+        let mut lengths = lengths.clone();
+        lengths.reverse();
+        for index in indexes {
+            let length = lengths.pop().unwrap();
+            full_length /= length;
+            jump += (*index) * full_length;
+        }
+        jump
+    }
     let mut cmp_id = 0;
     let mut tmp_id = 0;
-    let parallels: Vec<_> = ti.iter().map(|i| i.is_parallel ).collect();
     let mut string_table = HashMap::new();
     for template in ti {
         let header = template.template_header;
@@ -43,12 +55,31 @@ fn build_template_instances(
             cmp_to_type.insert(name, xtype);
         }
         circuit.wasm_producer.message_list.push(msg);
-        circuit.c_producer.has_parallelism |= template.is_parallel;
-        let component_to_parallel: HashMap<_,_> = template.triggers
-            .iter()
-            .map(|t| (t.component_name.clone(), parallels[t.template_id]))
-            .collect();
+        circuit.c_producer.has_parallelism |= template.is_parallel || template.is_parallel_component;
 
+        let mut component_to_parallel: HashMap<String, ParallelClusters> = HashMap::new();
+        for trigger in &template.triggers{
+            match component_to_parallel.get_mut(&trigger.component_name){
+                Some(parallel_info) => {
+                    parallel_info.positions_to_parallel.insert(trigger.indexed_with.clone(), trigger.is_parallel);
+                    if parallel_info.uniform_parallel_value.is_some(){
+                        if parallel_info.uniform_parallel_value.unwrap() != trigger.is_parallel{
+                            parallel_info.uniform_parallel_value = None;
+                        }
+                    }
+                },
+                None => {
+                    let mut positions_to_parallel = BTreeMap::new();
+                        positions_to_parallel.insert(trigger.indexed_with.clone(), trigger.is_parallel);
+                    let new_parallel_info = ParallelClusters {
+                        positions_to_parallel,
+                        uniform_parallel_value: Some(trigger.is_parallel),
+                    };
+                    component_to_parallel.insert(trigger.component_name.clone(), new_parallel_info);
+                },
+            }
+        }
+        
         let code_info = CodeInfo {
             cmp_to_type,
             field_tracker,
@@ -65,7 +96,6 @@ fn build_template_instances(
             fresh_cmp_id: cmp_id,
             components: template.components,
             template_database: &c_info.template_database,
-            is_parallel: template.is_parallel,
             string_table : string_table,
         };
         let mut template_info = TemplateCodeInfo {
@@ -74,6 +104,8 @@ fn build_template_instances(
             number_of_components,
             id: tmp_id,
             is_parallel: template.is_parallel,
+            is_parallel_component: template.is_parallel_component,
+            is_not_parallel_component: template.is_not_parallel_component,
             number_of_inputs: template.number_of_inputs,
             number_of_outputs: template.number_of_outputs,
             number_of_intermediates: template.number_of_intermediates,
@@ -127,7 +159,6 @@ fn build_function_instances(
             cmp_to_type: HashMap::with_capacity(0),
             component_to_parallel: HashMap::with_capacity(0),
             template_database: &c_info.template_database,
-            is_parallel: false,
             string_table : string_table
         };
         let mut function_info = FunctionCodeInfo {
@@ -220,7 +251,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
     producer.number_of_main_outputs = vcp.templates[initial_node].number_of_outputs;
     producer.main_input_list = main_input_list(&vcp.templates[initial_node]);   
     producer.io_map = build_io_map(vcp, database);
-    producer.template_instance_list = build_template_list(vcp);
+    producer.template_instance_list = build_template_list_parallel(vcp);
     producer.field_tracking.clear();
     (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
@@ -241,6 +272,18 @@ fn build_template_list(vcp: &VCP) -> TemplateList {
     let mut tmp_list = MessageList::new();
     for instance in &vcp.templates {
         tmp_list.push(instance.template_header.clone());
+    }
+    tmp_list
+}
+
+fn build_template_list_parallel(vcp: &VCP) -> TemplateListParallel {
+    let mut tmp_list = TemplateListParallel::new();
+    for instance in &vcp.templates {
+        tmp_list.push(InfoParallel{
+            name: instance.template_header.clone(), 
+            is_parallel: instance.is_parallel || instance.is_parallel_component,
+            is_not_parallel: !instance.is_parallel && instance.is_not_parallel_component,
+        });
     }
     tmp_list
 }

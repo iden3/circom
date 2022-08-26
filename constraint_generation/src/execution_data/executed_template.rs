@@ -204,7 +204,7 @@ impl ExecutedTemplate {
         for cnn in &mut self.connexions {
             cnn.dag_offset = dag.get_entry().unwrap().get_out();
             cnn.dag_component_offset = dag.get_entry().unwrap().get_out_component();
-            dag.add_edge(cnn.inspect.goes_to, &cnn.full_name);
+            dag.add_edge(cnn.inspect.goes_to, &cnn.full_name, cnn.inspect.is_parallel);
             cnn.dag_jump = dag.get_entry().unwrap().get_out() - cnn.dag_offset;
             cnn.dag_component_jump = dag.get_entry().unwrap().get_out_component() - cnn.dag_component_offset;
         }
@@ -218,20 +218,23 @@ impl ExecutedTemplate {
             dag.add_constraint(cc);
         }
     }
-    pub fn export_to_circuit(self, instances: &[TemplateInstance]) -> TemplateInstance {
+    pub fn export_to_circuit(self, instances: &mut [TemplateInstance]) -> TemplateInstance {
         use SignalType::*;
         fn build_triggers(
-            instances: &[TemplateInstance],
+            instances: &mut [TemplateInstance],
             connexions: Vec<Connexion>,
         ) -> Vec<Trigger> {
             let mut triggers = vec![];
             for cnn in connexions {
                 let data = cnn.inspect;
+                instances[data.goes_to].is_parallel_component |= data.is_parallel;
+                instances[data.goes_to].is_not_parallel_component |= !(data.is_parallel);
                 let trigger = Trigger {
                     offset: cnn.dag_offset,
                     component_offset: cnn.dag_component_offset,
                     component_name: data.name,
                     indexed_with: data.indexed_with,
+                    is_parallel: data.is_parallel || instances[data.goes_to].is_parallel,
                     runs: instances[data.goes_to].template_header.clone(),
                     template_id: data.goes_to,
                     external_signals: instances[data.goes_to].signals.clone(),

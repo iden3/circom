@@ -7,6 +7,7 @@ impl Expression {
             InfixOp { meta, .. }
             | PrefixOp { meta, .. }
             | InlineSwitchOp { meta, .. }
+            | ParallelOp {meta, .. }
             | Variable { meta, .. }
             | Number(meta, ..)
             | Call { meta, .. }
@@ -20,6 +21,7 @@ impl Expression {
             InfixOp { meta, .. }
             | PrefixOp { meta, .. }
             | InlineSwitchOp { meta, .. }
+            | ParallelOp {meta, .. }
             | Variable { meta, .. }
             | Number(meta, ..)
             | Call { meta, .. }
@@ -66,6 +68,15 @@ impl Expression {
         }
     }
 
+    pub fn is_parallel(&self) -> bool {
+        use Expression::*;
+        if let ParallelOp { .. } = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn is_variable(&self) -> bool {
         use Expression::*;
         if let Variable { .. } = self {
@@ -104,6 +115,7 @@ impl FillMeta for Expression {
             Variable { meta, access, .. } => fill_variable(meta, access, file_id, element_id),
             InfixOp { meta, lhe, rhe, .. } => fill_infix(meta, lhe, rhe, file_id, element_id),
             PrefixOp { meta, rhe, .. } => fill_prefix(meta, rhe, file_id, element_id),
+            ParallelOp{ meta, rhe, ..} => fill_parallel(meta, rhe, file_id, element_id),
             InlineSwitchOp { meta, cond, if_false, if_true, .. } => {
                 fill_inline_switch_op(meta, cond, if_true, if_false, file_id, element_id)
             }
@@ -144,6 +156,11 @@ fn fill_infix(
 }
 
 fn fill_prefix(meta: &mut Meta, rhe: &mut Expression, file_id: usize, element_id: &mut usize) {
+    meta.set_file_id(file_id);
+    rhe.fill(file_id, element_id);
+}
+
+fn fill_parallel(meta: &mut Meta, rhe: &mut Expression, file_id: usize, element_id: &mut usize) {
     meta.set_file_id(file_id);
     rhe.fill(file_id, element_id);
 }
