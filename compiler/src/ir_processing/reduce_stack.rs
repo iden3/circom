@@ -46,7 +46,6 @@ pub fn reduce_compute(mut bucket: ComputeBucket) -> Instruction {
             message_id: bucket.message_id,
             parse_as: ValueType::U32,
             op_aux_no: bucket.op_aux_no,
-            is_parallel: bucket.is_parallel,
             value,
         };
         IntoInstruction::into_instruction(v_bucket)
@@ -146,9 +145,9 @@ pub fn reduce_address_type(at: AddressType) -> AddressType {
     match at {
         Variable => Variable,
         Signal => Signal,
-        SubcmpSignal { cmp_address, is_parallel, is_output, input_information } => {
+        SubcmpSignal { cmp_address, uniform_parallel_value, is_output, input_information } => {
             let cmp_address = Allocate::allocate(reduce_instruction(*cmp_address));
-            SubcmpSignal { cmp_address, is_parallel, is_output, input_information }
+            SubcmpSignal { cmp_address, uniform_parallel_value, is_output, input_information }
         }
     }
 }

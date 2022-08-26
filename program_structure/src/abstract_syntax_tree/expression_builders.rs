@@ -29,6 +29,16 @@ pub fn build_inline_switch_op(
     }
 }
 
+pub fn build_parallel_op(
+    meta: Meta,
+    rhe: Expression,
+)-> Expression {
+    ParallelOp{
+        meta,
+        rhe: Box::new(rhe),
+    }
+}
+
 pub fn build_variable(meta: Meta, name: String, access: Vec<Access>) -> Expression {
     Variable { meta, name, access }
 }

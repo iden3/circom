@@ -205,6 +205,11 @@ pub fn function_table() -> CInstruction {
     format!("{}", FUNCTION_TABLE)
 }
 
+pub const FUNCTION_TABLE_PARALLEL: &str = "_functionTableParallel";
+pub fn function_table_parallel() -> CInstruction {
+    format!("{}", FUNCTION_TABLE_PARALLEL)
+}
+
 pub const SIGNAL_VALUES: &str = "signalValues";
 pub fn declare_signal_values() -> CInstruction {
     format!("FrElement* {} = {}->{}", SIGNAL_VALUES, CIRCOM_CALC_WIT, SIGNAL_VALUES)
@@ -282,6 +287,17 @@ pub fn my_subcomponents() -> CInstruction {
     format!("{}", MY_SUBCOMPONENTS)
 }
 
+pub const MY_SUBCOMPONENTS_PARALLEL: &str = "mySubcomponentsParallel";
+pub fn declare_my_subcomponents_parallel() -> CInstruction {
+    format!(
+        "bool* {} = {}->componentMemory[{}].subcomponentsParallel",
+        MY_SUBCOMPONENTS_PARALLEL, CIRCOM_CALC_WIT, CTX_INDEX
+    )
+}
+pub fn my_subcomponents_parallel() -> CInstruction {
+    format!("{}", MY_SUBCOMPONENTS_PARALLEL)
+}
+
 pub const CIRCUIT_CONSTANTS: &str = "circuitConstants";
 pub fn declare_circuit_constants() -> CInstruction {
     format!("FrElement* {} = {}->{}", CIRCUIT_CONSTANTS, CIRCOM_CALC_WIT, CIRCUIT_CONSTANTS)
@@ -347,6 +363,15 @@ pub fn set_list(elems: Vec<usize>) -> String {
     set_string
 }
 
+pub fn set_list_bool(elems: Vec<bool>) -> String {
+    let mut set_string = "{".to_string();
+    for elem in elems {
+        set_string = format!("{}{},", set_string, elem);
+    }
+    set_string.pop();
+    set_string.push('}');
+    set_string
+}
 
 pub fn add_return() -> String {
     "return;".to_string()
@@ -388,12 +413,11 @@ pub fn merge_code(instructions: Vec<String>) -> String {
     code
 }
 
-pub fn collect_template_headers(instances: &TemplateList) -> Vec<String> {
+pub fn collect_template_headers(instances: &TemplateListParallel) -> Vec<String> {
     let mut template_headers = vec![];
     for instance in instances {
         let params_run = vec![declare_ctx_index(), declare_circom_calc_wit()];
         let params_run = argument_list(params_run);
-        let run_header = format!("void {}_run({});", instance, params_run);
         let params_create = vec![
             declare_signal_offset(), 
             declare_component_offset(), 
@@ -402,9 +426,18 @@ pub fn collect_template_headers(instances: &TemplateList) -> Vec<String> {
             declare_component_father(),
         ];
         let params_create = argument_list(params_create);
-        let create_header = format!("void {}_create({});", instance, params_create);
-        template_headers.push(create_header);
-        template_headers.push(run_header);
+        if instance.is_parallel{
+            let run_header = format!("void {}_run_parallel({});", instance.name, params_run);
+            let create_header = format!("void {}_create_parallel({});", instance.name, params_create);
+            template_headers.push(create_header);
+            template_headers.push(run_header);
+        }
+        if instance.is_not_parallel{
+            let run_header = format!("void {}_run({});", instance.name, params_run);
+            let create_header = format!("void {}_create({});", instance.name, params_create);
+            template_headers.push(create_header);
+            template_headers.push(run_header);
+        }
     }
     template_headers
 }
@@ -645,16 +678,34 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     */
     Ok(())
 }
-
-pub fn generate_function_list(_producer: &CProducer, list: &TemplateList) -> String {
-    let mut func_list = "".to_string();
+pub fn generate_function_list(_producer: &CProducer, list: &TemplateListParallel) -> (String, String) {
+    let mut func_list= "".to_string();
+    let mut func_list_parallel= "".to_string();
     if list.len() > 0 {
-        func_list.push_str(&format!("\n{}_run", list[0]));
-        for i in 1..list.len() {
-            func_list.push_str(&format!(",\n{}_run", list[i]));
+        if list[0].is_parallel{
+            func_list_parallel.push_str(&format!("\n{}_run_parallel",list[0].name));
+        }else{
+            func_list_parallel.push_str(&format!("\nNULL"));
         }
+        if list[0].is_not_parallel{
+            func_list.push_str(&format!("\n{}_run",list[0].name));
+        }else{
+            func_list.push_str(&format!("\nNULL"));
+        }
+	    for i in 1..list.len() {
+            if list[i].is_parallel{
+                func_list_parallel.push_str(&format!(",\n{}_run_parallel",list[i].name));
+            }else{
+                func_list_parallel.push_str(&format!(",\nNULL"));
+            }
+            if list[i].is_not_parallel{
+                func_list.push_str(&format!(",\n{}_run",list[i].name));
+            }else{
+                func_list.push_str(&format!(",\nNULL"));
+            }
+	    }
     }
-    func_list
+    (func_list, func_list_parallel)
 }
 
 pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageList) -> Vec<String> {
@@ -852,10 +903,18 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
     let mut run_defs = collect_template_headers(producer.get_template_instance_list());
     code.append(&mut run_defs);
 
+    let (func_list_no_parallel, func_list_parallel) = generate_function_list(producer, producer.get_template_instance_list());
+
     code.push(format!(
         "Circom_TemplateFunction _functionTable[{}] = {{ {} }};",
         producer.get_number_of_template_instances(),
-        generate_function_list(producer, producer.get_template_instance_list())
+        func_list_no_parallel,
+    ));
+
+    code.push(format!(
+        "Circom_TemplateFunction _functionTableParallel[{}] = {{ {} }};",
+        producer.get_number_of_template_instances(),
+        func_list_parallel,
     ));
 
     code.push(format!("uint get_size_of_input_hashmap() {{return {};}}\n", len));

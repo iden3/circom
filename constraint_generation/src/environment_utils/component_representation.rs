@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 pub struct ComponentRepresentation {
     pub node_pointer: Option<NodePointer>,
+    is_parallel: bool,
     unassigned_inputs: HashMap<String, SliceCapacity>,
     inputs: HashMap<String, SignalSlice>,
     outputs: HashMap<String, SignalSlice>,
@@ -14,6 +15,7 @@ impl Default for ComponentRepresentation {
     fn default() -> Self {
         ComponentRepresentation {
             node_pointer: Option::None,
+            is_parallel: false,
             unassigned_inputs: HashMap::new(),
             inputs: HashMap::new(),
             outputs: HashMap::new(),
@@ -24,6 +26,7 @@ impl Clone for ComponentRepresentation {
     fn clone(&self) -> Self {
         ComponentRepresentation {
             node_pointer: self.node_pointer,
+            is_parallel: self.is_parallel,
             unassigned_inputs: self.unassigned_inputs.clone(),
             inputs: self.inputs.clone(),
             outputs: self.outputs.clone(),
@@ -34,6 +37,7 @@ impl Clone for ComponentRepresentation {
 impl ComponentRepresentation {
     pub fn initialize_component(
         component: &mut ComponentRepresentation,
+        is_parallel: bool,
         node_pointer: NodePointer,
         scheme: &ExecutedProgram,
     ) -> Result<(), MemoryError> {
@@ -62,6 +66,7 @@ impl ComponentRepresentation {
         }
         *component = ComponentRepresentation {
             node_pointer: Option::Some(node_pointer),
+            is_parallel,
             unassigned_inputs,
             inputs,
             outputs,

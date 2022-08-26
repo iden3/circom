@@ -17,7 +17,7 @@ pub enum InputInformation {
 pub enum AddressType {
     Variable,
     Signal,
-    SubcmpSignal { cmp_address: InstructionPointer, is_parallel: bool, is_output: bool, input_information: InputInformation },
+    SubcmpSignal { cmp_address: InstructionPointer, uniform_parallel_value: Option<bool>, is_output: bool, input_information: InputInformation },
 }
 
 impl ToString for AddressType {

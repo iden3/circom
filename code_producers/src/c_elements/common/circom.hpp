@@ -48,6 +48,7 @@ struct Circom_Component {
   std::string componentName;
   u64 idFather; 
   u32* subcomponents;
+  bool* subcomponentsParallel;
   bool *outputIsSet;  //one for each output
   std::mutex *mutexes;  //one for each output
   std::condition_variable *cvs;

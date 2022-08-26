@@ -83,7 +83,6 @@ pub struct ComputeBucket {
     pub op: OperatorType,
     pub op_aux_no: usize,
     pub stack: Vec<InstructionPointer>,
-    pub is_parallel: bool,
 }
 
 impl IntoInstruction for ComputeBucket {
@@ -246,7 +245,7 @@ impl WriteWasm for ComputeBucket {
 }
 
 impl WriteC for ComputeBucket {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         fn get_fr_op(op_type: OperatorType) -> String {
             match op_type {
@@ -283,7 +282,7 @@ impl WriteC for ComputeBucket {
 
         let result;
         for instr in &self.stack {
-            let (mut instr_c, operand) = instr.produce_c(producer);
+            let (mut instr_c, operand) = instr.produce_c(producer, parallel);
             operands.push(operand);
             compute_c.append(&mut instr_c);
         }
