@@ -10,6 +10,12 @@ pub struct IODef {
 // It is an array that contains (name, start position, size)
 pub type InputList = Vec<(String, usize, usize)>;
 pub type TemplateList = Vec<String>;
+pub struct InfoParallel{
+    pub name: String,
+    pub is_parallel: bool,
+    pub is_not_parallel: bool,
+}
+pub type TemplateListParallel = Vec<InfoParallel>;
 pub type SignalList = Vec<usize>;
 pub type InputOutputList = Vec<IODef>;
 pub type TemplateInstanceIOMap = BTreeMap<usize, InputOutputList>;

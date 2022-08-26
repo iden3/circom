@@ -85,7 +85,7 @@ impl WriteWasm for FunctionCodeInfo {
 }
 
 impl WriteC for FunctionCodeInfo {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, _parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let header = format!("void {}", self.header);
         let params = vec![
@@ -101,7 +101,7 @@ impl WriteC for FunctionCodeInfo {
         body.push(format!("{};", declare_my_template_name_function(&self.name)));
         body.push(format!("u64 {} = {};", my_id(), component_father()));
         for t in &self.body {
-            let (mut instructions_body, _) = t.produce_c(producer);
+            let (mut instructions_body, _) = t.produce_c(producer, Some(false));
             body.append(&mut instructions_body);
         }
         let callable = build_callable(header, params, body);

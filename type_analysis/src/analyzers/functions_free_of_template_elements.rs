@@ -155,6 +155,9 @@ fn analyse_expression(
         PrefixOp { rhe, .. } => {
             analyse_expression(rhe, function_names, reports);
         }
+        ParallelOp{ rhe, ..} =>{
+            analyse_expression(rhe, function_names, reports);
+        }
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             analyse_expression(cond, function_names, reports);
             analyse_expression(if_true, function_names, reports);

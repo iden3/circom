@@ -10,7 +10,6 @@ pub struct ValueBucket {
     pub parse_as: ValueType,
     pub op_aux_no: usize,
     pub value: usize,
-    pub is_parallel: bool,
 }
 
 impl IntoInstruction for ValueBucket {
@@ -74,7 +73,7 @@ impl WriteWasm for ValueBucket {
 }
 
 impl WriteC for ValueBucket {
-    fn produce_c(&self, _producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, _producer: &CProducer, _parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let index = self.value.to_string();
         match self.parse_as {
