@@ -4,6 +4,8 @@ use compiler::compiler_interface::{Config, VCP};
 use program_structure::error_definition::Report;
 use program_structure::error_code::ReportCode;
 use program_structure::file_definition::FileLibrary;
+use crate::VERSION;
+
 
 pub struct CompilerConfig {
     pub js_folder: String,
@@ -26,6 +28,7 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
     let circuit = compiler_interface::run_compiler(
         config.vcp,
         Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
+        VERSION
     )?;
 
     if config.c_flag {

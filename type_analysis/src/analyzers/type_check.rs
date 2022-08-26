@@ -242,7 +242,26 @@ fn type_statement(
                 );
             }
         }
-        LogCall { arg, meta } | Assert { arg, meta } => {
+        LogCall { args, meta } => {
+            for arglog in args {
+                if let LogArgument::LogExp(arg) = arglog{
+                    let arg_response = type_expression(arg, program_archive, analysis_information);
+                    let arg_type = if let Result::Ok(t) = arg_response {
+                        t
+                    } else {
+                        return;
+                    };
+                    if arg_type.is_template() || arg_type.dim() > 0 {
+                        add_report(
+                            ReportCode::MustBeSingleArithmetic,
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    }
+                }
+            }
+        }
+        Assert { arg, meta } => {
             let arg_response = type_expression(arg, program_archive, analysis_information);
             let arg_type = if let Result::Ok(t) = arg_response {
                 t
@@ -354,6 +373,32 @@ fn type_expression(
                 }
             }
             Result::Ok(FoldedType::arithmetic_type(inferred_dim + 1))
+        }
+        UniformArray { meta, value, dimension } => {
+            let value_type = type_expression(value, program_archive, analysis_information).unwrap();
+            if value_type.is_template() {
+                add_report(
+                    ReportCode::InvalidArrayType,
+                    meta,
+                    &mut analysis_information.reports,
+                );
+            };
+            let dim_type = type_expression(dimension, program_archive, analysis_information).unwrap();
+            if dim_type.is_template() {
+                add_report(
+                    ReportCode::InvalidArrayType,
+                    expression.get_meta(),
+                    &mut analysis_information.reports,
+                );
+            } else if dim_type.dim() != 0 {
+                add_report(
+                    ReportCode::InvalidArrayType,
+                    expression.get_meta(),
+                    &mut analysis_information.reports,
+                );
+            }
+            
+            Result::Ok(FoldedType::arithmetic_type(value_type.dim() + 1))
         }
         InfixOp { lhe, rhe, .. } => {
             let lhe_response = type_expression(lhe, program_archive, analysis_information);

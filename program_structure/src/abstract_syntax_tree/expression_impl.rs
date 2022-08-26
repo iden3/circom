@@ -11,6 +11,7 @@ impl Expression {
             | Number(meta, ..)
             | Call { meta, .. }
             | ArrayInLine { meta, .. } => meta,
+            | UniformArray { meta, .. } => meta,
         }
     }
     pub fn get_mut_meta(&mut self) -> &mut Meta {
@@ -23,12 +24,15 @@ impl Expression {
             | Number(meta, ..)
             | Call { meta, .. }
             | ArrayInLine { meta, .. } => meta,
+            | UniformArray { meta, .. } => meta,
         }
     }
 
     pub fn is_array(&self) -> bool {
         use Expression::*;
         if let ArrayInLine { .. } = self {
+            true
+        } else if let UniformArray { .. } = self{
             true
         } else {
             false
@@ -107,6 +111,9 @@ impl FillMeta for Expression {
             ArrayInLine { meta, values, .. } => {
                 fill_array_inline(meta, values, file_id, element_id)
             }
+            UniformArray { meta, value, dimension, .. } => {
+                fill_uniform_array(meta, value, dimension, file_id, element_id)
+            }
         }
     }
 }
@@ -172,4 +179,16 @@ fn fill_array_inline(
     for v in values {
         v.fill(file_id, element_id);
     }
+}
+
+fn fill_uniform_array(
+    meta: &mut Meta,
+    value: &mut Expression,
+    dimensions: &mut Expression,
+    file_id: usize,
+    element_id: &mut usize,
+) {
+    meta.set_file_id(file_id);
+    value.fill(file_id, element_id);
+    dimensions.fill(file_id, element_id);
 }

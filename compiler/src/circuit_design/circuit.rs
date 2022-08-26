@@ -105,6 +105,9 @@ impl WriteWasm for Circuit {
         code_aux = build_buffer_message_generator(&producer);
         code.append(&mut code_aux);
 
+        code_aux = build_log_message_generator(&producer);
+        code.append(&mut code_aux);
+
         // Actual code from the program
 
         for f in &self.functions {
@@ -253,6 +256,11 @@ impl WriteWasm for Circuit {
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})?;
 
+        code_aux = build_log_message_generator(&producer);
+        code = merge_code(code_aux);
+        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        writer.flush().map_err(|_| {})?;
+
         // Actual code from the program
 
         for f in &self.functions {
@@ -384,9 +392,9 @@ impl WriteC for Circuit {
 }
 
 impl Circuit {
-    pub fn build(vcp: VCP, flags: CompilationFlags) -> Self {
+    pub fn build(vcp: VCP, flags: CompilationFlags, version: &str) -> Self {
         use super::build::build_circuit;
-        build_circuit(vcp, flags)
+        build_circuit(vcp, flags, version)
     }
     pub fn add_template_code(&mut self, template_info: TemplateCodeInfo) -> ID {
         let id = self.templates.len();
@@ -415,22 +423,22 @@ impl Circuit {
     pub fn produce_c<W: Write>(&self, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let c_folder_path = Path::new(c_folder.clone()).to_path_buf();
-        c_code_generator::generate_main_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_circom_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_main_cpp_file(&c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_circom_hpp_file(&c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_fr_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_calcwit_hpp_file(&c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_fr_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_calcwit_cpp_file(&c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_fr_asm_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_make_file(&c_folder_path,run_name,&self.c_producer, &self.c_producer.prime_str).map_err(|_err| {})?;	
+        c_code_generator::generate_make_file(&c_folder_path,run_name,&self.c_producer).map_err(|_err| {})?;
         c_code_generator::generate_dat_file(c_dat, &self.c_producer).map_err(|_err| {})?;
         self.write_c(c_circuit, &self.c_producer)
     }
     pub fn produce_wasm<W: Write>(&self, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let js_folder_path = Path::new(js_folder.clone()).to_path_buf();
-        wasm_code_generator::generate_generate_witness_js_file(&js_folder_path, &self.wasm_producer.prime_str).map_err(|_err| {})?;
-        wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path, &self.wasm_producer.prime_str).map_err(|_err| {})?;
+        wasm_code_generator::generate_generate_witness_js_file(&js_folder_path).map_err(|_err| {})?;
+        wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path).map_err(|_err| {})?;
         self.write_wasm(writer, &self.wasm_producer)
     }
 }

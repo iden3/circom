@@ -21,11 +21,13 @@ fn log_substitutions(substitutions: &LinkedList<S>, writer: &mut Option<Substitu
 #[derive(Default, Clone)]
 struct Cluster {
     constraints: LinkedList<C>,
+    num_signals: usize
 }
 impl Cluster {
-    pub fn new(constraint: C) -> Cluster {
+    pub fn new(constraint: C, num_signals: usize) -> Cluster {
         let mut new = Cluster::default();
         LinkedList::push_back(&mut new.constraints, constraint);
+        new.num_signals = num_signals;
         new
     }
 
@@ -33,6 +35,7 @@ impl Cluster {
         let mut result = Cluster::default();
         LinkedList::append(&mut result.constraints, &mut c0.constraints);
         LinkedList::append(&mut result.constraints, &mut c1.constraints);
+        result.num_signals = c0.num_signals + c1.num_signals - 1;
         result
     }
 
@@ -72,15 +75,17 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
     let mut cluster_to_current = ClusterPath::with_capacity(no_linear);
     let mut signal_to_cluster = vec![no_linear; no_vars];
     for constraint in linear {
-        let signals = C::take_cloned_signals_ordered(&constraint);
-        let dest = ClusterArena::len(&arena);
-        ClusterArena::push(&mut arena, Some(Cluster::new(constraint)));
-        Vec::push(&mut cluster_to_current, dest);
-        for signal in signals {
-            let prev = signal_to_cluster[signal];
-            signal_to_cluster[signal] = dest;
-            if prev < no_linear {
-                arena_merge(&mut arena, &mut cluster_to_current, prev, dest);
+        if !constraint.is_empty(){
+            let signals = C::take_cloned_signals(&constraint);
+            let dest = ClusterArena::len(&arena);
+            ClusterArena::push(&mut arena, Some(Cluster::new(constraint, signals.len())));
+            Vec::push(&mut cluster_to_current, dest);
+            for signal in signals {
+                let prev = signal_to_cluster[signal];
+                signal_to_cluster[signal] = dest;
+                if prev < no_linear {
+                    arena_merge(&mut arena, &mut cluster_to_current, prev, dest);
+                }
             }
         }
     }
@@ -274,6 +279,7 @@ fn linear_simplification(
     forbidden: Arc<HashSet<usize>>,
     no_labels: usize,
     field: &BigInt,
+    use_old_heuristics: bool,
 ) -> (LinkedList<S>, LinkedList<C>) {
     use circom_algebra::simplification_utils::full_simplification;
     use circom_algebra::simplification_utils::Config;
@@ -295,6 +301,8 @@ fn linear_simplification(
             field: field.clone(),
             constraints: cluster.constraints,
             forbidden: Arc::clone(&forbidden),
+            num_signals: cluster.num_signals,
+            use_old_heuristics,
         };
         let job = move || {
             // println!("cluster: {}", id);
@@ -438,6 +446,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     let mut substitution_log =
         if smp.port_substitution { Some(SubstitutionJSON::new(SUB_LOG).unwrap()) } else { None };
     let apply_linear = !smp.flag_s;
+    let use_old_heuristics = smp.flag_old_heuristics;
     let field = smp.field.clone();
     let forbidden = Arc::new(std::mem::replace(&mut smp.forbidden, HashSet::with_capacity(0)));
     let no_labels = Simplifier::no_labels(smp);
@@ -528,6 +537,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
             Arc::clone(&forbidden),
             no_labels,
             &field,
+            use_old_heuristics,
         );
         // println!("Building substitution map");
         let now0 = SystemTime::now();
@@ -595,6 +605,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
             Arc::clone(&forbidden),
             no_labels,
             &field,
+            use_old_heuristics,
         );
 
         for sub in &substitutions {

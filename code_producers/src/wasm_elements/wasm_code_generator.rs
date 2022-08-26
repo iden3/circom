@@ -495,6 +495,14 @@ pub fn generate_imports_list() -> Vec<WasmInstruction> {
             .to_string(),
     );
     imports.push(
+        "(import \"runtime\" \"printErrorMessage\" (func $printErrorMessage (type $_t_void)))"
+            .to_string(),
+    );
+    imports.push(
+        "(import \"runtime\" \"writeBufferMessage\" (func $writeBufferMessage (type $_t_void)))"
+            .to_string(),
+    );
+    imports.push(
         "(import \"runtime\" \"showSharedRWMemory\" (func $showSharedRWMemory (type $_t_void)))"
             .to_string(),
     );
@@ -524,6 +532,8 @@ pub fn generate_exports_list() -> Vec<WasmInstruction> {
     let mut exports = vec![];
     exports.push("(export \"memory\" (memory 0))".to_string());
     exports.push("(export \"getVersion\" (func $getVersion))".to_string());
+    exports.push("(export \"getMinorVersion\" (func $getMinorVersion))".to_string());
+    exports.push("(export \"getPatchVersion\" (func $getPatchVersion))".to_string());
     exports.push("(export \"getSharedRWMemoryStart\" (func $getSharedRWMemoryStart))".to_string());
     exports.push("(export \"readSharedRWMemory\" (func $readSharedRWMemory))".to_string());
     exports.push("(export \"writeSharedRWMemory\" (func $writeSharedRWMemory))".to_string());
@@ -596,9 +606,26 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
             ));
         } else {
             wdata.push(format!(
-                "(data (i32.const {}) \"{}\")",
+                "(data (i32.const {}) \"{}\\00\")",
                 m + i * producer.get_size_of_message_in_bytes(),
-                ml[i]
+                &ml[i][..producer.get_size_of_message_in_bytes()-1]
+            ));
+        }
+    }
+    let st = producer.get_string_table();
+    let s = producer.get_string_list_start();
+    for i in 0..st.len() {
+        if st[i].len() < producer.get_size_of_message_in_bytes() {
+            wdata.push(format!(
+                "(data (i32.const {}) \"{}\\00\")",
+                s + i * producer.get_size_of_message_in_bytes(),
+                st[i]
+            ));
+        } else {
+            wdata.push(format!(
+                "(data (i32.const {}) \"{}\\00\")",
+                s + i * producer.get_size_of_message_in_bytes(),
+                &st[i][..producer.get_size_of_message_in_bytes()-1]
             ));
         }
     }
@@ -749,6 +776,14 @@ pub fn get_version_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     instructions.push(header);
     instructions.push(set_constant(&producer.get_version().to_string()));
     instructions.push(")".to_string());
+    let header = "(func $getMinorVersion (type $_t_ri32)".to_string();
+    instructions.push(header);
+    instructions.push(set_constant(&producer.get_minor_version().to_string()));
+    instructions.push(")".to_string());
+    let header = "(func $getPatchVersion (type $_t_ri32)".to_string();
+    instructions.push(header);
+    instructions.push(set_constant(&producer.get_patch_version().to_string()));
+    instructions.push(")".to_string());
     instructions
 }
 
@@ -893,6 +928,7 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(" (local $sip i32) ;; signal+position number".to_string());
     instructions.push(" (local $sipm i32) ;; position in the signal memory".to_string());
     instructions.push(" (local $vint i32)".to_string());
+    instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
     instructions.push(set_constant(&producer.get_remaining_input_signal_counter().to_string()));
     instructions.push(load32(None));
     instructions.push(set_local("$ns"));
@@ -990,6 +1026,11 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(set_constant(&producer.get_component_tree_start().to_string()));
     let funcname = format!("${}_run", producer.get_main_header());
     instructions.push(call(&funcname));
+    instructions.push(tee_local(producer.get_merror_tag()));
+    instructions.push(add_if()); // if 7
+    instructions.push(get_local("$merror"));    
+    instructions.push(call("$exceptionHandler"));
+    instructions.push(add_end()); // end if 7
     instructions.push(add_end()); // end if 6
     instructions.push(add_end()); // end else if 4
     instructions.push(add_end()); // end else if 3
@@ -1152,6 +1193,73 @@ pub fn get_message_char_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(add_return());
     instructions.push(add_end());
     instructions.push(set_constant("0"));
+    instructions.push(")".to_string());
+    instructions
+}
+
+pub fn build_log_message_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
+    let mut instructions = vec![];
+    let header = "(func $buildLogMessage (type $_t_i32)".to_string();
+    instructions.push(header);
+    instructions.push(" (param $m i32)".to_string()); //string position
+    instructions.push(" (local $em i32)".to_string()); //position in error message
+    instructions.push(" (local $bm i32)".to_string()); //position in buffer
+    instructions.push(" (local $mc i32)".to_string()); //message char
+    instructions.push(get_local("$m"));
+    instructions.push(set_local("$em"));
+    instructions.push(set_constant(&producer.get_message_buffer_start().to_string()));
+    instructions.push(set_local("$bm"));
+    instructions.push(add_block());
+    instructions.push(add_loop()); //move bytes until end of message or zero found
+                                   // check if end of message
+    let final_pos = producer.get_size_of_message_in_bytes() + producer.get_message_buffer_start();
+    instructions.push(set_constant(&final_pos.to_string()));
+    instructions.push(get_local("$em"));
+    instructions.push(eq32());
+    instructions.push(br_if("1")); // jump to end of block 1
+    instructions.push(get_local("$em"));
+    instructions.push(load32_8u(None));
+    instructions.push(set_local("$mc"));
+    instructions.push(get_local("$mc"));
+    instructions.push(eqz32());
+    instructions.push(br_if("1")); // jump to end of block 1
+    instructions.push(get_local("$bm"));
+    instructions.push(get_local("$mc"));
+    instructions.push(store32_8(None));
+    instructions.push(get_local("$em"));
+    instructions.push(set_constant("1"));
+    instructions.push(add32());
+    instructions.push(set_local("$em"));
+    instructions.push(get_local("$bm"));
+    instructions.push(set_constant("1"));
+    instructions.push(add32());
+    instructions.push(set_local("$bm"));
+    instructions.push(br("0"));
+    instructions.push(add_end());
+    instructions.push(add_end());
+    //fill rest of buffer with 0's
+    instructions.push(add_block());
+    instructions.push(add_loop());
+    instructions.push(get_local("$bm"));
+    let buff_final_pos =
+        producer.get_message_buffer_start() + producer.get_size_of_message_buffer_in_bytes();
+    instructions.push(set_constant(&buff_final_pos.to_string()));
+    instructions.push(eq32());
+    instructions.push(br_if("1")); //jump to the end of block
+    instructions.push(get_local("$bm"));
+    instructions.push(set_constant("0"));
+    instructions.push(store32_8(None)); // stores the digit in the buffer
+    instructions.push(get_local("$bm"));
+    instructions.push(set_constant("1"));
+    instructions.push(add32());
+    instructions.push(set_local("$bm"));
+    instructions.push(br("0")); // jump to the loop
+    instructions.push(add_end());
+    instructions.push(add_end());
+    // initialize message buffer position to 0
+    instructions.push(set_constant(&producer.get_message_buffer_counter_position().to_string()));
+    instructions.push(set_constant("0"));
+    instructions.push(store32(None));
     instructions.push(")".to_string());
     instructions
 }
@@ -1500,7 +1608,7 @@ pub fn generate_utils_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
 }
  */
 
-pub fn generate_generate_witness_js_file(js_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_generate_witness_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("generate_witness");
@@ -1508,12 +1616,7 @@ pub fn generate_generate_witness_js_file(js_folder: &PathBuf, prime: &String) ->
     let file_name = file_path.to_str().unwrap();
     let mut js_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/generate_witness.js"),
-        "bls12381" => include_str!("bls12381/generate_witness.js"),
-        "goldilocks" => include_str!("goldilocks/generate_witness.js"),
-        _ => unreachable!(),
-    };    
+    let file = include_str!("common/generate_witness.js");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -1522,7 +1625,7 @@ pub fn generate_generate_witness_js_file(js_folder: &PathBuf, prime: &String) ->
     Ok(())
 }
 
-pub fn generate_witness_calculator_js_file(js_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_witness_calculator_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("witness_calculator");
@@ -1530,12 +1633,7 @@ pub fn generate_witness_calculator_js_file(js_folder: &PathBuf, prime: &String) 
     let file_name = file_path.to_str().unwrap();
     let mut js_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/witness_calculator.js"),
-        "bls12381" => include_str!("bls12381/witness_calculator.js"),
-        "goldilocks" => include_str!("goldilocks/witness_calculator.js"),
-        _ => unreachable!(),
-    };    
+    let file = include_str!("common/witness_calculator.js");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -1672,6 +1770,9 @@ mod tests {
         code_aux = build_buffer_message_generator(&producer);
         code.append(&mut code_aux);
 
+        code_aux = build_log_message_generator(&producer);
+        code.append(&mut code_aux);
+	
         //code_aux = main_sample_generator(&producer);
         //code.append(&mut code_aux);
 

@@ -26,6 +26,7 @@ pub struct Input {
     pub fast_flag: bool,
     pub reduced_simplification_flag: bool,
     pub parallel_simplification_flag: bool,
+    pub flag_old_heuristics: bool,
     pub inspect_constraints_flag: bool,
     pub no_rounds: usize,
     pub flag_verbose: bool,
@@ -87,6 +88,7 @@ impl Input {
             reduced_simplification_flag: o_style == SimplificationStyle::O1,
             parallel_simplification_flag: input_processing::get_parallel_simplification(&matches),
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
+            flag_old_heuristics: input_processing::get_flag_old_heuristics(&matches),
             flag_verbose: input_processing::get_flag_verbose(&matches), 
             prime: input_processing::get_prime(&matches)?,
             link_libraries
@@ -190,6 +192,9 @@ impl Input {
     pub fn parallel_simplification_flag(&self) -> bool {
         self.parallel_simplification_flag
     }
+    pub fn flag_old_heuristics(&self) -> bool {
+        self.flag_old_heuristics
+    }
     pub fn no_rounds(&self) -> usize {
         self.no_rounds
     }
@@ -291,6 +296,9 @@ mod input_processing {
         matches.is_present("flag_verbose")
     }
 
+    pub fn get_flag_old_heuristics(matches: &ArgMatches) -> bool {
+        matches.is_present("flag_old_heuristics")
+    }
     pub fn get_prime(matches: &ArgMatches) -> Result<String, ()> {
         
         match matches.is_present("prime"){
@@ -435,6 +443,12 @@ mod input_processing {
                     .long("verbose")
                     .takes_value(false)
                     .help("Shows logs during compilation"),
+            )
+            .arg(
+                Arg::with_name("flag_old_heuristics")
+                    .long("use_old_simplification_heuristics")
+                    .takes_value(false)
+                    .help("Applies the old version of the heuristics when performing linear simplification"),
             )
             .arg (
                 Arg::with_name("prime")

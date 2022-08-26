@@ -51,6 +51,8 @@ pub fn split_declaration_into_single_nodes(
     symbols: Vec<Symbol>,
     op: AssignOp,
 ) -> Statement {
+    use crate::ast_shortcuts::VariableType::Var;
+
     let mut initializations = Vec::new();
 
     for symbol in symbols {
@@ -59,11 +61,21 @@ pub fn split_declaration_into_single_nodes(
         let name = symbol.name.clone();
         let dimensions = symbol.is_array;
         let possible_init = symbol.init;
-        let single_declaration = build_declaration(with_meta, has_type, name, dimensions);
+        let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone());
         initializations.push(single_declaration);
         if let Option::Some(init) = possible_init {
             let substitution =
                 build_substitution(meta.clone(), symbol.name, vec![], op, init);
+            initializations.push(substitution);
+        }
+        else if xtype == Var {
+            let mut value = Expression:: Number(meta.clone(), BigInt::from(0));
+            for dim_expr in dimensions.iter().rev(){
+                value = build_uniform_array(meta.clone(), value, dim_expr.clone());
+            }
+
+            let substitution = 
+                build_substitution(meta.clone(), symbol.name, vec![], op, value);
             initializations.push(substitution);
         }
     }

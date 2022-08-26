@@ -313,13 +313,20 @@ ParseStatement2 : Statement = {
     <s:@L> <lhe: ParseExpression> "===" <rhe: ParseExpression> ";" <e:@R>
     => build_constraint_equality(Meta::new(s,e),lhe,rhe),
 
-    <s:@L> "log" "(" <arg: ParseExpression> ")" ";" <e:@R>
-    => build_log_call(Meta::new(s,e),arg),
+    ParseStatementLog,
 
     <s:@L> "assert" "(" <arg: ParseExpression> ")" ";" <e:@R>
     => build_assert(Meta::new(s,e),arg),
 
     ParseBlock
+};
+
+ParseStatementLog : Statement = {
+    <s:@L> "log" "(" <args: LogListable> ")" ";" <e:@R>
+    => build_log_call(Meta::new(s,e),args),
+
+    <s:@L> "log" "(" ")" ";" <e:@R>
+    => build_log_call(Meta::new(s,e),Vec::new()),
 };
 
 ParseStatement3 : Statement = {
@@ -356,6 +363,34 @@ ParseVariable : (String,Vec<Access>) = {
 
 Listable: Vec<Expression> = {
     <e:(<ParseExpression> ",")*> <tail: ParseExpression>
+    => {
+        let mut e = e;
+        e.push(tail);
+        e
+    },
+};
+
+ParseString : LogArgument = {
+     <e: STRING>
+    => {
+        build_log_string(e)
+    },
+};
+
+ParseLogExp: LogArgument = {
+    <e : ParseExpression>
+    => {
+        build_log_expression(e)
+    }
+}
+
+ParseLogArgument : LogArgument = {
+    ParseLogExp,
+    ParseString
+};
+
+LogListable: Vec<LogArgument> = {
+    <e:(<ParseLogArgument> ",")*> <tail: ParseLogArgument>
     => {
         let mut e = e;
         e.push(tail);

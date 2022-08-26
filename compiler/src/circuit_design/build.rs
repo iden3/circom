@@ -25,10 +25,11 @@ fn build_template_instances(
     c_info: &CircuitInfo,
     ti: Vec<TemplateInstance>,
     mut field_tracker: FieldTracker,
-) -> FieldTracker {
+) -> (FieldTracker, HashMap<String,usize>) {
     let mut cmp_id = 0;
     let mut tmp_id = 0;
     let parallels: Vec<_> = ti.iter().map(|i| i.is_parallel ).collect();
+    let mut string_table = HashMap::new();
     for template in ti {
         let header = template.template_header;
         let name = template.template_name;
@@ -65,6 +66,7 @@ fn build_template_instances(
             components: template.components,
             template_database: &c_info.template_database,
             is_parallel: template.is_parallel,
+            string_table : string_table,
         };
         let mut template_info = TemplateCodeInfo {
             name,
@@ -85,11 +87,12 @@ fn build_template_instances(
         template_info.expression_stack_depth = out.expression_depth;
         template_info.var_stack_depth = out.stack_depth;
         template_info.signal_stack_depth = out.signal_depth;
+        string_table = out.string_table;
         cmp_id = out.next_cmp_id;
         circuit.add_template_code(template_info);
         tmp_id += 1;
     }
-    field_tracker
+    (field_tracker, string_table)
 }
 
 fn build_function_instances(
@@ -97,7 +100,8 @@ fn build_function_instances(
     c_info: &CircuitInfo,
     instances: Vec<VCF>,
     mut field_tracker: FieldTracker,
-) -> (FieldTracker, HashMap<String, usize>) {
+    mut string_table : HashMap<String,usize>
+) -> (FieldTracker, HashMap<String, usize>, HashMap<String, usize>) {
     let mut function_to_arena_size = HashMap::new();
     for instance in instances {
         let msg = format!("Error in function {}", instance.header);
@@ -124,6 +128,7 @@ fn build_function_instances(
             component_to_parallel: HashMap::with_capacity(0),
             template_database: &c_info.template_database,
             is_parallel: false,
+            string_table : string_table
         };
         let mut function_info = FunctionCodeInfo {
             name,
@@ -134,6 +139,7 @@ fn build_function_instances(
         };
         let code = instance.body;
         let out = translate::translate_code(code, code_info);
+        string_table = out.string_table;
         field_tracker = out.constant_tracker;
         function_info.body = out.code;
         function_info.max_number_of_ops_in_expression = out.expression_depth;
@@ -141,11 +147,11 @@ fn build_function_instances(
         function_to_arena_size.insert(header, function_info.max_number_of_vars);
         circuit.add_function_code(function_info);
     }
-    (field_tracker, function_to_arena_size)
+    (field_tracker, function_to_arena_size, string_table)
 }
 
 // WASM producer builder
-fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool) -> WASMProducer {
+fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, version: &str) -> WASMProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
     let prime = UsefulConstants::new(&vcp.prime).get_p().clone();
@@ -183,10 +189,11 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool) -> 
     producer.template_instance_list = build_template_list(vcp);
     producer.field_tracking.clear();
     producer.wat_flag = wat_flag;
+    (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
 }
 
-fn initialize_c_producer(vcp: &VCP, database: &TemplateDB) -> CProducer {
+fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
     let prime = UsefulConstants::new(&vcp.prime).get_p().clone();
@@ -215,7 +222,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB) -> CProducer {
     producer.io_map = build_io_map(vcp, database);
     producer.template_instance_list = build_template_list(vcp);
     producer.field_tracking.clear();
-    
+    (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
 }
 
@@ -287,21 +294,31 @@ fn write_main_inputs_log(vcp: &VCP) {
     }
 }
 
+fn get_number_version(version: &str) -> (usize, usize, usize) {
+    use std::str::FromStr;
+    let version_splitted: Vec<&str> = version.split(".").collect();
+    (
+        usize::from_str(version_splitted[0]).unwrap(),
+        usize::from_str(version_splitted[1]).unwrap(),
+        usize::from_str(version_splitted[2]).unwrap(),
+    )
+}
+
 struct CircuitInfo {
     file_library: FileLibrary,
     functions: HashMap<String, Vec<usize>>,
     template_database: TemplateDB,
 }
 
-pub fn build_circuit(vcp: VCP, flag: CompilationFlags) -> Circuit {
+pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit {
     use crate::ir_processing::set_arena_size_in_calls;
     if flag.main_inputs_log {
         write_main_inputs_log(&vcp);
     }
     let template_database = TemplateDB::build(&vcp.templates);
     let mut circuit = Circuit::default();
-    circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag);
-    circuit.c_producer = initialize_c_producer(&vcp, &template_database);
+    circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
+    circuit.c_producer = initialize_c_producer(&vcp, &template_database, version);
 
     let field_tracker = FieldTracker::new();
     let circuit_info = CircuitInfo {
@@ -310,11 +327,14 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags) -> Circuit {
         functions: vcp.quick_knowledge,
     };
 
-    let field_tracker =
+    let (field_tracker, string_table) =
         build_template_instances(&mut circuit, &circuit_info, vcp.templates, field_tracker);
-    let (field_tracker, function_to_arena_size) =
-        build_function_instances(&mut circuit, &circuit_info, vcp.functions, field_tracker);
+    let (field_tracker, function_to_arena_size, table_string_to_usize) =
+        build_function_instances(&mut circuit, &circuit_info, vcp.functions, field_tracker,string_table);
 
+    let table_usize_to_string = create_table_usize_to_string(table_string_to_usize);
+    circuit.wasm_producer.set_string_table(table_usize_to_string.clone());
+    circuit.c_producer.set_string_table(table_usize_to_string);
     for i in 0..field_tracker.next_id() {
         let constant = field_tracker.get_constant(i).unwrap().clone();
         circuit.wasm_producer.field_tracking.push(constant.clone());
@@ -328,4 +348,14 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags) -> Circuit {
     }
 
     circuit
+}
+
+pub fn create_table_usize_to_string( string_table : HashMap<String,usize>) -> Vec<String> {
+    let size = string_table.len();
+    let mut table_usize_to_string =  vec![String::new(); size];
+
+    for (string, us) in string_table {
+        table_usize_to_string[us] = string;
+    } 
+    table_usize_to_string
 }

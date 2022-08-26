@@ -1,4 +1,5 @@
 pub mod c_code_generator;
+
 pub use crate::components::*;
 
 pub type CInstruction = String;
@@ -23,8 +24,11 @@ pub struct CProducer {
     pub template_instance_list: TemplateList,
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
-    version: usize,
+    pub major_version: usize,
+    pub minor_version: usize,
+    pub patch_version: usize,
     name_tag: String,
+    string_table: Vec<String>,
 }
 
 impl Default for CProducer {
@@ -85,16 +89,24 @@ impl Default for CProducer {
             size_32_shift: 5,
             io_map: my_map, //TemplateInstanceIOMap::new(),
             template_instance_list: [].to_vec(),
-            // fix values
-            version: 2,
+            major_version: 0,
+            minor_version: 0,
+            patch_version: 0,
             name_tag: "name".to_string(),
+            string_table: Vec::new(),
         }
     }
 }
 
 impl CProducer {
     pub fn get_version(&self) -> usize {
-        self.version
+        self.major_version
+    }
+    pub fn get_minor_version(&self) -> usize {
+        self.minor_version
+    }
+    pub fn get_patch_version(&self) -> usize {
+        self.patch_version
     }
     pub fn get_main_header(&self) -> &str {
         &self.main_header
@@ -149,5 +161,13 @@ impl CProducer {
     }
     pub fn get_size_32_bit(&self) -> usize {
         self.size_32_bit
+    }
+
+    pub fn get_string_table(&self) -> &Vec<String> {
+        &self.string_table
+    }
+
+    pub fn set_string_table(&mut self, string_table: Vec<String>) {
+        self.string_table = string_table;
     }
 }

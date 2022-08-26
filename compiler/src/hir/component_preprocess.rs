@@ -20,6 +20,7 @@ fn rm_statement(stmt: &mut Statement) {
         rm_substitution(stmt);
     }
     else{
+
     }
 }
 
