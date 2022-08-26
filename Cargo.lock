@@ -155,7 +155,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "circom"
-version = "2.0.6"
+version = "2.0.7"
 dependencies = [
  "ansi_term",
  "clap",
@@ -163,6 +163,7 @@ dependencies = [
  "constraint_generation",
  "constraint_writers",
  "dag",
+ "exitcode",
  "parser",
  "program_structure",
  "type_analysis",
@@ -171,7 +172,7 @@ dependencies = [
 
 [[package]]
 name = "circom_algebra"
-version = "2.0.0"
+version = "2.0.7"
 dependencies = [
  "constant_tracking",
  "num-bigint-dig",
@@ -204,7 +205,7 @@ dependencies = [
 
 [[package]]
 name = "code_producers"
-version = "2.0.1"
+version = "2.0.7"
 dependencies = [
  "handlebars",
  "lz_fnv",
@@ -233,11 +234,12 @@ dependencies = [
 
 [[package]]
 name = "compiler"
-version = "2.0.1"
+version = "2.0.7"
 dependencies = [
  "code_producers",
  "constant_tracking",
  "num-bigint-dig",
+ "num-traits",
  "program_structure",
 ]
 
@@ -253,7 +255,7 @@ version = "2.0.0"
 
 [[package]]
 name = "constraint_generation"
-version = "2.0.1"
+version = "2.0.7"
 dependencies = [
  "ansi_term",
  "circom_algebra",
@@ -268,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "constraint_list"
-version = "2.0.0"
+version = "2.0.7"
 dependencies = [
  "circom_algebra",
  "constraint_writers",
@@ -280,7 +282,7 @@ dependencies = [
 
 [[package]]
 name = "constraint_writers"
-version = "2.0.1"
+version = "2.0.6"
 dependencies = [
  "circom_algebra",
  "json",
@@ -317,7 +319,7 @@ dependencies = [
 
 [[package]]
 name = "dag"
-version = "2.0.1"
+version = "2.0.7"
 dependencies = [
  "circom_algebra",
  "constraint_list",
@@ -388,6 +390,12 @@ checksum = "8944dc8fa28ce4a38f778bd46bf7d923fe73eed5a439398507246c8e017e6f36"
 dependencies = [
  "log",
 ]
+
+[[package]]
+name = "exitcode"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de853764b47027c2e862a995c34978ffa63c1501f2e15f987ba11bd4f9bba193"
 
 [[package]]
 name = "fake-simd"
@@ -647,7 +655,7 @@ checksum = "a86ed3f5f244b372d6b1a00b72ef7f8876d0bc6a78a4c9985c53614041512063"
 
 [[package]]
 name = "parser"
-version = "2.0.1"
+version = "2.0.7"
 dependencies = [
  "lalrpop",
  "lalrpop-util",
@@ -756,7 +764,7 @@ dependencies = [
 
 [[package]]
 name = "program_structure"
-version = "2.0.1"
+version = "2.0.7"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -1180,7 +1188,7 @@ dependencies = [
 
 [[package]]
 name = "type_analysis"
-version = "2.0.0"
+version = "2.0.7"
 dependencies = [
  "num-bigint-dig",
  "num-traits",
