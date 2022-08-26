@@ -213,6 +213,21 @@ template parallel NameTemplate(...){...}
 
 If this tag is used, the resulting C++ file will contain the parallelized code to compute the witness. Parallelization becomes particularly relevant when dealing with large circuits.
 
+Notice that the previous parallelism is declared at template level. Sometimes, it can be useful declare the parallelism for each component. Since version 2.0.8, the tag parallel can be also used at component level, with the parallel tag indicated right before the call to the template.
+
+```text
+component comp = parallel NameTemplate(...){...}
+```
+A real example of use case is the following piece of code from the rollup code:
+```
+component rollupTx[nTx];
+for (i = 0; i < nTx; i++) {
+        rollupTx[i] = parallel RollupTx(nLevels, maxFeeTx);
+}
+```
+
+It is important to highlight again that this parallelism can only be exploited in C++ witness generator.
+ 
 ## Custom templates
 
 Since version 2.0.6, the language allows the definition of a new type of templates, custom templates. This new construction works similarly to standard templates: they are declared analogously, just adding the keyword `custom` in its declaration after `template`; and are instantiated in the exact same way. That is, a custom template `Example` is defined and then instantiated as follows:

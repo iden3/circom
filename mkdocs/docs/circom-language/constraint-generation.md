@@ -67,3 +67,4 @@ The following example shows the generation of expressions:
 
 The last instruction produces the constraint `b === a * a + 3`.
 
+Finally, programmers sometimes misuse operator `<--`, when starting to work in circom. They usually assign using this operator an expression which is quadratic and, as a consequence, no constraint is added. In this case, the operator needed to both performing the assignment and adding the constraint is operator `<==`. Since version 2.0.8, we throw a warning in this case. 

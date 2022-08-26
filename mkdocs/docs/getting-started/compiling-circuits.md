@@ -72,4 +72,6 @@ With these options we generate three types of files:
 * `--sym` : it generates the file `multiplier2.sym` , a symbols file required for debugging or for printing the constraint system in an annotated mode.
 * `--c` : it generates the directory `multiplier2_cpp` that contains several files (multiplier2.cpp, multiplier2.dat, and other common files for every compiled program  like main.cpp, MakeFile, etc)  needed to compile the C code to generate the witness.
 
-We can use the option -o to specify the directory where these files are created. 
+We can use the option `-o` to specify the directory where these files are created. 
+
+Since version 2.0.8, we can use the option `-l` to indicate the directory where the directive `include` should look for the circuits indicated.
