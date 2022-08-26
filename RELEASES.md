@@ -1,6 +1,6 @@
 # Release notes
 
-## June 28, 2022 circom 2.0.8
+## August 26, 2022 circom 2.0.8
 
 #### Extensions
 - Adding a link option -l that works as usual in other programming languages, to include a directory to look for the circuits indicated by the directive include. 
@@ -11,7 +11,7 @@
 - Wasm Functions getMinorVersion and getPatchVersion to obtain the minor and the patch version. 
 
 #### Fixed Bugs
-- Fixing the main.cpp to allow handling a main component without inputs.
+- Fixing main.cpp to allow handling a main component without inputs.
 - New log version has to be applied in every version of wasm files. (By a mistake, it was not updated for every wasm files.)
 
 ## August 19, 2022 circom 2.0.7
