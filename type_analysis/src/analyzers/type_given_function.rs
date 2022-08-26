@@ -233,6 +233,14 @@ fn look_for_type_in_expression(
             function_info,
             rhe,
         ),
+        Expression::ParallelOp { rhe, .. } => look_for_type_in_expression(
+            function_name,
+            environment,
+            explored_functions,
+            function_data,
+            function_info,
+            rhe,
+        ),
         Expression::InlineSwitchOp { if_true, if_false, .. } => {
             let if_true_type = look_for_type_in_expression(
                 function_name,

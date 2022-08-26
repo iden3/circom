@@ -129,6 +129,15 @@ fn expression_inspection(
                 _ => ExpressionResult::ArithmeticExpression(SignalElementType::FieldElement),
             }
         }
+        ParallelOp{rhe, .. } => {
+            let rhe_info = expression_inspection(rhe, template_info, reports, environment);
+            match &rhe_info{
+                ExpressionResult::Template(tag) => {
+                    ExpressionResult::Template(tag.clone())
+                },
+                _ => ExpressionResult::ArithmeticExpression(SignalElementType::FieldElement)
+            }   
+        }
         InlineSwitchOp { if_true, if_false, .. } => {
             let if_true_info = expression_inspection(if_true, template_info, reports, environment);
             let if_false_info =

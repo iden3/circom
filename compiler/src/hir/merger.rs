@@ -129,6 +129,8 @@ fn produce_vcf_expr(expr: &Expression, state: &mut State, environment: &E) {
         produce_vcf_call(expr, state, environment);
     } else if expr.is_array() {
         produce_vcf_array(expr, state, environment);
+    } else if expr.is_parallel(){
+        produce_vcf_parallel(expr, state, environment);
     } else {
         unreachable!();
     }
@@ -319,6 +321,15 @@ fn produce_vcf_prefix(expr: &Expression, state: &mut State, environment: &E) {
     }
 }
 
+fn produce_vcf_parallel(expr: &Expression, state: &mut State, environment: &E) {
+    use Expression::ParallelOp;
+    if let ParallelOp { rhe, .. } = expr {
+        produce_vcf_expr(rhe, state, environment);
+    } else {
+        unreachable!();
+    }
+}
+
 fn produce_vcf_number(_expr: &Expression, _state: &State, _environment: &E) {}
 
 /*
@@ -481,6 +492,8 @@ fn link_expression(expr: &mut Expression, state: &State, env: &E) {
         link_infix(expr, state, env);
     } else if expr.is_prefix() {
         link_prefix(expr, state, env);
+    } else if expr.is_parallel(){
+        link_parallel(expr, state, env);
     } else {
         unreachable!();
     }
@@ -556,6 +569,15 @@ fn link_infix(expr: &mut Expression, state: &State, env: &E) {
 fn link_prefix(expr: &mut Expression, state: &State, env: &E) {
     use Expression::PrefixOp;
     if let PrefixOp { rhe, .. } = expr {
+        link_expression(rhe, state, env);
+    } else {
+        unreachable!();
+    }
+}
+
+fn link_parallel(expr: &mut Expression, state: &State, env: &E) {
+    use Expression::ParallelOp;
+    if let ParallelOp { rhe, .. } = expr {
         link_expression(rhe, state, env);
     } else {
         unreachable!();

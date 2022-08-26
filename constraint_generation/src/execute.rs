@@ -57,19 +57,20 @@ impl RuntimeInformation {
 struct FoldedValue {
     pub arithmetic_slice: Option<AExpressionSlice>,
     pub node_pointer: Option<NodePointer>,
+    pub is_parallel: Option<bool>,
 }
 impl FoldedValue {
     pub fn valid_arithmetic_slice(f_value: &FoldedValue) -> bool {
-        f_value.arithmetic_slice.is_some() && f_value.node_pointer.is_none()
+        f_value.arithmetic_slice.is_some() && f_value.node_pointer.is_none() && f_value.is_parallel.is_none()
     }
     pub fn valid_node_pointer(f_value: &FoldedValue) -> bool {
-        f_value.node_pointer.is_some() && f_value.arithmetic_slice.is_none()
+        f_value.node_pointer.is_some() && f_value.is_parallel.is_some() && f_value.arithmetic_slice.is_none()
     }
 }
 
 impl Default for FoldedValue {
     fn default() -> Self {
-        FoldedValue { arithmetic_slice: Option::None, node_pointer: Option::None }
+        FoldedValue { arithmetic_slice: Option::None, node_pointer: Option::None, is_parallel: Option::None }
     }
 }
 
@@ -511,6 +512,12 @@ fn execute_expression(
             runtime.call_trace.pop();
             folded_result
         }
+        ParallelOp{rhe, ..} => {
+            let folded_value = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
+            let (node_pointer, _) =
+                safe_unwrap_to_valid_node_pointer(folded_value, line!());
+            FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(true), ..FoldedValue::default() }
+        }
     };
     let expr_id = expr.get_meta().elem_id;
     let res_p = res.arithmetic_slice.clone();
@@ -687,11 +694,12 @@ fn perform_assign(
         )?;
         if accessing_information.signal_access.is_none() {
             debug_assert!(accessing_information.after_signal.is_empty());
-            let node_pointer = safe_unwrap_to_valid_node_pointer(r_folded, line!());
+            let (node_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(r_folded, line!());
             if let Option::Some(actual_node) = actual_node {
                 let data = SubComponentData {
                     name: symbol.to_string(),
                     goes_to: node_pointer,
+                    is_parallel,
                     indexed_with: accessing_information.before_signal.clone(),
                 };
                 actual_node.add_arrow(full_symbol.clone(), data);
@@ -700,6 +708,7 @@ fn perform_assign(
             }
             let memory_result = ComponentRepresentation::initialize_component(
                 component,
+                is_parallel,
                 node_pointer,
                 &runtime.exec_program,
             );
@@ -997,6 +1006,7 @@ fn execute_component(
     } else {
         Result::Ok(FoldedValue {
             node_pointer: checked_component.node_pointer,
+            is_parallel: Some(false),
             ..FoldedValue::default()
         })
     }
@@ -1092,7 +1102,7 @@ fn execute_template_call(
         let node_pointer = runtime.exec_program.add_node_to_scheme(new_node, analysis);
         node_pointer
     };
-    Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), ..FoldedValue::default() })
+    Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(false), ..FoldedValue::default() })
 }
 
 fn execute_infix_op(
@@ -1298,9 +1308,9 @@ fn safe_unwrap_to_arithmetic_slice(folded_value: FoldedValue, line: u32) -> AExp
     debug_assert!(FoldedValue::valid_arithmetic_slice(&folded_value), "Caused by call at {}", line);
     folded_value.arithmetic_slice.unwrap()
 }
-fn safe_unwrap_to_valid_node_pointer(folded_value: FoldedValue, line: u32) -> NodePointer {
+fn safe_unwrap_to_valid_node_pointer(folded_value: FoldedValue, line: u32) -> (NodePointer, bool) {
     debug_assert!(FoldedValue::valid_node_pointer(&folded_value), "Caused by call at {}", line);
-    folded_value.node_pointer.unwrap()
+    (folded_value.node_pointer.unwrap(), folded_value.is_parallel.unwrap())
 }
 fn safe_unwrap_to_single<C: Clone>(slice: MemorySlice<C>, line: u32) -> C {
     debug_assert!(slice.is_single(), "Caused by call at {}", line);

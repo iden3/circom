@@ -9,7 +9,6 @@ pub struct ReturnBucket {
     pub message_id: usize,
     pub with_size: usize,
     pub value: InstructionPointer,
-    pub is_parallel: bool,
 }
 
 impl IntoInstruction for ReturnBucket {
@@ -95,11 +94,11 @@ impl WriteWasm for ReturnBucket {
 }
 
 impl WriteC for ReturnBucket {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let mut instructions = vec![];
         instructions.push("// return bucket".to_string());
-        let (mut instructions_value, src) = self.value.produce_c(producer);
+        let (mut instructions_value, src) = self.value.produce_c(producer, parallel);
         instructions.append(&mut instructions_value);
         if self.with_size > 1 {
             let copy_arguments =

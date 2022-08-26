@@ -67,6 +67,7 @@ fn reduce_types_in_expression(expression: &mut Expression, environment: &Environ
         }
         InfixOp { lhe, rhe, .. } => reduce_types_in_infix(lhe, rhe, environment),
         PrefixOp { rhe, .. } => reduce_types_in_expression(rhe, environment),
+        ParallelOp { rhe, .. } => reduce_types_in_expression(rhe, environment),
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             reduce_types_in_inline_switch(cond, if_true, if_false, environment)
         }

@@ -297,6 +297,7 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
             max(tag_rhe, tag_lhe)
         }
         PrefixOp { rhe, .. } => tag(rhe, environment),
+        ParallelOp { rhe, .. } => tag(rhe, environment),
     }
 }
 // ***************************** Compare two variable states ********************
@@ -392,6 +393,7 @@ fn unknown_index(exp: &Expression, environment: &Environment) -> bool {
         }
         InfixOp { lhe, rhe, .. } => (false, vec![lhe.as_ref(), rhe.as_ref()]),
         PrefixOp { rhe, .. } => (false, vec![rhe.as_ref()]),
+        ParallelOp { rhe, .. } => (false, vec![rhe.as_ref()]),
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             (false, vec![cond.as_ref(), if_true.as_ref(), if_false.as_ref()])
         }

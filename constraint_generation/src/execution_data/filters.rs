@@ -179,5 +179,9 @@ fn apply_computed_expr(expr: &mut Expression, analysis: &Analysis) {
             apply_computed_expr(value, analysis);
             apply_computed_expr(dimension, analysis);
         }
+        ParallelOp {rhe, .. } => {
+            *rhe = Box::new(computed_or_original(analysis, rhe));
+            apply_computed_expr(rhe, analysis);
+        }
     }
 }

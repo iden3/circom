@@ -5,6 +5,7 @@ pub use crate::components::*;
 pub type CInstruction = String;
 pub struct CProducer {
     pub main_header: String,
+    pub main_is_parallel: bool,
     //pub fr_memory_size: usize, // depending of the prime; missing in build.rs
     pub has_parallelism: bool,
     pub number_of_main_outputs: usize,
@@ -21,7 +22,7 @@ pub struct CProducer {
     pub main_input_list: InputList,
     pub witness_to_signal_list: SignalList,
     pub io_map: TemplateInstanceIOMap,
-    pub template_instance_list: TemplateList,
+    pub template_instance_list: TemplateListParallel,
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
     pub major_version: usize,
@@ -59,6 +60,7 @@ impl Default for CProducer {
         );
         CProducer {
             main_header: "Main_0".to_string(),
+            main_is_parallel: false,
             has_parallelism: false,
             main_signal_offset: 1,
             prime: "21888242871839275222246405745257275088548364400416034343698204186575808495617"
@@ -88,7 +90,7 @@ impl Default for CProducer {
             size_32_bit: 8,
             size_32_shift: 5,
             io_map: my_map, //TemplateInstanceIOMap::new(),
-            template_instance_list: [].to_vec(),
+            template_instance_list: Vec::new(),
             major_version: 0,
             minor_version: 0,
             patch_version: 0,
@@ -110,6 +112,9 @@ impl CProducer {
     }
     pub fn get_main_header(&self) -> &str {
         &self.main_header
+    }
+    pub fn get_main_is_parallel(&self) -> bool {
+        self.main_is_parallel
     }
     pub fn get_has_parallelism(&self) -> bool {
         self.has_parallelism
@@ -144,7 +149,7 @@ impl CProducer {
     pub fn get_io_map(&self) -> &TemplateInstanceIOMap {
         &self.io_map
     }
-    pub fn get_template_instance_list(&self) -> &TemplateList {
+    pub fn get_template_instance_list(&self) -> &TemplateListParallel {
         &self.template_instance_list
     }
     pub fn get_number_of_template_instances(&self) -> usize {

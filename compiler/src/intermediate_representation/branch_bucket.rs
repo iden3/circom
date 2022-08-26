@@ -10,7 +10,6 @@ pub struct BranchBucket {
     pub cond: InstructionPointer,
     pub if_branch: InstructionList,
     pub else_branch: InstructionList,
-    pub is_parallel: bool,
 }
 
 impl IntoInstruction for BranchBucket {
@@ -99,18 +98,18 @@ impl WriteWasm for BranchBucket {
 }
 
 impl WriteC for BranchBucket {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::merge_code;
-        let (condition_code, condition_result) = self.cond.produce_c(producer);
+        let (condition_code, condition_result) = self.cond.produce_c(producer, parallel);
         let condition_result = format!("Fr_isTrue({})", condition_result);
         let mut if_body = Vec::new();
         for instr in &self.if_branch {
-            let (mut instr_code, _) = instr.produce_c(producer);
+            let (mut instr_code, _) = instr.produce_c(producer, parallel);
             if_body.append(&mut instr_code);
         }
         let mut else_body = Vec::new();
         for instr in &self.else_branch {
-            let (mut instr_code, _) = instr.produce_c(producer);
+            let (mut instr_code, _) = instr.produce_c(producer, parallel);
             else_body.append(&mut instr_code);
         }
         let mut conditional = format!("if({}){{\n{}}}", condition_result, merge_code(if_body));
