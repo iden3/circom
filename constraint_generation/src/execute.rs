@@ -78,6 +78,10 @@ enum ExecutionError {
     FalseAssert,
 }
 
+enum ExecutionWarning {
+    CanBeQuadraticConstraint,
+}
+
 pub fn constraint_execution(
     program_archive: &ProgramArchive,
     flag_verbose: bool, 
@@ -210,6 +214,18 @@ fn execute_statement(
                     let expr = AExpr::sub(&symbol, &constrained.right, &p);
                     let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
                     node.add_constraint(ctr);
+                }
+            } else if *op == AssignOp::AssignSignal {
+                debug_assert!(possible_constraint.is_some());
+                let constrained = possible_constraint.unwrap();
+                if !constrained.right.is_nonquadratic() {
+                    let err : Result<(),ExecutionWarning> = Result::Err(ExecutionWarning::CanBeQuadraticConstraint);
+                    treat_result_with_execution_warning(
+                        err,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
                 }
             }
             Option::None
@@ -1439,6 +1455,27 @@ fn treat_result_with_execution_error<C>(
     }
 }
 
+fn treat_result_with_execution_warning<C>(
+    execution_error: Result<C, ExecutionWarning>,
+    meta: &Meta,
+    runtime_errors: &mut ReportCollection,
+    call_trace: &[String],
+) -> Result<(), ()> {
+    use ExecutionWarning::*;
+    match execution_error {
+        Result::Ok(_) => Result::Ok(()),
+        Result::Err(execution_error) => {
+            let report = match execution_error {
+                CanBeQuadraticConstraint => Report::warning(
+                    "Consider using <== instead of <-- to add the corresponding quadratic constraint".to_string(),
+                    ReportCode::RuntimeWarning,
+                )
+            };
+            add_report_to_runtime(report, meta, runtime_errors, call_trace);
+            Result::Ok(())
+        }
+    }
+}
 fn add_report_to_runtime(
     report: Report,
     meta: &Meta,
