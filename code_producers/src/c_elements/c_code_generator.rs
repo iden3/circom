@@ -675,7 +675,7 @@ pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageLi
     instructions
 }
 
-pub fn generate_main_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("main");
@@ -683,12 +683,7 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Re
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/main.cpp"),
-        "bls12381" => include_str!("bls12381/main.cpp"),
-        "goldilocks" => include_str!("goldilocks/main.cpp"),
-        _ => unreachable!(),
-    };
+    let file = include_str!("common/main.cpp");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -697,7 +692,7 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Re
     Ok(())
 }
 
-pub fn generate_circom_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("circom");
@@ -705,12 +700,7 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/circom.hpp"),
-        "bls12381" => include_str!("bls12381/circom.hpp"),
-        "goldilocks" => include_str!("goldilocks/circom.hpp"),
-        _ => unreachable!(),
-    };
+    let file = include_str!("common/circom.hpp");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -741,7 +731,7 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     Ok(())
 }
 
-pub fn generate_calcwit_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
@@ -749,12 +739,7 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io:
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/calcwit.hpp"),
-        "bls12381" => include_str!("bls12381/calcwit.hpp"),
-        "goldilocks" => include_str!("goldilocks/calcwit.hpp"),
-        _ => unreachable!(),
-    };
+    let file = include_str!("common/calcwit.hpp");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -785,7 +770,7 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     Ok(())
 }
 
-pub fn generate_calcwit_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
@@ -793,12 +778,7 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io:
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/calcwit.cpp"),
-        "bls12381" => include_str!("bls12381/calcwit.cpp"),
-        "goldilocks" => include_str!("goldilocks/calcwit.cpp"),
-        _ => unreachable!(),
-    };
+    let file = include_str!("common/calcwit.cpp");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -833,16 +813,10 @@ pub fn generate_make_file(
     c_folder: &PathBuf,
     run_name: &str,
     producer: &CProducer,
-    prime: &String,
 ) -> std::io::Result<()> {
     use std::io::BufWriter;
 
-    let makefile_template: &str = match prime.as_ref(){
-        "bn128" => include_str!("bn128/makefile"),
-        "bls12381" => include_str!("bls12381/makefile"),
-        "goldilocks" => include_str!("goldilocks/makefile"),
-        _ => unreachable!(),
-    };  
+    let makefile_template: &str = include_str!("common/makefile");
 
     let template = handlebars::Handlebars::new();
     let code = template

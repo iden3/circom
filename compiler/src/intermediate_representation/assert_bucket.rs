@@ -55,8 +55,9 @@ impl WriteWasm for AssertBucket {
         instructions.push(set_constant(&self.message_id.to_string()));
         instructions.push(set_constant(&self.line.to_string()));
         instructions.push(call("$buildBufferMessage"));
+        instructions.push(call("$printErrorMessage"));
         instructions.push(set_constant(&exception_code_assert_fail().to_string()));
-        instructions.push(call("$exceptionHandler"));
+        instructions.push(add_return());
         instructions.push(add_end());
         if producer.needs_comments() {
             instructions.push(";; end of assert bucket".to_string());

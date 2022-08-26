@@ -28,6 +28,7 @@ pub struct BuildConfig {
     pub flag_f: bool,
     pub flag_p: bool,
     pub flag_verbose: bool,
+    pub flag_old_heuristics: bool,
     pub inspect_constraints: bool,
     pub prime: String,
 }
@@ -36,9 +37,10 @@ pub type ConstraintWriter = Box<dyn ConstraintExporter>;
 type BuildResponse = Result<(ConstraintWriter, VCP), ()>;
 pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildResponse {
     let files = program.file_library.clone();
-    let exe = instantiation(&program, config.flag_verbose, &config.prime).map_err(|r| {
+    let (exe, warnings) = instantiation(&program, config.flag_verbose, &config.prime).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
+    Report::print_reports(&warnings, &files);
     let (mut dag, mut vcp, warnings) = export(exe, program, config.flag_verbose).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
@@ -54,16 +56,16 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
     }
 }
 
-type InstantiationResponse = Result<ExecutedProgram, ReportCollection>;
+type InstantiationResponse = Result<(ExecutedProgram, ReportCollection), ReportCollection>;
 fn instantiation(program: &ProgramArchive, flag_verbose: bool, prime: &String) -> InstantiationResponse {
     let execution_result = execute::constraint_execution(&program, flag_verbose, prime);
     match execution_result {
-        Ok(program_exe) => {
+        Ok((program_exe, warnings)) => {
             let no_nodes = program_exe.number_of_nodes();
             let success = Colour::Green.paint("template instances");
             let nodes_created = format!("{}: {}", success, no_nodes);
             println!("{}", &nodes_created);
-            InstantiationResponse::Ok(program_exe)
+            InstantiationResponse::Ok((program_exe,warnings))
         }
         Err(reports) => InstantiationResponse::Err(reports),
     }
@@ -86,6 +88,7 @@ fn simplification_process(vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> Cons
         parallel_flag: config.flag_p,
         port_substitution: config.flag_json_sub,
         no_rounds: config.no_rounds,
+        flag_old_heuristics: config.flag_old_heuristics,
         prime : config.prime.clone(),
     };
     let list = DAG::map_to_list(dag, flags);

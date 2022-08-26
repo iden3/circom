@@ -163,6 +163,9 @@ fn expression_inspection(
         ArrayInLine { .. } => {
             ExpressionResult::ArithmeticExpression(SignalElementType::FieldElement)
         }
+        UniformArray { .. } => {
+            ExpressionResult::ArithmeticExpression(SignalElementType::FieldElement)
+        }
     }
 }
 

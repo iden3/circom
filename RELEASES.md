@@ -1,6 +1,18 @@
 # Release notes
 
-## July 23, 2022 circom 2.0.5
+## August 19, 2022 circom 2.0.7
+
+#### Extensions
+- Log operation receives as parameters a list of expressions and string. (Documentation is [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/code-quality/debugging-operations.md).
+- New heuristics that improves the constraint simplification process is added by default. The old version of the simplification process can be still used using the option "--use_old_simplification_heuristics".
+- Initialization of every array position to 0 in both C and WASM witness generator.
+- New check of size vector when vector assignment:
+           + If a vector is assigned in a smaller vector, then an error is produced. 
+           + If a vector is assigned in a larger vector, then a warning is produced. (The remaining positions will have their previous values, or 0     
+             otherwise. 
+- Improvement of the trace error message.
+
+## July 23, 2022 circom 2.0.6
 
 #### Extensions
 - Adding three new prime numbers in circom and a flag to choose which one to use. 

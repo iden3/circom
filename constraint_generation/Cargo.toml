@@ -1,7 +1,7 @@
 [package]
 name = "constraint_generation"
-version = "2.0.1"
-authors = ["hermeGarcia <hermegarcianavarro@gmail.com>"]
+version = "2.0.7"
+authors = ["Costa Group UCM","iden3"]
 edition = "2018"
 
 [dependencies]

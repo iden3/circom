@@ -85,6 +85,7 @@ impl WriteWasm for ReturnBucket {
         }
         let mut free_stack_code = free_stack(producer);
         instructions.append(&mut free_stack_code);
+        instructions.push(set_constant("0"));	
         instructions.push(add_return());
         if producer.needs_comments() {
             instructions.push(";; end of return bucket".to_string());

@@ -1,4 +1,5 @@
 pub mod wasm_code_generator;
+
 use crate::components::*;
 
 type WasmInstruction = String;
@@ -24,7 +25,9 @@ pub struct WASMProducer {
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
     pub wat_flag: bool,
-    version: usize,
+    pub major_version: usize,
+    pub minor_version: usize,
+    pub patch_version: usize,
     stack_free_pos: usize,
     local_info_size_u32: usize,
     size_of_message_buffer_in_bytes: usize,
@@ -48,6 +51,8 @@ pub struct WASMProducer {
     create_loop_sub_cmp_tag: String,
     create_loop_offset_tag: String,
     create_loop_counter_tag: String,
+    merror_tag: String,
+    string_table:  Vec<String>,
 }
 
 impl Default for WASMProducer {
@@ -78,8 +83,9 @@ impl Default for WASMProducer {
             template_instance_list: [].to_vec(),
             field_tracking: [].to_vec(),
             wat_flag: true,
-            // fix values
-            version: 2,
+            major_version: 0,
+            minor_version: 0,
+            patch_version: 0,
             stack_free_pos: 0,
             local_info_size_u32: 0, // in the future we can add some info like pointer to run father or text father
             size_of_message_buffer_in_bytes: 256,
@@ -103,6 +109,8 @@ impl Default for WASMProducer {
             create_loop_sub_cmp_tag: "$createloopsubcmp".to_string(),
             create_loop_offset_tag: "$createloopoffset".to_string(),
             create_loop_counter_tag: "$createloopcounter".to_string(),
+	        merror_tag: "$merror".to_string(),
+            string_table: Vec::new(),
         }
     }
 }
@@ -137,7 +145,13 @@ impl WASMProducer {
         }
     */
     pub fn get_version(&self) -> usize {
-        self.version
+        self.major_version
+    }
+    pub fn get_minor_version(&self) -> usize {
+        self.minor_version
+    }
+    pub fn get_patch_version(&self) -> usize {
+        self.patch_version
     }
     pub fn get_main_header(&self) -> &str {
         &self.main_header
@@ -295,9 +309,14 @@ impl WASMProducer {
     pub fn get_message_list_start(&self) -> usize {
         self.get_message_buffer_start() + self.size_of_message_buffer_in_bytes
     }
-    pub fn get_constant_numbers_start(&self) -> usize {
+    pub fn get_string_list_start(&self) -> usize {
         self.get_message_list_start() + self.size_of_message_in_bytes * self.message_list.len()
     }
+
+    pub fn get_constant_numbers_start(&self) -> usize {
+        self.get_string_list_start() + self.size_of_message_in_bytes * self.string_table.len()
+    }
+    
     pub fn get_var_stack_memory_start(&self) -> usize {
         self.get_constant_numbers_start() + (self.size_32_bit + 2) * 4 * self.field_tracking.len()
     }
@@ -361,7 +380,18 @@ impl WASMProducer {
     pub fn get_create_loop_counter_tag(&self) -> &str {
         &self.create_loop_counter_tag
     }
+    pub fn get_merror_tag(&self) -> &str {
+	&self.merror_tag
+    }
     pub fn needs_comments(&self) -> bool{
         self.wat_flag
+    }
+
+    pub fn get_string_table(&self) -> &Vec<String> {
+        &self.string_table
+    }
+
+    pub fn set_string_table(&mut self, string_table: Vec<String>) {
+        self.string_table = string_table;
     }
 }

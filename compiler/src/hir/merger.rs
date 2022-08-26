@@ -4,6 +4,8 @@ use super::sugar_cleaner;
 use super::very_concrete_program::*;
 use program_structure::ast::*;
 use program_structure::program_archive::ProgramArchive;
+use num_traits::{ToPrimitive};
+
 
 pub fn run_preprocessing(vcp: &mut VCP, program_archive: ProgramArchive) {
     let mut state = build_function_knowledge(program_archive);
@@ -152,8 +154,13 @@ fn produce_vcf_assert(stmt: &Statement, state: &mut State, environment: &E) {
 
 fn produce_vcf_log_call(stmt: &Statement, state: &mut State, environment: &E) {
     use Statement::LogCall;
-    if let LogCall { arg, .. } = stmt {
-        produce_vcf_expr(arg, state, environment);
+    if let LogCall { args, .. } = stmt {
+        for arglog in args {
+            if let LogArgument::LogExp(arg) = arglog {
+                produce_vcf_expr(arg, state, environment);
+            }
+            else {}// unimplemented!(); }
+        }
     } else {
         unreachable!();
     }
@@ -242,11 +249,14 @@ fn produce_vcf_conditional(stmt: &Statement, state: &mut State, environment: &mu
 }
 
 fn produce_vcf_array(expr: &Expression, state: &mut State, environment: &E) {
-    use Expression::ArrayInLine;
+    use Expression::{ArrayInLine, UniformArray};
     if let ArrayInLine { values, .. } = expr {
         for v in values {
             produce_vcf_expr(v, state, environment);
         }
+    } else if let UniformArray { value, dimension, .. } = expr {
+        produce_vcf_expr(value, state, environment);
+        produce_vcf_expr(dimension, state, environment);
     } else {
         unreachable!();
     }
@@ -392,8 +402,12 @@ fn link_while(stmt: &mut Statement, state: &State, env: &mut E) {
 
 fn link_log_call(stmt: &mut Statement, state: &State, env: &mut E) {
     use Statement::LogCall;
-    if let LogCall { arg, .. } = stmt {
-        link_expression(arg, state, env);
+    if let LogCall { args, .. } = stmt {
+        for arglog in args {
+            if let LogArgument::LogExp(arg) = arglog{
+                link_expression(arg, state, env);
+            }
+        }   
     } else {
         unreachable!();
     }
@@ -491,11 +505,14 @@ fn link_call(expr: &mut Expression, state: &State, env: &E) {
 }
 
 fn link_array(expr: &mut Expression, state: &State, env: &E) {
-    use Expression::ArrayInLine;
+    use Expression::{ArrayInLine, UniformArray};
     if let ArrayInLine { values, .. } = expr {
         for v in values {
             link_expression(v, state, env)
         }
+    } else if let UniformArray { value, dimension, .. } = expr {
+        link_expression(value, state, env);
+        link_expression(dimension, state, env);
     } else {
         unreachable!();
     }
@@ -584,13 +601,34 @@ fn cast_type_variable(expr: &Expression, state: &State, environment: &E) -> VCT 
     }
 }
 
+fn cast_dimension(ae_index: &Expression) -> Option<usize> {
+    use Expression::Number;
+
+    if let Number(_, value) = ae_index {
+        value.to_usize()
+    } else {
+        Option::None
+    }
+}
+
+
 fn cast_type_array(expr: &Expression, state: &State, environment: &E) -> VCT {
-    use Expression::ArrayInLine;
+    use Expression::{ArrayInLine, UniformArray};
     if let ArrayInLine { values, .. } = expr {
         let mut result = vec![values.len()];
         let mut inner_type = cast_type_expression(&values[0], state, environment);
         result.append(&mut inner_type);
         result
+    } else if let UniformArray { value, dimension, .. } = expr {
+        let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
+            dimension
+        } else {
+            unreachable!()
+        };
+        let mut lengths = vec![usable_dimension];
+        let mut inner_type = cast_type_expression(value, state, environment);
+        lengths.append(&mut inner_type);
+        lengths
     } else {
         unreachable!();
     }

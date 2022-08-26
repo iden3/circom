@@ -234,9 +234,12 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
         field: &BigInt,
     ) -> Result<(), ArithmeticError> {
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
-        for value in coefficients.values_mut() {
-            *value = modular_arithmetic::div(value, constant, field)?;
-        }
+        let inverse_constant = modular_arithmetic::div(
+            &BigInt::from(1),
+            constant,
+            &field
+        ).ok().unwrap();
+        ArithmeticExpression::multiply_coefficients_by_constant(&inverse_constant, coefficients, field);
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
         Result::Ok(())
     }
@@ -577,9 +580,9 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 Number { value }
             }
             (Signal { symbol }, Number { value }) if *value == BigInt::from(2) => {      
-                    let left = Signal { symbol: symbol.clone() };
-                    let right = Signal { symbol: symbol.clone() };
-                    ArithmeticExpression::mul(&left, &right, field)
+                let left = Signal { symbol: symbol.clone() };
+                let right = Signal { symbol: symbol.clone() };
+                ArithmeticExpression::mul(&left, &right, field)
             }
             (Linear { coefficients }, Number {value}) if *value == BigInt::from(2) => {
                 let left = Linear { coefficients: coefficients.clone() };
@@ -836,6 +839,29 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
     pub fn is_linear(&self) -> bool {
         matches!(self, ArithmeticExpression::Linear { .. })
     }
+
+    pub fn hashmap_into_arith(mut map: HashMap<C, BigInt>) -> ArithmeticExpression<C> {
+        let c: C = ArithmeticExpression::constant_coefficient();
+        let expr = if HashMap::len(&map) == 1 && HashMap::contains_key(&map, &c) {
+            let value = HashMap::remove(&mut map, &c).unwrap();
+            ArithmeticExpression::Number { value }
+        } else if HashMap::len(&map) == 1 {
+            let mut values: Vec<_> = map.values().cloned().collect();
+            let mut symbols: Vec<_> = map.keys().cloned().collect();
+            let symbol = symbols.pop().unwrap();
+            let value = values.pop().unwrap();
+            if value == BigInt::from(1) {
+                ArithmeticExpression::Signal { symbol }
+            } else {
+                ArithmeticExpression::initialize_hashmap_for_expression(&mut map);
+                ArithmeticExpression::Linear { coefficients: map }
+            }
+        } else {
+            ArithmeticExpression::initialize_hashmap_for_expression(&mut map);
+            ArithmeticExpression::Linear { coefficients: map }
+        };
+        expr
+    }
 }
 
 // ******************************** Constraint Definition ********************************
@@ -911,7 +937,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
         let symbol = substitution.from;
         let mut coefficients = substitution.to;
         ArithmeticExpression::initialize_hashmap_for_expression(&mut coefficients);
-        coefficients.insert(symbol, BigInt::from(1));
+        coefficients.insert(symbol, BigInt::from(-1 % field));
         let arith = ArithmeticExpression::Linear { coefficients };
         ArithmeticExpression::transform_expression_to_constraint_form(arith, field).unwrap()
     }
@@ -1077,6 +1103,17 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         Substitution { from: signal.clone(), to: raw_expression }
     }
 
+    pub fn clear_signal_from_linear_not_normalized(
+        constraint: Constraint<C>,
+        signal: &C,
+        field: &BigInt,
+    ) -> (BigInt, Substitution<C>) {
+        debug_assert!(Constraint::is_linear(&constraint));
+        debug_assert!(constraint.c.contains_key(signal));
+        let (coefficient, raw_expression) = Constraint::clear_signal_not_normalized(constraint.c, &signal, field);
+        (coefficient, Substitution {from: signal.clone(), to: raw_expression})
+    }
+
     pub fn take_cloned_signals(&self) -> HashSet<C> {
         let mut signals = HashSet::new();
         for signal in self.a().keys() {
@@ -1123,6 +1160,18 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         );
         assert!(arithmetic_result.is_ok());
         remove_zero_value_coefficients(symbols)
+    }
+
+    fn clear_signal_not_normalized(
+        mut symbols: HashMap<C, BigInt>,
+        key: &C,
+        field: &BigInt,
+    ) -> (BigInt, HashMap<C, BigInt>) {
+        let key_value = symbols.remove(&key).unwrap();
+        assert!(!key_value.is_zero());
+        let value_to_the_right = modular_arithmetic::mul(&key_value, &BigInt::from(-1), field);
+        ArithmeticExpression::initialize_hashmap_for_expression(&mut symbols);
+        (value_to_the_right, symbols)
     }
 
     pub fn apply_substitution(
