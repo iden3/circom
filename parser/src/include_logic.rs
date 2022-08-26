@@ -1,4 +1,5 @@
 use super::errors::FileOsError;
+use program_structure::error_code::ReportCode;
 use program_structure::error_definition::Report;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -16,16 +17,30 @@ impl FileStack {
         FileStack { current_location: location, black_paths: HashSet::new(), stack: vec![src] }
     }
 
-    pub fn add_include(f_stack: &mut FileStack, path: String) -> Result<(), Report> {
-        let mut crr = f_stack.current_location.clone();
-        crr.push(path.clone());
-        let path = std::fs::canonicalize(crr)
-            .map_err(|_| FileOsError { path: path.clone() })
-            .map_err(|e| FileOsError::produce_report(e))?;
-        if !f_stack.black_paths.contains(&path) {
-            f_stack.stack.push(path);
+    pub fn add_include(f_stack: &mut FileStack, name: String,  libraries : &Vec<PathBuf>) -> Result<String, Report> {
+        let mut libraries2 = Vec::new();
+        libraries2.push(f_stack.current_location.clone());
+        libraries2.append(&mut libraries.clone());
+        for lib in libraries2 {
+            let mut path = PathBuf::new(); 
+            path.push(lib);
+            path.push(name.clone());
+            let path = std::fs::canonicalize(path);
+            match path {
+                Err(_) => {}
+                ,
+                Ok(path ) => { 
+                    if path.is_file() {
+                            if !f_stack.black_paths.contains(&path) {
+                                f_stack.stack.push(path.clone());
+                            }
+                            return Result::Ok(path.to_str().unwrap().to_string());
+                    } 
+                }
+            }
         }
-        Ok(())
+        let error = "Include not found: ".to_string() + &name;
+        Result::Err(Report::error(error, ReportCode::ParseFail))
     }
 
     pub fn take_next(f_stack: &mut FileStack) -> Option<PathBuf> {
@@ -75,12 +90,11 @@ impl IncludesGraph {
         }
     }
 
-    pub fn add_edge(&mut self, path: String) -> Result<(), Report> {
-        let mut crr = self.nodes.last().unwrap().path.clone();
-        crr.pop();
-        crr.push(path.clone());
+    pub fn add_edge(&mut self, old_path: String) -> Result<(), Report> {
+        let mut crr = PathBuf::new();
+        crr.push(old_path.clone());
         let path = std::fs::canonicalize(crr)
-            .map_err(|_| FileOsError { path: path })
+            .map_err(|_| FileOsError { path: old_path })
             .map_err(|e| FileOsError::produce_report(e))?;
         let edges = self.adjacency.entry(path).or_insert(vec![]);
         edges.push(self.nodes.len() - 1);
