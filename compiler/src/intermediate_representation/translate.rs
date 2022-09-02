@@ -6,7 +6,7 @@ use num_bigint_dig::BigInt;
 use program_structure::ast::*;
 use program_structure::file_definition::FileLibrary;
 use program_structure::utils::environment::VarEnvironment;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 
 type Length = usize;
 pub type E = VarEnvironment<SymbolInfo>;
@@ -61,7 +61,6 @@ impl TemplateDB {
             db.signals_id.push(correspondence);
         }
         let mut state = State::new(
-            instance.is_parallel,
             instance.template_id,
             0,
             ConstantTracker::new(),
@@ -80,7 +79,7 @@ impl TemplateDB {
 struct State {
     field_tracker: FieldTracker,
     environment: E,
-    component_to_parallel: HashMap<String, bool>,
+    component_to_parallel:  HashMap<String, ParallelClusters>,
     component_to_instance: HashMap<String, usize>,
     signal_to_type: HashMap<String, SignalType>,
     message_id: usize,
@@ -89,7 +88,6 @@ struct State {
     max_stack_depth: usize,
     fresh_cmp_id: usize,
     component_address_stack: usize,
-    is_parallel: bool,
     code: InstructionList,
     // string_table
     string_table: HashMap<String, usize>,
@@ -97,15 +95,13 @@ struct State {
 
 impl State {
     fn new(
-        is_parallel: bool,
         msg_id: usize,
         cmp_id_offset: usize,
         field_tracker: FieldTracker,
-        component_to_parallel: HashMap<String, bool>,
+        component_to_parallel:  HashMap<String, ParallelClusters>,
     ) -> State {
         State {
             field_tracker,
-            is_parallel,
             component_to_parallel,
             signal_to_type: HashMap::new(),
             component_to_instance: HashMap::new(),
@@ -162,7 +158,6 @@ fn initialize_parameters(state: &mut State, params: Vec<Param>) {
             parse_as: ValueType::U32,
             value: address,
             op_aux_no: 0,
-            is_parallel: state.is_parallel,
         };
         let address_instruction = address_instruction.allocate();
         let symbol_info =
@@ -182,7 +177,6 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
             parse_as: ValueType::U32,
             value: address,
             op_aux_no: 0,
-            is_parallel: state.is_parallel,
         }
         .allocate();
         let symbol_info =
@@ -197,13 +191,11 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
                 parse_as: ValueType::U32,
                 value: index,
                 op_aux_no: 0,
-                is_parallel: state.is_parallel,
             }
             .allocate();
             let full_address = ComputeBucket {
                 line: 0,
                 message_id: 0,
-                is_parallel: state.is_parallel,
                 op: OperatorType::AddAddress,
                 stack: vec![address_instruction.clone(), offset_instruction],
                 op_aux_no: 0,
@@ -215,11 +207,9 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
                 parse_as: ValueType::BigInt,
                 value: cid,
                 op_aux_no: 0,
-                is_parallel: state.is_parallel,
             }
             .allocate();
             let store_instruction = StoreBucket {
-                is_parallel: state.is_parallel,
                 line: 0,
                 message_id: 0,
                 dest_is_output: false,
@@ -245,7 +235,6 @@ fn initialize_signals(state: &mut State, signals: Vec<Signal>) {
             parse_as: ValueType::U32,
             value: address,
             op_aux_no: 0,
-            is_parallel: state.is_parallel,
         }
         .allocate();
         let info = SymbolInfo { access_instruction: instruction, dimensions: signal.lengths };
@@ -264,7 +253,6 @@ fn initialize_components(state: &mut State, components: Vec<Component>) {
             parse_as: ValueType::U32,
             value: address,
             op_aux_no: 0,
-            is_parallel: state.is_parallel,
         }
         .allocate();
         let info = SymbolInfo { access_instruction: instruction, dimensions: component.lengths };
@@ -308,23 +296,32 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
         let first = cluster.slice.start;
         let c_info = &triggers[first];
         let symbol = state.environment.get_variable(&c_info.component_name).unwrap().clone();
+        
+        let info_parallel_cluster = state.component_to_parallel.get(&c_info.component_name).unwrap(); 
+        let mut defined_positions = Vec::new();
+        for (pos, value) in &info_parallel_cluster.positions_to_parallel{
+            let flattened_pos = compute_jump(&symbol.dimensions, pos);
+            defined_positions.push((flattened_pos, *value));
+        }
+
         let creation_instr = CreateCmpBucket {
             line: 0,
-            is_parallel: state.is_parallel,
             message_id: state.message_id,
             symbol: c_info.runs.clone(),
             name_subcomponent: c_info.component_name.clone(),
-            defined_positions: cluster.defined_positions.into_iter().map(|x| compute_jump(&symbol.dimensions, &x)).collect(),
+            defined_positions,
+            is_part_mixed_array_not_uniform_parallel: false,
+            uniform_parallel: info_parallel_cluster.uniform_parallel_value,
             cmp_unique_id: id,
             sub_cmp_id: symbol.access_instruction.clone(),
             template_id: c_info.template_id,
             signal_offset: c_info.offset,
-	    component_offset: c_info.component_offset,
+	        component_offset: c_info.component_offset,
             has_inputs: c_info.has_inputs,
             number_of_cmp: compute_number_cmp(&symbol.dimensions),
             dimensions: symbol.dimensions,
             signal_offset_jump: offset_jump,
-	    component_offset_jump: component_offset_jump,
+	        component_offset_jump: component_offset_jump,
         }
         .allocate();
         state.code.push(creation_instr);
@@ -357,35 +354,45 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
             parse_as: ValueType::U32,
             value: value_jump,
             op_aux_no: 0,
-            is_parallel: state.is_parallel,
         }
         .allocate();
         let location = ComputeBucket {
             line: 0,
             op_aux_no: 0,
             message_id: state.message_id,
-            is_parallel: state.is_parallel,
             op: OperatorType::AddAddress,
             stack: vec![symbol.access_instruction.clone(), jump],
         }
         .allocate();
+
+        let info_parallel_cluster = state.component_to_parallel.get(&c_info.component_name).unwrap(); 
+        let parallel_value: bool;
+        if info_parallel_cluster.uniform_parallel_value.is_some(){
+            parallel_value = info_parallel_cluster.uniform_parallel_value.unwrap();
+        }
+        else{
+            parallel_value = *info_parallel_cluster.
+                positions_to_parallel.get(&c_info.indexed_with).unwrap();
+        }
+
         let creation_instr = CreateCmpBucket {
             line: 0,
-            is_parallel: state.is_parallel,
             message_id: state.message_id,
             symbol: c_info.runs.clone(),
             name_subcomponent: format!("{}{}",c_info.component_name.clone(), c_info.indexed_with.iter().fold(String::new(), |acc, &num| format!("{}[{}]", acc, &num.to_string()))),
-            defined_positions: vec![0],
+            defined_positions: vec![(0, parallel_value)],
+            is_part_mixed_array_not_uniform_parallel: info_parallel_cluster.uniform_parallel_value.is_none(),
+            uniform_parallel: Some(parallel_value),
             dimensions: symbol.dimensions,
             cmp_unique_id: id,
             sub_cmp_id: location,
             template_id: c_info.template_id,
             signal_offset: c_info.offset,
-	    component_offset: c_info.component_offset,
+	        component_offset: c_info.component_offset,
             has_inputs: c_info.has_inputs,
             number_of_cmp: 1,
             signal_offset_jump: 0,
-	    component_offset_jump: 0,
+	        component_offset_jump: 0,
         }
         .allocate();
         state.code.push(creation_instr);
@@ -432,7 +439,6 @@ fn translate_if_then_else(stmt: Statement, state: &mut State, context: &Context)
         }
         let else_code = std::mem::replace(&mut state.code, main_program);
         let branch_instruction = BranchBucket {
-            is_parallel: state.is_parallel,
             line: starts_at,
             message_id: state.message_id,
             cond: cond_translation,
@@ -457,7 +463,6 @@ fn translate_while(stmt: Statement, state: &mut State, context: &Context) {
             message_id: state.message_id,
             continue_condition: cond_translation,
             body: loop_code,
-            is_parallel: state.is_parallel,
         }
         .allocate();
         state.code.push(loop_instruction);
@@ -525,7 +530,6 @@ fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) 
             parse_as: ValueType::U32,
             value: address,
             op_aux_no: 0,
-            is_parallel: state.is_parallel,
         }
         .allocate();
         let info = SymbolInfo { access_instruction: instruction, dimensions };
@@ -559,7 +563,6 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
         let stack = vec![lhe_pointer, rhe_pointer];
         let equality = ComputeBucket {
             line: starts_at,
-            is_parallel: state.is_parallel,
             message_id: state.message_id,
             op_aux_no: 0,
             op: OperatorType::Eq,
@@ -612,7 +615,6 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
         let log = LogBucket {
             line,
             message_id: state.message_id,
-            is_parallel: state.is_parallel,
             argsprint: logbucket_args,
         }.allocate();
         state.code.push(log);
@@ -624,7 +626,6 @@ fn translate_return(stmt: Statement, state: &mut State, context: &Context) {
     if let Return { meta, value, .. } = stmt {
         let return_type = context.functions.get(&context.translating).unwrap();
         let return_bucket = ReturnBucket {
-            is_parallel: state.is_parallel,
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             with_size: return_type.iter().fold(1, |p, c| p * (*c)),
@@ -669,7 +670,6 @@ fn translate_call(
     if let Call { id, args, meta, .. } = expression {
         let args_inst = translate_call_arguments(args, state, context);
         CallBucket {
-            is_parallel: state.is_parallel,
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             symbol: id,
@@ -694,7 +694,6 @@ fn translate_infix(
         let lhi = translate_expression(*lhe, state, context);
         let rhi = translate_expression(*rhe, state, context);
         ComputeBucket {
-            is_parallel: state.is_parallel,
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             op: translate_infix_operator(infix_op),
@@ -716,7 +715,6 @@ fn translate_prefix(
     if let PrefixOp { meta, prefix_op, rhe, .. } = expression {
         let rhi = translate_expression(*rhe, state, context);
         ComputeBucket {
-            is_parallel: state.is_parallel,
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             op_aux_no: 0,
@@ -757,7 +755,6 @@ fn translate_number(
             op_aux_no: 0,
             parse_as: ValueType::BigInt,
             value: cid,
-            is_parallel: state.is_parallel,
         }
         .allocate()
     } else {
@@ -911,9 +908,9 @@ impl ProcessedSymbol {
     ) -> InstructionPointer {
         let data = if let Option::Some(signal) = self.signal {
             let dest_type = AddressType::SubcmpSignal {
-                is_parallel: *state.component_to_parallel.get(&self.name).unwrap(),
                 cmp_address: compute_full_address(state, self.symbol, self.before_signal),
                 is_output: self.signal_type.unwrap() == SignalType::Output,
+                uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 input_information : match self.signal_type.unwrap() {
                     SignalType::Input => InputInformation::Input { status: StatusInput:: Unknown},
                     _ => InputInformation::NoInput,
@@ -939,7 +936,6 @@ impl ProcessedSymbol {
             }
         };
         CallBucket {
-            is_parallel: state.is_parallel,
             line: self.line,
             message_id: self.message_id,
             symbol: id,
@@ -954,8 +950,8 @@ impl ProcessedSymbol {
     fn into_store(self, src: InstructionPointer, state: &State) -> InstructionPointer {
         if let Option::Some(signal) = self.signal {
             let dest_type = AddressType::SubcmpSignal {
-                is_parallel: *state.component_to_parallel.get(&self.name).unwrap(),
                 cmp_address: compute_full_address(state, self.symbol, self.before_signal),
+                uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 input_information : match self.signal_type.unwrap() {
                     SignalType::Input => InputInformation::Input { status:StatusInput:: Unknown},
@@ -970,7 +966,6 @@ impl ProcessedSymbol {
                 context: InstrContext { size: self.length },
                 dest_is_output: false,
                 dest_address_type: dest_type,
-                is_parallel: state.is_parallel,
             }
             .allocate()
         } else {
@@ -987,7 +982,6 @@ impl ProcessedSymbol {
                 dest_is_output: self.signal_type.map_or(false, |t| t == SignalType::Output),
                 dest: LocationRule::Indexed { location: address, template_header: None },
                 context: InstrContext { size: self.length },
-                is_parallel: state.is_parallel,
             }
             .allocate()
         }
@@ -996,8 +990,8 @@ impl ProcessedSymbol {
     fn into_load(self, state: &State) -> InstructionPointer {
         if let Option::Some(signal) = self.signal {
             let dest_type = AddressType::SubcmpSignal {
-                is_parallel: *state.component_to_parallel.get(&self.name).unwrap(),
                 cmp_address: compute_full_address(state, self.symbol, self.before_signal),
+                uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 input_information : match self.signal_type.unwrap() {
                     SignalType::Input => InputInformation::Input { status: StatusInput:: Unknown},
@@ -1005,7 +999,6 @@ impl ProcessedSymbol {
                 },
             };
             LoadBucket {
-                is_parallel: state.is_parallel,
                 src: signal,
                 line: self.line,
                 message_id: self.message_id,
@@ -1019,7 +1012,6 @@ impl ProcessedSymbol {
                 _ => AddressType::Signal,
             };
             LoadBucket {
-                is_parallel: state.is_parallel,
                 line: self.line,
                 address_type: xtype,
                 message_id: self.message_id,
@@ -1053,11 +1045,9 @@ fn compute_full_address(
                 parse_as: ValueType::U32,
                 op_aux_no: 0,
                 value: linear_length,
-                is_parallel: state.is_parallel,
             }
             .allocate();
             let jump = ComputeBucket {
-                is_parallel: state.is_parallel,
                 line: at.get_line(),
                 message_id: at.get_message_id(),
                 op_aux_no: 0,
@@ -1101,7 +1091,6 @@ fn indexing_instructions_filter(
             }
             op => {
                 let to_address = ComputeBucket {
-                    is_parallel: state.is_parallel,
                     line: op.get_line(),
                     message_id: op.get_message_id(),
                     op_aux_no: 0,
@@ -1121,7 +1110,6 @@ fn fold(using: OperatorType, mut stack: Vec<InstructionPointer>, state: &State) 
         instruction
     } else {
         ComputeBucket {
-            is_parallel: state.is_parallel,
             line: instruction.get_line(),
             message_id: instruction.get_message_id(),
             op_aux_no: 0,
@@ -1156,8 +1144,12 @@ fn translate_call_arguments(
     info
 }
 
+pub struct ParallelClusters{
+    pub positions_to_parallel: BTreeMap<Vec<usize>, bool>,
+    pub uniform_parallel_value: Option<bool>,
+}
+
 pub struct CodeInfo<'a> {
-    pub is_parallel: bool,
     pub header: String,
     pub message_id: usize,
     pub params: Vec<Param>,
@@ -1172,7 +1164,7 @@ pub struct CodeInfo<'a> {
     pub cmp_to_type: HashMap<String, ClusterType>,
     pub functions: &'a HashMap<String, Vec<Length>>,
     pub field_tracker: FieldTracker,
-    pub component_to_parallel: HashMap<String, bool>,
+    pub component_to_parallel: HashMap<String, ParallelClusters>,
     pub string_table: HashMap<String, usize>
 }
 
@@ -1189,7 +1181,6 @@ pub struct CodeOutput {
 pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
     use crate::ir_processing;
     let mut state = State::new(
-        code_info.is_parallel,
         code_info.message_id,
         code_info.fresh_cmp_id,
         code_info.field_tracker,

@@ -216,6 +216,7 @@ fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
         Call { args, .. } => call(args, environment),
         InfixOp { lhe, rhe, .. } => infix_op(lhe, rhe, environment),
         PrefixOp { rhe, .. } => prefix_op(rhe, environment),
+        ParallelOp { rhe, .. } => parallel_op(rhe, environment),
         InlineSwitchOp { cond, if_false, if_true, .. } => {
             inline_switch(cond, if_true, if_false, environment)
         }
@@ -263,6 +264,10 @@ fn infix_op(lhe: &Expression, rhe: &Expression, environment: &Constants) -> bool
 }
 
 fn prefix_op(rhe: &Expression, environment: &Constants) -> bool {
+    has_constant_value(rhe, environment)
+}
+
+fn parallel_op(rhe: &Expression, environment: &Constants) -> bool {
     has_constant_value(rhe, environment)
 }
 
@@ -394,6 +399,7 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
             expand_infix(meta, *lhe, infix_op, *rhe, environment)
         }
         PrefixOp { meta, prefix_op, rhe } => expand_prefix(meta, prefix_op, *rhe, environment),
+        ParallelOp { meta, rhe } => expand_parallel(meta, *rhe, environment),
         InlineSwitchOp { meta, cond, if_true, if_false } => {
             expand_inline_switch_op(meta, *cond, *if_true, *if_false, environment)
         }
@@ -463,6 +469,15 @@ fn expand_prefix(
 ) -> Expression {
     let rhe = expand_expression(old_rhe, environment);
     build_prefix(meta, prefix_op, rhe)
+}
+
+fn expand_parallel(
+    meta: Meta,
+    old_rhe: Expression,
+    environment: &ExpressionHolder,
+) -> Expression {
+    let rhe = expand_expression(old_rhe, environment);
+    build_parallel_op(meta, rhe)
 }
 
 fn expand_inline_switch_op(

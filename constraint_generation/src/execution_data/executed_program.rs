@@ -96,9 +96,11 @@ impl ExecutedProgram {
         }
 
         for exe in self.model {
-            let tmp_instance = exe.export_to_circuit(&temp_instances);
+            let tmp_instance = exe.export_to_circuit(&mut temp_instances);
             temp_instances.push(tmp_instance);
         }
+
+        temp_instances[dag.main_id()].is_not_parallel_component = true;
         let mut w = dag.constraint_analysis()?;
         warnings.append(&mut w);
 

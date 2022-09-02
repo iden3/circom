@@ -412,11 +412,24 @@ PrefixOpTier<Op,NextTier >: Expression = {
     NextTier
 };
 
-
 pub ParseExpression: Expression = {
+    Expression14,
+    ParseExpression1,
+}
+
+pub ParseExpression1: Expression = {
     Expression13,
     Expression12,
 };
+
+// parallel expr
+Expression14: Expression = {
+    <s:@L> "parallel" <expr: ParseExpression1> <e:@L>
+    => {
+        build_parallel_op(Meta::new(s, e), expr)
+    },
+
+}
 
 // ops: e ? a : i
 Expression13 : Expression  = {
@@ -485,7 +498,7 @@ Expression0: Expression = {
     <s:@L> <value:HEXNUMBER> <e:@L>
     => build_number(Meta::new(s,e),value),
 
-    "(" <Expression12> ")"
+    "(" <ParseExpression> ")"
 };
 
 

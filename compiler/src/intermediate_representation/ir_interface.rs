@@ -126,20 +126,21 @@ impl WriteWasm for Instruction {
 }
 
 impl WriteC for Instruction {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use Instruction::*;
+        assert!(parallel.is_some());
         match self {
-            Value(v) => v.produce_c(producer),
-            Load(v) => v.produce_c(producer),
-            Store(v) => v.produce_c(producer),
-            Compute(v) => v.produce_c(producer),
-            Call(v) => v.produce_c(producer),
-            Branch(v) => v.produce_c(producer),
-            Return(v) => v.produce_c(producer),
-            Loop(v) => v.produce_c(producer),
-            Assert(v) => v.produce_c(producer),
-            CreateCmp(v) => v.produce_c(producer),
-            Log(v) => v.produce_c(producer),
+            Value(v) => v.produce_c(producer, parallel),
+            Load(v) => v.produce_c(producer, parallel),
+            Store(v) => v.produce_c(producer, parallel),
+            Compute(v) => v.produce_c(producer, parallel),
+            Call(v) => v.produce_c(producer, parallel),
+            Branch(v) => v.produce_c(producer, parallel),
+            Return(v) => v.produce_c(producer, parallel),
+            Loop(v) => v.produce_c(producer, parallel),
+            Assert(v) => v.produce_c(producer, parallel),
+            CreateCmp(v) => v.produce_c(producer, parallel),
+            Log(v) => v.produce_c(producer, parallel),
         }
     }
 }

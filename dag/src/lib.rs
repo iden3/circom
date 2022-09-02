@@ -310,7 +310,7 @@ impl DAG {
         }
     }
 
-    pub fn add_edge(&mut self, to: usize, label: &str) -> Option<&Edge> {
+    pub fn add_edge(&mut self, to: usize, label: &str, is_parallel: bool) -> Option<&Edge> {
         if to < self.main_id() {
             // create arrow
             let from = self.main_id();
@@ -322,7 +322,7 @@ impl DAG {
             self.nodes[from].entry.out_number += self.nodes[to].number_of_signals;
             self.nodes[from].number_of_components += self.nodes[to].number_of_components;
             self.nodes[from].entry.out_component_number += self.nodes[to].number_of_components;
-            self.nodes[from].has_parallel_sub_cmp |= self.nodes[to].is_parallel;
+            self.nodes[from].has_parallel_sub_cmp |= self.nodes[to].is_parallel || is_parallel;
             let with = Edge {
                 label: label.to_string(),
                 goes_to: to,
