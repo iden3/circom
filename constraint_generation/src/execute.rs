@@ -79,9 +79,11 @@ enum ExecutionError {
     FalseAssert,
 }
 
+/*
 enum ExecutionWarning {
     CanBeQuadraticConstraint,
 }
+ */
 
 pub fn constraint_execution(
     program_archive: &ProgramArchive,
@@ -218,7 +220,7 @@ fn execute_statement(
                 }
             } else if *op == AssignOp::AssignSignal {
                 debug_assert!(possible_constraint.is_some());
-                let constrained = possible_constraint.unwrap();
+/*                let constrained = possible_constraint.unwrap();
                 if !constrained.right.is_nonquadratic() {
                     let err : Result<(),ExecutionWarning> = Result::Err(ExecutionWarning::CanBeQuadraticConstraint);
                     treat_result_with_execution_warning(
@@ -227,7 +229,7 @@ fn execute_statement(
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                }
+                }*/
             }
             Option::None
         }
@@ -1465,6 +1467,7 @@ fn treat_result_with_execution_error<C>(
     }
 }
 
+/*
 fn treat_result_with_execution_warning<C>(
     execution_error: Result<C, ExecutionWarning>,
     meta: &Meta,
@@ -1486,6 +1489,8 @@ fn treat_result_with_execution_warning<C>(
         }
     }
 }
+ */
+
 fn add_report_to_runtime(
     report: Report,
     meta: &Meta,
