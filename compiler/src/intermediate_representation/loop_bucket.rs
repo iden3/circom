@@ -9,7 +9,6 @@ pub struct LoopBucket {
     pub message_id: usize,
     pub continue_condition: InstructionPointer,
     pub body: InstructionList,
-    pub is_parallel: bool,
 }
 
 impl IntoInstruction for LoopBucket {
@@ -75,13 +74,13 @@ impl WriteWasm for LoopBucket {
 }
 
 impl WriteC for LoopBucket {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::merge_code;
-        let (continue_code, continue_result) = self.continue_condition.produce_c(producer);
+        let (continue_code, continue_result) = self.continue_condition.produce_c(producer, parallel);
         let continue_result = format!("Fr_isTrue({})", continue_result);
         let mut body = vec![];
         for instr in &self.body {
-            let (mut instr_code, _) = instr.produce_c(producer);
+            let (mut instr_code, _) = instr.produce_c(producer, parallel);
             body.append(&mut instr_code);
         }
         body.append(&mut continue_code.clone());

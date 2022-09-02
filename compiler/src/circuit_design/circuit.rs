@@ -294,7 +294,7 @@ impl WriteWasm for Circuit {
 }
 
 impl WriteC for Circuit {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, _parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let mut code = vec![];
         // Prologue
@@ -315,10 +315,18 @@ impl WriteC for Circuit {
         std::mem::drop(template_headers);
         std::mem::drop(function_headers);
 
+        let (func_list_no_parallel, func_list_parallel) = generate_function_list(
+            producer, 
+            producer.get_template_instance_list()
+        );
+
         code.push(format!("Circom_TemplateFunction {}[{}] = {{ {} }};",
-            function_table(), producer.get_number_of_template_instances(),
-            generate_function_list(producer, producer.get_template_instance_list())
+            function_table(), producer.get_number_of_template_instances(), func_list_no_parallel,
         ));
+
+        code.push(format!("Circom_TemplateFunction {}[{}] = {{ {} }};",
+        function_table_parallel(), producer.get_number_of_template_instances(), func_list_parallel,
+    ));
 
         code.push(format!(
             "uint get_main_input_signal_start() {{return {};}}\n",
@@ -355,19 +363,23 @@ impl WriteC for Circuit {
         // Actual code of the circuit
         code.push("// function declarations".to_string());
         for f in &self.functions {
-            let (mut f_code, _) = f.produce_c(producer);
+            let (mut f_code, _) = f.produce_c(producer, None);
             code.append(&mut f_code);
         }
         code.push("// template declarations".to_string());
         for t in &self.templates {
-            let (mut t_code, _) = t.produce_c(producer);
+            let (mut t_code, _) = t.produce_c(producer, None);
             code.append(&mut t_code);
         }
 
         // Epilogue
         let run_circuit = "void run".to_string();
         let run_circuit_args = vec![declare_circom_calc_wit()];
-        let main_template_create = producer.main_header.clone() + "_create";
+        let main_template_create = if producer.main_is_parallel{
+            producer.main_header.clone() + "_create_parallel"
+        } else{
+            producer.main_header.clone() + "_create"
+        };
         // We use 0 to indicate that the main component has no father
         let create_args = vec!["1".to_string(), "0".to_string(), CIRCOM_CALC_WIT.to_string(), "\"main\"".to_string(), "0".to_string()];
         let create_call = build_call(main_template_create, create_args);
@@ -376,7 +388,11 @@ impl WriteC for Circuit {
         // let start_msg = "printf(\"Starting...\\n\");".to_string();
         // let end_msg = "printf(\"End\\n\");".to_string();
 
-        let main_template_run = producer.main_header.clone() + "_run";
+        let main_template_run = if producer.main_is_parallel{
+            producer.main_header.clone() + "_run_parallel"
+        } else{
+            producer.main_header.clone() + "_run"
+        };
         let mut run_args = vec![];
         // run_args.push(CTX_INDEX.to_string());
 	run_args.push("0".to_string());

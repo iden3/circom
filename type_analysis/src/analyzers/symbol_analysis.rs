@@ -307,6 +307,9 @@ fn analyze_expression(
         Expression::PrefixOp { rhe, .. } => {
             analyze_expression(rhe, file_id, function_info, template_info, reports, environment)
         }
+        Expression::ParallelOp { rhe, .. } => {
+            analyze_expression(rhe, file_id, function_info, template_info, reports, environment)
+        }
         Expression::InlineSwitchOp { cond, if_true, if_false, .. } => {
             analyze_expression(cond, file_id, function_info, template_info, reports, environment);
             analyze_expression(

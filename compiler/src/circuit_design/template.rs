@@ -12,6 +12,8 @@ pub struct TemplateCodeInfo {
     pub header: String,
     pub name: String,
     pub is_parallel: bool,
+    pub is_parallel_component: bool,
+    pub is_not_parallel_component: bool,
     pub has_parallel_sub_cmp: bool,
     pub number_of_inputs: usize,
     pub number_of_outputs: usize, 
@@ -142,10 +144,25 @@ impl WriteWasm for TemplateCodeInfo {
 }
 
 impl WriteC for TemplateCodeInfo {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, _parallel: Option<bool>) -> (Vec<String>, String) {
+        let mut produced_c = Vec::new();
+        if self.is_parallel || self.is_parallel_component{
+            produced_c.append(&mut self.produce_c_parallel_case(producer, true));
+        }
+        if !self.is_parallel && self.is_not_parallel_component{
+            produced_c.append(&mut self.produce_c_parallel_case(producer, false));
+        } 
+        (produced_c, "".to_string())
+    }
+}
 
+
+impl TemplateCodeInfo {
+    fn produce_c_parallel_case(&self, producer: &CProducer, parallel: bool) -> Vec<String> {
         use c_code_generator::*;
-        let create_header = format!("void {}_create", self.header);
+
+        let create_header = if parallel {format!("void {}_create_parallel", self.header)}
+            else{format!("void {}_create", self.header)} ;
         let mut create_params = vec![];
         create_params.push(declare_signal_offset());
         create_params.push(declare_component_offset());
@@ -203,8 +220,15 @@ impl WriteC for TemplateCodeInfo {
 		component_offset(),
 		&self.number_of_components.to_string()
             ));
+
+        create_body.push(format!(
+            "{}->componentMemory[{}].subcomponentsParallel = new bool[{}];",
+            CIRCOM_CALC_WIT,
+            component_offset(),
+            &self.number_of_components.to_string()
+        ));
 	}
-	if self.is_parallel {
+	if parallel {
             create_body.push(format!(
 		"{}->componentMemory[{}].outputIsSet = new bool[{}]();",
 		CIRCOM_CALC_WIT,
@@ -232,7 +256,8 @@ impl WriteC for TemplateCodeInfo {
         }
         let create_fun = build_callable(create_header, create_params, create_body);
 
-        let run_header = format!("void {}_run", self.header);
+        let run_header = if parallel {format!("void {}_run_parallel", self.header)}
+            else{format!("void {}_run", self.header)} ;
         let mut run_params = vec![];
         run_params.push(declare_ctx_index());
         run_params.push(declare_circom_calc_wit());
@@ -244,13 +269,14 @@ impl WriteC for TemplateCodeInfo {
         run_body.push(format!("{};", declare_my_father()));
         run_body.push(format!("{};", declare_my_id()));
         run_body.push(format!("{};", declare_my_subcomponents()));
+        run_body.push(format!("{};", declare_my_subcomponents_parallel()));
         run_body.push(format!("{};", declare_circuit_constants()));
         run_body.push(format!("{};", declare_list_of_template_messages_use()));
         run_body.push(format!("{};", declare_expaux(self.expression_stack_depth)));
         run_body.push(format!("{};", declare_lvar(self.var_stack_depth)));
         run_body.push(format!("{};", declare_sub_component_aux()));
         for t in &self.body {
-            let (mut instructions_body, _) = t.produce_c(producer);
+            let (mut instructions_body, _) = t.produce_c(producer, Some(parallel));
             run_body.append(&mut instructions_body);
         }
 	// parallelism (join at the end of the function)
@@ -263,7 +289,7 @@ impl WriteC for TemplateCodeInfo {
 	    run_body.push(format!("}}"));
 	    run_body.push(format!("}}"));
 	}
-	if self.is_parallel {
+	if parallel {
 	    // parallelism
 	    run_body.push(format!("ctx->numThreadMutex.lock();"));
 	    run_body.push(format!("ctx->numThread--;"));
@@ -271,11 +297,9 @@ impl WriteC for TemplateCodeInfo {
 	    run_body.push(format!("ctx->ntcvs.notify_one();"));	     
 	}
         let run_fun = build_callable(run_header, run_params, run_body);
-        (vec![create_fun, run_fun], "".to_string())
+        vec![create_fun, run_fun]
     }
-}
 
-impl TemplateCodeInfo {
     pub fn wrap(self) -> TemplateCode {
         TemplateCode::new(self)
     }

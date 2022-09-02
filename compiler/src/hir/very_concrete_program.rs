@@ -59,6 +59,7 @@ pub struct Trigger {
     pub indexed_with: Vec<usize>,
     pub external_signals: Vec<Signal>,
     pub has_inputs: bool,
+    pub is_parallel: bool,
 }
 
 #[derive(Clone)]
@@ -78,6 +79,8 @@ pub struct TriggerCluster {
 #[derive(Clone)]
 pub struct TemplateInstance {
     pub is_parallel: bool,
+    pub is_parallel_component: bool,
+    pub is_not_parallel_component: bool,
     pub has_parallel_sub_cmp: bool,
     pub template_name: String,
     pub template_header: String,
@@ -112,6 +115,8 @@ impl TemplateInstance {
     pub fn new(config: TemplateConfig) -> TemplateInstance {
         TemplateInstance {
             is_parallel: config.is_parallel,
+            is_parallel_component: false,
+            is_not_parallel_component: false,
             has_parallel_sub_cmp: config.has_parallel_sub_cmp,
             code: config.code,
             template_name: config.name,

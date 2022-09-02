@@ -9,6 +9,7 @@ pub type SignalCollector = Vec<(String, Vec<usize>)>;
 pub type ComponentCollector = Vec<(String, Vec<usize>)>;
 pub struct SubComponentData {
     pub name: String,
+    pub is_parallel: bool,
     pub indexed_with: Vec<usize>,
     pub goes_to: NodePointer,
 }

@@ -141,6 +141,8 @@ fn infer_type_expresion(expr: &Expression, state: &State, context: &mut SearchIn
         Option::Some(VCT::with_capacity(0))
     } else if expr.is_prefix() {
         Option::Some(VCT::with_capacity(0))
+    } else if expr.is_parallel(){
+        infer_type_parallel(expr, state, context)
     } else if expr.is_number() {
         Option::Some(VCT::with_capacity(0))
     } else {
@@ -157,6 +159,15 @@ fn infer_type_switch(expr: &Expression, state: &State, context: &mut SearchInfo)
         } else {
             casts_to
         }
+    } else {
+        unreachable!()
+    }
+}
+
+fn infer_type_parallel(expr: &Expression, state: &State, context: &mut SearchInfo) -> Option<VCT> {
+    use Expression::ParallelOp;
+    if let ParallelOp { rhe, .. } = expr {
+        infer_type_expresion(rhe, state, context)
     } else {
         unreachable!()
     }
