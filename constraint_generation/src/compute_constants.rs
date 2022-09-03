@@ -182,7 +182,8 @@ fn transform_big_int_to_usize(v: BigInt) -> Option<usize> {
     if sign == Sign::Minus || bytes.len() > 8 {
         return Option::None;
     }
-    let mut counter: [u8; 8] = [0; 8];
+    const UBYTES: usize = (usize::BITS / 8) as usize;
+    let mut counter: [u8; UBYTES] = [0; UBYTES];
     counter[..bytes.len()].clone_from_slice(&bytes[..]);
     let usize_value = usize::from_le_bytes(counter);
     Option::Some(usize_value)
