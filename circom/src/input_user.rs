@@ -233,12 +233,12 @@ mod input_processing {
         let o_0 = matches.is_present("no_simplification");
         let o_1 = matches.is_present("reduced_simplification");
         let o_2 = matches.is_present("full_simplification");
-        let o_2round = matches.is_present("simplification_round");
+        let o_2round = matches.is_present("simplification_rounds");
         match (o_0, o_1, o_2round, o_2) {
             (true, _, _, _) => Ok(SimplificationStyle::O0),
             (_, true, _, _) => Ok(SimplificationStyle::O1),
             (_, _, true,  _) => {
-                let o_2_argument = matches.value_of("simplification_round").unwrap();
+                let o_2_argument = matches.value_of("simplification_rounds").unwrap();
                 let rounds_r = usize::from_str_radix(o_2_argument, 10);
                 if let Result::Ok(no_rounds) = rounds_r { Ok(SimplificationStyle::O2(no_rounds))} 
                 else { Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds"))) }
