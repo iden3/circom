@@ -415,6 +415,7 @@ mod input_processing {
                 .short("l")
                 .takes_value(true)
                 .multiple(true)
+                .number_of_values(1)    
                 .help("Add directory to library search path"),
             )
             .arg(
