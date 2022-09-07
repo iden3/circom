@@ -77,6 +77,7 @@ impl Default for FoldedValue {
 enum ExecutionError {
     NonQuadraticConstraint,
     FalseAssert,
+    ArraySizeTooBig
 }
 
 /*
@@ -171,7 +172,13 @@ fn execute_statement(
                 if let Option::Some(dimensions) = cast_indexing(&arithmetic_values) {
                     dimensions
                 } else {
-                    unreachable!()
+                    let err = Result::Err(ExecutionError::ArraySizeTooBig);
+                    treat_result_with_execution_error(
+                        err,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?
                 };
             match xtype {
                 VariableType::Component => execute_component_declaration(
@@ -1234,8 +1241,10 @@ fn cast_indexing(ae_indexes: &[AExpr]) -> Option<Vec<SliceCapacity>> {
         if !ae_index.is_number() {
             return Option::None;
         }
-        let index = AExpr::get_usize(ae_index).unwrap();
-        sc_indexes.push(index);
+        match AExpr::get_usize(ae_index) {
+            Some(index) => { sc_indexes.push(index); },
+            None => { return Option::None; },
+        }
     }
     Option::Some(sc_indexes)
 }
@@ -1244,8 +1253,10 @@ fn cast_index(ae_index: &AExpr) -> Option<SliceCapacity> {
     if !ae_index.is_number() {
         return Option::None;
     }
-    let index = AExpr::get_usize(ae_index).unwrap();
-    Option::Some(index)
+    match AExpr::get_usize(ae_index) {
+        Some(index) => { Option::Some(index) },
+        None => {  Option::None },
+    }
 }
 
 /*
@@ -1460,6 +1471,10 @@ fn treat_result_with_execution_error<C>(
                 FalseAssert => {
                     Report::error("False assert reached".to_string(), ReportCode::RuntimeError)
                 }
+                ArraySizeTooBig => Report::error(
+                    "The size of the array is expected to be a usize".to_string(),
+                    ReportCode::RuntimeError,
+                ),
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Err(())
