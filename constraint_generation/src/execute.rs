@@ -80,11 +80,9 @@ enum ExecutionError {
     ArraySizeTooBig
 }
 
-/*
 enum ExecutionWarning {
     CanBeQuadraticConstraint,
 }
- */
 
 pub fn constraint_execution(
     program_archive: &ProgramArchive,
@@ -207,36 +205,38 @@ fn execute_statement(
             let r_folded = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
             let possible_constraint =
                 perform_assign(meta, var, &access_information, r_folded, actual_node, runtime)?;
-            if let (Option::Some(node), AssignOp::AssignConstraintSignal) = (actual_node, op) {
-                debug_assert!(possible_constraint.is_some());
-                let constrained = possible_constraint.unwrap();
-                if constrained.right.is_nonquadratic() {
-                    let err = Result::Err(ExecutionError::NonQuadraticConstraint);
-                    treat_result_with_execution_error(
-                        err,
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-                } else {
-                    let p = runtime.constants.get_p().clone();
-                    let symbol = AExpr::Signal { symbol: constrained.left };
-                    let expr = AExpr::sub(&symbol, &constrained.right, &p);
-                    let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
-                    node.add_constraint(ctr);
+            if let Option::Some(node) = actual_node {
+                if let AssignOp::AssignConstraintSignal = op {
+                    debug_assert!(possible_constraint.is_some());
+                    let constrained = possible_constraint.unwrap();
+                    if constrained.right.is_nonquadratic() {
+                        let err = Result::Err(ExecutionError::NonQuadraticConstraint);
+                        treat_result_with_execution_error(
+                            err,
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                    } else {
+                        let p = runtime.constants.get_p().clone();
+                        let symbol = AExpr::Signal { symbol: constrained.left };
+                        let expr = AExpr::sub(&symbol, &constrained.right, &p);
+                        let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
+                        node.add_constraint(ctr);
+                    }
+                } else if let AssignOp::AssignSignal = op {
+                    debug_assert!(possible_constraint.is_some());
+                    let constrained = possible_constraint.unwrap();
+                    if !constrained.right.is_nonquadratic() && !node.is_custom_gate {
+                        let err : Result<(),ExecutionWarning> = Result::Err(ExecutionWarning::CanBeQuadraticConstraint);
+                        treat_result_with_execution_warning(
+                            err,
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                    }
                 }
-            } else if *op == AssignOp::AssignSignal {
-                debug_assert!(possible_constraint.is_some());
-/*                let constrained = possible_constraint.unwrap();
-                if !constrained.right.is_nonquadratic() {
-                    let err : Result<(),ExecutionWarning> = Result::Err(ExecutionWarning::CanBeQuadraticConstraint);
-                    treat_result_with_execution_warning(
-                        err,
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-                }*/
             }
             Option::None
         }
@@ -1482,7 +1482,6 @@ fn treat_result_with_execution_error<C>(
     }
 }
 
-/*
 fn treat_result_with_execution_warning<C>(
     execution_error: Result<C, ExecutionWarning>,
     meta: &Meta,
@@ -1504,7 +1503,6 @@ fn treat_result_with_execution_warning<C>(
         }
     }
 }
- */
 
 fn add_report_to_runtime(
     report: Report,
