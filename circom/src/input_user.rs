@@ -233,19 +233,18 @@ mod input_processing {
         let o_0 = matches.is_present("no_simplification");
         let o_1 = matches.is_present("reduced_simplification");
         let o_2 = matches.is_present("full_simplification");
-        let o_2_argument = matches.value_of("full_simplification").unwrap();
-        let no_rounds =
-            if o_2_argument == "full" {
-                Ok(usize::MAX) }
-            else {
-                usize::from_str_radix(o_2_argument, 10)
-            };
-        match (o_0, o_1, o_2, no_rounds) {
+        let o_2round = matches.is_present("simplification_round");
+        match (o_0, o_1, o_2round, o_2) {
             (true, _, _, _) => Ok(SimplificationStyle::O0),
             (_, true, _, _) => Ok(SimplificationStyle::O1),
-            (_, _, true, Ok(no_rounds)) => Ok(SimplificationStyle::O2(no_rounds)),
-            (false, false, false, _) => Ok(SimplificationStyle::O1),
-            _ => Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds")))
+            (_, _, true,  _) => {
+                let o_2_argument = matches.value_of("simplification_round").unwrap();
+                let rounds_r = usize::from_str_radix(o_2_argument, 10);
+                if let Result::Ok(no_rounds) = rounds_r { Ok(SimplificationStyle::O2(no_rounds))} 
+                else { Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds"))) }
+            },
+            (false, false, false, true) => Ok(SimplificationStyle::O2(usize::MAX)),
+            (false, false, false, false) => Ok(SimplificationStyle::O1),
         }
     }
 
@@ -336,6 +335,7 @@ mod input_processing {
                     .hidden(false)
                     .takes_value(false)
                     .help("No simplification is applied")
+                    .display_order(420)
             )
             .arg(
                 Arg::with_name("reduced_simplification")
@@ -343,14 +343,23 @@ mod input_processing {
                     .hidden(false)
                     .takes_value(false)
                     .help("Only applies var to var and var to constant simplification")
+                    .display_order(460)
             )
             .arg(
                 Arg::with_name("full_simplification")
                     .long("O2")
+                    .takes_value(false)
+                    .hidden(false)
+                    .help("Full constraint simplification")
+                    .display_order(480)
+            )
+            .arg(
+                Arg::with_name("simplification_rounds")
+                    .long("O2round")
                     .takes_value(true)
                     .hidden(false)
-                    .default_value("full")
-                    .help("Full constraint simplification"),
+                    .help("Maximum number of rounds of the simplification process")
+                    .display_order(500)
             )
             .arg(
                 Arg::with_name("output")
@@ -358,25 +367,29 @@ mod input_processing {
                     .long("output")
                     .takes_value(true)
                     .default_value(".")
+                    .display_order(1)
                     .help("Path to the directory where the output will be written"),
             )
             .arg(
                 Arg::with_name("print_json_c")
                     .long("json")
                     .takes_value(false)
-                    .help("outputs the constraints in json format"),
+                    .display_order(120)
+                    .help("Outputs the constraints in json format"),
             )
             .arg(
                 Arg::with_name("print_ir")
                     .long("irout")
                     .takes_value(false)
                     .hidden(true)
-                    .help("outputs the low-level IR of the given circom program"),
+                    .display_order(360)
+                    .help("Outputs the low-level IR of the given circom program"),
             )
             .arg(
                 Arg::with_name("inspect_constraints")
                     .long("inspect")
                     .takes_value(false)
+                    .display_order(801)
                     .help("Does an additional check over the constraints produced"),
             )
             .arg(
@@ -384,30 +397,35 @@ mod input_processing {
                     .long("jsons")
                     .takes_value(false)
                     .hidden(true)
-                    .help("outputs the substitution in json format"),
+                    .display_order(100)
+                    .help("Outputs the substitution in json format"),
             )
             .arg(
                 Arg::with_name("print_sym")
                     .long("sym")
                     .takes_value(false)
-                    .help("outputs witness in sym format"),
+                    .display_order(60)
+                    .help("Outputs witness in sym format"),
             )
             .arg(
                 Arg::with_name("print_r1cs")
                     .long("r1cs")
                     .takes_value(false)
-                    .help("outputs the constraints in r1cs format"),
+                    .display_order(30)
+                    .help("Outputs the constraints in r1cs format"),
             )
             .arg(
                 Arg::with_name("print_wasm")
                     .long("wasm")
                     .takes_value(false)
+                    .display_order(90)
                     .help("Compiles the circuit to wasm"),
             )
             .arg(
                 Arg::with_name("print_wat")
                     .long("wat")
                     .takes_value(false)
+                    .display_order(120)
                     .help("Compiles the circuit to wat"),
             )
             .arg(
@@ -415,14 +433,16 @@ mod input_processing {
                 .short("l")
                 .takes_value(true)
                 .multiple(true)
-                .number_of_values(1)    
-                .help("Add directory to library search path"),
+                .number_of_values(1)   
+                .display_order(330) 
+                .help("Adds directory to library search path"),
             )
             .arg(
                 Arg::with_name("print_c")
                     .long("c")
                     .short("c")
                     .takes_value(false)
+                    .display_order(150)
                     .help("Compiles the circuit to c"),
             )
             .arg(
@@ -430,6 +450,7 @@ mod input_processing {
                     .long("parallel")
                     .takes_value(false)
                     .hidden(true)
+                    .display_order(180)
                     .help("Runs non-linear simplification in parallel"),
             )
             .arg(
@@ -437,18 +458,21 @@ mod input_processing {
                     .long("inputs")
                     .takes_value(false)
                     .hidden(true)
-                    .help("produces a log_inputs.txt file"),
+                    .display_order(210)
+                    .help("Produces a log_inputs.txt file"),
             )
             .arg(
                 Arg::with_name("flag_verbose")
                     .long("verbose")
                     .takes_value(false)
+                    .display_order(800)
                     .help("Shows logs during compilation"),
             )
             .arg(
                 Arg::with_name("flag_old_heuristics")
                     .long("use_old_simplification_heuristics")
                     .takes_value(false)
+                    .display_order(980)
                     .help("Applies the old version of the heuristics when performing linear simplification"),
             )
             .arg (
@@ -457,6 +481,7 @@ mod input_processing {
                     .long("prime")
                     .takes_value(true)
                     .default_value("bn128")
+                    .display_order(300)
                     .help("To choose the prime number to use to generate the circuit. Receives the name of the curve (bn128, bls12381, goldilocks)"),
             )
             .get_matches()
