@@ -42,7 +42,7 @@ pub fn execute_project(
     };
     let (exporter, vcp) = build_circuit(program_archive, build_config)?;
     if config.r1cs_flag {
-        generate_output_r1cs(&config.r1cs, exporter.as_ref())?;
+        generate_output_r1cs(&config.r1cs, exporter.as_ref(), custom_gates)?;
     }
     if config.sym_flag {
         generate_output_sym(&config.sym, exporter.as_ref())?;
@@ -53,8 +53,8 @@ pub fn execute_project(
     Result::Ok(vcp)
 }
 
-fn generate_output_r1cs(file: &str, exporter: &dyn ConstraintExporter) -> Result<(), ()> {
-    if let Result::Ok(()) = exporter.r1cs(file) {
+fn generate_output_r1cs(file: &str, exporter: &dyn ConstraintExporter, custom_gates: bool) -> Result<(), ()> {
+    if let Result::Ok(()) = exporter.r1cs(file, custom_gates) {
         println!("{} {}", Colour::Green.paint("Written successfully:"), file);
         Result::Ok(())
     } else {
