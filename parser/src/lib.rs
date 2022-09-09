@@ -70,7 +70,7 @@ pub fn run_parser(
         let program = parser_logic::parse_file(&src, file_id)
             .map_err(|e| (file_library.clone(), vec![e]))?;
         if let Some(main) = program.main_component {
-            main_components.push((file_id, main));
+            main_components.push((file_id, main, program.custom_gates));
         }
         includes_graph.add_node(crr_str_file, program.custom_gates, program.custom_gates_declared);
         let includes = program.includes;
@@ -116,9 +116,9 @@ pub fn run_parser(
         if errors.len() > 0 {
             Err((file_library, errors))
         } else {
-            let (main_id, main_component) = main_components.pop().unwrap();
+            let (main_id, main_component, custom_gates) = main_components.pop().unwrap();
             let result_program_archive =
-                ProgramArchive::new(file_library, main_id, main_component, definitions);
+                ProgramArchive::new(file_library, main_id, main_component, definitions, custom_gates);
             match result_program_archive {
                 Err((lib, rep)) => {
                     Err((lib, rep))

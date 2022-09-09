@@ -287,8 +287,8 @@ pub struct DAG {
 }
 
 impl ConstraintExporter for DAG {
-    fn r1cs(&self, out: &str) -> Result<(), ()> {
-        DAG::generate_r1cs_output(self, out)
+    fn r1cs(&self, out: &str, custom_gates: bool) -> Result<(), ()> {
+        DAG::generate_r1cs_output(self, out, custom_gates)
     }
 
     fn json_constraints(&self, writer: &DebugWriter) -> Result<(), ()> {
@@ -442,8 +442,8 @@ impl DAG {
         }
     }
 
-    pub fn generate_r1cs_output(&self, output_file: &str) -> Result<(), ()> {
-        r1cs_porting::write(self, output_file)
+    pub fn generate_r1cs_output(&self, output_file: &str, custom_gates: bool) -> Result<(), ()> {
+        r1cs_porting::write(self, output_file, custom_gates)
     }
 
     pub fn generate_sym_output(&self, output_file: &str) -> Result<(), ()> {
