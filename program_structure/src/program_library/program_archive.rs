@@ -20,6 +20,7 @@ pub struct ProgramArchive {
     pub template_keys: HashSet<String>,
     pub public_inputs: Vec<String>,
     pub initial_template_call: Expression,
+    pub custom_gates: bool,
 }
 impl ProgramArchive {
     pub fn new(
@@ -27,6 +28,7 @@ impl ProgramArchive {
         file_id_main: FileID,
         main_component: MainComponent,
         program_contents: Contents,
+        custom_gates: bool,
     ) -> Result<ProgramArchive, (FileLibrary, Vec<Report>)> {
         let mut merger = Merger::new();
         let mut reports = vec![];
@@ -57,6 +59,7 @@ impl ProgramArchive {
                 initial_template_call,
                 function_keys,
                 template_keys,
+                custom_gates,
             })
         } else {
             Err((file_library, reports))

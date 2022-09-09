@@ -163,8 +163,8 @@ pub struct ConstraintList {
 }
 
 impl ConstraintExporter for ConstraintList {
-    fn r1cs(&self, out: &str) -> Result<(), ()> {
-        r1cs_porting::port_r1cs(self, out)
+    fn r1cs(&self, out: &str, custom_gates: bool) -> Result<(), ()> {
+        r1cs_porting::port_r1cs(self, out, custom_gates)
     }
 
     fn json_constraints(&self, writer: &DebugWriter) -> Result<(), ()> {
