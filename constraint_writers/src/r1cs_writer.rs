@@ -6,7 +6,6 @@ use std::io::{BufWriter, Seek, SeekFrom, Write};
 const SECTIONS: u8 = 5;
 const MAGIC: &[u8] = b"r1cs";
 const VERSION: &[u8] = &[1, 0, 0, 0];
-const NUMBER_OF_SECTIONS: &[u8] = &[SECTIONS, 0, 0, 0];
 const HEADER_TYPE: &[u8] = &[1, 0, 0, 0];
 const CONSTRAINT_TYPE: &[u8] = &[2, 0, 0, 0];
 const WIRE2LABEL_TYPE: &[u8] = &[3, 0, 0, 0];
@@ -90,12 +89,12 @@ fn write_constraint<T>(
     Result::Ok(size_a + size_b + size_c)
 }
 
-fn initialize_file(writer: &mut BufWriter<File>) -> Result<(), ()> {
+fn initialize_file(writer: &mut BufWriter<File>, num_sections: u8) -> Result<(), ()> {
     writer.write_all(MAGIC).map_err(|_err| {})?;
     writer.flush().map_err(|_err| {})?;
     writer.write_all(VERSION).map_err(|_err| {})?;
     writer.flush().map_err(|_err| {})?;
-    writer.write_all(NUMBER_OF_SECTIONS).map_err(|_err| {})?;
+    writer.write_all(&[num_sections, 0, 0, 0]).map_err(|_err| {})?;
     writer.flush().map_err(|_err| {})?;
     Result::Ok(())
 }
@@ -153,11 +152,16 @@ pub struct CustomGatesAppliedSection {
 }
 
 impl R1CSWriter {
-    pub fn new(output_file: String, field_size: usize) -> Result<R1CSWriter, ()> {
+    pub fn new(
+        output_file: String,
+        field_size: usize,
+        custom_gates: bool
+    ) -> Result<R1CSWriter, ()> {
         let sections = [false; SECTIONS as usize];
+        let num_sections: u8 = if custom_gates { 5 } else { 3 };
         let mut writer =
             File::create(&output_file).map_err(|_err| {}).map(|f| BufWriter::new(f))?;
-        initialize_file(&mut writer)?;
+        initialize_file(&mut writer, num_sections)?;
         Result::Ok(R1CSWriter { writer, sections, field_size })
     }
 
