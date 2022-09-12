@@ -6,7 +6,7 @@ pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
     let tree = Tree::new(dag);
     let field_size = (tree.field.bits() / 64 + 1) * 8;
     let mut log = Log::new();
-    let r1cs = R1CSWriter::new(output.to_string(), field_size)?;
+    let r1cs = R1CSWriter::new(output.to_string(), field_size, custom_gates)?;
 
     let mut constraint_section = R1CSWriter::start_constraints_section(r1cs)?;
     let wires = write_constraint_section(&mut constraint_section, &mut log, &tree)? + 1; // adding 1 to include the signal used to represent value 1 in the field (signal one)

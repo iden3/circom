@@ -11,7 +11,7 @@ pub fn port_r1cs(list: &ConstraintList, output: &str, custom_gates: bool) -> Res
     log.no_public_inputs = list.no_public_inputs;
     log.no_public_outputs = list.no_public_outputs;
 
-    let r1cs = R1CSWriter::new(output.to_string(), field_size)?;
+    let r1cs = R1CSWriter::new(output.to_string(), field_size, custom_gates)?;
     let mut constraint_section = R1CSWriter::start_constraints_section(r1cs)?;
     let mut written = 0;
 
