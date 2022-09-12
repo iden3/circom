@@ -240,7 +240,9 @@ mod input_processing {
             (_, _, true,  _) => {
                 let o_2_argument = matches.value_of("simplification_rounds").unwrap();
                 let rounds_r = usize::from_str_radix(o_2_argument, 10);
-                if let Result::Ok(no_rounds) = rounds_r { Ok(SimplificationStyle::O2(no_rounds))} 
+                if let Result::Ok(no_rounds) = rounds_r { 
+                    if no_rounds == 0 { Ok(SimplificationStyle::O1) }
+                    else {Ok(SimplificationStyle::O2(no_rounds))}} 
                 else { Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds"))) }
             },
             (false, false, false, true) => Ok(SimplificationStyle::O2(usize::MAX)),
