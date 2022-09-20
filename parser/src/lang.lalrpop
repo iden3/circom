@@ -4,8 +4,9 @@ use program_structure::expression_builders::*;
 use program_structure::ast::*;
 use program_structure::ast_shortcuts::{self,Symbol};
 use std::str::FromStr;
+use crate::errors::Error;
 
-grammar;
+grammar<'err>(file_id: usize, errors:&'err mut Vec<Error>);
 
 // ====================================================================
 // Body
