@@ -5,12 +5,16 @@ use program_structure::ast::*;
 use program_structure::ast_shortcuts::{self,Symbol};
 use std::str::FromStr;
 use crate::errors::Error;
+use lalrpop_util::ParseError;
 
 grammar<'err>(file_id: usize, errors:&'err mut Vec<Error>);
 
-// ====================================================================
-// Body
-// ====================================================================
+CommaSepList<T>:Vec<T> = {
+    <mut e:(<T> ",")*> <t:T> => {
+        e.push(t);
+        e
+    },
+};
 
 // A identifier list is a comma separated list of identifiers
 IdentifierListDef : Vec<String> = {
@@ -21,34 +25,66 @@ IdentifierListDef : Vec<String> = {
     }
 };
 
-// Pragma is included at the start of the file.
-// Their structure is the following: pragma circom "version of the compiler"
-ParsePragma : Version = { // maybe change to usize instead of BigInt
-    "pragma circom" <version: Version>  ";"
-    => version,
-};
-
-// Pragma to indicate that we are allowing the definition of custom templates.
-ParseCustomGates : () = {
-    "pragma" "custom_templates" ";" => ()
+Semicolon:() = {
+    ";" => (),
+    <!> => errors.push(Error::MissingSemicolon)
 }
 
+// ====================================================================
+// Body
+// ====================================================================
+
+// Pragmas are included at the start of the file,
+// their structure is the following: 
+// 'pragma circom "version of the compiler"' to indicate the version
+// or
+// 'pragma custom_templates' to indicate that we are allowing the definition of custom gates.
+
+ParsePragma:Pragma = {
+    // version
+    "pragma" "circom" <Version> Semicolon => Pragma::Version(<>),
+    "pragma" "circom" <!> Semicolon => match <>.error {
+            ParseError::UnrecognizedToken { ref token, .. } => {
+                errors.push(Error::UnrecognizedVersion{location: token.0..token.2, file_id});
+                Pragma::Unrecognized
+            } 
+            _ => unreachable!(),
+        },
+    // custom templates
+    "pragma" "custom_templates" Semicolon => Pragma::CustomGates,
+    // unrecognized
+    "pragma" <!> Semicolon => match <>.error {
+            ParseError::UnrecognizedToken { ref token, .. } => {
+                errors.push(Error::UnrecognizedPragma{location: token.0..token.2, file_id});
+                Pragma::Unrecognized
+            } 
+            _ => unreachable!(),
+        },
+};
+
 // Includes are added at the start of the file.
-// Their structure is the following: #include "path to the file"
-ParseInclude : String = {
-    "include" <file: STRING>  ";"
-    => file,
+// Their structure is the following:#include "path to the file"
+ParseInclude:String = {
+    "include" <STRING> Semicolon => <>,
+    "include" <!> Semicolon => {
+        match <>.error {
+            ParseError::UnrecognizedToken { ref token, .. } => {
+                errors.push(Error::UnrecognizedInclude{location: token.0..token.2, file_id});
+            } 
+            _ => unreachable!(),
+        }
+        "".to_owned()
+    },
 };
 
 // Parsing a program requires:
-// Parsing the version pragma, if there is one
-// Parsing the custom templates pragma, if there is one
-// Parsing "includes" instructions, if there is anyone
+// Parsing pragmas
+// Parsing "includes"
 // Parsing function and template definitions
 // Parsing the declaration of the main component
-pub ParseAst : AST = {
-    <s:@L> <version: ParsePragma?> <custom_gates: ParseCustomGates?> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent?> <e:@R>
-    => AST::new(Meta::new(s,e), version, custom_gates.is_some(), includes, definitions, main),
+pub ParseAst:AST = {
+    <s:@L> <pragmas:ParsePragma*> <includes:ParseInclude*> <definitions:ParseDefinition*> <main:ParseMainComponent?> <e:@R>
+    => AST::new(Meta::new(s,e), pragmas, includes, definitions, main),
 };
 
 // ====================================================================
