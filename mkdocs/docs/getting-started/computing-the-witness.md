@@ -17,8 +17,10 @@ Note that we could assign the number 1 to one of the inputs and the number 33 to
 
 We need to create a file named `input.json` containing the inputs written in the standard json format.
 
+We use strings instead of numbers because JavaScript does not work accurately with integers larger than 2<sup>53</sup>.
+
 ```text
-{"a": 3, "b": 11}
+{"a": "3", "b": "11"}
 ```
 
 Now, we calculate the witness and generate a binary file `witness.wtns` containing it in a format accepted by `snarkjs`.
