@@ -40,10 +40,6 @@ pub enum Error {
         location: FileLocation,
         file_id: FileID,
     },
-    IllegalStatement {
-        location: FileLocation,
-        file_id: FileID,
-    },
 }
 
 impl Error {
@@ -116,14 +112,7 @@ impl Error {
                 Report::error("illegal expression".to_string(), ReportCode::ParseFail);
             report.add_primary(location, file_id, "here".to_string());
             report
-            }        
-
-            Error::IllegalStatement{location, file_id} => {
-                let mut report =
-                Report::error("illegal statement".to_string(), ReportCode::ParseFail);
-            report.add_primary(location, file_id, "here".to_string());
-            report
-            }        
+            }     
         }
     }
 }

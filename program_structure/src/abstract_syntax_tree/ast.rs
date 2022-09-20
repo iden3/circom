@@ -2,6 +2,13 @@ use crate::file_definition::FileLocation;
 use num_bigint::BigInt;
 use serde_derive::{Deserialize, Serialize};
 
+#[derive(Clone, Debug)]
+pub enum Pragma {
+    Version(Version),
+    CustomGates,
+    Unrecognized,
+}
+
 pub trait FillMeta {
     fn fill(&mut self, file_id: usize, elem_id: &mut usize);
 }
@@ -11,9 +18,7 @@ pub fn build_main_component(public: Vec<String>, call: Expression) -> MainCompon
     (public, call)
 }
 
-
 pub type Version = (usize, usize, usize);
-
 
 #[derive(Clone)]
 pub struct Meta {
@@ -86,26 +91,47 @@ pub struct AST {
     pub definitions: Vec<Definition>,
     pub main_component: Option<MainComponent>,
 }
+
 impl AST {
     pub fn new(
         meta: Meta,
-        compiler_version: Option<Version>,
-        custom_gates: bool,
+        pragmas: Vec<Pragma>,
         includes: Vec<String>,
         definitions: Vec<Definition>,
         main_component: Option<MainComponent>,
     ) -> AST {
-        let custom_gates_declared = definitions.iter().any(
-            |definition| matches!(definition, Definition::Template { is_custom_gate: true, .. })
-        );
+        let mut custom_gates = None;
+        let mut compiler_version = None;
+
+        for p in pragmas {
+            match p {
+                // TODO: don't panic
+                Pragma::Version(ver) => match compiler_version {
+                    Some(_) => panic!("multiple circom pragmas"),
+                    None => compiler_version = Some(ver),
+                },
+                Pragma::CustomGates => match custom_gates {
+                    Some(_) => panic!("multiple custom gates pragmas"),
+                    None => custom_gates = Some(true),
+                },
+                // unrecognized
+                // TODO: maybe warn?
+                _ => (),
+            }
+        }
+
+        let custom_gates_declared = definitions.iter().any(|definition| {
+            matches!(definition, Definition::Template { is_custom_gate: true, .. })
+        });
+
         AST {
             meta,
             compiler_version,
-            custom_gates,
+            custom_gates: custom_gates.unwrap_or(false),
             custom_gates_declared,
             includes,
             definitions,
-            main_component
+            main_component,
         }
     }
 }
@@ -138,15 +164,7 @@ pub fn build_template(
     parallel: bool,
     is_custom_gate: bool,
 ) -> Definition {
-    Definition::Template {
-        meta,
-        name,
-        args,
-        arg_location,
-        body,
-        parallel,
-        is_custom_gate,
-    }
+    Definition::Template { meta, name, args, arg_location, body, parallel, is_custom_gate }
 }
 
 pub fn build_function(
@@ -254,7 +272,7 @@ pub enum Expression {
         if_true: Box<Expression>,
         if_false: Box<Expression>,
     },
-    ParallelOp{
+    ParallelOp {
         meta: Meta,
         rhe: Box<Expression>,
     },
@@ -275,9 +293,9 @@ pub enum Expression {
     },
     UniformArray {
         meta: Meta,
-        value: Box<Expression>, 
+        value: Box<Expression>,
         dimension: Box<Expression>,
-    }
+    },
 }
 
 #[derive(Clone)]
@@ -350,7 +368,6 @@ pub fn build_log_string(acc: String) -> LogArgument {
 pub fn build_log_expression(expr: Expression) -> LogArgument {
     LogArgument::LogExp(expr)
 }
-
 
 #[derive(Default, Clone)]
 pub struct TypeKnowledge {
