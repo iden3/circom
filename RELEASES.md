@@ -6,7 +6,7 @@
 - Signal ids in custom templates changed to 64 bits.
 - Array sizes are expected to be usize. Now, we throw an error in other case.
 - Separating optimization option -O2 in two different options: --O2 and --O2rounds. Explanation can be found [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/getting-started/compilation-options.md). The default option is currently --O2.
-- Using information about the usage of custom templates to write sections 4 and 5 of the r1cs file, only if custom templates are present in the circuit.
+- Writing Sections 4 and 5 of the r1cs file, only if "pragma custom_templates" is used (which is needed if custom templates are present).
 - Improving --O1 optimization. 
 - Adding a new documentation section about the different compilation options and flags. 
 
