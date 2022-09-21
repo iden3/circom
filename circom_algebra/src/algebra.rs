@@ -1405,8 +1405,9 @@ where
     let cq: C = ArithmeticExpression::constant_coefficient();
     HashMap::is_empty(a)
         && HashMap::is_empty(b)
-        && HashMap::contains_key(c, &cq)
-        && HashMap::len(c) == 2
+        && 
+        	((HashMap::contains_key(c, &cq) && HashMap::len(c) == 2) ||
+        	(!HashMap::contains_key(c, &cq) && HashMap::len(c) == 1))
 }
 
 fn is_constant_expression<C>(expr: &RawExpr<C>) -> bool
