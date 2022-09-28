@@ -213,8 +213,10 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
 
             if tag_out == Unknown{
                 for var in &exit.modified_variables{
-                    let value = environment.get_mut_variable_or_break(var, file!(), line!());
-                    *value = Unknown;
+                    if environment.has_variable(var){
+                        let value = environment.get_mut_variable_or_break(var, file!(), line!());
+                        *value = Unknown;
+                    }
                 }   
             }
 
