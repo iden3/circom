@@ -726,6 +726,30 @@ pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageLi
     instructions
 }
 
+pub fn generate_function_release_memory_component() -> Vec<String>{
+    let mut instructions = vec![];
+    instructions.push("void release_memory_component(Circom_CalcWit* ctx, uint pos) {{\n".to_string());
+    instructions.push("delete ctx->componentMemory[pos].subcomponents;\n".to_string());
+    instructions.push("delete ctx->componentMemory[pos].subcomponentsParallel;\n".to_string());
+    instructions.push("delete ctx->componentMemory[pos].outputIsSet;\n".to_string());
+    instructions.push("delete ctx->componentMemory[pos].mutexes;\n".to_string());
+    instructions.push("delete ctx->componentMemory[pos].cvs;\n".to_string());
+    instructions.push("delete ctx->componentMemory[pos].sbct;\n".to_string());
+    instructions.push("}}\n\n".to_string());
+    instructions
+}
+
+pub fn generate_function_release_memory_circuit() -> Vec<String>{ 
+    // deleting each one of the components
+    let mut instructions = vec![];
+    instructions.push("void release_memory(Circom_CalcWit* ctx) {{\n".to_string());
+    instructions.push("for (int i = 0; i < get_number_of_components(); i++) {{\n".to_string());
+    instructions.push("release_memory_component(ctx, i);\n".to_string());
+    instructions.push("}}\n".to_string());
+    instructions.push("}}\n".to_string());
+    instructions
+  }
+
 pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
