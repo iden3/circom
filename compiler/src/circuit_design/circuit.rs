@@ -360,6 +360,10 @@ impl WriteC for Circuit {
         ));
         //code.append(&mut generate_message_list_def(producer, producer.get_message_list()));
 
+        // Function to release the memory of a component
+        let mut release_component_code = generate_function_release_memory_component();
+        code.append(&mut release_component_code);
+
         // Actual code of the circuit
         code.push("// function declarations".to_string());
         for f in &self.functions {
