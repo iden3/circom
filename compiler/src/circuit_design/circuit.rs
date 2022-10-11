@@ -362,9 +362,7 @@ impl WriteC for Circuit {
         
         // Functions to release the memory
         let mut release_component_code = generate_function_release_memory_component();
-        //let mut release_circuit_code = generate_function_release_memory_circuit();
         code.append(&mut release_component_code);
-        //code.append(&mut release_circuit_code);
 
         // Actual code of the circuit
         code.push("// function declarations".to_string());
@@ -405,9 +403,7 @@ impl WriteC for Circuit {
 	run_args.push("0".to_string());
         run_args.push(CIRCOM_CALC_WIT.to_string());
         let run_call = format!("{};", build_call(main_template_run, run_args.clone()));
-        //let release_call = format!("{};", build_call("release_memory".to_string(), vec![CIRCOM_CALC_WIT.to_string()]));
 
-        //let main_run_body = vec![start_msg, ctx_index, run_call, end_msg];
         let main_run_body = vec![ctx_index, run_call];
         code.push(build_callable(run_circuit, run_circuit_args, main_run_body));
         (code, "".to_string())
