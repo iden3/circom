@@ -1,5 +1,5 @@
 use super::analysis::Analysis;
-use super::executed_template::ExecutedTemplate;
+use super::executed_template::{ExecutedTemplate, PreExecutedTemplate};
 use super::type_definitions::*;
 use compiler::hir::very_concrete_program::{Stats, VCPConfig, VCP};
 use dag::DAG;
@@ -12,6 +12,7 @@ pub type ExportResult = Result<(DAG, VCP, ReportCollection), ReportCollection>;
 #[derive(Default)]
 pub struct ExecutedProgram {
     pub model: Vec<ExecutedTemplate>,
+    pub model_pretemplates: Vec<PreExecutedTemplate>,
     pub template_to_nodes: HashMap<String, Vec<NodePointer>>,
     pub prime: String,
 }
@@ -22,16 +23,18 @@ impl ExecutedProgram {
             model: Vec::new(),
             template_to_nodes: HashMap::new(),
             prime: prime.clone(),
+            model_pretemplates: Vec::new(),
         }
     }
-    pub fn identify_node(&self, name: &str, context: &ParameterContext) -> Option<NodePointer> {
+
+    pub fn identify_node(&self, name: &str, context: &ParameterContext, tag_context: &TagContext) -> Option<NodePointer> {
         if !self.template_to_nodes.contains_key(name) {
             return Option::None;
         }
         let related_nodes = self.template_to_nodes.get(name).unwrap();
         for index in related_nodes {
             let existing_node = &self.model[*index];
-            if ExecutedTemplate::is_equal(existing_node, name, context) {
+            if ExecutedTemplate::is_equal(existing_node, name, context, tag_context) {
                 return Option::Some(*index);
             }
         }
@@ -47,6 +50,30 @@ impl ExecutedProgram {
         Option::Some(&self.model[node_pointer])
     }
 
+    pub fn get_prenode(&self, node_pointer: NodePointer) -> Option<&PreExecutedTemplate> {
+        if node_pointer >= self.model_pretemplates.len() {
+            return Option::None;
+        }
+        Option::Some(&self.model_pretemplates[node_pointer])
+    }
+
+    pub fn get_prenode_value(&self, node_pointer: NodePointer) -> Option<PreExecutedTemplate> {
+        if node_pointer >= self.model_pretemplates.len() {
+            return Option::None;
+        }
+        Option::Some(self.model_pretemplates[node_pointer].clone())
+    }
+
+    pub fn add_prenode_to_scheme(
+        &mut self,
+        node: PreExecutedTemplate,
+    ) -> NodePointer {
+        // Insert pretemplate
+        let node_index = self.model_pretemplates.len();
+        self.model_pretemplates.push(node);
+        node_index
+    }
+
     pub fn add_node_to_scheme(
         &mut self,
         mut node: ExecutedTemplate,
@@ -57,7 +84,11 @@ impl ExecutedProgram {
         apply_unused(&mut node.code, &analysis, &self.prime);
         apply_computed(&mut node.code, &analysis);
         // Insert template
-        let possible_index = self.identify_node(node.template_name(), node.parameter_instances());
+        let possible_index = self.identify_node(
+            node.template_name(), 
+            node.parameter_instances(),
+            node.tag_instances(),
+        );
         if let Option::Some(index) = possible_index {
             return index;
         }

@@ -164,6 +164,7 @@ fn analyze_statement(
     environment: &mut Environment,
 ) {
     match stmt {
+        Statement::MultSubstitution { .. } => unreachable!(),
         Statement::Return { value, .. } => {
             analyze_expression(value, file_id, function_info, template_info, reports, environment)
         }

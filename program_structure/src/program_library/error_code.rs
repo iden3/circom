@@ -13,6 +13,7 @@ pub enum ReportCode {
     UninitializedSymbolInExpression,
     UnableToTypeFunction,
     UnreachableConstraints,
+    UnreachableTags,
     UnknownIndex,
     UnknownDimension,
     SameFunctionDeclaredTwice,
@@ -34,6 +35,7 @@ pub enum ReportCode {
     NoMainFoundInProject,
     NoCompilerVersionWarning,
     MultipleMainInComponent,
+    MainComponentWithTags,
     TemplateCallAsArgument,
     TemplateWrongNumberOfArguments,
     TemplateWithReturnStatement,
@@ -47,6 +49,8 @@ pub enum ReportCode {
     InconsistentStaticInformation,
     InvalidArrayAccess,
     InvalidSignalAccess,
+    InvalidTagAccess,
+    InvalidTagAccessAfterArray,
     InvalidArraySize,
     InvalidArrayType,
     ForStatementIllConstructed,
@@ -58,6 +62,9 @@ pub enum ReportCode {
     WrongSignalTags,
     InvalidPartialArray,
     MustBeSingleArithmetic,
+    MustBeArithmetic,
+    OutputTagCannotBeModifiedOutside,
+    MustBeSameDimension,
     ExpectedDimDiffGotDim(usize, usize),
     RuntimeError,
     RuntimeWarning,
@@ -75,6 +82,9 @@ pub enum ReportCode {
     CustomGateSubComponentError,
     CustomGatesPragmaError,
     CustomGatesVersionError,
+    AnonymousCompError,
+    TupleError,
+    InvalidSignalTagAccess,
 }
 impl fmt::Display for ReportCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -91,6 +101,8 @@ impl fmt::Display for ReportCode {
             UninitializedSymbolInExpression => "T2003",
             UnableToTypeFunction => "T2004",
             UnreachableConstraints => "T2005",
+            UnreachableTags => "T2015",
+            MainComponentWithTags => "T2016",
             SameFunctionDeclaredTwice => "T2006",
             SameTemplateDeclaredTwice => "T2007",
             SameSymbolDeclaredTwice => "T2008",
@@ -120,6 +132,9 @@ impl fmt::Display for ReportCode {
             InconsistentStaticInformation => "T2031",
             InvalidArrayAccess => "T2032",
             InvalidSignalAccess => "T2046",
+            InvalidSignalTagAccess => "T2047",
+            InvalidTagAccess => "T2048",
+            InvalidTagAccessAfterArray => "T2049",
             InvalidArraySize => "T2033",
             InvalidArrayType => "T2034",
             ForStatementIllConstructed => "T2035",
@@ -134,6 +149,9 @@ impl fmt::Display for ReportCode {
             InvalidPartialArray => "T2043",
             MustBeSingleArithmetic => "T2044",
             ExpectedDimDiffGotDim(..) => "T2045",
+            MustBeSameDimension => "T2046",
+            MustBeArithmetic => "T2047",
+            OutputTagCannotBeModifiedOutside => "T2048",
             RuntimeError => "T3001",
             RuntimeWarning => "T3002",
             UnknownDimension => "T20460",
@@ -152,6 +170,8 @@ impl fmt::Display for ReportCode {
             CustomGateSubComponentError => "CG03",
             CustomGatesPragmaError => "CG04",
             CustomGatesVersionError => "CG05",
+            AnonymousCompError => "TAC01",
+            TupleError => "TAC02"
         };
         f.write_str(string_format)
     }
