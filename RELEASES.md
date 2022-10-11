@@ -1,11 +1,18 @@
 # Release notes
+## October 11, 2022 circom 2.1.0
+#### New features
+- Tags: more information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/tags.md).
+- Anonymous Components: more information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/anonymous-components-and-tuples.md).
+
+#### Extensions
+- Improving the memory consumption during the C++ witness generation.
 
 ## September 21, 2022 circom 2.0.9
- #### Extension
+ #### Extensions
  - Adding a warning  if the programmer is using the operator <-- when it is possible to use <== instead (if the right side is a quadratic expression and the instruction is not contained in a custom template).
  - Signal ids in custom templates changed to 64 bits.
  - Array sizes are expected to be usize. Now, we throw an error in other case.
- - Separating optimization option -O2 in two different options: --O2 and --O2rounds. Explanation can be found [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/getting-started/compilation-options.md). The default option is currently --O2.
+ - Separating optimization option -O2 in two different options: --O2 and --O2rounds. Explanation can be found [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/include.md). The default option is currently --O2.
 - Writing Sections 4 and 5 of the r1cs file, only if "pragma custom_templates" is used (which is needed if custom templates are present).
  - Improving --O1 optimization. 
  - Adding a new documentation section about the different compilation options and flags. 
