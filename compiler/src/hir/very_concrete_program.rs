@@ -2,13 +2,15 @@ use num_bigint_dig::BigInt;
 use program_structure::ast::{SignalType, Statement};
 use program_structure::program_archive::ProgramArchive;
 use program_structure::program_library::file_definition::FileLibrary;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Range;
 use std::rc::Rc;
 
 pub type VCT = Vec<usize>;
 pub type Length = usize;
 pub type Code = Statement;
+
+pub type TagInfo = BTreeMap<String, Option<BigInt>>;
 
 #[derive(Clone)]
 pub struct Argument {
@@ -90,6 +92,7 @@ pub struct TemplateInstance {
     pub number_of_outputs: usize,
     pub number_of_intermediates: usize,
     pub signals: Vec<Signal>,
+    pub signals_to_tags: BTreeMap<String, TagInfo>,
     pub components: Vec<Component>,
     pub number_of_components: usize,
     pub triggers: Vec<Trigger>,
@@ -109,8 +112,8 @@ pub struct TemplateConfig {
     pub clusters: Vec<TriggerCluster>,
     pub components: Vec<Component>,
     pub arguments: Vec<Argument>,
+    pub signals_to_tags: BTreeMap<String, TagInfo>,
 }
-
 impl TemplateInstance {
     pub fn new(config: TemplateConfig) -> TemplateInstance {
         TemplateInstance {
@@ -131,6 +134,7 @@ impl TemplateInstance {
             components: config.components,
             triggers: config.triggers,
             clusters: config.clusters,
+            signals_to_tags: config.signals_to_tags,
         }
     }
 

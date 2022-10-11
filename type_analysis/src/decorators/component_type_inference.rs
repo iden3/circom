@@ -46,7 +46,8 @@ fn infer_component_types(stmt: &Statement, templates: &TemplateInfo, data: &mut 
                 infer_component_types(s, templates, data);
             }
         }
-        Declaration { xtype, name, .. } if VariableType::Component == *xtype => {
+        Declaration { xtype, name, .. }
+            if VariableType::Component == *xtype || VariableType::AnonymousComponent == *xtype =>{
             data.components.insert(name.clone());
         }
         Substitution { var, rhe, .. } if data.components.contains(var) => {
@@ -98,8 +99,9 @@ fn apply_inference(stmt: &mut Statement, env: &mut Environment) {
                 apply_inference(s, env);
             }
         }
-        Declaration { xtype, name, meta, .. } if VariableType::Component == *xtype => {
-            meta.component_inference = env.remove(name);
+        Declaration { xtype, name, meta, .. } 
+            if VariableType::Component == *xtype || VariableType::AnonymousComponent == *xtype => {
+                meta.component_inference = env.remove(name);
         }
         _ => {}
     }

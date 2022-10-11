@@ -10,12 +10,16 @@ lalrpop_mod!(pub lang);
 mod errors;
 mod include_logic;
 mod parser_logic;
+mod syntax_sugar_remover;
+
 use include_logic::{FileStack, IncludesGraph};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::{FileLibrary};
 use program_structure::program_archive::ProgramArchive;
 use std::path::{PathBuf, Path};
+use syntax_sugar_remover::{apply_syntactic_sugar};
+
 use std::str::FromStr;
 
 pub type Version = (usize, usize, usize);
@@ -123,8 +127,13 @@ pub fn run_parser(
                 Err((lib, rep)) => {
                     Err((lib, rep))
                 }
-                Ok(program_archive) => {
-                    Ok((program_archive, warnings))
+                Ok(mut program_archive) => {
+                    let lib = program_archive.get_file_library().clone();
+                    let program_archive_result = apply_syntactic_sugar( &mut program_archive);
+                    match program_archive_result {
+                        Result::Err(v) => {Result::Err((lib,vec![v]))}
+                        Result::Ok(()) => {Ok((program_archive, warnings))}
+                    }
                 }
             }
         }

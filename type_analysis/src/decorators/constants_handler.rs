@@ -143,6 +143,7 @@ fn statement_invariant_check(stmt: &Statement, environment: &mut Constants) -> R
         }
         While { stmt, .. } => while_invariant_check(stmt, environment),
         Block { stmts, .. } => block_invariant_check(stmts, environment),
+        MultSubstitution { .. } => unreachable!(),
         _ => ReportCollection::new(),
     }
 }
@@ -223,6 +224,7 @@ fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
         Variable { name, .. } => variable(name, environment),
         ArrayInLine { .. } => array_inline(),
         UniformArray { .. } => uniform_array(),
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
 
@@ -289,6 +291,7 @@ fn expand_statement(stmt: &mut Statement, environment: &mut ExpressionHolder) {
         LogCall { args, .. } => expand_log_call(args, environment),
         Assert { arg, .. } => expand_assert(arg, environment),
         Block { stmts, .. } => expand_block(stmts, environment),
+        MultSubstitution { .. } => unreachable!()
     }
 }
 
@@ -404,6 +407,7 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
             expand_inline_switch_op(meta, *cond, *if_true, *if_false, environment)
         }
         Variable { meta, name, access } => expand_variable(meta, name, access, environment),
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
 
