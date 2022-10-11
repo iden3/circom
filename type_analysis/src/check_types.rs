@@ -132,10 +132,6 @@ fn semantic_analyses(
             unknown_known_analysis(template_name, program_archive) {
                 errors.append(&mut unknown_known_report);
             }
-        if let Result::Err(mut tag_analysis_reports) =
-            tag_analysis(template_name, program_archive) {
-                errors.append(&mut tag_analysis_reports);
-            }
         if program_archive.get_template_data(template_name).is_custom_gate() {
             let body = program_archive.get_template_data(template_name).get_body();
             match custom_gate_analysis(template_name, body) {

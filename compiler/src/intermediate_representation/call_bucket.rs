@@ -497,8 +497,8 @@ impl WriteC for CallBucket {
                     AddressType::SubcmpSignal { uniform_parallel_value, input_information, .. } => {
                         // if subcomponent input check if run needed
 			let sub_cmp_counter_decrease = format!(
-			    "--{}->componentMemory[{}[{}]].inputCounter",
-			    CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref
+			    "{}->componentMemory[{}[{}]].inputCounter -= {}",
+			    CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref, &data.context.size
 			);
 			if let InputInformation::Input{status} = input_information {
 			    if let StatusInput::NoLast = status {

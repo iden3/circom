@@ -14,6 +14,7 @@ impl Statement {
             | Assert { meta, .. }
             | ConstraintEquality { meta, .. }
             | InitializationBlock { meta, .. } => meta,
+            | MultSubstitution { meta, ..} => meta,
         }
     }
     pub fn get_mut_meta(&mut self) -> &mut Meta {
@@ -29,6 +30,7 @@ impl Statement {
             | Assert { meta, .. }
             | ConstraintEquality { meta, .. }
             | InitializationBlock { meta, .. } => meta,
+            | MultSubstitution { meta, ..} => meta,
         }
     }
 
@@ -134,12 +136,17 @@ impl FillMeta for Statement {
             Substitution { meta, access, rhe, .. } => {
                 fill_substitution(meta, access, rhe, file_id, element_id)
             }
+            MultSubstitution { meta, lhe, rhe, .. }
+            => {
+                fill_mult_substitution(meta, lhe, rhe, file_id, element_id);
+            }
             ConstraintEquality { meta, lhe, rhe } => {
                 fill_constraint_equality(meta, lhe, rhe, file_id, element_id)
             }
             LogCall { meta, args, .. } => fill_log_call(meta, args, file_id, element_id),
             Block { meta, stmts, .. } => fill_block(meta, stmts, file_id, element_id),
             Assert { meta, arg, .. } => fill_assert(meta, arg, file_id, element_id),
+            
         }
     }
 }
@@ -215,6 +222,18 @@ fn fill_substitution(
             e.fill(file_id, element_id);
         }
     }
+}
+
+fn fill_mult_substitution(
+    meta: &mut Meta,
+    lhe: &mut Expression,
+    rhe: &mut Expression,
+    file_id: usize,
+    element_id: &mut usize,
+) {
+    meta.set_file_id(file_id);
+    rhe.fill(file_id, element_id);
+    lhe.fill(file_id,element_id);
 }
 
 fn fill_constraint_equality(

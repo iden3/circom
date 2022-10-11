@@ -87,6 +87,10 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(format!(" (local {} i32)", producer.get_lvar_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_expaux_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_temp_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_aux_0_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_aux_1_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_aux_2_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_counter_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_store_aux_1_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_store_aux_2_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_copy_counter_tag()));
@@ -309,8 +313,8 @@ impl TemplateCodeInfo {
                 "release_memory_component".to_string(), 
                 vec![CIRCOM_CALC_WIT.to_string(), "index_subc".to_string()]
             )));
+        
         run_body.push(format!("}}"));
-
         let run_fun = build_callable(run_header, run_params, run_body);
         vec![create_fun, run_fun]
     }

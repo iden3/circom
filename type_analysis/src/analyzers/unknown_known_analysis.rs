@@ -16,6 +16,7 @@ struct ExitInformation {
     reports: ReportCollection,
     environment: Environment,
     constraints_declared: bool,
+    tags_modified: bool,
     modified_variables: HashSet<String>,
 }
 
@@ -58,47 +59,56 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
         mut reports: ReportCollection,
         mut environment: Environment,
         file_id: FileID,
-    ) -> (bool, ReportCollection, Environment, HashSet<String>) {
+    ) -> (bool, bool, ReportCollection, Environment, HashSet<String>) {
         let mut constraints_declared = false;
+        let mut tags_modified = false;
         let mut modified_variables: HashSet<String> = HashSet::new();
         for stmt in stmts {
             let entry = EntryInformation { file_id, environment };
             let exit = analyze(stmt, entry);
             constraints_declared = constraints_declared || exit.constraints_declared;
+            tags_modified = tags_modified || exit.tags_modified;
             modified_variables.extend(exit.modified_variables);
             for report in exit.reports {
                 reports.push(report);
             }
             environment = exit.environment;
         }
-        (constraints_declared, reports, environment, modified_variables)
+        (constraints_declared, tags_modified, reports, environment, modified_variables)
     }
     let file_id = entry_information.file_id;
     let mut reports = ReportCollection::new();
     let mut environment = entry_information.environment;
     let mut modified_variables = HashSet::new();
     let mut constraints_declared = false;
+    let mut tags_modified = false;
     match stmt {
         Declaration { xtype, name, dimensions, .. } => {
             if let VariableType::Signal(..) = xtype {
                 environment.add_intermediate(name, Unknown);
             } else if let VariableType::Component = xtype {
                 environment.add_component(name, Unknown);
+            } else if let VariableType::AnonymousComponent = xtype {
+                environment.add_component(name, Unknown);
             } else {
                 environment.add_variable(name, Unknown);
                 modified_variables.insert(name.clone());
             }
-
-            for dimension in dimensions {
-                if tag(dimension, &environment) == Unknown {
-                    add_report(
-                        ReportCode::UnknownDimension,
-                        dimension.get_meta(),
-                        file_id,
-                        &mut reports,
-                    );
+            if let VariableType::AnonymousComponent = xtype {
+                // in this case the dimension is ukn
+            } else{
+                for dimension in dimensions {
+                    if tag(dimension, &environment) == Unknown {
+                        add_report(
+                                ReportCode::UnknownDimension,
+                                dimension.get_meta(),
+                                file_id,
+                                &mut reports,
+                            );
+                        }
                 }
             }
+        
         }
         Substitution { meta, var, access, op, rhe, .. } => {
             let simplified_elem = simplify_symbol(&environment, var, access);
@@ -124,6 +134,14 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                 if access_tag == Unknown {
                     add_report(ReportCode::UnknownTemplate, meta, file_id, &mut reports);
                 }
+            } else if simplified_elem == SignalTag {
+                tags_modified = true;
+                if expression_tag == Unknown {
+                    add_report(ReportCode::UnknownTemplate, rhe.get_meta(), file_id, &mut reports);
+                }
+                if access_tag == Unknown {
+                    add_report(ReportCode::UnknownTemplate, meta, file_id, &mut reports);
+                }   
             } else if *op == AssignOp::AssignConstraintSignal {
                 constraints_declared = true;
                 if is_non_quadratic(rhe, &environment) {
@@ -157,10 +175,12 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     environment: new_entry_else_case.environment,
                     reports: ReportCollection::with_capacity(0),
                     modified_variables : HashSet::new(),
+                    tags_modified : false
                 }
             };
             constraints_declared =
                 else_case_info.constraints_declared || if_case_info.constraints_declared;
+            tags_modified = else_case_info.tags_modified || if_case_info.tags_modified;
             modified_variables.extend(if_case_info.modified_variables);
             modified_variables.extend(else_case_info.modified_variables);
             for report in if_case_info.reports {
@@ -190,6 +210,14 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     &mut reports,
                 );
             }
+            if tag_cond == Unknown && tags_modified {
+                add_report(
+                    ReportCode::UnreachableTags,
+                    cond.get_meta(),
+                    file_id,
+                    &mut reports,
+                );
+            }
         }
         While { cond, stmt, .. } => {
             let mut entry_info = environment.clone();
@@ -206,6 +234,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             };
 
             constraints_declared = exit.constraints_declared;
+            tags_modified = exit.tags_modified;
             for report in exit.reports {
                 reports.push(report);
             }
@@ -228,26 +257,36 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     &mut reports,
                 );
             }
+            if tag_out == Unknown && tags_modified {
+                add_report(
+                    ReportCode::UnreachableTags,
+                    cond.get_meta(),
+                    file_id,
+                    &mut reports,
+                );
+            }
         }
         Block { stmts, .. } => {
             environment.add_variable_block();
-            let (nc, nr, ne, nm) = iterate_statements(stmts, reports, environment, file_id);
+            let (nc, tags, nr, ne, nm) = iterate_statements(stmts, reports, environment, file_id);
             constraints_declared = nc;
             reports = nr;
             environment = ne;
             modified_variables = nm;
             environment.remove_variable_block();
+            tags_modified = tags;
         }
         InitializationBlock { initializations, .. } => {
-            let (nc, nr, ne, nm) = iterate_statements(initializations, reports, environment, file_id);
+            let (nc, tags, nr, ne, nm) = iterate_statements(initializations, reports, environment, file_id);
             constraints_declared = nc;
             reports = nr;
             environment = ne;
             modified_variables = nm;
+            tags_modified = tags;
         }
         _ => {}
     }
-    ExitInformation { reports, environment, constraints_declared, modified_variables }
+    ExitInformation { reports, environment, constraints_declared, modified_variables, tags_modified }
 }
 
 fn tag(expression: &Expression, environment: &Environment) -> Tag {
@@ -261,7 +300,11 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
             } else if environment.has_component(name) {
                 *environment.get_component_or_break(name, file!(), line!())
             } else {
+                if environment.has_intermediate(name) && !all_array_are_accesses(access) {
+                    Known /* In this case, it is a tag. */
+                } else{
                 *environment.get_intermediate_or_break(name, file!(), line!())
+                }
             };
             let mut index = 0;
             loop {
@@ -273,7 +316,7 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
                 }
                 if let Access::ArrayAccess(exp) = &access[index] {
                     symbol_tag = tag(exp, environment);
-                } else {
+                } else if !environment.has_intermediate(name) {
                     symbol_tag = Unknown;
                 }
                 index += 1;
@@ -300,6 +343,7 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
         }
         PrefixOp { rhe, .. } => tag(rhe, environment),
         ParallelOp { rhe, .. } => tag(rhe, environment),
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
 // ***************************** Compare two variable states ********************
@@ -323,6 +367,19 @@ fn check_modified(
         }
     }
     modified
+}
+
+fn all_array_are_accesses(accesses: &[Access]) -> bool {
+    let mut i = 0;
+    let mut all_array_accesses = true; 
+    while i < accesses.len() && all_array_accesses {
+        let aux = accesses.get(i).unwrap();
+        if let Access::ComponentAccess(_) = aux {
+            all_array_accesses = false;
+        }
+        i = i + 1;
+    }
+    all_array_accesses
 }
 
 // ****************************** Expression utils ******************************
@@ -351,13 +408,20 @@ enum Symbol {
     Signal,
     Component,
     Variable,
+    SignalTag
 }
 fn simplify_symbol(environment: &Environment, name: &str, access: &[Access]) -> Symbol {
     use Symbol::*;
     if environment.has_variable(name) {
         Variable
     } else if environment.has_signal(name) {
-        Signal
+        let mut symbol = Signal;
+        for acc in access {
+            if let Access::ComponentAccess(_) = acc {
+                symbol = SignalTag;
+            }
+        }
+        symbol
     } else {
         let mut symbol = Component;
         for acc in access {
@@ -407,6 +471,7 @@ fn unknown_index(exp: &Expression, environment: &Environment) -> bool {
             (false, bucket)
         }
         UniformArray{ value, dimension, .. } => (false, vec![value.as_ref(), dimension.as_ref()]),
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     };
     let mut has_unknown_index = init;
     let mut index = 0;
@@ -434,6 +499,7 @@ fn add_report(
         UnknownTemplate => "Every component instantiation must be resolved during the constraint generation phase".to_string(),
         NonQuadratic => "Non-quadratic constraint was detected statically, using unknown index will cause the constraint to be non-quadratic".to_string(),
         UnreachableConstraints => "There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
+        UnreachableTags => "There are tag assignments depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
         _ => panic!("Unimplemented error code")
     };
     report.add_primary(location, file_id, message);

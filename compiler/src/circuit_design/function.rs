@@ -42,6 +42,10 @@ impl WriteWasm for FunctionCodeInfo {
         instructions.push(format!("(local {} i32)", producer.get_lvar_tag()));
         instructions.push(format!("(local {} i32)", producer.get_expaux_tag()));
         instructions.push(format!("(local {} i32)", producer.get_temp_tag()));
+        instructions.push(format!("(local {} i32)", producer.get_aux_0_tag()));
+        instructions.push(format!("(local {} i32)", producer.get_aux_1_tag()));
+        instructions.push(format!("(local {} i32)", producer.get_aux_2_tag()));
+        instructions.push(format!("(local {} i32)", producer.get_counter_tag()));
         instructions.push(format!("(local {} i32)", producer.get_store_aux_1_tag()));
         instructions.push(format!("(local {} i32)", producer.get_store_aux_2_tag()));
         instructions.push(format!("(local {} i32)", producer.get_copy_counter_tag()));

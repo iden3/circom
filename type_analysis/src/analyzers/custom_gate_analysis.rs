@@ -47,7 +47,7 @@ pub fn custom_gate_analysis(
                         );
                         warnings.push(warning);
                     }
-                    Component => {
+                    Component | AnonymousComponent => {
                         let mut error = Report::error(
                             String::from("Component inside custom template"),
                             ReportCode::CustomGateSubComponentError

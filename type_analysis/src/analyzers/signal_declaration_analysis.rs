@@ -41,7 +41,7 @@ fn treat_statement(
             }
         }
         InitializationBlock { meta, xtype, .. } => match xtype {
-            VariableType::Signal(_, _) | VariableType::Component => {
+            VariableType::Signal(_, _) | VariableType::Component | VariableType::AnonymousComponent => {
                 if !signal_declaration_allowed {
                     let mut report = Report::error(
                         "Signal or component declaration outside initial scope".to_string(),

@@ -729,12 +729,14 @@ pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageLi
 pub fn generate_function_release_memory_component() -> Vec<String>{
     let mut instructions = vec![];
     instructions.push("void release_memory_component(Circom_CalcWit* ctx, uint pos) {{\n".to_string());
+    instructions.push("if (pos != 0){{\n".to_string());
     instructions.push("delete ctx->componentMemory[pos].subcomponents;\n".to_string());
     instructions.push("delete ctx->componentMemory[pos].subcomponentsParallel;\n".to_string());
     instructions.push("delete ctx->componentMemory[pos].outputIsSet;\n".to_string());
     instructions.push("delete ctx->componentMemory[pos].mutexes;\n".to_string());
     instructions.push("delete ctx->componentMemory[pos].cvs;\n".to_string());
     instructions.push("delete ctx->componentMemory[pos].sbct;\n".to_string());
+    instructions.push("}}\n\n".to_string());
     instructions.push("}}\n\n".to_string());
     instructions
 }

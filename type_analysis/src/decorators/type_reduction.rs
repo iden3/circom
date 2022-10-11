@@ -29,7 +29,7 @@ fn reduce_types_in_statement(stmt: &mut Statement, environment: &mut Environment
             reduce_types_in_substitution(var, access, environment, rhe, meta)
         }
         Declaration { name, xtype, dimensions, .. } => {
-            reduce_types_in_declaration(*xtype, name, dimensions, environment)
+            reduce_types_in_declaration(xtype, name, dimensions, environment)
         }
         While { cond, stmt, .. } => reduce_types_in_while(cond, stmt, environment),
         Block { stmts, .. } => reduce_types_in_vec_of_statements(stmts, environment),
@@ -48,6 +48,7 @@ fn reduce_types_in_statement(stmt: &mut Statement, environment: &mut Environment
         ConstraintEquality { lhe, rhe, .. } => {
             reduce_types_in_constraint_equality(lhe, rhe, environment)
         }
+        MultSubstitution { .. } => unreachable!()
     }
 }
 
@@ -78,6 +79,7 @@ fn reduce_types_in_expression(expression: &mut Expression, environment: &Environ
             reduce_types_in_expression(dimension, environment);
         }
         Number(..) => {}
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
 
@@ -91,15 +93,15 @@ fn reduce_types_in_constraint_equality(
 }
 
 fn reduce_types_in_declaration(
-    xtype: VariableType,
+    xtype: &VariableType,
     name: &str,
     dimensions: &mut [Expression],
     environment: &mut Environment,
 ) {
     use VariableType::*;
-    if xtype == Var {
+    if *xtype == Var {
         environment.add_variable(name, ());
-    } else if xtype == Component {
+    } else if *xtype == Component || *xtype == AnonymousComponent {
         environment.add_component(name, ());
     } else {
         environment.add_intermediate(name, ());
@@ -165,6 +167,8 @@ fn reduce_types_in_variable(
     for acc in access {
         if let ArrayAccess(exp) = acc {
             reduce_types_in_expression(exp, environment)
+        } else if reduction == Signal{
+            reduction = Tag;
         } else {
             reduction = Signal;
         }
