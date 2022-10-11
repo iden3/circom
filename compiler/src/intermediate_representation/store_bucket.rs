@@ -53,6 +53,9 @@ impl WriteWasm for StoreBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
+        if self.context.size == 0 {
+            return vec![];
+        }
         if producer.needs_comments() {
 	    instructions.push(format!(";; store bucket. Line {}", self.line)); //.to_string()
 	}
@@ -403,8 +406,8 @@ impl WriteC for StoreBucket {
             AddressType::SubcmpSignal{ uniform_parallel_value, input_information, .. } => {
                 // if subcomponent input check if run needed
                 let sub_cmp_counter_decrease = format!(
-                    "--{}->componentMemory[{}[{}]].inputCounter",
-                    CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref
+                    "{}->componentMemory[{}[{}]].inputCounter -= {}",
+                    CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref, self.context.size
                 );
 		if let InputInformation::Input{status} = input_information {
 		    if let StatusInput::NoLast = status {

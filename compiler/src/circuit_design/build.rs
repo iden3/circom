@@ -97,6 +97,7 @@ fn build_template_instances(
             components: template.components,
             template_database: &c_info.template_database,
             string_table : string_table,
+            signals_to_tags: template.signals_to_tags,
         };
         let mut template_info = TemplateCodeInfo {
             name,
@@ -159,7 +160,8 @@ fn build_function_instances(
             cmp_to_type: HashMap::with_capacity(0),
             component_to_parallel: HashMap::with_capacity(0),
             template_database: &c_info.template_database,
-            string_table : string_table
+            string_table : string_table,
+            signals_to_tags: BTreeMap::new(),
         };
         let mut function_info = FunctionCodeInfo {
             name,

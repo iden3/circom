@@ -27,6 +27,7 @@ fn analyse_statement(
     use Statement::*;
     let file_id = stmt.get_meta().get_file_id();
     match stmt {
+        MultSubstitution { .. } => unreachable!(),
         IfThenElse { cond, if_case, else_case, .. } => {
             analyse_expression(cond, function_names, reports);
             analyse_statement(if_case, function_names, reports);
@@ -191,5 +192,6 @@ fn analyse_expression(
 
 
         }
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }

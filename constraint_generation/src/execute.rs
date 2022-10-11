@@ -6,20 +6,21 @@ use super::environment_utils::{
     },
     slice_types::{
         AExpressionSlice, ArithmeticExpression as ArithmeticExpressionGen, ComponentRepresentation,
-        ComponentSlice, MemoryError, MemorySlice, SignalSlice, SliceCapacity,
+        ComponentSlice, MemoryError, MemorySlice, SignalSlice, SliceCapacity, TagInfo
     },
 };
 
 use program_structure::constants::UsefulConstants;
 
 use super::execution_data::analysis::Analysis;
-use super::execution_data::{ExecutedProgram, ExecutedTemplate, NodePointer};
+use super::execution_data::{ExecutedProgram, ExecutedTemplate, PreExecutedTemplate, NodePointer};
 use super::{
     ast::*, ArithmeticError, FileID, ProgramArchive, Report, ReportCode, ReportCollection
 };
 use circom_algebra::num_bigint::BigInt;
-use std::collections::BTreeMap;
+use std::collections::{HashMap, BTreeMap};
 type AExpr = ArithmeticExpressionGen<String>;
+type AnonymousComponentsInfo = BTreeMap<String, (Meta, Vec<Expression>)>;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 enum BlockType {
@@ -37,6 +38,7 @@ struct RuntimeInformation {
     pub runtime_errors: ReportCollection,
     pub environment: ExecutionEnvironment,
     pub exec_program: ExecutedProgram,
+    pub anonymous_components: AnonymousComponentsInfo,
 }
 impl RuntimeInformation {
     pub fn new(current_file: FileID, id_max: usize, prime: &String) -> RuntimeInformation {
@@ -50,6 +52,7 @@ impl RuntimeInformation {
             runtime_errors: ReportCollection::new(),
             environment: ExecutionEnvironment::new(),
             exec_program: ExecutedProgram::new(prime),
+            anonymous_components: AnonymousComponentsInfo::new(),
         }
     }
 }
@@ -58,6 +61,7 @@ struct FoldedValue {
     pub arithmetic_slice: Option<AExpressionSlice>,
     pub node_pointer: Option<NodePointer>,
     pub is_parallel: Option<bool>,
+    pub tags: Option<TagInfo>,
 }
 impl FoldedValue {
     pub fn valid_arithmetic_slice(f_value: &FoldedValue) -> bool {
@@ -70,7 +74,7 @@ impl FoldedValue {
 
 impl Default for FoldedValue {
     fn default() -> Self {
-        FoldedValue { arithmetic_slice: Option::None, node_pointer: Option::None, is_parallel: Option::None }
+        FoldedValue { arithmetic_slice: Option::None, node_pointer: Option::None, is_parallel: Option::None, tags: Option::None }
     }
 }
 
@@ -87,15 +91,35 @@ enum ExecutionWarning {
 pub fn constraint_execution(
     program_archive: &ProgramArchive,
     flag_verbose: bool, 
-    prime: &String,) -> Result<(ExecutedProgram, ReportCollection), ReportCollection> {    let main_file_id = program_archive.get_file_id_main();
+    prime: &String,
+) -> Result<(ExecutedProgram, ReportCollection), ReportCollection> {    
+    let main_file_id = program_archive.get_file_id_main();
     let mut runtime_information = RuntimeInformation::new(*main_file_id, program_archive.id_max, prime);
+    use Expression::Call;
+
     runtime_information.public_inputs = program_archive.get_public_inputs_main_component().clone();
-    let folded_value_result = execute_expression(
-        program_archive.get_main_expression(),
-        program_archive,
-        &mut runtime_information,
-        flag_verbose
-    );
+    
+    let folded_value_result = 
+        if let Call { id, args, .. } = &program_archive.get_main_expression() {
+            let mut arg_values = Vec::new();
+            for arg_expression in args.iter() {
+                let f_arg = execute_expression(arg_expression, program_archive, &mut runtime_information, flag_verbose);
+                arg_values.push(safe_unwrap_to_arithmetic_slice(f_arg.unwrap(), line!()));
+                // improve
+            }
+            execute_template_call_complete(
+                id,
+                arg_values,
+                BTreeMap::new(),
+                program_archive,
+                &mut runtime_information,
+                flag_verbose,
+            )
+        } else {
+            unreachable!("The main expression should be a call."); 
+        };
+    
+    
     match folded_value_result {
         Result::Err(_) => Result::Err(runtime_information.runtime_errors),
         Result::Ok(folded_value) => {
@@ -142,61 +166,82 @@ fn execute_statement(
     let id = stmt.get_meta().elem_id;
     Analysis::reached(&mut runtime.analysis, id);
     let res = match stmt {
+        MultSubstitution { .. } => unreachable!(),
         InitializationBlock { initializations, .. } => {
             let possible_fold = execute_sequence_of_statements(
                 initializations,
                 program_archive,
                 runtime,
                 actual_node,
-                flag_verbose
+                flag_verbose, 
+                false
             )?;
             debug_assert!(possible_fold.is_none());
             possible_fold
         }
         Declaration { meta, xtype, name, dimensions, .. } => {
-            let mut arithmetic_values = Vec::new();
-            for dimension in dimensions.iter() {
-                let f_dimensions = execute_expression(dimension, program_archive, runtime, flag_verbose)?;
-                arithmetic_values
-                    .push(safe_unwrap_to_single_arithmetic_expression(f_dimensions, line!()));
-            }
-            treat_result_with_memory_error_void(
-                valid_array_declaration(&arithmetic_values),
-                meta,
-                &mut runtime.runtime_errors,
-                &runtime.call_trace,
-            )?;
-            let usable_dimensions =
-                if let Option::Some(dimensions) = cast_indexing(&arithmetic_values) {
-                    dimensions
-                } else {
-                    let err = Result::Err(ExecutionError::ArraySizeTooBig);
-                    treat_result_with_execution_error(
-                        err,
+            match xtype {
+                VariableType::AnonymousComponent => {
+                    execute_anonymous_component_declaration(
+                        name,
+                        meta.clone(),
+                        &dimensions,
+                        &mut runtime.environment,
+                        &mut runtime.anonymous_components,
+                    );
+                }
+                _ => {
+                    let mut arithmetic_values = Vec::new();
+                    for dimension in dimensions.iter() {
+                        let f_dimensions = 
+                            execute_expression(dimension, program_archive, runtime, flag_verbose)?;
+                        arithmetic_values
+                            .push(safe_unwrap_to_single_arithmetic_expression(f_dimensions, line!()));
+                    }
+                    treat_result_with_memory_error_void(
+                        valid_array_declaration(&arithmetic_values),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
-                    )?
-                };
-            match xtype {
-                VariableType::Component => execute_component_declaration(
-                    name,
-                    &usable_dimensions,
-                    &mut runtime.environment,
-                    actual_node,
-                ),
-                VariableType::Var => environment_shortcut_add_variable(
-                    &mut runtime.environment,
-                    name,
-                    &usable_dimensions,
-                ),
-                VariableType::Signal(signal_type, _) => execute_signal_declaration(
-                    name,
-                    &usable_dimensions,
-                    *signal_type,
-                    &mut runtime.environment,
-                    actual_node,
-                ),
+                    )?;
+                    let usable_dimensions =
+                        if let Option::Some(dimensions) = cast_indexing(&arithmetic_values) {
+                            dimensions
+                        } else {
+                            let err = Result::Err(ExecutionError::ArraySizeTooBig);
+                            treat_result_with_execution_error(
+                                err,
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?
+                        };
+                    match xtype {
+                        VariableType::Component => execute_component_declaration(
+                            name,
+                            &usable_dimensions,
+                            &mut runtime.environment,
+                            actual_node,
+                        ),
+                        VariableType::Var => environment_shortcut_add_variable(
+                            &mut runtime.environment,
+                            name,
+                            &usable_dimensions,
+                        ),
+                        VariableType::Signal(signal_type, tag_list) => execute_signal_declaration(
+                            name,
+                            &usable_dimensions,
+                            tag_list,
+                            *signal_type,
+                            &mut runtime.environment,
+                            actual_node,
+                        ),
+                        _ =>{
+                            unreachable!()
+                        }
+                    }
+
+                }
             }
             Option::None
         }
@@ -204,39 +249,60 @@ fn execute_statement(
             let access_information = treat_accessing(meta, access, program_archive, runtime, flag_verbose)?;
             let r_folded = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
             let possible_constraint =
-                perform_assign(meta, var, &access_information, r_folded, actual_node, runtime)?;
-            if let Option::Some(node) = actual_node {
-                if let AssignOp::AssignConstraintSignal = op {
+                perform_assign(meta, var, *op, &access_information, r_folded, actual_node, runtime, program_archive, flag_verbose)?;
+            if let (Option::Some(node), AssignOp::AssignConstraintSignal) = (actual_node, op) {
                     debug_assert!(possible_constraint.is_some());
                     let constrained = possible_constraint.unwrap();
-                    if constrained.right.is_nonquadratic() {
-                        let err = Result::Err(ExecutionError::NonQuadraticConstraint);
-                        treat_result_with_execution_error(
-                            err,
+                    for i in 0..AExpressionSlice::get_number_of_cells(&constrained.right){
+                        let value_right = treat_result_with_memory_error(
+                            AExpressionSlice::access_value_by_index(&constrained.right, i),
                             meta,
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
                         )?;
-                    } else {
-                        let p = runtime.constants.get_p().clone();
-                        let symbol = AExpr::Signal { symbol: constrained.left };
-                        let expr = AExpr::sub(&symbol, &constrained.right, &p);
-                        let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
-                        node.add_constraint(ctr);
+
+                        if let AssignOp::AssignConstraintSignal = op {
+                                        let access_left = treat_result_with_memory_error(
+                                AExpressionSlice::get_access_index(&constrained.right, i),
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
+                            
+                            let full_symbol = format!("{}{}", 
+                                constrained.left, 
+                                create_index_appendix(&access_left),
+                            );
+
+                            if value_right.is_nonquadratic() {
+                                let err = Result::Err(ExecutionError::NonQuadraticConstraint);
+                                treat_result_with_execution_error(
+                                    err,
+                                    meta,
+                                    &mut runtime.runtime_errors,
+                                    &runtime.call_trace,
+                                )?;
+                            } else {
+                                let p = runtime.constants.get_p().clone();
+                                let symbol = AExpr::Signal { symbol: full_symbol };
+                                let expr = AExpr::sub(&symbol, &value_right, &p);
+                                let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
+                                node.add_constraint(ctr);
+                            }
+                        }
+                        else if let AssignOp::AssignSignal = op {
+                            //debug_assert!(possible_constraint.is_some());
+                            if !value_right.is_nonquadratic() && !node.is_custom_gate {
+                                let err : Result<(),ExecutionWarning> = Result::Err(ExecutionWarning::CanBeQuadraticConstraint);
+                                treat_result_with_execution_warning(
+                                    err,
+                                    meta,
+                                    &mut runtime.runtime_errors,
+                                    &runtime.call_trace,
+                                )?;
+                            }
+                        }
                     }
-                } else if let AssignOp::AssignSignal = op {
-                    debug_assert!(possible_constraint.is_some());
-                    let constrained = possible_constraint.unwrap();
-                    if !constrained.right.is_nonquadratic() && !node.is_custom_gate {
-                        let err : Result<(),ExecutionWarning> = Result::Err(ExecutionWarning::CanBeQuadraticConstraint);
-                        treat_result_with_execution_warning(
-                            err,
-                            meta,
-                            &mut runtime.runtime_errors,
-                            &runtime.call_trace,
-                        )?;
-                    }
-                }
             }
             Option::None
         }
@@ -244,26 +310,52 @@ fn execute_statement(
             debug_assert!(actual_node.is_some());
             let f_left = execute_expression(lhe, program_archive, runtime, flag_verbose)?;
             let f_right = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
-            let arith_left = safe_unwrap_to_single_arithmetic_expression(f_left, line!());
-            let arith_right = safe_unwrap_to_single_arithmetic_expression(f_right, line!());
-            let possible_non_quadratic =
-                AExpr::sub(&arith_left, &arith_right, &runtime.constants.get_p());
-            if possible_non_quadratic.is_nonquadratic() {
-                treat_result_with_execution_error(
-                    Result::Err(ExecutionError::NonQuadraticConstraint),
+            let arith_left = safe_unwrap_to_arithmetic_slice(f_left, line!());
+            let arith_right = safe_unwrap_to_arithmetic_slice(f_right, line!());
+
+            let correct_dims_result = AExpressionSlice::check_correct_dims(&arith_left, &Vec::new(), &arith_right, true);
+            treat_result_with_memory_error_void(
+                correct_dims_result,
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            for i in 0..AExpressionSlice::get_number_of_cells(&arith_left){
+                let value_left = treat_result_with_memory_error(
+                    AExpressionSlice::access_value_by_index(&arith_left, i),
                     meta,
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?;
-            }
-            let quadratic_expression = possible_non_quadratic;
-            let constraint_expression = AExpr::transform_expression_to_constraint_form(
-                quadratic_expression,
-                runtime.constants.get_p(),
-            )
-            .unwrap();
-            if let Option::Some(node) = actual_node {
-                node.add_constraint(constraint_expression);
+                let value_right = treat_result_with_memory_error(
+                    AExpressionSlice::access_value_by_index(&arith_right, i),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                let possible_non_quadratic =
+                    AExpr::sub(
+                        &value_left, 
+                        &value_right, 
+                        &runtime.constants.get_p()
+                    );
+                if possible_non_quadratic.is_nonquadratic() {
+                    treat_result_with_execution_error(
+                        Result::Err(ExecutionError::NonQuadraticConstraint),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                }
+                let quadratic_expression = possible_non_quadratic;
+                let constraint_expression = AExpr::transform_expression_to_constraint_form(
+                    quadratic_expression,
+                    runtime.constants.get_p(),
+                )
+                .unwrap();
+                if let Option::Some(node) = actual_node {
+                    node.add_constraint(constraint_expression);
+                }    
             }
             Option::None
         }
@@ -320,7 +412,7 @@ fn execute_statement(
         Block { stmts, .. } => {
             ExecutionEnvironment::add_variable_block(&mut runtime.environment);
             let return_value =
-                execute_sequence_of_statements(stmts, program_archive, runtime, actual_node, flag_verbose)?;
+                execute_sequence_of_statements(stmts, program_archive, runtime, actual_node, flag_verbose, false)?;
             ExecutionEnvironment::remove_variable_block(&mut runtime.environment);
             return_value
         }
@@ -413,6 +505,7 @@ fn execute_expression(
                     &mut array_slice,
                     &[row],
                     &arithmetic_slice_array[row],
+                    false
                 );
                 treat_result_with_memory_error_void(
                     memory_insert_result,
@@ -448,6 +541,7 @@ fn execute_expression(
                     &mut array_slice,
                     &[row],
                     &slice_value,
+                    false
                 );
                 treat_result_with_memory_error_void(
                     memory_insert_result,
@@ -493,33 +587,7 @@ fn execute_expression(
             }
         }
         Call { id, args, .. } => {
-            let mut arg_values = Vec::new();
-            for arg_expression in args.iter() {
-                let f_arg = execute_expression(arg_expression, program_archive, runtime, flag_verbose)?;
-                arg_values.push(safe_unwrap_to_arithmetic_slice(f_arg, line!()));
-            }
-            let new_environment = prepare_environment_for_call(id, &arg_values, program_archive);
-            let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
-            let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
-
-            let new_file_id = if program_archive.contains_function(id) {
-                program_archive.get_function_data(id).get_file_id()
-            } else {
-                program_archive.get_template_data(id).get_file_id()
-            };
-            let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
-
-            runtime.call_trace.push(id.clone());
-            let folded_result = if program_archive.contains_function(id) {
-                execute_function_call(id, program_archive, runtime, flag_verbose)?
-            } else {
-                execute_template_call(id, &arg_values, program_archive, runtime, flag_verbose)?
-            };
-            runtime.environment = previous_environment;
-            runtime.current_file = previous_id;
-            runtime.block_type = previous_block_type;
-            runtime.call_trace.pop();
-            folded_result
+            execute_call(id, args, program_archive, runtime, flag_verbose)?
         }
         ParallelOp{rhe, ..} => {
             let folded_value = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
@@ -527,6 +595,7 @@ fn execute_expression(
                 safe_unwrap_to_valid_node_pointer(folded_value, line!());
             FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(true), ..FoldedValue::default() }
         }
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     };
     let expr_id = expr.get_meta().elem_id;
     let res_p = res.arithmetic_slice.clone();
@@ -539,7 +608,75 @@ fn execute_expression(
     Result::Ok(res)
 }
 
+
 //************************************************* Statement execution support *************************************************
+
+fn execute_call(
+    id: &String,
+    args: &Vec<Expression>,
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+    flag_verbose: bool,
+) -> Result<FoldedValue, ()> {
+    let mut arg_values = Vec::new();
+    for arg_expression in args.iter() {
+        let f_arg = execute_expression(arg_expression, program_archive, runtime, flag_verbose)?;
+        arg_values.push(safe_unwrap_to_arithmetic_slice(f_arg, line!()));
+    }
+    if program_archive.contains_function(id){ // in this case we execute
+        let new_environment = prepare_environment_for_call(id, &arg_values, program_archive);
+        let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
+        let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
+        let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
+
+        let new_file_id = program_archive.get_function_data(id).get_file_id();
+        let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
+
+        runtime.call_trace.push(id.clone());
+        let folded_result = execute_function_call(id, program_archive, runtime, flag_verbose)?;
+
+        runtime.environment = previous_environment;
+        runtime.current_file = previous_id;
+        runtime.block_type = previous_block_type;
+        runtime.anonymous_components = previous_anonymous_components;
+        runtime.call_trace.pop();
+        Ok(folded_result)
+    } else { // in this case we preexecute and check if it needs tags
+        let folded_result = preexecute_template_call(id, &arg_values, program_archive, runtime)?;
+        Ok(folded_result)
+    }
+}
+
+fn execute_template_call_complete(
+    id: &String,
+    arg_values: Vec<AExpressionSlice>,
+    tags: BTreeMap<String, TagInfo>,
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+    flag_verbose: bool,
+) -> Result<FoldedValue, ()> {
+    if program_archive.contains_template(id){ // in this case we execute
+        let new_environment = prepare_environment_for_call(id, &arg_values, program_archive);
+        let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
+        let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
+        let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
+
+        let new_file_id = program_archive.get_template_data(id).get_file_id();
+        let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
+
+        runtime.call_trace.push(id.clone());
+        let folded_result = execute_template_call(id, arg_values, tags, program_archive, runtime, flag_verbose)?;
+
+        runtime.environment = previous_environment;
+        runtime.current_file = previous_id;
+        runtime.block_type = previous_block_type;
+        runtime.anonymous_components = previous_anonymous_components;
+        runtime.call_trace.pop();
+        Ok(folded_result)
+    } else { 
+       unreachable!();
+    }
+}
 
 fn execute_component_declaration(
     component_name: &str,
@@ -555,27 +692,47 @@ fn execute_component_declaration(
     }
 }
 
+fn execute_anonymous_component_declaration(
+    component_name: &str,
+    meta: Meta,
+    dimensions: &Vec<Expression>,
+    environment: &mut ExecutionEnvironment,
+    anonymous_components: &mut AnonymousComponentsInfo,
+) {
+    environment_shortcut_add_component(environment, component_name, &Vec::new());
+    anonymous_components.insert(component_name.to_string(), (meta, dimensions.clone()));
+}
+
 fn execute_signal_declaration(
     signal_name: &str,
     dimensions: &[SliceCapacity],
+    list_tags: &Vec<String>,
     signal_type: SignalType,
     environment: &mut ExecutionEnvironment,
     actual_node: &mut Option<ExecutedTemplate>,
 ) {
     use SignalType::*;
+    let mut tags = TagInfo::new();
+    for t in list_tags{
+        tags.insert(t.clone(), None);
+    } 
     if let Option::Some(node) = actual_node {
         node.add_ordered_signal(signal_name, dimensions);
         match signal_type {
             Input => {
-                environment_shortcut_add_input(environment, signal_name, dimensions);
+                if let Some(tags_input) = node.tag_instances().get(signal_name){
+                    environment_shortcut_add_input(environment, signal_name, dimensions, &tags_input);
+                } else{
+                    environment_shortcut_add_input(environment, signal_name, dimensions, &tags);
+                }
                 node.add_input(signal_name, dimensions);
             }
             Output => {
-                environment_shortcut_add_output(environment, signal_name, dimensions);
+                environment_shortcut_add_output(environment, signal_name, dimensions, &tags);
                 node.add_output(signal_name, dimensions);
             }
             Intermediate => {
-                environment_shortcut_add_intermediate(environment, signal_name, dimensions);
+                environment_shortcut_add_intermediate(environment, signal_name, dimensions, &tags);
                 node.add_intermediate(signal_name, dimensions);
             }
         }
@@ -590,51 +747,62 @@ fn execute_signal_declaration(
 */
 struct Constrained {
     left: String,
-    right: AExpr,
+    right: AExpressionSlice,
 }
 fn perform_assign(
     meta: &Meta,
     symbol: &str,
+    op: AssignOp,
     accessing_information: &AccessingInformation,
     r_folded: FoldedValue,
     actual_node: &mut Option<ExecutedTemplate>,
     runtime: &mut RuntimeInformation,
+    program_archive: &ProgramArchive,
+    flag_verbose: bool
 ) -> Result<Option<Constrained>, ()> {
     use super::execution_data::type_definitions::SubComponentData;
-    let environment = &mut runtime.environment;
     let full_symbol = create_symbol(symbol, &accessing_information);
 
-    let possible_arithmetic_expression = if ExecutionEnvironment::has_variable(environment, symbol)
+    let possible_arithmetic_slice = if ExecutionEnvironment::has_variable(&runtime.environment, symbol)
     {
         debug_assert!(accessing_information.signal_access.is_none());
         debug_assert!(accessing_information.after_signal.is_empty());
-        let environment_result = ExecutionEnvironment::get_mut_variable_mut(environment, symbol);
-        let symbol_content = treat_result_with_environment_error(
+        let environment_result = ExecutionEnvironment::get_mut_variable_mut(&mut runtime.environment, symbol);
+        let (symbol_tags, symbol_content) = treat_result_with_environment_error(
             environment_result,
             meta,
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
+        let mut r_tags = if r_folded.tags.is_some(){
+            r_folded.tags.as_ref().unwrap().clone()
+        } else{
+            TagInfo::new()
+        };
         let mut r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
         if runtime.block_type == BlockType::Unknown {
             r_slice = AExpressionSlice::new_with_route(r_slice.route(), &AExpr::NonQuadratic);
+            r_tags = TagInfo::new();
         }
         if accessing_information.undefined {
             let new_value =
                 AExpressionSlice::new_with_route(symbol_content.route(), &AExpr::NonQuadratic);
             let memory_result =
-                AExpressionSlice::insert_values(symbol_content, &vec![], &new_value);
+                AExpressionSlice::insert_values(symbol_content, &vec![], &new_value, false);
             treat_result_with_memory_error_void(
                 memory_result,
                 meta,
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
             )?;
+            *symbol_tags = TagInfo::new();
         } else {
+
             let memory_result = AExpressionSlice::insert_values(
                 symbol_content,
                 &accessing_information.before_signal,
                 &r_slice,
+                false
             );
             treat_result_with_memory_error_void(
                 memory_result,
@@ -642,14 +810,85 @@ fn perform_assign(
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
             )?;
+            // in case it is a complete assignment assign the tags, if not set the tags to empty
+            if AExpressionSlice::get_number_of_cells(symbol_content) == AExpressionSlice::get_number_of_cells(&r_slice){
+                *symbol_tags = r_tags;
+            } else {
+                *symbol_tags = TagInfo::new();
+            }
         }
         Option::None
-    } else if ExecutionEnvironment::has_signal(environment, symbol) {
+    } else if ExecutionEnvironment::has_signal(&runtime.environment, symbol) && 
+                    accessing_information.signal_access.is_some() {
+        if ExecutionEnvironment::has_input(&runtime.environment, symbol) {
+            treat_result_with_memory_error(
+                Result::Err(MemoryError::AssignmentTagInput),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?
+        }
+        let tag = accessing_information.signal_access.clone().unwrap();
+        let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
+        let (reference_to_tags, reference_to_signal_content) = treat_result_with_environment_error(
+                environment_response,
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+        )?;
+        let memory_response_for_signal_previous_value = SignalSlice::access_values(
+                reference_to_signal_content,
+                &accessing_information.before_signal,
+        );
+        let signal_previous_value = treat_result_with_memory_error(
+            memory_response_for_signal_previous_value,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        if signal_is_initialized(&signal_previous_value, meta, &mut runtime.runtime_errors, &runtime.call_trace) {
+            treat_result_with_memory_error(
+                Result::Err(MemoryError::AssignmentTagAfterInit),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?
+        }
+        else if let Some(a_slice) = r_folded.arithmetic_slice {
+            let value = AExpressionSlice::unwrap_to_single(a_slice);
+            match value {
+                ArithmeticExpressionGen::Number { value } => {
+                        let possible_tag = reference_to_tags.get(&tag.clone());
+                        if let Some(val) = possible_tag {
+                            if let Some(_) = val {
+                                treat_result_with_memory_error(
+                                    Result::Err(MemoryError::AssignmentTagTwice),
+                                    meta,
+                                    &mut runtime.runtime_errors,
+                                    &runtime.call_trace,
+                                )?
+                            } else {
+                                reference_to_tags.insert(tag.clone(), Option::Some(value.clone()));
+                                if let Option::Some(node) = actual_node{
+                                    node.add_tag_signal(symbol, &tag, Some(value));
+                                } else{
+                                    unreachable!();
+                                }
+                                
+                            }
+                        } else {unreachable!()} 
+                },
+                _ => unreachable!(),
+            }   
+        }
+        else { unreachable!() }
+        Option::None
+    } else if ExecutionEnvironment::has_signal(&runtime.environment, symbol) {
         debug_assert!(accessing_information.signal_access.is_none());
         debug_assert!(accessing_information.after_signal.is_empty());
 
-        let environment_response = ExecutionEnvironment::get_mut_signal_res(environment, symbol);
-        let reference_to_signal_content = treat_result_with_environment_error(
+        let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
+        let (reference_to_tags, reference_to_signal_content) = treat_result_with_environment_error(
             environment_response,
             meta,
             &mut runtime.runtime_errors,
@@ -665,36 +904,136 @@ fn perform_assign(
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-        debug_assert!(signal_previous_value.is_single());
-        let signal_was_assigned = SignalSlice::unwrap_to_single(signal_previous_value);
-        let access_response = if signal_was_assigned {
-            Result::Err(MemoryError::AssignmentError)
-        } else {
-            SignalSlice::insert_values(
-                reference_to_signal_content,
-                &accessing_information.before_signal,
-                &SignalSlice::new(&true),
-            )
-        };
+
+        // Study the tags: add the new ones and copy their content.
+        // The case of inputs is studied in other place
+        if r_folded.tags.is_some() && op == AssignOp::AssignConstraintSignal{
+            let rfolded_tags = r_folded.tags.as_ref().unwrap();
+            if signal_is_initialized(&signal_previous_value, meta, &mut runtime.runtime_errors, &runtime.call_trace) {
+                // check that all the tags have the same values
+                for (tag, value) in reference_to_tags{
+                    match rfolded_tags.get(tag){
+                        Some(value_rfolded) => {
+                            if value != value_rfolded {
+                                treat_result_with_memory_error(
+                                    Result::Err(MemoryError::AssignmentTagTwice),
+                                    meta,
+                                    &mut runtime.runtime_errors,
+                                    &runtime.call_trace,
+                                )?
+                            }
+                        },
+                        None => {},
+                    }
+                }
+            } else {
+                for (tag, value) in r_folded.tags.as_ref().unwrap() {
+                    let possible_tag = reference_to_tags.get(tag);
+                    if let Some(val) = possible_tag {
+                        if let Some(_) = val {
+                            treat_result_with_memory_error(
+                                Result::Err(MemoryError::AssignmentTagTwice),
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?
+                        } else {
+                            reference_to_tags.insert(tag.clone(), value.clone());
+                            if let Option::Some(node) = actual_node{
+                                node.add_tag_signal(symbol, &tag, value.clone());
+                            } else{
+                                unreachable!();
+                            }
+                        }
+                    }
+                    /* else { // it is a tag that does not belong to the value
+
+                        reference_to_tags.insert(tag.clone(), value.clone());
+                        if let Option::Some(node) = actual_node{
+                            node.add_tag_signal(symbol, &tag, value.clone());
+                        } else{
+                            unreachable!();
+                        }
+                    } 
+                    */
+                }
+            }
+        }
+
+        let r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
+        let new_value_slice = &SignalSlice::new_with_route(r_slice.route(), &true);
+
+        let correct_dims_result = SignalSlice::check_correct_dims(
+            &signal_previous_value, 
+            &Vec::new(), 
+            &new_value_slice, 
+            true
+        );
+        treat_result_with_memory_error_void(
+            correct_dims_result,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+
+        for i in 0..SignalSlice::get_number_of_cells(&signal_previous_value){
+            let signal_was_assigned = treat_result_with_memory_error(
+                SignalSlice::access_value_by_index(&signal_previous_value, i),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            if signal_was_assigned {
+                let access_response = Result::Err(MemoryError::AssignmentError);
+                treat_result_with_memory_error(
+                    access_response,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+            }
+        }
+        
+        let access_response = SignalSlice::insert_values(
+            reference_to_signal_content,
+            &accessing_information.before_signal,
+            &new_value_slice,
+            true
+        );
+
+
         treat_result_with_memory_error_void(
             access_response,
             meta,
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-        Option::Some(safe_unwrap_to_single_arithmetic_expression(r_folded, line!()))
-    } else if ExecutionEnvironment::has_component(environment, symbol) {
-        let environment_response = ExecutionEnvironment::get_mut_component_res(environment, symbol);
+
+        Option::Some(r_slice)
+    } else if ExecutionEnvironment::has_component(&runtime.environment, symbol) {
+        if accessing_information.tag_access.is_some() {
+            unreachable!()
+        }
+        let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
         let component_slice = treat_result_with_environment_error(
             environment_response,
             meta,
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-        let memory_response = ComponentSlice::get_mut_reference_to_single_value(
-            component_slice,
-            &accessing_information.before_signal,
-        );
+        
+        let is_anonymous_component = runtime.anonymous_components.contains_key(symbol);
+        let memory_response = if is_anonymous_component{
+            ComponentSlice::get_mut_reference_to_single_value(
+                component_slice,
+                &Vec::new(),
+            )
+        } else{
+            ComponentSlice::get_mut_reference_to_single_value(
+                component_slice,
+                &accessing_information.before_signal,
+            )
+        };
         let component = treat_result_with_memory_error(
             memory_response,
             meta,
@@ -702,24 +1041,13 @@ fn perform_assign(
             &runtime.call_trace,
         )?;
         if accessing_information.signal_access.is_none() {
-            debug_assert!(accessing_information.after_signal.is_empty());
-            let (node_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(r_folded, line!());
-            if let Option::Some(actual_node) = actual_node {
-                let data = SubComponentData {
-                    name: symbol.to_string(),
-                    goes_to: node_pointer,
-                    is_parallel,
-                    indexed_with: accessing_information.before_signal.clone(),
-                };
-                actual_node.add_arrow(full_symbol.clone(), data);
-            } else {
-                unreachable!();
-            }
-            let memory_result = ComponentRepresentation::initialize_component(
+            let (prenode_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(r_folded, line!());
+            let memory_result = ComponentRepresentation::preinitialize_component(
                 component,
                 is_parallel,
-                node_pointer,
+                prenode_pointer,
                 &runtime.exec_program,
+                is_anonymous_component,
             );
             treat_result_with_memory_error_void(
                 memory_result,
@@ -727,16 +1055,86 @@ fn perform_assign(
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
             )?;
+            if component.is_ready_initialize() {  
+                // calls to execute and initialize the component              
+                let pretemplate_info = runtime.exec_program.get_prenode_value(prenode_pointer).unwrap();
+                let inputs_tags = component.inputs_tags.clone();
+                let result = execute_template_call_complete(
+                    pretemplate_info.template_name(),
+                    pretemplate_info.parameter_instances().clone(),
+                    inputs_tags,
+                    program_archive,
+                    runtime,
+                    flag_verbose,
+                )?;
+                
+                let (node_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(result, line!());
+                
+                let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
+                let component_slice = treat_result_with_environment_error(
+                    environment_response,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                let memory_response = if is_anonymous_component {
+                    ComponentSlice::get_mut_reference_to_single_value(
+                        component_slice,
+                        &Vec::new(),
+                    )
+                } else{
+                    ComponentSlice::get_mut_reference_to_single_value(
+                        component_slice,
+                        &accessing_information.before_signal,
+                    )
+                };
+                let component = treat_result_with_memory_error(
+                    memory_response,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                
+                let init_result = ComponentRepresentation::initialize_component(
+                    component,
+                    node_pointer,
+                    &mut runtime.exec_program,
+                );
+                treat_result_with_memory_error(
+                    init_result,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                if let Option::Some(actual_node) = actual_node {
+                    let data = SubComponentData {
+                        name: symbol.to_string(),
+                        is_parallel,
+                        goes_to: node_pointer,
+                        indexed_with: accessing_information.before_signal.clone(),
+                    };
+                    actual_node.add_arrow(full_symbol.clone(), data);
+                } else {
+                    unreachable!();
+                }
+            }
             Option::None
         } else {
             let signal_accessed = accessing_information.signal_access.clone().unwrap();
             debug_assert!(FoldedValue::valid_arithmetic_slice(&r_folded));
             let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
-            debug_assert!(arithmetic_slice.is_single());
+            let tags = if r_folded.tags.is_some() {
+                r_folded.tags.unwrap()
+            } else {
+                TagInfo::new()
+            };
+
             let memory_response = ComponentRepresentation::assign_value_to_signal(
                 component,
                 &signal_accessed,
                 &accessing_information.after_signal,
+                &arithmetic_slice.route(),
+                tags,
             );
             treat_result_with_memory_error_void(
                 memory_response,
@@ -744,17 +1142,100 @@ fn perform_assign(
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
             )?;
-            Option::Some(AExpressionSlice::unwrap_to_single(arithmetic_slice))
+            if !component.is_initialized && component.is_ready_initialize() {  
+                // calls to execute and initialize the component              
+                let pretemplate_info = runtime.exec_program.get_prenode_value(
+                    component.node_pointer.unwrap()
+                ).unwrap();
+                let inputs_tags = component.inputs_tags.clone();
+
+                let folded_result = execute_template_call_complete(
+                    pretemplate_info.template_name(),
+                    pretemplate_info.parameter_instances().clone(),
+                    inputs_tags,
+                    program_archive,
+                    runtime,
+                    flag_verbose,
+                )?;
+                
+                let (node_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(folded_result, line!());
+                
+                let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
+                let component_slice = treat_result_with_environment_error(
+                    environment_response,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                let memory_response = if is_anonymous_component {
+                    ComponentSlice::get_mut_reference_to_single_value(
+                        component_slice,
+                        &Vec::new(),
+                    )
+                } else{
+                    ComponentSlice::get_mut_reference_to_single_value(
+                        component_slice,
+                        &accessing_information.before_signal,
+                    )
+                };
+                let component = treat_result_with_memory_error(
+                    memory_response,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                
+                let init_result = ComponentRepresentation::initialize_component(
+                    component,
+                    node_pointer,
+                    &mut runtime.exec_program,
+                );
+                treat_result_with_memory_error_void(
+                    init_result,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                if let Option::Some(actual_node) = actual_node {
+                    let data = SubComponentData {
+                        name: symbol.to_string(),
+                        goes_to: node_pointer,
+                        is_parallel,
+                        indexed_with: accessing_information.before_signal.clone(),
+                    };
+                    let component_symbol = create_component_symbol(symbol, &accessing_information);
+                    actual_node.add_arrow(component_symbol, data);
+                } else {
+                    unreachable!();
+                }
+            }
+            Option::Some(arithmetic_slice)
         }
     } else {
         unreachable!();
     };
-    if let Option::Some(arithmetic_expression) = possible_arithmetic_expression {
-        let ret = Constrained { left: full_symbol, right: arithmetic_expression };
+    if let Option::Some(arithmetic_slice) = possible_arithmetic_slice {
+        let ret = Constrained { left: full_symbol, right: arithmetic_slice };
         Result::Ok(Some(ret))
     } else {
         Result::Ok(None)
     }
+}
+
+fn signal_is_initialized(signal_previous_value: &MemorySlice<bool>, meta: &Meta, mut runtime_errors: &mut ReportCollection,
+    call_trace: &[String],) -> bool {
+    for i in 0..SignalSlice::get_number_of_cells(&signal_previous_value){
+        let signal_was_assigned = treat_result_with_memory_error(
+            SignalSlice::access_value_by_index(&signal_previous_value, i),
+            meta,
+            &mut runtime_errors,
+            &call_trace,
+        );
+        if let Ok(signal_was_assigned) = signal_was_assigned {
+            if signal_was_assigned { return true; }
+        }
+    }
+    return false;
 }
 
 // Evaluates the given condition and executes the corresponding statement. Returns a tuple (a,b) where a is the possible value returned and b is the value of the condition (in case the evaluation was successful)
@@ -800,7 +1281,8 @@ fn execute_sequence_of_statements(
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     actual_node: &mut Option<ExecutedTemplate>,
-    flag_verbose: bool
+    flag_verbose: bool,
+    is_complete_template: bool
 ) -> Result<Option<FoldedValue>, ()> {
     for stmt in stmts.iter() {
         let f_value = execute_statement(stmt, program_archive, runtime, actual_node, flag_verbose)?;
@@ -808,10 +1290,58 @@ fn execute_sequence_of_statements(
             return Result::Ok(f_value);
         }
     }
+    if is_complete_template{
+        execute_delayed_declarations(program_archive, runtime, actual_node, flag_verbose)?;
+    }
     Result::Ok(Option::None)
 }
 
+fn execute_delayed_declarations(
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+    actual_node: &mut Option<ExecutedTemplate>,
+    flag_verbose: bool,
+)-> Result<(), ()> {
+    for (component_name, (meta, dimensions)) in runtime.anonymous_components.clone(){
+        let mut arithmetic_values = Vec::new();
+        for dimension in dimensions.iter() {
+            let f_dimensions = execute_expression(dimension, program_archive, runtime, flag_verbose)?;
+            arithmetic_values
+                .push(safe_unwrap_to_single_arithmetic_expression(f_dimensions, line!()));
+        }
+        treat_result_with_memory_error_void(
+            valid_array_declaration(&arithmetic_values),
+            &meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        let usable_dimensions =
+            if let Option::Some(dimensions) = cast_indexing(&arithmetic_values) {
+                dimensions
+            } else {
+                let err = Result::Err(ExecutionError::ArraySizeTooBig);
+                treat_result_with_execution_error(
+                    err,
+                    &meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?
+            };
+        if let Option::Some(node) = actual_node {
+            node.add_component(&component_name, &usable_dimensions);
+        }           
+    }
+    Result::Ok(())
+}
+
 //************************************************* Expression execution support *************************************************
+
+fn create_component_symbol(symbol: &str, access_information: &AccessingInformation) -> String {
+    let mut appendix = "".to_string();
+    let bf_signal = create_index_appendix(&access_information.before_signal);
+    appendix.push_str(&bf_signal);
+    format!("{}{}", symbol, appendix)
+}
 
 fn create_symbol(symbol: &str, access_information: &AccessingInformation) -> String {
     let mut appendix = "".to_string();
@@ -852,7 +1382,7 @@ fn execute_variable(
     debug_assert!(access_information.after_signal.is_empty());
     let indexing = access_information.before_signal;
     let environment_response = ExecutionEnvironment::get_variable_res(&runtime.environment, symbol);
-    let ae_slice = treat_result_with_environment_error(
+    let (var_tag, ae_slice) = treat_result_with_environment_error(
         environment_response,
         meta,
         &mut runtime.runtime_errors,
@@ -865,7 +1395,7 @@ fn execute_variable(
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
-    Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
+    Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), tags: Option::Some(var_tag.clone()), ..FoldedValue::default() })
 }
 
 fn execute_signal(
@@ -881,7 +1411,6 @@ fn execute_signal(
         let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
         return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
     }
-    debug_assert!(access_information.signal_access.is_none());
     debug_assert!(access_information.after_signal.is_empty());
     let indexing = &access_information.before_signal;
     let environment_response = if ExecutionEnvironment::has_input(&runtime.environment, symbol) {
@@ -893,31 +1422,53 @@ fn execute_signal(
     } else {
         unreachable!();
     };
-    let signal_slice = treat_result_with_environment_error(
+    let (tags, signal_slice) = treat_result_with_environment_error(
         environment_response,
         meta,
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
-    let memory_response = SignalSlice::access_values(signal_slice, indexing);
-    let signal_slice = treat_result_with_memory_error(
-        memory_response,
-        meta,
-        &mut runtime.runtime_errors,
-        &runtime.call_trace,
-    )?;
-    let full_symbol = create_symbol(symbol, &access_information);
-    let signal_access = signal_to_arith(full_symbol, signal_slice);
-    let arith_slice = treat_result_with_memory_error(
-        signal_access,
-        meta,
-        &mut runtime.runtime_errors,
-        &runtime.call_trace,
-    )?;
-    Result::Ok(FoldedValue {
-        arithmetic_slice: Option::Some(arith_slice),
-        ..FoldedValue::default()
-    })
+    if let Some(acc) = access_information.signal_access {
+        if tags.contains_key(&acc) {
+            let value_tag = tags.get(&acc).unwrap();
+            if let Some(value_tag) = value_tag {
+                let a_value = AExpr::Number { value: value_tag.clone() };
+                let ae_slice = AExpressionSlice::new(&a_value);
+                Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
+            }
+            else {
+                let error = MemoryError::TagValueNotInitializedAccess;
+                treat_result_with_memory_error(
+                    Result::Err(error),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?
+            }
+        }
+        else { unreachable!() }
+    } else {
+        let memory_response = SignalSlice::access_values(signal_slice, indexing);
+        let signal_slice = treat_result_with_memory_error(
+            memory_response,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        let full_symbol = create_symbol(symbol, &access_information);
+        let signal_access = signal_to_arith(full_symbol, signal_slice);
+        let arith_slice = treat_result_with_memory_error(
+            signal_access,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        Result::Ok(FoldedValue {
+            arithmetic_slice: Option::Some(arith_slice),
+            tags: Option::Some(tags.clone()),
+            ..FoldedValue::default()
+        })
+    }
 }
 
 fn signal_to_arith(symbol: String, slice: SignalSlice) -> Result<AExpressionSlice, MemoryError> {
@@ -960,7 +1511,6 @@ fn execute_component(
         let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
         return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
     }
-    let indexing = &access_information.before_signal;
     let environment_response =
         ExecutionEnvironment::get_component_res(&runtime.environment, symbol);
     let component_slice = treat_result_with_environment_error(
@@ -969,7 +1519,11 @@ fn execute_component(
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
-    let memory_response = ComponentSlice::access_values(component_slice, indexing);
+    let memory_response = if runtime.anonymous_components.contains_key(symbol) {
+        ComponentSlice::access_values(component_slice, &Vec::new())
+    } else{
+        ComponentSlice::access_values(component_slice, &access_information.before_signal)
+    };
     let slice_result = treat_result_with_memory_error(
         memory_response,
         meta,
@@ -977,7 +1531,7 @@ fn execute_component(
         &runtime.call_trace,
     )?;
     let resulting_component = safe_unwrap_to_single(slice_result, line!());
-    let read_result = if resulting_component.is_initialized() {
+    let read_result = if resulting_component.is_ready_initialize() {
         Result::Ok(resulting_component)
     } else {
         Result::Err(MemoryError::InvalidAccess)
@@ -988,9 +1542,32 @@ fn execute_component(
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
-    if let Option::Some(signal_name) = &access_information.signal_access {
+    if let Some(acc) = access_information.tag_access {
+        if let Result::Ok(tags) = checked_component.get_signal(&access_information.signal_access.unwrap()) {
+            let btree_map = tags.0;
+            if btree_map.contains_key(&acc) {
+                let value_tag = btree_map.get(&acc).unwrap();
+                if let Some(value_tag) = value_tag {
+                    let a_value = AExpr::Number { value: value_tag.clone() };
+                    let ae_slice = AExpressionSlice::new(&a_value);
+                    Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
+                }
+                else {
+                    let error = MemoryError::TagValueNotInitializedAccess;
+                    treat_result_with_memory_error(
+                        Result::Err(error),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?
+                }
+            }
+            else { unreachable!() }
+        } else { unreachable!()}
+    } 
+    else if let Option::Some(signal_name) = &access_information.signal_access {
         let access_after_signal = &access_information.after_signal;
-        let signal = treat_result_with_memory_error(
+        let (tags_signal, signal) = treat_result_with_memory_error(
             checked_component.get_signal(signal_name),
             meta,
             &mut runtime.runtime_errors,
@@ -1005,7 +1582,11 @@ fn execute_component(
         )?;
         let symbol = create_symbol(symbol, &access_information);
         let result = signal_to_arith(symbol, slice)
-            .map(|s| FoldedValue { arithmetic_slice: Option::Some(s), ..FoldedValue::default() });
+            .map(|s| FoldedValue { 
+                arithmetic_slice: Option::Some(s),
+                tags: Option::Some(tags_signal.clone()),
+                ..FoldedValue::default() 
+            });
         treat_result_with_memory_error(
             result,
             meta,
@@ -1036,7 +1617,7 @@ fn prepare_environment_for_call(
     let mut environment = ExecutionEnvironment::new();
     debug_assert_eq!(arg_names.len(), arg_values.len());
     for (arg_name, arg_value) in arg_names.iter().zip(arg_values) {
-        ExecutionEnvironment::add_variable(&mut environment, arg_name, arg_value.clone());
+        ExecutionEnvironment::add_variable(&mut environment, arg_name, (TagInfo::new(), arg_value.clone()));
     }
     environment
 }
@@ -1051,7 +1632,7 @@ fn execute_function_call(
     runtime.block_type = BlockType::Known;
     let function_body = program_archive.get_function_data(id).get_body_as_vec();
     let function_result =
-        execute_sequence_of_statements(function_body, program_archive, runtime, &mut Option::None, flag_verbose)?;
+        execute_sequence_of_statements(function_body, program_archive, runtime, &mut Option::None, flag_verbose, true)?;
     runtime.block_type = previous_block;
     let return_value = function_result.unwrap();
     debug_assert!(FoldedValue::valid_arithmetic_slice(&return_value));
@@ -1060,7 +1641,8 @@ fn execute_function_call(
 
 fn execute_template_call(
     id: &str,
-    parameter_values: &[AExpressionSlice],
+    parameter_values: Vec<AExpressionSlice>,
+    tag_values: BTreeMap<String, TagInfo>,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     flag_verbose: bool
@@ -1074,15 +1656,30 @@ fn execute_template_call(
     let mut args_to_values = BTreeMap::new();
     debug_assert_eq!(args_names.len(), parameter_values.len());
     let mut instantiation_name = format!("{}(", id);
+    let mut not_empty_name = false;
     for (name, value) in args_names.iter().zip(parameter_values) {
         instantiation_name.push_str(&format!("{},", value.to_string()));
+        not_empty_name = true;
         args_to_values.insert(name.clone(), value.clone());
     }
-    if !parameter_values.is_empty() {
+    for (_input, input_tags) in &tag_values{
+        for (_tag, value) in input_tags {
+            if value.is_none(){
+                instantiation_name.push_str("null,");
+            }
+            else{
+                let value = value.clone().unwrap();
+                instantiation_name.push_str(&format!("{},", value.to_string()));
+            }
+            not_empty_name = true;
+        }
+    }
+
+    if not_empty_name  {
         instantiation_name.pop();
     }
     instantiation_name.push(')');
-    let existent_node = runtime.exec_program.identify_node(id, &args_to_values);
+    let existent_node = runtime.exec_program.identify_node(id, &args_to_values, &tag_values);
     let node_pointer = if let Option::Some(pointer) = existent_node {
         pointer
     } else {
@@ -1094,6 +1691,7 @@ fn execute_template_call(
             id.to_string(),
             instantiation_name,
             args_to_values,
+            tag_values,
             code,
             is_parallel,
             is_custom_gate
@@ -1103,7 +1701,8 @@ fn execute_template_call(
             program_archive,
             runtime,
             &mut node_wrap,
-            flag_verbose
+            flag_verbose, 
+            true
         )?;
         debug_assert!(ret.is_none());
         let new_node = node_wrap.unwrap();
@@ -1111,6 +1710,40 @@ fn execute_template_call(
         let node_pointer = runtime.exec_program.add_node_to_scheme(new_node, analysis);
         node_pointer
     };
+    Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(false), ..FoldedValue::default() })
+}
+
+fn preexecute_template_call(
+    id: &str,
+    parameter_values: &[AExpressionSlice],
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+) -> Result<FoldedValue, ()> {
+    debug_assert!(runtime.block_type == BlockType::Known);
+    let inputs =  program_archive.get_template_data(id).get_inputs();
+    let outputs =  program_archive.get_template_data(id).get_outputs();
+
+    let mut inputs_to_tags = HashMap::new();
+    let mut outputs_to_tags = HashMap::new();
+
+
+    for (name, info_input) in inputs {
+        inputs_to_tags.insert(name.clone(), info_input.1.clone());
+    }
+
+    for (name, info_output) in outputs {
+        outputs_to_tags.insert(name.clone(), info_output.1.clone());
+    }
+
+    let node_wrap = Option::Some(PreExecutedTemplate::new(
+        id.to_string(),
+        parameter_values.to_vec(),
+        inputs_to_tags,
+        outputs_to_tags,
+    ));
+
+    let new_node = node_wrap.unwrap();
+    let node_pointer = runtime.exec_program.add_prenode_to_scheme(new_node);
     Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(false), ..FoldedValue::default() })
 }
 
@@ -1266,6 +1899,7 @@ fn cast_index(ae_index: &AExpr) -> Option<SliceCapacity> {
         pub before_signal: Vec<SliceCapacity>,
         pub signal_access: Option<String> ==> may not appear,
         pub after_signal: Vec<SliceCapacity>
+        pub tag_access: Option<String> ==> may not appear,
     }
 */
 struct AccessingInformation {
@@ -1273,6 +1907,7 @@ struct AccessingInformation {
     pub before_signal: Vec<SliceCapacity>,
     pub signal_access: Option<String>,
     pub after_signal: Vec<SliceCapacity>,
+    pub tag_access: Option<String>
 }
 fn treat_accessing(
     meta: &Meta,
@@ -1283,7 +1918,7 @@ fn treat_accessing(
 ) -> Result<AccessingInformation, ()> {
     let (ae_before_signal, signal_name, signal_index) =
         treat_indexing(0, access, program_archive, runtime, flag_verbose)?;
-    let (ae_after_signal, _, _) =
+    let (ae_after_signal, tag_name , _tag_index) =
         treat_indexing(signal_index + 1, access, program_archive, runtime, flag_verbose)?;
     treat_result_with_memory_error(
         valid_indexing(&ae_before_signal),
@@ -1303,12 +1938,13 @@ fn treat_accessing(
 
     let undefined = possible_before_indexing.is_none() || possible_after_indexing.is_none();
     let signal_access = signal_name;
+    let tag_access = tag_name;
     let (before_signal, after_signal) = if !undefined {
         (possible_before_indexing.unwrap(), possible_after_indexing.unwrap())
     } else {
         (Vec::new(), Vec::new())
     };
-    Result::Ok(AccessingInformation { undefined, before_signal, after_signal, signal_access })
+    Result::Ok(AccessingInformation { undefined, before_signal, after_signal, signal_access, tag_access})
 }
 
 //************************************************* Safe transformations *************************************************
@@ -1383,13 +2019,34 @@ fn treat_result_with_memory_error_void(
                     Report::error("Out of bounds exception".to_string(), RuntimeError)
                 },
                 MemoryError::MismatchedDimensions => {
-                    Report::error(" Typing error found: mismatched dimensions, assigning to an array an expression of greater length".to_string(), RuntimeError)
+                    Report::error("Typing error found: mismatched dimensions".to_string(), RuntimeError)
                 },
 
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
-                }
-                _ => unreachable!(),
+                },
+                MemoryError::AssignmentMissingTags => Report::error(
+                    "Invalid assignment: missing tags required by input signal".to_string(),
+                    RuntimeError,
+                ),
+                MemoryError::AssignmentTagAfterInit => Report::error(
+                    "Invalid assignment: tags cannot be assigned to a signal already initialized".to_string(),
+                    RuntimeError,
+                ),
+                MemoryError::AssignmentTagTwice => Report::error(
+                    "Invalid assignment: this tag already got a value".to_string(),
+                    RuntimeError,
+                ),
+                MemoryError::AssignmentTagInput => Report::error(
+                    "Invalid assignment: this tag belongs to an input which already got a value".to_string(),
+                    RuntimeError,
+                ),
+                MemoryError::MismatchedDimensionsWeak => unreachable!()
+                ,
+                MemoryError::TagValueNotInitializedAccess => Report::error(
+                    "Tag value has not been previously initialized".to_string(), 
+                    RuntimeError)
+                , 
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Err(())
@@ -1415,6 +2072,22 @@ fn treat_result_with_memory_error<C>(
                     "Exception caused by invalid assignment".to_string(),
                     RuntimeError,
                 ),
+                MemoryError::AssignmentMissingTags => Report::error(
+                    "Invalid assignment: missing tags required by input signal".to_string(),
+                    RuntimeError,
+                ),
+                MemoryError::AssignmentTagAfterInit => Report::error(
+                    "Invalid assignment: tags cannot be assigned to a signal already initialized".to_string(),
+                    RuntimeError,
+                ),
+                MemoryError::AssignmentTagTwice => Report::error(
+                    "Invalid assignment: this tag already got a value".to_string(),
+                    RuntimeError,
+                ),
+                MemoryError::AssignmentTagInput => Report::error(
+                    "Invalid assignment: this tag belongs to an input which already got a value".to_string(),
+                    RuntimeError,
+                ),
                 MemoryError::OutOfBoundsError => {
                     Report::error("Out of bounds exception".to_string(), RuntimeError)
                 },
@@ -1424,7 +2097,14 @@ fn treat_result_with_memory_error<C>(
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
                 }
-                _ => unreachable!(),
+                MemoryError::TagValueNotInitializedAccess => {
+                    Report::error("Tag value has not been previously initialized".to_string(), RuntimeError)
+
+                } 
+                MemoryError::MismatchedDimensionsWeak => {
+                    Report::error("Entra aqui".to_string(), RuntimeError)
+                },
+                
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Err(())

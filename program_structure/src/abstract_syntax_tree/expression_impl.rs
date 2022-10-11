@@ -1,3 +1,5 @@
+use crate::expression_builders::build_anonymous_component;
+
 use super::ast::*;
 
 impl Expression {
@@ -11,8 +13,10 @@ impl Expression {
             | Variable { meta, .. }
             | Number(meta, ..)
             | Call { meta, .. }
+            | AnonymousComp { meta, ..}
             | ArrayInLine { meta, .. } => meta,
             | UniformArray { meta, .. } => meta,
+            | Tuple {meta, ..} => meta,
         }
     }
     pub fn get_mut_meta(&mut self) -> &mut Meta {
@@ -25,8 +29,10 @@ impl Expression {
             | Variable { meta, .. }
             | Number(meta, ..)
             | Call { meta, .. }
+            | AnonymousComp {meta, ..}
             | ArrayInLine { meta, .. } => meta,
             | UniformArray { meta, .. } => meta,
+            | Tuple {meta, ..} => meta,
         }
     }
 
@@ -58,7 +64,15 @@ impl Expression {
             false
         }
     }
-
+    
+    pub fn is_tuple(&self) -> bool {
+        use Expression::*;
+        if let Tuple { .. } = self {
+            true
+        } else {
+            false
+        }
+    }
     pub fn is_switch(&self) -> bool {
         use Expression::*;
         if let InlineSwitchOp { .. } = self {
@@ -103,6 +117,100 @@ impl Expression {
             false
         }
     }
+
+    pub fn is_anonymous_comp(&self) -> bool {
+        use Expression::*;
+        if let AnonymousComp { .. } = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn make_anonymous_parallel(self) -> Expression {
+        use Expression::*;
+        match self {
+            AnonymousComp { meta, id, params, signals, .. } => {
+                build_anonymous_component(meta, id, params, signals, true)
+            }
+            _ => self,
+        } 
+    } 
+
+    pub fn contains_anonymous_comp(&self) -> bool {
+        use Expression::*;
+        match &self {
+            InfixOp {  lhe, rhe , ..} |  UniformArray { value : lhe, dimension : rhe, .. } => {
+                 lhe.contains_anonymous_comp() || rhe.contains_anonymous_comp()
+            },
+            PrefixOp {  rhe, .. } => {
+                 rhe.contains_anonymous_comp()
+            },
+            InlineSwitchOp {  cond, if_true, if_false, .. } => {
+                 cond.contains_anonymous_comp() || if_true.contains_anonymous_comp() || if_false.contains_anonymous_comp()
+            },
+            Call { args, .. } | Tuple {values: args, ..} | ArrayInLine {  values : args, .. } => {
+                for arg in args{
+                    if arg.contains_anonymous_comp() {  return true;}
+                }
+                false
+            },
+            AnonymousComp { .. } => { true },
+            Variable { access, .. } => {
+                for ac in access{
+                    match ac {
+                        Access::ComponentAccess(_) => {},
+                        Access::ArrayAccess( exp ) => if exp.contains_anonymous_comp() {return true;},
+                    }
+                }
+                false
+            },
+            Number(_, _) => {false }
+            ParallelOp { rhe , .. } => { rhe.contains_anonymous_comp() },
+         }
+    }
+
+    pub fn contains_tuple(&self) -> bool {
+        use Expression::*;
+        match &self {
+            InfixOp {  lhe, rhe , ..} |  UniformArray { value : lhe, dimension : rhe, .. } => {
+                 lhe.contains_tuple() || rhe.contains_tuple()
+            },
+            PrefixOp {  rhe, .. } => {
+                 rhe.contains_tuple()
+            },
+            InlineSwitchOp {  cond, if_true, if_false, .. } => {
+                 cond.contains_tuple() || if_true.contains_tuple() || if_false.contains_tuple()
+            },
+            Call { args, .. } | ArrayInLine {  values : args, .. } => {
+                for arg in args{
+                    if arg.contains_tuple() {  return true;}
+                }
+                false
+            },
+            AnonymousComp { params, signals, .. } => { 
+                for ac in params{
+                    if ac.contains_tuple() {return true;}
+                }
+                for ac in signals{
+                    if ac.contains_tuple() {return true;}
+                }
+                false
+             },
+            Variable { access, .. } => {
+                for ac in access{
+                    match ac {
+                        Access::ComponentAccess(_) => {},
+                        Access::ArrayAccess( exp ) => if exp.contains_tuple() {return true;},
+                    }
+                }
+                false
+            },
+            Number(_, _) => {false },
+            Tuple { .. } => {true},
+            ParallelOp { rhe, .. } => {rhe.contains_tuple()},
+         }
+    }
 }
 
 impl FillMeta for Expression {
@@ -126,6 +234,10 @@ impl FillMeta for Expression {
             UniformArray { meta, value, dimension, .. } => {
                 fill_uniform_array(meta, value, dimension, file_id, element_id)
             }
+            AnonymousComp { meta,  params, signals, .. } => {
+                    fill_anonymous_comp(meta, params, signals, file_id, element_id)
+            },
+            Tuple { meta, values} => {fill_tuple(meta,values,file_id,element_id)}
         }
     }
 }
@@ -186,7 +298,28 @@ fn fill_call(meta: &mut Meta, args: &mut [Expression], file_id: usize, element_i
     }
 }
 
+fn fill_anonymous_comp(meta: &mut Meta, params: &mut [Expression],signals: &mut [Expression], file_id: usize, element_id: &mut usize) {
+    meta.set_file_id(file_id);
+    for a in params {
+        a.fill(file_id, element_id);
+    }
+    for a in signals {
+        a.fill(file_id, element_id);
+    }
+}
 fn fill_array_inline(
+    meta: &mut Meta,
+    values: &mut [Expression],
+    file_id: usize,
+    element_id: &mut usize,
+) {
+    meta.set_file_id(file_id);
+    for v in values {
+        v.fill(file_id, element_id);
+    }
+}
+
+fn fill_tuple(
     meta: &mut Meta,
     values: &mut [Expression],
     file_id: usize,

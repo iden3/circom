@@ -51,8 +51,16 @@ pub fn build_call(meta: Meta, id: String, args: Vec<Expression>) -> Expression {
     Call { meta, id, args }
 }
 
+pub fn build_anonymous_component(meta: Meta, id: String, params: Vec<Expression>, signals: Vec<Expression>, is_parallel: bool) -> Expression {
+    AnonymousComp { meta, id, params, signals, is_parallel }
+}
+
 pub fn build_array_in_line(meta: Meta, values: Vec<Expression>) -> Expression {
     ArrayInLine { meta, values }
+}
+
+pub fn build_tuple(meta: Meta, values: Vec<Expression>) -> Expression {
+    Tuple { meta, values }
 }
 
 pub fn build_uniform_array(meta: Meta, value: Expression, dimension: Expression) -> Expression {
