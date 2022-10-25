@@ -3,6 +3,7 @@ use crate::environment_utils::slice_types::{TagInfo, AExpressionSlice};
 use circom_algebra::algebra::ArithmeticExpression;
 use compiler::hir::very_concrete_program::{Argument, TemplateInstance};
 use num_bigint::BigInt;
+use num_traits::ToPrimitive;
 use program_structure::ast::{Expression, Meta, Statement};
 use program_structure::error_definition::ReportCollection;
 use program_structure::program_archive::ProgramArchive;
@@ -171,7 +172,7 @@ fn treat_dimension(
     if context.inside_template && !dim.is_number() {
         Option::None
     } else if let Expression::Number(_, v) = dim {
-        transform_big_int_to_usize(v.clone())
+        transform_big_int_to_usize(v)
     } else {
         let program = context.program_archive;
         let env = context.environment;
@@ -181,21 +182,13 @@ fn treat_dimension(
                 reports.append(&mut r);
                 Option::None
             }
-            Result::Ok(v) => transform_big_int_to_usize(v),
+            Result::Ok(v) => transform_big_int_to_usize(&v),
         }
     }
 }
 
-fn transform_big_int_to_usize(v: BigInt) -> Option<usize> {
-    use num_bigint::Sign;
-    let (sign, bytes) = v.to_bytes_le();
-    if sign == Sign::Minus || bytes.len() > 8 {
-        return Option::None;
-    }
-    let mut counter: [u8; 8] = [0; 8];
-    counter[..bytes.len()].clone_from_slice(&bytes[..]);
-    let usize_value = usize::from_le_bytes(counter);
-    Option::Some(usize_value)
+fn transform_big_int_to_usize(v: &BigInt) -> Option<usize> {
+    v.to_usize()
 }
 
 fn report_invalid_dimension(meta: &Meta, reports: &mut ReportCollection) {
