@@ -6,7 +6,6 @@ use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
 use program_structure::statement_builders::{build_declaration, build_log_call, build_assert, build_return, build_constraint_equality, build_initialization_block};
 use program_structure::template_data::{TemplateData};
-
 use std::collections::HashMap;
 use num_bigint::BigInt;
 
@@ -248,16 +247,12 @@ pub fn remove_anonymous_from_expression(
             }
             Result::Ok((Vec::new(),Vec::new(),exp))
         },
-        AnonymousComp { meta, id, params, signals, is_parallel } => {
+        AnonymousComp { meta, id, params, signals, names,  is_parallel } => {
             let template = templates.get(&id);
             let mut declarations = Vec::new();
             if template.is_none(){
                 return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"The template does not exist ".to_string()));
             }
-            let inputs = template.unwrap().get_declaration_inputs();
-            if inputs.len() != signals.len(){
-                return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
-             }
             let mut i = 0;
             let mut seq_substs = Vec::new();
             let id_anon_temp = id.to_string() + "_" + &file_lib.get_line(meta.start, meta.get_file_id()).unwrap().to_string() + "_" + &meta.start.to_string();
@@ -294,26 +289,50 @@ pub fn remove_anonymous_from_expression(
             let sub = build_substitution(meta.clone(), id_anon_temp.clone(), 
             access.clone(), AssignOp::AssignVar, exp_with_call);
             seq_substs.push(sub);
+            let inputs = template.unwrap().get_declaration_inputs();
+            let mut new_signals = Vec::new();
+            let mut new_operators = Vec::new();
+            if let Some(m) = names {
+                let (operators, names) : (Vec<AssignOp>, Vec<String>) = m.iter().cloned().unzip();
+                for inp in inputs{
+                    if !names.contains(&inp.0) {
+                        let error = inp.0.clone() + " has not been found in the anonymous call";
+                        return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),error));
+                    } else {
+                        let pos = names.iter().position(|r| *r == inp.0).unwrap();
+                        new_signals.push(signals.get(pos).unwrap().clone());
+                        new_operators.push(*operators.get(pos).unwrap());
+                    }
+                }
+            }
+            else{
+                new_signals = signals.clone();
+                for _i in 0..signals.len() {
+                    new_operators.push(AssignOp::AssignConstraintSignal);
+                }
+            }
+            if inputs.len() != new_signals.len() || inputs.len() != signals.len() {
+                return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
+            }
             for inp in inputs{
                 let mut acc = if var_access.is_none(){
                     Vec::new()
                 } else{
                     vec![build_array_access(var_access.as_ref().unwrap().clone())]
                 };
-
                 acc.push(Access::ComponentAccess(inp.0.clone()));
                 let  (mut stmts, mut declarations2, new_exp) = remove_anonymous_from_expression(
-                    &mut templates.clone(), 
-                    file_lib, 
-                    signals.get(i).unwrap().clone(),
-                    var_access
+                        &mut templates.clone(), 
+                        file_lib, 
+                        new_signals.get(i).unwrap().clone(),
+                        var_access
                 )?;
                 if new_exp.contains_anonymous_comp() {
                     return Result::Err(AnonymousCompError::anonymous_general_error(new_exp.get_meta().clone(),"Inputs of an anonymous component cannot contain anonymous calls".to_string()));                
                 }
                 seq_substs.append(&mut stmts);
                 declarations.append(&mut declarations2);
-                let subs = Statement::Substitution { meta: meta.clone(), var: id_anon_temp.clone(), access: acc, op: AssignOp::AssignConstraintSignal, rhe: new_exp };
+                let subs = Statement::Substitution { meta: meta.clone(), var: id_anon_temp.clone(), access: acc, op: *new_operators.get(i).unwrap(), rhe: new_exp };
                 i+=1;
                 seq_substs.push(subs);
             }
