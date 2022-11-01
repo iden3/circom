@@ -130,8 +130,8 @@ impl Expression {
     pub fn make_anonymous_parallel(self) -> Expression {
         use Expression::*;
         match self {
-            AnonymousComp { meta, id, params, signals, .. } => {
-                build_anonymous_component(meta, id, params, signals, true)
+            AnonymousComp { meta, id, params, signals, names, .. } => {
+                build_anonymous_component(meta, id, params, signals, names, true)
             }
             _ => self,
         } 
