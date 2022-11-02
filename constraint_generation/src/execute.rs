@@ -930,13 +930,25 @@ fn perform_assign(
                 for (tag, value) in r_folded.tags.as_ref().unwrap() {
                     let possible_tag = reference_to_tags.get(tag);
                     if let Some(val) = possible_tag {
-                        if let Some(_) = val {
-                            treat_result_with_memory_error(
-                                Result::Err(MemoryError::AssignmentTagTwice),
-                                meta,
-                                &mut runtime.runtime_errors,
-                                &runtime.call_trace,
-                            )?
+                        if let Some(previous_value) = val {
+                            if let Some(new_value) = value{
+                                if new_value != previous_value{
+                                    treat_result_with_memory_error(
+                                        Result::Err(MemoryError::AssignmentTagTwice),
+                                        meta,
+                                        &mut runtime.runtime_errors,
+                                        &runtime.call_trace,
+                                    )?
+                                }
+                            } else{
+                                treat_result_with_memory_error(
+                                    Result::Err(MemoryError::AssignmentTagTwice),
+                                    meta,
+                                    &mut runtime.runtime_errors,
+                                    &runtime.call_trace,
+                                )?
+                            }
+                            
                         } else {
                             reference_to_tags.insert(tag.clone(), value.clone());
                             if let Option::Some(node) = actual_node{
