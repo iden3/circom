@@ -55,6 +55,21 @@ Let us clarify two points:
 1. `arg1`, ..., `argN` are template arguments. We can use them as usual. They can be arithmetic operations expressions or constants. The important thing is its value must be known at compilation time. 
 2. `input1`, ..., `inputM` are input signals. We can pass another signals, (just like in the example) constants or other anonymous components (in a compositional way), if and only if, __such components only have 1 output signal__.
 
+The order of the signals in the anonymous component matters: the ith input signal receives the value of the ith signal passed as parameter. Since circom 2.1.1, it is also allowed to indicate the name of the input signal corresponding to each parameter, followed by `<==`or `<--` and, finally, the signal which gives the value). The only condition that must be satisfied is that all the subcomponent inputs must receive a value. Let us see this new feature in the previous example:
+
+```text
+template A(n){
+   signal input a, b;
+   signal output c;
+   c <== a*b;
+}
+template B(n){
+   signal input in[n];
+   signal out <== A(n)( a <== in[0], b <-- in[1]);
+}
+component main = B(2);
+```
+
 The value returned by the anonymous components depends on the number of template's output signals.
 
 1. __If the template does not define any output signal__ (for instance, if it only defines constraints based on the input signals),  we can use the anonymous component like if it was an statement 
