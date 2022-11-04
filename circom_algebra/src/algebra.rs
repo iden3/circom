@@ -238,7 +238,7 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
             &BigInt::from(1),
             constant,
             &field
-        ).ok().unwrap();
+        )?;
         ArithmeticExpression::multiply_coefficients_by_constant(&inverse_constant, coefficients, field);
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
         Result::Ok(())
