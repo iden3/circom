@@ -1,4 +1,17 @@
 # Release notes
+## November 4, 2022 circom 2.1.1
+ #### Extensions
+ - New feature of anonymous components: programmers can pass the parameters indicate the input names receiving the values.[See here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/anonymous-components-and-tuples.md).
+ - circom now exits with 0 when it finishes successfully (last version exists with Exist(0) which broke some projects).
+ - Improving tags assignment: case multiple assignments in an array giving the same value to a tag.
+ - Allowing in cpp the use of binary, octal and hexadecimal numbers as inputs from a json file
+ - Adding support for non-64bit architectures.
+ - Witness_calculator adapted to work with negative numbers in the json input.
+
+ #### Fixed bugs
+ - Fixing bug in C++ witness generation: function Fr_toInt in fr.asm
+ - Improving error handling division by zero (instead of throwing a panic)
+ 
 ## October 11, 2022 circom 2.1.0
 #### New features
 - Tags: more information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/tags.md).
