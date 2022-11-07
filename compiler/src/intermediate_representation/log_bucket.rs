@@ -9,6 +9,15 @@ pub enum LogBucketArg {
     LogExp(InstructionPointer),
     LogStr(usize)
 }
+impl LogBucketArg{
+    pub fn get_mut_arg_logexp(&mut self)-> &mut InstructionPointer{
+        match self{
+            LogBucketArg::LogExp(arg) => arg,
+            LogBucketArg::LogStr(_) => unreachable!(),
+        }
+    }
+}
+
 
 #[derive(Clone)]
 pub struct LogBucket {
