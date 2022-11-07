@@ -1,4 +1,10 @@
 # Release notes
+## November 7, 2022 circom 2.1.2
+
+ #### Fixed bugs
+ - Fixed bug in C++ witness generation: function release_memory_component failed when releasing the memory of an array of components with some empty positions
+ - Fixed bug in logging of arithmetic expressions 
+ 
 ## November 4, 2022 circom 2.1.1
  #### Extensions
  - New feature of anonymous components: programmers can pass the parameters indicate the input names receiving the values.[See here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/anonymous-components-and-tuples.md).
