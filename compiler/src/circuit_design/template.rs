@@ -211,12 +211,21 @@ impl TemplateCodeInfo {
 	        component_offset(),
             COMPONENT_FATHER
         ));
-        create_body.push(format!(
-            "{}->componentMemory[{}].subcomponents = new uint[{}];",
-            CIRCOM_CALC_WIT,
-            component_offset(),
-            &self.number_of_components.to_string()
-        ));
+        if self.number_of_components > 0{
+            create_body.push(format!(
+                "{}->componentMemory[{}].subcomponents = new uint[{}]{{0}};",
+                CIRCOM_CALC_WIT,
+                component_offset(),
+                &self.number_of_components.to_string()
+            ));
+        } else{
+            create_body.push(format!(
+                "{}->componentMemory[{}].subcomponents = new uint[{}];",
+                CIRCOM_CALC_WIT,
+                component_offset(),
+                &self.number_of_components.to_string()
+            ));
+        }
 	if self.has_parallel_sub_cmp {
             create_body.push(format!(
 		"{}->componentMemory[{}].sbct = new std::thread[{}];",
@@ -308,7 +317,7 @@ impl TemplateCodeInfo {
             CIRCOM_CALC_WIT,
             ctx_index(),
         ));
-        run_body.push(format!("{};", 
+        run_body.push(format!("if (index_subc != 0){};", 
             build_call(
                 "release_memory_component".to_string(), 
                 vec![CIRCOM_CALC_WIT.to_string(), "index_subc".to_string()]
