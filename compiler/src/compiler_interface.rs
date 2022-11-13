@@ -42,6 +42,24 @@ pub fn write_c(circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str
     circuit.produce_c(c_folder, c_run_name, &mut c_file, &mut dat_file)
 }
 
+pub fn write_c_split(circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str, dat_file: &str) -> Result<(), ()> {
+    use std::path::Path;
+    if Path::new(c_folder).is_dir() {
+        std::fs::remove_dir_all(c_folder).map_err(|_err| {})?;
+    }
+    std::fs::create_dir(c_folder).map_err(|_err| {})?;
+    let dat_file = File::create(dat_file).map_err(|_err| {})?;
+    let cpp_file = File::create(c_file).map_err(|_err| {})?;
+    let hpp_name = format!("{}/{}.hpp",c_folder,c_run_name);
+    let hpp_file = File::create(hpp_name).map_err(|_err| {})?;
+    let mut hpp_file = BufWriter::new(hpp_file);
+    let mut cpp_file = BufWriter::new(cpp_file);
+    let mut dat_file = BufWriter::new(dat_file);
+    circuit.produce_c_split(c_folder, c_run_name, &mut hpp_file, &mut cpp_file, &mut dat_file)
+}
+
+
+
 fn produce_debug_output(circuit: &Circuit) -> Result<(), ()> {
     use std::io::Write;
     use std::path::Path;
