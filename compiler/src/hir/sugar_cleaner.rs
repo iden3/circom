@@ -648,7 +648,7 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
                 stmts.push(ce);
             }
         }
-        else if let Variable { name, access, ..} = other_expr {
+        else if let Variable { meta: meta_var, name, access, ..} = other_expr {
             for i in 0..values_l.len() {
                 let mut index_meta = meta.clone();
                 index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
@@ -658,7 +658,7 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
                 accessed_with.push(as_access);
                 let ce = ConstraintEquality {
                     lhe: values_l[i].clone(),
-                    rhe: Variable {name: name.clone(), access: accessed_with, meta: meta.clone()},
+                    rhe: Variable {name: name.clone(), access: accessed_with, meta: meta_var.clone()},
                     meta: meta.clone(),
                 };
                 stmts.push(ce);
