@@ -69,6 +69,14 @@ pub fn declare_sub_component_aux() -> CInstruction {
     format!("uint {}", SUBCOMPONENT_AUX)
 }
 
+pub const INDEX_MULTIPLE_EQ: &str = "index_multiple_eq"; // type PFrElements[]
+pub fn declare_index_multiple_eq() -> CInstruction {
+    format!("uint {}", INDEX_MULTIPLE_EQ)
+}
+pub fn index_multiple_eq() -> CInstruction {
+    format!("{}", INDEX_MULTIPLE_EQ)
+}
+
 pub const FUNCTION_DESTINATION: &str = "destination"; // type PFrElements[]
 pub fn declare_dest_pointer() -> CInstruction {
     format!("{}* {}", T_FR_ELEMENT, FUNCTION_DESTINATION)
