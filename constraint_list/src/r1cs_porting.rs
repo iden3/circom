@@ -3,7 +3,11 @@ use constraint_writers::r1cs_writer::{ConstraintSection, CustomGatesAppliedData,
 
 pub fn port_r1cs(list: &ConstraintList, output: &str, custom_gates: bool) -> Result<(), ()> {
     use constraint_writers::log_writer::Log;
-    let field_size = (list.field.bits() / 64 + 1) * 8;
+    let field_size = if list.field.bits() % 64 == 0 {
+        list.field.bits() / 8
+    } else{
+        (list.field.bits() / 64 + 1) * 8
+    };
     let mut log = Log::new();
     log.no_labels = ConstraintList::no_labels(list);
     log.no_wires = ConstraintList::no_wires(list);
