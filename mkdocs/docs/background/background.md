@@ -59,7 +59,7 @@ If we have an arithmetic circuit with signals `s_1,...,s_n`, then we define a **
 
 `(a_1*s_1 + ... + a_n*s_n) * (b_1*s_1 + ... + b_n*s_n) + (c_1*s_1 + ... + c_n*s_n) = 0`
 
-Note that constraint **must be quadratic, linear or constant equations**, and sometimes, by doing small modifications \(like a change of variable or gathering two constraints\), it is possible to reduce the number of constraints or variables. In general, circuits will have several constraints \(typically, one per multiplicative gate\). The set of constraints describing the circuit is called **rank-1 constraint system** \(R1CS\):
+Note that constraint **must be quadratic, linear or constant equations**, and sometimes, by doing small modifications \\( like a change of variable or gathering two constraints \\), it is possible to reduce the number of constraints or variables. In general, circuits will have several constraints \\( typically, one per multiplicative gate \\). The set of constraints describing the circuit is called **rank-1 constraint system** \\( R1CS \\):
 
 `(a_11*s_1 + ... + a_1n*s_n)*(b_11*s_1 + ... + b_1n*s_n) + (c_11*s_1 + ... + c_1n*s_n) = 0 `
 
