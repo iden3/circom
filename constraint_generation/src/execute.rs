@@ -3,6 +3,7 @@ use super::environment_utils::{
         environment_shortcut_add_component, environment_shortcut_add_input,
         environment_shortcut_add_intermediate, environment_shortcut_add_output,
         environment_shortcut_add_variable, ExecutionEnvironment, ExecutionEnvironmentError,
+        environment_check_all_components_assigned
     },
     slice_types::{
         AExpressionSlice, ArithmeticExpression as ArithmeticExpressionGen, ComponentRepresentation,
@@ -1060,6 +1061,7 @@ fn perform_assign(
                 prenode_pointer,
                 &runtime.exec_program,
                 is_anonymous_component,
+                meta
             );
             treat_result_with_memory_error_void(
                 memory_result,
@@ -1717,6 +1719,20 @@ fn execute_template_call(
             true
         )?;
         debug_assert!(ret.is_none());
+
+        let result_check_components = environment_check_all_components_assigned(&runtime.environment);
+        match result_check_components{
+            Err((error, meta)) =>{
+                treat_result_with_memory_error_void(
+                    Err(error),
+                    &meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+            },
+            Ok(_) => {},
+        }
+
         let new_node = node_wrap.unwrap();
         let analysis = std::mem::replace(&mut runtime.analysis, analysis);
         let node_pointer = runtime.exec_program.add_node_to_scheme(new_node, analysis);
@@ -2059,6 +2075,10 @@ fn treat_result_with_memory_error_void(
                     "Tag value has not been previously initialized".to_string(), 
                     RuntimeError)
                 , 
+                MemoryError::MissingInputs(name) => Report::error(
+                    format!("Component {} is created but not all its inputs are initialized", name),
+                    RuntimeError,
+                )
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Err(())
@@ -2114,8 +2134,12 @@ fn treat_result_with_memory_error<C>(
 
                 } 
                 MemoryError::MismatchedDimensionsWeak => {
-                    Report::error("Entra aqui".to_string(), RuntimeError)
+                    unreachable!()
                 },
+                MemoryError::MissingInputs(name) => Report::error(
+                    format!("Component {} is created but not all its inputs are initialized", name),
+                    RuntimeError,
+                )
                 
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);

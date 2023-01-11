@@ -2,10 +2,12 @@ use super::slice_types::{MemoryError, SignalSlice, SliceCapacity,TagInfo};
 use crate::execution_data::type_definitions::NodePointer;
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap, HashSet};
+use crate::ast::Meta;
 
 pub struct ComponentRepresentation {
     pub node_pointer: Option<NodePointer>,
     is_parallel: bool,
+    pub meta: Option<Meta>,
     unassigned_inputs: HashMap<String, SliceCapacity>,
     unassigned_tags: HashSet<String>,
     to_assign_inputs: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>)>,
@@ -29,6 +31,7 @@ impl Default for ComponentRepresentation {
             outputs: HashMap::new(),
             outputs_tags: BTreeMap::new(),
             is_initialized: false,
+            meta: Option::None,
         }
     }
 }
@@ -45,6 +48,7 @@ impl Clone for ComponentRepresentation {
             outputs: self.outputs.clone(),
             outputs_tags: self.outputs_tags.clone(),
             is_initialized: self.is_initialized,
+            meta : self.meta.clone(),
         }
     }
 }
@@ -56,6 +60,7 @@ impl ComponentRepresentation {
         prenode_pointer: NodePointer,
         scheme: &ExecutedProgram,
         is_anonymous_component: bool,
+        meta: &Meta,
     ) -> Result<(), MemoryError>{
         if !is_anonymous_component && component.is_preinitialized() {
             return Result::Err(MemoryError::AssignmentError);
@@ -97,6 +102,7 @@ impl ComponentRepresentation {
             outputs: HashMap::new(),
             is_initialized: false,
             is_parallel,
+            meta: Some(meta.clone()),
         };
         Result::Ok(())
     }
@@ -300,6 +306,10 @@ impl ComponentRepresentation {
 
     pub fn is_ready_initialize(&self) -> bool {
         self.unassigned_tags.is_empty()
+    }
+
+    pub fn has_unassigned_inputs(&self) -> bool{
+        !self.unassigned_inputs.is_empty()
     }
 
 }
