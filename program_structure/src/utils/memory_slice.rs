@@ -1,5 +1,6 @@
 use num_bigint_dig::BigInt;
 use std::fmt::{Display, Formatter};
+
 pub enum MemoryError {
     OutOfBoundsError,
     AssignmentError,
@@ -12,6 +13,7 @@ pub enum MemoryError {
     AssignmentTagTwice,
     AssignmentTagInput,
     TagValueNotInitializedAccess,
+    MissingInputs(String)
 }
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;
@@ -275,6 +277,15 @@ impl<C: Clone> MemorySlice<C> {
             return Result::Err(MemoryError::OutOfBoundsError);
         }
         Result::Ok(&memory_slice.values[index])
+    }
+    pub fn get_reference_to_single_value_by_index_or_break<'a>(
+        memory_slice: &'a MemorySlice<C>,
+        index: usize,
+    ) -> &'a C {
+        if index > MemorySlice::get_number_of_cells(memory_slice) {
+            unreachable!("The index is too big for the slice");
+        }
+        &memory_slice.values[index]
     }
     pub fn get_mut_reference_to_single_value<'a>(
         memory_slice: &'a mut MemorySlice<C>,
