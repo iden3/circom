@@ -243,18 +243,6 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
         Result::Ok(())
     }
-    fn idivide_coefficients_by_constant(
-        constant: &BigInt,
-        coefficients: &mut HashMap<C, BigInt>,
-        field: &BigInt,
-    ) -> Result<(), ArithmeticError> {
-        debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
-        for value in coefficients.values_mut() {
-            *value = modular_arithmetic::idiv(value, constant, field)?;
-        }
-        debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
-        Result::Ok(())
-    }
 
     pub fn add(
         left: &ArithmeticExpression<C>,
@@ -518,39 +506,6 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
             (Number { value: value_0 }, Number { value: value_1 }) => {
                 let value = modular_arithmetic::idiv(value_0, value_1, field)?;
                 Result::Ok(Number { value })
-            }
-            (Signal { symbol }, Number { value }) => {
-                let mut coefficients = HashMap::new();
-                ArithmeticExpression::initialize_hashmap_for_expression(&mut coefficients);
-                ArithmeticExpression::add_symbol_to_coefficients(
-                    symbol,
-                    &BigInt::from(1),
-                    &mut coefficients,
-                    field,
-                );
-                ArithmeticExpression::idivide_coefficients_by_constant(
-                    value,
-                    &mut coefficients,
-                    field,
-                )?;
-                Result::Ok(Linear { coefficients })
-            }
-            (Linear { coefficients }, Number { value }) => {
-                let mut coefficients = coefficients.clone();
-                ArithmeticExpression::idivide_coefficients_by_constant(
-                    value,
-                    &mut coefficients,
-                    field,
-                )?;
-                Result::Ok(Linear { coefficients })
-            }
-            (Quadratic { a, b, c }, Number { value }) => {
-                let mut a = a.clone();
-                let b = b.clone();
-                let mut c = c.clone();
-                ArithmeticExpression::idivide_coefficients_by_constant(value, &mut a, field)?;
-                ArithmeticExpression::idivide_coefficients_by_constant(value, &mut c, field)?;
-                Result::Ok(Quadratic { a, b, c })
             }
             _ => Result::Ok(NonQuadratic),
         }
