@@ -7,7 +7,8 @@ use super::environment_utils::{
     },
     slice_types::{
         AExpressionSlice, ArithmeticExpression as ArithmeticExpressionGen, ComponentRepresentation,
-        ComponentSlice, MemoryError, MemorySlice, SignalSlice, SliceCapacity, TagInfo
+        ComponentSlice, MemoryError, TypeInvalidAccess, TypeAssignmentError, MemorySlice, 
+        SignalSlice, SliceCapacity, TagInfo
     },
 };
 
@@ -997,7 +998,7 @@ fn perform_assign(
                 &runtime.call_trace,
             )?;
             if signal_was_assigned {
-                let access_response = Result::Err(MemoryError::AssignmentError);
+                let access_response = Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
                 treat_result_with_memory_error(
                     access_response,
                     meta,
@@ -1498,7 +1499,7 @@ fn signal_to_arith(symbol: String, slice: SignalSlice) -> Result<AExpressionSlic
     if index == symbols.len() {
         Result::Ok(AExpressionSlice::new_array(route, expressions))
     } else {
-        Result::Err(MemoryError::InvalidAccess)
+        Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::BadDimensions))
     }
 }
 
@@ -1548,7 +1549,7 @@ fn execute_component(
     let read_result = if resulting_component.is_ready_initialize() {
         Result::Ok(resulting_component)
     } else {
-        Result::Err(MemoryError::InvalidAccess)
+        Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent))
     };
     let checked_component = treat_result_with_memory_error(
         read_result,
@@ -2036,13 +2037,34 @@ fn treat_result_with_memory_error_void(
                 },
         Result::Err(memory_error) => {
             let report = match memory_error {
-                MemoryError::InvalidAccess => {
-                    Report::error("Exception caused by invalid access".to_string(), RuntimeError)
+                MemoryError::InvalidAccess(type_invalid_access) => {
+                    match type_invalid_access{
+                        TypeInvalidAccess::MissingInputs =>{
+                            Report::error("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized".to_string(),
+                                RuntimeError)
+                        },
+                        TypeInvalidAccess::NoInitializedComponent =>{
+                            Report::error("Exception caused by invalid access: trying to access to a component that is not initialized" .to_string(),
+                                RuntimeError)
+                        },
+                        TypeInvalidAccess::BadDimensions =>{
+                            Report::error("Exception caused by invalid access: invalid dimensions" .to_string(),
+                                RuntimeError)
+                        }
+                    }
                 }
-                MemoryError::AssignmentError => Report::error(
-                    "Exception caused by invalid assignment".to_string(),
-                    RuntimeError,
-                ),
+                MemoryError::AssignmentError(type_asig_error) => {
+                    match type_asig_error{
+                        TypeAssignmentError::MultipleAssignments =>{
+                            Report::error("Exception caused by invalid assignment: signal already assigned".to_string(),
+                                RuntimeError)
+                        },
+                        TypeAssignmentError::AssignmentOutput =>{
+                            Report::error("Exception caused by invalid assignment: trying to assign a value to an output signal of a component".to_string(),
+                                RuntimeError)
+                        },
+                    }
+                },
                 MemoryError::OutOfBoundsError => {
                     Report::error("Out of bounds exception".to_string(), RuntimeError)
                 },
@@ -2097,13 +2119,34 @@ fn treat_result_with_memory_error<C>(
         Result::Ok(c) => Result::Ok(c),
         Result::Err(memory_error) => {
             let report = match memory_error {
-                MemoryError::InvalidAccess => {
-                    Report::error("Exception caused by invalid access".to_string(), RuntimeError)
-                }
-                MemoryError::AssignmentError => Report::error(
-                    "Exception caused by invalid assignment".to_string(),
-                    RuntimeError,
-                ),
+                MemoryError::InvalidAccess(type_invalid_access) => {
+                    match type_invalid_access{
+                        TypeInvalidAccess::MissingInputs =>{
+                            Report::error("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized".to_string(),
+                                RuntimeError)
+                        },
+                        TypeInvalidAccess::NoInitializedComponent =>{
+                            Report::error("Exception caused by invalid access: trying to access to a component that is not initialized" .to_string(),
+                                RuntimeError)
+                        },
+                        TypeInvalidAccess::BadDimensions =>{
+                            Report::error("Exception caused by invalid access: invalid dimensions" .to_string(),
+                                RuntimeError)
+                        }
+                    }
+                },
+                MemoryError::AssignmentError(type_asig_error) => {
+                    match type_asig_error{
+                        TypeAssignmentError::MultipleAssignments =>{
+                            Report::error("Exception caused by invalid assignment: signal already assigned".to_string(),
+                                RuntimeError)
+                        },
+                        TypeAssignmentError::AssignmentOutput =>{
+                            Report::error("Exception caused by invalid assignment: trying to assign a value to an output signal of a component".to_string(),
+                                RuntimeError)
+                        },
+                    }
+                },
                 MemoryError::AssignmentMissingTags => Report::error(
                     "Invalid assignment: missing tags required by input signal".to_string(),
                     RuntimeError,

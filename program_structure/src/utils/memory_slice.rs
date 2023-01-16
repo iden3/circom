@@ -1,10 +1,21 @@
 use num_bigint_dig::BigInt;
 use std::fmt::{Display, Formatter};
 
+pub enum TypeInvalidAccess{
+    MissingInputs,
+    NoInitializedComponent,
+    BadDimensions
+}
+
+pub enum TypeAssignmentError{
+    MultipleAssignments,
+    AssignmentOutput
+}
+
 pub enum MemoryError {
     OutOfBoundsError,
-    AssignmentError,
-    InvalidAccess,
+    AssignmentError(TypeAssignmentError),
+    InvalidAccess(TypeInvalidAccess),
     UnknownSizeDimension,
     MismatchedDimensions,
     MismatchedDimensionsWeak,
