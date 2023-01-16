@@ -1,4 +1,17 @@
 # Release notes
+
+## January 16, 2023 circom 2.1.3
+ #### Extensions
+ - Improving error messages: invalid access and invalid assignment.
+ - Avoiding side effects in out of bounds log operations.
+ - Adding check to detect components that are created but do not receive all their inputs.
+ - Fixing field size of goldilocks when writing r1cs file.
+
+ #### Fixed Bugs
+ - Fixing a problem with the use of integer division and ===, <== operators. If an integer division is involved in the expression of one of these operators, then we consider the expression as no quadratic.
+ - Fixing bug in code generation of constraint equalities with arrays
+
+
 ## November 7, 2022 circom 2.1.2
 
  #### Fixed bugs
