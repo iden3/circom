@@ -1,4 +1,4 @@
-use super::slice_types::{MemoryError, SignalSlice, SliceCapacity,TagInfo};
+use super::slice_types::{MemoryError, TypeInvalidAccess, TypeAssignmentError, SignalSlice, SliceCapacity,TagInfo};
 use crate::execution_data::type_definitions::NodePointer;
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap, HashSet};
@@ -63,7 +63,7 @@ impl ComponentRepresentation {
         meta: &Meta,
     ) -> Result<(), MemoryError>{
         if !is_anonymous_component && component.is_preinitialized() {
-            return Result::Err(MemoryError::AssignmentError);
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
         }
         let possible_node = ExecutedProgram::get_prenode(scheme, prenode_pointer);
         assert!(possible_node.is_some());
@@ -176,14 +176,14 @@ impl ComponentRepresentation {
     pub fn get_signal(&self, signal_name: &str) -> Result<(&TagInfo, &SignalSlice), MemoryError> {
 
         if self.node_pointer.is_none() {
-            return Result::Err(MemoryError::InvalidAccess);
+            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent));
         }
         if self.outputs.contains_key(signal_name) && !self.unassigned_inputs.is_empty() {
-            return Result::Err(MemoryError::InvalidAccess);
+            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputs));
         }
 
         if !self.is_initialized {
-            return Result::Err(MemoryError::InvalidAccess);
+            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent));
         }
     
         let slice = if self.inputs.contains_key(signal_name) {
@@ -229,8 +229,11 @@ impl ComponentRepresentation {
 
         // We copy tags in any case, complete or incomplete assignment
         // The values of the tags must be the same than the ones stored before
-        let tags_input = component.inputs_tags.get_mut(signal_name).unwrap();
+        if !component.inputs_tags.contains_key(signal_name){
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput));
+        }
 
+        let tags_input = component.inputs_tags.get_mut(signal_name).unwrap();
         for (t, value) in tags_input{
             if !tags.contains_key(t){
                 return Result::Err(MemoryError::AssignmentMissingTags);
@@ -257,7 +260,10 @@ impl ComponentRepresentation {
         access: &[SliceCapacity],
         slice_route: &[SliceCapacity],
     ) -> Result<(), MemoryError> {
-
+        
+        if !component.inputs.contains_key(signal_name){
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput));
+        }
         let inputs_response = component.inputs.get_mut(signal_name).unwrap();
         let signal_previous_value = SignalSlice::access_values(
             inputs_response,
@@ -276,7 +282,7 @@ impl ComponentRepresentation {
         for i in 0..SignalSlice::get_number_of_cells(&signal_previous_value){
             let signal_was_assigned = SignalSlice::access_value_by_index(&signal_previous_value, i)?;
             if signal_was_assigned {
-                return Result::Err(MemoryError::AssignmentError);
+                return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
             }
         }
         
