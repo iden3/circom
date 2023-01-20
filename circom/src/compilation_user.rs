@@ -15,10 +15,15 @@ pub struct CompilerConfig {
     pub c_folder: String,
     pub c_run_name: String,
     pub c_file: String,
+    pub llvm_file: String,
+    pub llvm_folder: String,
+    pub summary_file: String,
     pub dat_file: String,
     pub wat_flag: bool,
     pub wasm_flag: bool,
     pub c_flag: bool,
+    pub llvm_flag: bool,
+    pub summary_flag: bool,
     pub debug_output: bool,
     pub produce_input_log: bool,
     pub vcp: VCP,
@@ -51,6 +56,16 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
             "fr.cpp".to_string(),
             "fr.asm".to_string(),
             "Makefile".to_string()
+        );
+    }
+
+    println!("{:?} {:?} {:?}", config.llvm_flag, config.llvm_file, config.llvm_folder);
+    if config.llvm_flag {
+        compiler_interface::write_llvm_ir(&circuit, &config.llvm_folder, &config.llvm_file)?;
+        println!(
+          "{} {}",
+            Colour::Green.paint("Written successfully:"),
+            config.llvm_file
         );
     }
 

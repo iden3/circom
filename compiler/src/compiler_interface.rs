@@ -2,6 +2,7 @@ pub use crate::circuit_design::circuit::{Circuit, CompilationFlags};
 pub use crate::hir::very_concrete_program::VCP;
 use std::fs::File;
 use std::io::BufWriter;
+use crate::translating_traits::WriteLLVMIR;
 
 pub struct Config {
     pub debug_output: bool,
@@ -40,6 +41,16 @@ pub fn write_c(circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str
     let mut c_file = BufWriter::new(c_file);
     let mut dat_file = BufWriter::new(dat_file);
     circuit.produce_c(c_folder, c_run_name, &mut c_file, &mut dat_file)
+}
+
+pub fn write_llvm_ir(circuit: &Circuit, llvm_folder: &str, llvm_file: &str) -> Result<(), ()> {
+    use std::path::Path;
+    if Path::new(llvm_folder).is_dir() {
+        std::fs::remove_dir_all(llvm_folder).map_err(|_err| {})?;
+    }
+    std::fs::create_dir(llvm_folder).map_err(|_err| {})?;
+    let _ = File::create(llvm_file).map_err(|_err| {})?;
+    circuit.produce_llvm_ir(llvm_folder, &llvm_file)
 }
 
 fn produce_debug_output(circuit: &Circuit) -> Result<(), ()> {

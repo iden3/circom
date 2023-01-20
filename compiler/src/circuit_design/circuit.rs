@@ -5,6 +5,7 @@ use crate::hir::very_concrete_program::VCP;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
+use code_producers::llvm_elements::*;
 use std::io::Write;
 
 pub struct CompilationFlags {
@@ -15,6 +16,7 @@ pub struct CompilationFlags {
 pub struct Circuit {
     pub wasm_producer: WASMProducer,
     pub c_producer: CProducer,
+    pub llvm_producer: LLVMProducer,
     pub templates: Vec<TemplateCode>,
     pub functions: Vec<FunctionCode>,
 }
@@ -24,9 +26,35 @@ impl Default for Circuit {
         Circuit {
             c_producer: CProducer::default(),
             wasm_producer: WASMProducer::default(),
+            llvm_producer: LLVMProducer::default(),
             templates: Vec::new(),
             functions: Vec::new(),
         }
+    }
+}
+
+impl WriteLLVMIR for Circuit {
+    fn produce_llvm_ir(&self, producer: &LLVMProducer) -> Vec<String> {
+        let mut code = vec![];
+        // Code for prelude
+
+        // Code for definitions
+
+        // Code for standard library?
+
+        // Code for the functions
+        for f in &self.functions {
+            code.append(&mut f.produce_llvm_ir(producer));
+        }
+
+        // Code for the templates
+        for t in &self.templates {
+            code.append(&mut t.produce_llvm_ir(producer));
+        }
+
+
+        // Code for the prologue
+        code
     }
 }
 
@@ -460,5 +488,8 @@ impl Circuit {
         wasm_code_generator::generate_generate_witness_js_file(&js_folder_path).map_err(|_err| {})?;
         wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path).map_err(|_err| {})?;
         self.write_wasm(writer, &self.wasm_producer)
+    }
+    pub fn produce_llvm_ir(&self, llvm_folder: &str, llvm_path: &str) -> Result<(), ()> {
+        self.write_llvm_ir(llvm_path, &self.llvm_producer)
     }
 }

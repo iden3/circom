@@ -1,6 +1,7 @@
 use crate::intermediate_representation::InstructionList;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::LLVMProducer;
 use code_producers::wasm_elements::*;
 
 type TemplateID = usize;
@@ -33,6 +34,13 @@ impl ToString for TemplateCodeInfo {
         format!("TEMPLATE({})(\n{})", self.header, body)
     }
 }
+
+impl WriteLLVMIR for TemplateCodeInfo {
+    fn produce_llvm_ir(&self, producer: &LLVMProducer) -> Vec<String> {
+        vec![]
+    }
+}
+
 impl WriteWasm for TemplateCodeInfo {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;

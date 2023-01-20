@@ -13,9 +13,14 @@ pub struct Input {
     pub out_c_code: PathBuf,
     pub out_c_dat: PathBuf,
     pub out_sym: PathBuf,
+    pub out_llvm_code: PathBuf,
+    pub out_summary_dat: PathBuf,
+    pub out_llvm_folder: PathBuf,
     //pub field: &'static str,
     pub c_flag: bool,
     pub wasm_flag: bool,
+    pub llvm_flag: bool,
+    pub summary_flag: bool,
     pub wat_flag: bool,
     pub r1cs_flag: bool,
     pub sym_flag: bool,
@@ -43,6 +48,7 @@ const JS: &'static str = "js";
 const DAT: &'static str = "dat";
 const SYM: &'static str = "sym";
 const JSON: &'static str = "json";
+const LLVM_IR: &'static str = "ll";
 
 
 impl Input {
@@ -54,6 +60,7 @@ impl Input {
         let output_path = input_processing::get_output_path(&matches)?;
         let output_c_path = Input::build_folder(&output_path, &file_name, CPP);
         let output_js_path = Input::build_folder(&output_path, &file_name, JS);
+        let output_llvm_path = Input::build_folder(&output_path, &file_name, LLVM_IR);
         let o_style = input_processing::get_simplification_style(&matches)?;
         let link_libraries = input_processing::get_link_libraries(&matches);
         Result::Ok(Input {
@@ -67,6 +74,9 @@ impl Input {
 	        out_c_folder: output_c_path.clone(),
 	        out_c_run_name: file_name.clone(),
             out_c_code: Input::build_output(&output_c_path, &file_name, CPP),
+            out_llvm_code: Input::build_output(&output_llvm_path, &file_name, LLVM_IR),
+            out_llvm_folder: output_llvm_path.clone(),
+            out_summary_dat: Input:: build_output(&output_llvm_path, &file_name, JSON),
             out_c_dat: Input::build_output(&output_c_path, &file_name, DAT),
             out_sym: Input::build_output(&output_path, &file_name, SYM),
             out_json_constraints: Input::build_output(
@@ -76,6 +86,8 @@ impl Input {
             ),
             wat_flag:input_processing::get_wat(&matches),
             wasm_flag: input_processing::get_wasm(&matches),
+            llvm_flag: input_processing::get_llvm(&matches),
+            summary_flag: input_processing::get_summary(&matches),
             c_flag: input_processing::get_c(&matches),
             r1cs_flag: input_processing::get_r1cs(&matches),
             sym_flag: input_processing::get_sym(&matches),
@@ -144,6 +156,15 @@ impl Input {
     pub fn c_file(&self) -> &str {
         self.out_c_code.to_str().unwrap()
     }
+    pub fn llvm_file(&self) -> &str {
+        self.out_llvm_code.to_str().unwrap()
+    }
+    pub fn llvm_folder(&self) -> &str {
+        self.out_llvm_folder.to_str().unwrap()
+    }
+    pub fn summary_file(&self) -> &str {
+        self.out_summary_dat.to_str().unwrap()
+    }
     pub fn dat_file(&self) -> &str {
         self.out_c_dat.to_str().unwrap()
     }
@@ -152,6 +173,12 @@ impl Input {
     }
     pub fn wasm_flag(&self) -> bool {
         self.wasm_flag
+    }
+    pub fn llvm_flag(&self) -> bool {
+        self.llvm_flag
+    }
+    pub fn summary_flag(&self) -> bool {
+        self.summary_flag
     }
     pub fn wat_flag(&self) -> bool {
         self.wat_flag
@@ -269,6 +296,14 @@ mod input_processing {
 
     pub fn get_wasm(matches: &ArgMatches) -> bool {
         matches.is_present("print_wasm")
+    }
+
+    pub fn get_llvm(matches: &ArgMatches) -> bool {
+        matches.is_present("print_llvm_ir")
+    }
+
+    pub fn get_summary(matches: &ArgMatches) -> bool {
+        matches.is_present("print_summary")
     }
 
     pub fn get_wat(matches: &ArgMatches) -> bool {
@@ -423,6 +458,20 @@ mod input_processing {
                     .takes_value(false)
                     .display_order(90)
                     .help("Compiles the circuit to wasm"),
+            )
+            .arg(
+                Arg::with_name("print_llvm_ir")
+                    .long("llvm")
+                    .takes_value(false)
+                    .display_order(91)
+                    .help("Compiles the circuit to LLVM-IR"),
+            )
+            .arg(
+                Arg::with_name("print_summary")
+                    .long("summary")
+                    .takes_value(false)
+                    .display_order(92)
+                    .help("Generate a JSON summary describing the circuit"),
             )
             .arg(
                 Arg::with_name("print_wat")

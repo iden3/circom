@@ -1,5 +1,6 @@
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
+use code_producers::llvm_elements::*;
 use std::io::Write;
 
 pub trait WriteC {
@@ -25,5 +26,13 @@ pub trait WriteWasm {
         let code = wasm_code_generator::merge_code(wasm_instructions);
         writer.write_all(code.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})
+    }
+}
+
+pub trait WriteLLVMIR {
+    fn produce_llvm_ir(&self, producer: &LLVMProducer) -> Vec<String>;
+    fn write_llvm_ir(&self, llvm_path: &str, producer: &LLVMProducer) -> Result<(), ()> {
+        let module = producer.create_module(llvm_path);
+        module.print_to_file(llvm_path).map_err(|_| {})
     }
 }
