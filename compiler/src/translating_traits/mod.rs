@@ -2,6 +2,7 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use code_producers::llvm_elements::*;
 use std::io::Write;
+use code_producers::llvm_elements::llvm_code_generator::create_module;
 
 pub trait WriteC {
     /*
@@ -30,9 +31,11 @@ pub trait WriteWasm {
 }
 
 pub trait WriteLLVMIR {
-    fn produce_llvm_ir(&self, producer: &LLVMProducer) -> Vec<String>;
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>>;
     fn write_llvm_ir(&self, llvm_path: &str, producer: &LLVMProducer) -> Result<(), ()> {
-        let module = producer.create_module(llvm_path);
-        module.print_to_file(llvm_path).map_err(|_| {})
+        let module = create_module(producer, llvm_path);
+        self.produce_llvm_ir(producer, module.clone());
+        let x = module.borrow().write_to_file(llvm_path);
+        x
     }
 }

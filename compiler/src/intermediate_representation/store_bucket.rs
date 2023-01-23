@@ -1,6 +1,8 @@
+use std::rc::Rc;
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -46,6 +48,16 @@ impl ToString for StoreBucket {
             "STORE(line:{},template_id:{},dest_type:{},dest:{},src:{})",
             line, template_id, dest_type, dest, src
         )
+    }
+}
+
+impl WriteLLVMIR for StoreBucket {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        // A store instruction has a source instruction that states the origin of the value that is going to be stored
+        let location =  self.dest.produce_llvm_ir(producer, module.clone());
+        self.src.produce_llvm_ir(producer, module.clone());
+        // module.borrow().create_return(None);
+        None
     }
 }
 

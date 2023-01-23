@@ -1,6 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -49,6 +50,13 @@ impl ToString for BranchBucket {
             "IF(line:{},template_id:{},cond:{},if:{},else{})",
             line, template_id, cond, if_body, else_body
         )
+    }
+}
+
+impl WriteLLVMIR for BranchBucket {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        module.borrow().create_return(None);
+        None
     }
 }
 

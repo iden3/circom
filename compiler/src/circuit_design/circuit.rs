@@ -34,8 +34,7 @@ impl Default for Circuit {
 }
 
 impl WriteLLVMIR for Circuit {
-    fn produce_llvm_ir(&self, producer: &LLVMProducer) -> Vec<String> {
-        let mut code = vec![];
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
         // Code for prelude
 
         // Code for definitions
@@ -44,17 +43,19 @@ impl WriteLLVMIR for Circuit {
 
         // Code for the functions
         for f in &self.functions {
-            code.append(&mut f.produce_llvm_ir(producer));
+            // code.append(&mut f.produce_llvm_ir(producer));
+
         }
 
         // Code for the templates
         for t in &self.templates {
-            code.append(&mut t.produce_llvm_ir(producer));
+            // code.append(&mut t.produce_llvm_ir(producer));
+            t.produce_llvm_ir(producer, module.clone());
         }
 
+        // Code for prologue
 
-        // Code for the prologue
-        code
+        None // No need to return at this level
     }
 }
 
@@ -489,7 +490,7 @@ impl Circuit {
         wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path).map_err(|_err| {})?;
         self.write_wasm(writer, &self.wasm_producer)
     }
-    pub fn produce_llvm_ir(&self, llvm_folder: &str, llvm_path: &str) -> Result<(), ()> {
+    pub fn produce_llvm_ir(&mut self, llvm_folder: &str, llvm_path: &str) -> Result<(), ()> {
         self.write_llvm_ir(llvm_path, &self.llvm_producer)
     }
 }

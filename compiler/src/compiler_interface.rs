@@ -43,7 +43,7 @@ pub fn write_c(circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str
     circuit.produce_c(c_folder, c_run_name, &mut c_file, &mut dat_file)
 }
 
-pub fn write_llvm_ir(circuit: &Circuit, llvm_folder: &str, llvm_file: &str) -> Result<(), ()> {
+pub fn write_llvm_ir(circuit: &mut Circuit, llvm_folder: &str, llvm_file: &str) -> Result<(), ()> {
     use std::path::Path;
     if Path::new(llvm_folder).is_dir() {
         std::fs::remove_dir_all(llvm_folder).map_err(|_err| {})?;

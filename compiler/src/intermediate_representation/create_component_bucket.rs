@@ -1,6 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -61,6 +62,13 @@ impl ToString for CreateCmpBucket {
             "CREATE_CMP(line:{},template_id:{},name:{},id_no:{})",
             line, template_id, self.symbol, id_no
         )
+    }
+}
+
+impl WriteLLVMIR for CreateCmpBucket {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        module.borrow().create_return(None);
+        None
     }
 }
 

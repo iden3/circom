@@ -1,6 +1,8 @@
+use std::io::Write;
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -59,6 +61,13 @@ impl ToString for CallBucket {
             args = format!("{}{},", args, i.to_string());
         }
         format!("CALL(line:{},template_id:{},id:{},args:{})", line, template_id, self.symbol, args)
+    }
+}
+
+impl WriteLLVMIR for CallBucket {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        module.borrow().create_return(None);
+        None
     }
 }
 

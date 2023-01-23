@@ -1,3 +1,5 @@
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
+use crate::translating_traits::WriteLLVMIR;
 use super::ir_interface::*;
 
 #[derive(Clone)]
@@ -20,6 +22,15 @@ impl ToString for LocationRule {
                 let index_mgs: Vec<String> = indexes.iter().map(|i| i.to_string()).collect();
                 format!("MAPPED: ({}, {:?})", code_msg, index_mgs)
             }
+        }
+    }
+}
+
+impl WriteLLVMIR for LocationRule {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        match self {
+            LocationRule::Indexed { location, .. } => location.produce_llvm_ir(producer, module),
+            LocationRule::Mapped { .. } => {todo!()}
         }
     }
 }

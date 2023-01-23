@@ -16,6 +16,7 @@ pub use super::value_bucket::ValueBucket;
 
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
 
 pub trait IntoInstruction {
@@ -125,6 +126,25 @@ impl WriteWasm for Instruction {
     }
 }
 
+impl WriteLLVMIR for Instruction {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        use Instruction::*;
+        match self {
+            Value(v) => v.produce_llvm_ir(producer, module),
+            Load(v) => v.produce_llvm_ir(producer, module),
+            Store(v) => v.produce_llvm_ir(producer, module),
+            Compute(v) => v.produce_llvm_ir(producer, module),
+            Call(v) => v.produce_llvm_ir(producer, module),
+            Branch(v) => v.produce_llvm_ir(producer, module),
+            Return(v) => v.produce_llvm_ir(producer, module),
+            Loop(v) => v.produce_llvm_ir(producer, module),
+            Assert(v) => v.produce_llvm_ir(producer, module),
+            CreateCmp(v) => v.produce_llvm_ir(producer, module),
+            Log(v) => v.produce_llvm_ir(producer, module),
+        }
+    }
+}
+
 impl WriteC for Instruction {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use Instruction::*;
@@ -160,6 +180,25 @@ impl ToString for Instruction {
             Assert(v) => v.to_string(),
             CreateCmp(v) => v.to_string(),
             Log(v) => v.to_string(),
+        }
+    }
+}
+
+impl Instruction {
+    pub fn label_name(&self, idx: u32) -> String {
+        use Instruction::*;
+        match self {
+            Value(v) => format!("value{}", idx),
+            Load(v) => format!("load{}", idx),
+            Store(v) => format!("store{}", idx),
+            Compute(v) => format!("compute{}", idx),
+            Call(v) => format!("call{}", idx),
+            Branch(v) => format!("branch{}", idx),
+            Return(v) => format!("return{}", idx),
+            Loop(v) => format!("loop{}", idx),
+            Assert(v) => format!("assert{}", idx),
+            CreateCmp(v) => format!("create_cmp{}", idx),
+            Log(v) => format!("log{}", idx),
         }
     }
 }

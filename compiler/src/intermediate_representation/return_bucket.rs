@@ -1,6 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -38,6 +39,13 @@ impl ToString for ReturnBucket {
         let template_id = self.message_id.to_string();
         let value = self.value.to_string();
         format!("RETURN(line: {},template_id: {},value: {})", line, template_id, value)
+    }
+}
+
+impl WriteLLVMIR for ReturnBucket {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        module.borrow().create_return(None);
+        None
     }
 }
 

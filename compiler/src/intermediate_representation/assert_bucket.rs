@@ -1,6 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -37,6 +38,13 @@ impl ToString for AssertBucket {
         let template_id = self.message_id.to_string();
         let evaluate = self.evaluate.to_string();
         format!("ASSERT(line: {},template_id: {},evaluate: {})", line, template_id, evaluate)
+    }
+}
+
+impl WriteLLVMIR for AssertBucket {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        module.borrow().create_return(None);
+        None
     }
 }
 

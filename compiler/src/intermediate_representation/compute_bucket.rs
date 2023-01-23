@@ -1,6 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -133,6 +134,14 @@ impl ToString for ComputeBucket {
         )
     }
 }
+
+impl WriteLLVMIR for ComputeBucket {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        module.borrow().create_return(None);
+        None
+    }
+}
+
 impl WriteWasm for ComputeBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;

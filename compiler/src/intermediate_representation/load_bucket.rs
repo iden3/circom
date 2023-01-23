@@ -1,6 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -44,6 +45,27 @@ impl ToString for LoadBucket {
         )
     }
 }
+
+impl WriteLLVMIR for LoadBucket {
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        // Generate the code of the location and use the last value as the reference
+        let ir = self.src.produce_llvm_ir(producer, module.clone());
+        let index = match ir {
+            None => panic!("We need to produce some kind of instruction!"),
+            Some(inst) => inst.into_int_value()
+        };
+        let zero = module.borrow().create_literal_u32(0);
+        // GEP to load the struct at the index taken from the location
+        let template_arg = module.borrow().get_template_arg().unwrap();
+        let gep = module.borrow().create_gep(template_arg, &[zero.into_int_value(), index], /*format!("gep{}", module.borrow().gep_count()).as_str()*/ "");
+        module.borrow_mut().inc_geps();
+        // Load from the GEP
+        let load = module.borrow().create_load(gep.into_pointer_value(), "");
+        // module.borrow().create_return(None);
+        Some(load)
+    }
+}
+
 impl WriteWasm for LoadBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;

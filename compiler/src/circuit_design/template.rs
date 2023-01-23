@@ -1,10 +1,12 @@
-use crate::intermediate_representation::InstructionList;
+use std::rc::Rc;
+use crate::intermediate_representation::{InstructionList, InstructionPointer};
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::LLVMProducer;
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
 use code_producers::wasm_elements::*;
+use crate::intermediate_representation::Instruction::{Assert, Branch, Call, Compute, CreateCmp, Load, Log, Loop, Return, Store, Value};
 
-type TemplateID = usize;
+pub type TemplateID = usize;
 pub type TemplateCode = Box<TemplateCodeInfo>;
 
 #[derive(Default)]
@@ -35,10 +37,44 @@ impl ToString for TemplateCodeInfo {
     }
 }
 
+
+
 impl WriteLLVMIR for TemplateCodeInfo {
-    fn produce_llvm_ir(&self, producer: &LLVMProducer) -> Vec<String> {
-        vec![]
+    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        // Build function
+        let void = module.borrow().void_type();
+
+        let _build_function = module.borrow().create_function(format!("{}_build", self.name).as_str(), void.fn_type(&[], false));
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+        // Run function
+
+
+        // Run function prelude
+        //  Create a vector of values of type u32 (size = number_of_inputs + number_of_outputs)
+        let template_struct = module.borrow_mut().create_template_struct(self.id, self.number_of_inputs + self.number_of_outputs);
+        //  Create a struct that represents the inputs and outputs of the component
+        //  Create a map between the template id and the  signals (the idx value)
+        //  Use the struct as parameter of the run function
+
+        let run_function = module.borrow().create_function(
+            format!("{}_run", self.name).as_str(),
+            void.fn_type(&[template_struct.into()], false)
+        );
+
+        // Run function body
+        for t in &self.body {
+            println!("{}", t.to_string());
+            let bb = module.borrow().create_bb(run_function, t.label_name(run_function.count_basic_blocks()).as_str());
+            module.borrow().set_current_bb(bb);
+            t.produce_llvm_ir(producer, module.clone());
+        }
+
+        // Run function prologue
+
+        None
     }
+
+
 }
 
 impl WriteWasm for TemplateCodeInfo {

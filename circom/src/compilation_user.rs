@@ -30,7 +30,7 @@ pub struct CompilerConfig {
 }
 
 pub fn compile(config: CompilerConfig) -> Result<(), ()> {
-    let circuit = compiler_interface::run_compiler(
+    let mut circuit = compiler_interface::run_compiler(
         config.vcp,
         Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
         VERSION
@@ -59,9 +59,8 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
         );
     }
 
-    println!("{:?} {:?} {:?}", config.llvm_flag, config.llvm_file, config.llvm_folder);
     if config.llvm_flag {
-        compiler_interface::write_llvm_ir(&circuit, &config.llvm_folder, &config.llvm_file)?;
+        compiler_interface::write_llvm_ir(&mut circuit, &config.llvm_folder, &config.llvm_file)?;
         println!(
           "{} {}",
             Colour::Green.paint("Written successfully:"),
