@@ -59,11 +59,12 @@ impl WriteLLVMIR for StoreBucket {
             None => panic!("We need to produce some kind of instruction!"),
             Some(inst) => inst.into_int_value()
         };
-        // let zero = module.borrow().create_literal_u32(0);
-        // // GEP to load the struct at the index taken from the location
-        // let template_arg = module.borrow().get_template_arg().unwrap();
-        // let gep = module.borrow().create_gep(template_arg, &[zero.into_int_value(), index], "");
-        let gep = module.borrow().get_signal(self.message_id, index);
+
+        let gep = match &self.dest_address_type {
+            AddressType::Variable => module.borrow().get_variable(self.message_id, index).into_pointer_value(),
+            AddressType::Signal => module.borrow().get_signal(self.message_id, index),
+            AddressType::SubcmpSignal { .. } => todo!()
+        };
         let source = module.borrow().to_enum(self.src.produce_llvm_ir(producer, module.clone()).unwrap());
         let store = module.borrow().create_store(gep, source);
         Some(store)

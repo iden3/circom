@@ -38,6 +38,7 @@ impl WriteLLVMIR for Circuit {
         // Code for prelude
 
         // Code for definitions
+        module.borrow_mut().create_consts(&producer.field_tracking);
 
         // Code for standard library?
 

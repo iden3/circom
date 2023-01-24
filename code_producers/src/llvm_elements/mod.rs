@@ -6,11 +6,11 @@ use std::iter::Map;
 use std::rc::Rc;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, InstructionValue, IntValue, PointerValue, StructValue};
+use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, ArrayValue, BasicValue, BasicValueEnum, GlobalValue, InstructionValue, IntValue, PointerValue, StructValue};
 use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
 use inkwell::values::FunctionValue;
-use inkwell::types::{AnyTypeEnum, BasicType, FunctionType, IntType, PointerType, StructType, VoidType};
+use inkwell::types::{AnyType, AnyTypeEnum, BasicType, FunctionType, IntType, PointerType, StringRadix, StructType, VoidType};
 
 use crate::components::*;
 
@@ -18,14 +18,16 @@ use crate::components::*;
 pub type LLVMInstruction<'a> = AnyValueEnum<'a>;
 
 pub struct LLVMProducer {
-    pub context: Box<Context>
+    pub context: Box<Context>,
+    pub field_tracking: Vec<String>,
 }
 
 impl Default for LLVMProducer {
     fn default() -> Self {
         let context = Box::new(Context::create());
         LLVMProducer {
-            context
+            context,
+            field_tracking: vec![]
         }
     }
 }
@@ -36,7 +38,10 @@ pub struct ModuleWrapperStruct<'a> {
     module: Module<'a>,
     builder: Builder<'a>,
     template_signals: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
-    gep_count: usize
+    constant_fields: Option<GlobalValue<'a>>,
+    stacks: HashMap<usize, PointerValue<'a>>,
+    template_variables: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
+
 }
 
 impl<'a> ModuleWrapperStruct<'a> {
@@ -45,14 +50,14 @@ impl<'a> ModuleWrapperStruct<'a> {
             module: context.create_module(name),
             builder: context.create_builder(),
             template_signals: HashMap::new(),
-            gep_count: 0
+            constant_fields: None,
+            stacks: HashMap::new(),
+            template_variables: HashMap::new()
         }
     }
 
-    pub fn gep_count(&self) -> usize { self.gep_count }
-    pub fn inc_geps(&mut self) { self.gep_count+=1; }
-
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
+        self.module.print_to_stderr();
         self.module.print_to_file(path).map_err(|_| {})
     }
 
@@ -109,6 +114,10 @@ impl<'a> ModuleWrapperStruct<'a> {
             None => panic!("Signal value not found!"),
             Some(ptr) => *ptr
         }
+    }
+
+    pub fn get_variable(&self, id: usize, idx: IntValue<'a>) -> AnyValueEnum<'a> {
+        self.template_variables.get(&id).unwrap().get(&idx).unwrap().as_any_value_enum()
     }
 
     pub fn template_arg_id(&self) -> u32 { 0 }
@@ -172,5 +181,40 @@ impl<'a> ModuleWrapperStruct<'a> {
 
     pub fn to_enum<T: AnyValue<'a>>(&self, v: T) -> AnyValueEnum<'a> {
         v.as_any_value_enum()
+    }
+
+    pub fn get_const(&self, value: usize) -> AnyValueEnum<'a> {
+        let arr = self.constant_fields.unwrap().get_initializer().unwrap().into_array_value();
+        let mut idx = vec![value as u32];
+        let gep = arr.const_extract_value(&mut idx);
+        gep.as_any_value_enum()
+    }
+
+    pub fn create_consts(&mut self, fields: &Vec<String>) -> AnyValueEnum<'a> {
+        let i128_ty = self.module.get_context().i128_type();
+        let vals: Vec<_> = fields.into_iter().map(|f| {
+            i128_ty.const_int_from_string(f.as_str(), StringRadix::Decimal).unwrap()
+        }).collect();
+        let tys: Vec<_> = fields.into_iter().map(|_| {i128_ty.as_basic_type_enum()}).collect();
+        let values_arr = i128_ty.const_array(&vals);
+
+        let global = self.module.add_global(values_arr.get_type(), None, "constant_fields");
+        global.set_initializer(&values_arr);
+        self.constant_fields = Some(global);
+        global.as_any_value_enum()
+    }
+
+    pub fn create_stack(&mut self, id: usize, depth: usize) -> AnyValueEnum<'a> {
+        let mut var_ptrs= HashMap::new();
+        let i128_ty = self.module.get_context().i128_type();
+        let stack = self.create_alloca(i128_ty.array_type(depth as u32).as_any_type_enum(), "stack");
+        self.stacks.insert(id, stack.into_pointer_value());
+        for i in 0..depth {
+            let idx = self.create_literal_u32(i as u64);
+            let gep = self.create_gep(stack.into_pointer_value(), &[idx.into_int_value()], "");
+            var_ptrs.insert(idx.into_int_value(), gep.into_pointer_value());
+        }
+        self.template_variables.insert(id, var_ptrs);
+        stack
     }
 }

@@ -52,7 +52,8 @@ impl WriteLLVMIR for ValueBucket {
     fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
         // Represents a literal value
         match self.parse_as {
-            ValueType::BigInt => {todo!()}
+            ValueType::BigInt =>
+                Some(module.borrow().get_const(self.value)),
             ValueType::U32 =>
                 Some(module.borrow().create_literal_u32(self.value as u64))
         }
@@ -65,7 +66,7 @@ impl WriteWasm for ValueBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; value bucket".to_string());
-	}
+        }
         match &self.parse_as {
             ValueType::U32 => {
                 instructions.push(set_constant(&self.value.to_string()));

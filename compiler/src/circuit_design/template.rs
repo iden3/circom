@@ -51,11 +51,9 @@ impl WriteLLVMIR for TemplateCodeInfo {
         module.borrow().set_current_bb(main);
         let alloca = module.borrow().create_alloca(template_struct.get_element_type(), "");
         let _ = module.borrow().create_return(alloca.into_pointer_value());
-        // TODO: Allocate memory for the template
-        // TODO: Return a pointer to the memory
+
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Run function
-
 
         // Run function prelude
 
@@ -66,6 +64,7 @@ impl WriteLLVMIR for TemplateCodeInfo {
         );
         let prelude = module.borrow().create_bb(run_function, "prelude");
         module.borrow().set_current_bb(prelude);
+        module.borrow_mut().create_stack(self.id, self.var_stack_depth);
         module.borrow_mut().create_signal_geps(self.id, self.number_of_inputs + self.number_of_outputs);
         // TODO: Move the GEPs of each signal to the function prelude and store those pointers to avoid repeating the pattern
         // In Vanguard the domain will search for each GEP and then use the load and stores (depending if input or output signal) as the llvm::Value.
