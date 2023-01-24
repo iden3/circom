@@ -6,11 +6,11 @@ use std::iter::Map;
 use std::rc::Rc;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, InstructionValue, IntValue, PointerValue, StructValue};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, InstructionValue, IntValue, PointerValue, StructValue};
 use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
 use inkwell::values::FunctionValue;
-use inkwell::types::{BasicType, FunctionType, IntType, PointerType, StructType, VoidType};
+use inkwell::types::{AnyTypeEnum, BasicType, FunctionType, IntType, PointerType, StructType, VoidType};
 
 use crate::components::*;
 
@@ -35,7 +35,7 @@ pub type ModuleWrapper<'a> = Rc<RefCell<ModuleWrapperStruct<'a>>>;
 pub struct ModuleWrapperStruct<'a> {
     module: Module<'a>,
     builder: Builder<'a>,
-    template_signals: HashMap<usize, PointerType<'a>>,
+    template_signals: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
     gep_count: usize
 }
 
@@ -78,23 +78,37 @@ impl<'a> ModuleWrapperStruct<'a> {
         self.builder.position_at_end(bb);
     }
 
-    pub fn create_return(&self, _: Option<i32>) -> InstructionValue<'a> {
-        self.builder.build_return(None)
-    }
-
     pub fn create_literal_u32(&self, val: u64) -> AnyValueEnum<'a> {
         self.module.get_context().i32_type().const_int(val, false).as_any_value_enum()
     }
 
-    pub fn create_template_struct(&mut self, id: usize, n_signals: usize) -> PointerType<'a> {
+    pub fn create_template_struct(&self, n_signals: usize) -> PointerType<'a> {
         let context = self.module.get_context();
         let fields: Vec<_> = (0..n_signals).map(|_| {
             context.i128_type().as_basic_type_enum()
         }).collect();
         let str = context.struct_type(&fields, false);
         let ptr = str.ptr_type(Default::default());
-        self.template_signals.insert(id, ptr);
         ptr
+    }
+
+    pub fn create_signal_geps(&mut self, id: usize, n_signals: usize) {
+        let mut signal_ptrs= HashMap::new();
+        let template_arg = self.get_template_arg().unwrap();
+        let zero = self.create_literal_u32(0);
+        for i in 0..n_signals {
+            let idx = self.create_literal_u32(i as u64);
+            let gep = self.create_gep(template_arg, &[zero.into_int_value(), idx.into_int_value()], "");
+            signal_ptrs.insert(idx.into_int_value(), gep.into_pointer_value());
+        }
+        self.template_signals.insert(id, signal_ptrs);
+    }
+
+    pub fn get_signal(&self, id: usize, idx: IntValue<'a>) -> PointerValue<'a> {
+        match self.template_signals.get(&id).unwrap().get(&idx) {
+            None => panic!("Signal value not found!"),
+            Some(ptr) => *ptr
+        }
     }
 
     pub fn template_arg_id(&self) -> u32 { 0 }
@@ -116,6 +130,44 @@ impl<'a> ModuleWrapperStruct<'a> {
 
     pub fn create_load(&self, ptr: PointerValue<'a>, name: &str) -> AnyValueEnum<'a> {
         self.builder.build_load(ptr, name).as_any_value_enum()
+    }
+
+    pub fn create_return_void(&self) -> AnyValueEnum<'a> {
+        self.builder.build_return(None).as_any_value_enum()
+    }
+
+    pub fn create_return<V: BasicValue<'a>>(&self, val: V) -> AnyValueEnum<'a> {
+        self.builder.build_return(Some(&val)).as_any_value_enum()
+    }
+
+    pub fn create_br(&self, bb: BasicBlock<'a>) -> AnyValueEnum<'a> {
+        self.builder.build_unconditional_branch(bb).as_any_value_enum()
+    }
+
+    pub fn create_alloca(&self, ty: AnyTypeEnum<'a>, name: &str) -> AnyValueEnum<'a> {
+        match ty {
+            AnyTypeEnum::ArrayType(ty) => self.builder.build_alloca(ty, name),
+            AnyTypeEnum::FloatType(ty) => self.builder.build_alloca(ty, name),
+            AnyTypeEnum::FunctionType(ty) => panic!("We cannot allocate a function type!"),
+            AnyTypeEnum::IntType(ty) => self.builder.build_alloca(ty, name),
+            AnyTypeEnum::PointerType(ty) => self.builder.build_alloca(ty, name),
+            AnyTypeEnum::StructType(ty) => self.builder.build_alloca(ty, name),
+            AnyTypeEnum::VectorType(ty) => self.builder.build_alloca(ty, name),
+            AnyTypeEnum::VoidType(ty) => panic!("We cannot allocate a void type!")
+        }.as_any_value_enum()
+    }
+
+    pub fn create_store(&self, ptr: PointerValue<'a>, value: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
+        match value {
+            AnyValueEnum::ArrayValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
+            AnyValueEnum::IntValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
+            AnyValueEnum::FloatValue(v)  => self.builder.build_store(ptr, v).as_any_value_enum(),
+            AnyValueEnum::PointerValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
+            AnyValueEnum::StructValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
+            AnyValueEnum::VectorValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
+            _ => panic!("We cannot create a store from a non basic value! There is a bug somewhere.")
+        }
+
     }
 
     pub fn to_enum<T: AnyValue<'a>>(&self, v: T) -> AnyValueEnum<'a> {

@@ -137,7 +137,6 @@ impl ToString for ComputeBucket {
 
 impl WriteLLVMIR for ComputeBucket {
     fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
-        module.borrow().create_return(None);
         None
     }
 }

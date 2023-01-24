@@ -67,7 +67,6 @@ impl ToString for CreateCmpBucket {
 
 impl WriteLLVMIR for CreateCmpBucket {
     fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
-        module.borrow().create_return(None);
         None
     }
 }

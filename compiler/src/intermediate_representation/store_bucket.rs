@@ -55,9 +55,18 @@ impl WriteLLVMIR for StoreBucket {
     fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
         // A store instruction has a source instruction that states the origin of the value that is going to be stored
         let location =  self.dest.produce_llvm_ir(producer, module.clone());
-        self.src.produce_llvm_ir(producer, module.clone());
-        // module.borrow().create_return(None);
-        None
+        let index = match location {
+            None => panic!("We need to produce some kind of instruction!"),
+            Some(inst) => inst.into_int_value()
+        };
+        // let zero = module.borrow().create_literal_u32(0);
+        // // GEP to load the struct at the index taken from the location
+        // let template_arg = module.borrow().get_template_arg().unwrap();
+        // let gep = module.borrow().create_gep(template_arg, &[zero.into_int_value(), index], "");
+        let gep = module.borrow().get_signal(self.message_id, index);
+        let source = module.borrow().to_enum(self.src.produce_llvm_ir(producer, module.clone()).unwrap());
+        let store = module.borrow().create_store(gep, source);
+        Some(store)
     }
 }
 

@@ -41,37 +41,58 @@ impl ToString for TemplateCodeInfo {
 
 impl WriteLLVMIR for TemplateCodeInfo {
     fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
-        // Build function
         let void = module.borrow().void_type();
+        let template_struct = module.borrow().create_template_struct(self.number_of_inputs + self.number_of_outputs);
 
-        let _build_function = module.borrow().create_function(format!("{}_build", self.name).as_str(), void.fn_type(&[], false));
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+        // Build function
+        let build_function = module.borrow().create_function(format!("{}_build", self.name).as_str(), template_struct.fn_type(&[], false));
+        let main = module.borrow().create_bb(build_function, "main");
+        module.borrow().set_current_bb(main);
+        let alloca = module.borrow().create_alloca(template_struct.get_element_type(), "");
+        let _ = module.borrow().create_return(alloca.into_pointer_value());
+        // TODO: Allocate memory for the template
+        // TODO: Return a pointer to the memory
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Run function
 
 
         // Run function prelude
-        //  Create a vector of values of type u32 (size = number_of_inputs + number_of_outputs)
-        let template_struct = module.borrow_mut().create_template_struct(self.id, self.number_of_inputs + self.number_of_outputs);
-        //  Create a struct that represents the inputs and outputs of the component
-        //  Create a map between the template id and the  signals (the idx value)
-        //  Use the struct as parameter of the run function
 
+        // TODO: Parameters of the run function that correspond to the arguments of the template
         let run_function = module.borrow().create_function(
             format!("{}_run", self.name).as_str(),
             void.fn_type(&[template_struct.into()], false)
         );
+        let prelude = module.borrow().create_bb(run_function, "prelude");
+        module.borrow().set_current_bb(prelude);
+        module.borrow_mut().create_signal_geps(self.id, self.number_of_inputs + self.number_of_outputs);
+        // TODO: Move the GEPs of each signal to the function prelude and store those pointers to avoid repeating the pattern
+        // In Vanguard the domain will search for each GEP and then use the load and stores (depending if input or output signal) as the llvm::Value.
+        // This means that a signal can have several llvm::Value values since it could be used in several points.
+        // For input signals maybe I can get away with creating a single load instruction and using that for reading the value of the signal.
 
+
+        let mut last_bb = prelude;
         // Run function body
         for t in &self.body {
             println!("{}", t.to_string());
             let bb = module.borrow().create_bb(run_function, t.label_name(run_function.count_basic_blocks()).as_str());
+            module.borrow().create_br(bb);
+            last_bb = bb;
             module.borrow().set_current_bb(bb);
             t.produce_llvm_ir(producer, module.clone());
         }
 
         // Run function prologue
 
-        None
+        let prologue = module.borrow().create_bb(run_function, "prologue");
+        module.borrow().create_br(prologue);
+        module.borrow().set_current_bb(prologue);
+
+        let ret = module.borrow().create_return_void();
+
+        Some(ret)
     }
 
 

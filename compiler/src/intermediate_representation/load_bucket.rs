@@ -54,14 +54,13 @@ impl WriteLLVMIR for LoadBucket {
             None => panic!("We need to produce some kind of instruction!"),
             Some(inst) => inst.into_int_value()
         };
-        let zero = module.borrow().create_literal_u32(0);
+        // let zero = module.borrow().create_literal_u32(0);
         // GEP to load the struct at the index taken from the location
-        let template_arg = module.borrow().get_template_arg().unwrap();
-        let gep = module.borrow().create_gep(template_arg, &[zero.into_int_value(), index], /*format!("gep{}", module.borrow().gep_count()).as_str()*/ "");
-        module.borrow_mut().inc_geps();
+        // let template_arg = module.borrow().get_template_arg().unwrap();
+        // let gep = module.borrow().create_gep(template_arg, &[zero.into_int_value(), index], "");
+        let gep = module.borrow().get_signal(self.message_id, index);
         // Load from the GEP
-        let load = module.borrow().create_load(gep.into_pointer_value(), "");
-        // module.borrow().create_return(None);
+        let load = module.borrow().create_load(gep, "");
         Some(load)
     }
 }
