@@ -33,7 +33,7 @@ impl Default for LLVMProducer {
     }
 }
 
-pub type ModuleWrapper<'a> = Rc<RefCell<ModuleWrapperStruct<'a>>>;
+pub type ModuleAdapter<'a> = Rc<RefCell<ModuleWrapperStruct<'a>>>;
 
 pub struct ModuleWrapperStruct<'a> {
     module: Module<'a>,

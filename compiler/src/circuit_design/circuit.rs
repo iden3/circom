@@ -35,7 +35,7 @@ impl Default for Circuit {
 }
 
 impl WriteLLVMIR for Circuit {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         // Code for prelude
 
         // Code for definitions

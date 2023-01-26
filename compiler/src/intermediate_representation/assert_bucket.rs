@@ -1,7 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleAdapter};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -42,7 +42,7 @@ impl ToString for AssertBucket {
 }
 
 impl WriteLLVMIR for AssertBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         None
     }
 }

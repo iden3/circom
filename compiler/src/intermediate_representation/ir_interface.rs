@@ -16,7 +16,7 @@ pub use super::value_bucket::ValueBucket;
 
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleWrapper};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleAdapter};
 use code_producers::wasm_elements::*;
 
 pub trait IntoInstruction {
@@ -127,7 +127,7 @@ impl WriteWasm for Instruction {
 }
 
 impl WriteLLVMIR for Instruction {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         use Instruction::*;
         match self {
             Value(v) => v.produce_llvm_ir(producer, module),
