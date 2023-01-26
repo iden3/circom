@@ -47,7 +47,7 @@ impl ToString for LoadBucket {
 }
 
 impl WriteLLVMIR for LoadBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
         // Generate the code of the location and use the last value as the reference
         let ir = self.src.produce_llvm_ir(producer, module.clone());
         let index = match ir {

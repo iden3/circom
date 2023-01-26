@@ -2,11 +2,12 @@ pub mod llvm_code_generator;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::iter::Map;
 use std::rc::Rc;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
-use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, ArrayValue, BasicValue, BasicValueEnum, GlobalValue, InstructionValue, IntValue, PointerValue, StructValue};
+use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, InstructionValue, IntValue, PointerValue, StructValue};
 use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
 use inkwell::values::FunctionValue;
@@ -54,6 +55,10 @@ impl<'a> ModuleWrapperStruct<'a> {
             stacks: HashMap::new(),
             template_variables: HashMap::new()
         }
+    }
+
+    pub fn merge_module(&self, other: Module<'a>) {
+        self.module.link_in_module(other).expect(format!("Cannot merge with {}", self.module.get_name().to_str().unwrap()).as_str());
     }
 
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
@@ -179,6 +184,11 @@ impl<'a> ModuleWrapperStruct<'a> {
 
     }
 
+    pub fn create_call(&self, name: &str, arguments: &[BasicMetadataValueEnum<'a>]) -> AnyValueEnum<'a> {
+        let f = self.module.get_function(name).expect(format!("Cannot find function {}", name).as_str());
+        self.builder.build_call(f, arguments, "").as_any_value_enum()
+    }
+
     pub fn to_enum<T: AnyValue<'a>>(&self, v: T) -> AnyValueEnum<'a> {
         v.as_any_value_enum()
     }
@@ -216,5 +226,12 @@ impl<'a> ModuleWrapperStruct<'a> {
         }
         self.template_variables.insert(id, var_ptrs);
         stack
+    }
+
+    pub fn to_basic_metadata_enum(&self, value: AnyValueEnum<'a>) -> BasicMetadataValueEnum<'a> {
+        match BasicMetadataValueEnum::try_from(value) {
+            Ok(v) => v,
+            Err(_) => panic!("Attempted to convert a value that does not support BasicMetadataValueEnum")
+        }
     }
 }

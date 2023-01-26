@@ -40,7 +40,7 @@ impl ToString for TemplateCodeInfo {
 
 
 impl WriteLLVMIR for TemplateCodeInfo {
-    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
         let void = module.borrow().void_type();
         let template_struct = module.borrow().create_template_struct(self.number_of_inputs + self.number_of_outputs);
 

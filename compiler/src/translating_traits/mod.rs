@@ -31,7 +31,7 @@ pub trait WriteWasm {
 }
 
 pub trait WriteLLVMIR {
-    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>>;
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>>;
     fn write_llvm_ir(&self, llvm_path: &str, producer: &LLVMProducer) -> Result<(), ()> {
         let module = create_module(producer, llvm_path);
         self.produce_llvm_ir(producer, module.clone());

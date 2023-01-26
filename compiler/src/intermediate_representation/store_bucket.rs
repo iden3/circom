@@ -52,7 +52,7 @@ impl ToString for StoreBucket {
 }
 
 impl WriteLLVMIR for StoreBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
         // A store instruction has a source instruction that states the origin of the value that is going to be stored
         let location =  self.dest.produce_llvm_ir(producer, module.clone());
         let index = match location {

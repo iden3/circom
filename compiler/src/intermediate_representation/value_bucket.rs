@@ -49,7 +49,7 @@ impl ToString for ValueBucket {
 }
 
 impl WriteLLVMIR for ValueBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
         // Represents a literal value
         match self.parse_as {
             ValueType::BigInt =>

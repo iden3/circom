@@ -127,7 +127,7 @@ impl WriteWasm for Instruction {
 }
 
 impl WriteLLVMIR for Instruction {
-    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
         use Instruction::*;
         match self {
             Value(v) => v.produce_llvm_ir(producer, module),
@@ -188,17 +188,17 @@ impl Instruction {
     pub fn label_name(&self, idx: u32) -> String {
         use Instruction::*;
         match self {
-            Value(v) => format!("value{}", idx),
-            Load(v) => format!("load{}", idx),
-            Store(v) => format!("store{}", idx),
-            Compute(v) => format!("compute{}", idx),
-            Call(v) => format!("call{}", idx),
-            Branch(v) => format!("branch{}", idx),
-            Return(v) => format!("return{}", idx),
-            Loop(v) => format!("loop{}", idx),
-            Assert(v) => format!("assert{}", idx),
-            CreateCmp(v) => format!("create_cmp{}", idx),
-            Log(v) => format!("log{}", idx),
+            Value(_v) => format!("value{}", idx),
+            Load(_v) => format!("load{}", idx),
+            Store(_v) => format!("store{}", idx),
+            Compute(_v) => format!("compute{}", idx),
+            Call(_v) => format!("call{}", idx),
+            Branch(_v) => format!("branch{}", idx),
+            Return(_v) => format!("return{}", idx),
+            Loop(_v) => format!("loop{}", idx),
+            Assert(_v) => format!("assert{}", idx),
+            CreateCmp(_v) => format!("create_cmp{}", idx),
+            Log(_v) => format!("log{}", idx),
         }
     }
 }

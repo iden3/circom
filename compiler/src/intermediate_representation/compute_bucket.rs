@@ -136,8 +136,51 @@ impl ToString for ComputeBucket {
 }
 
 impl WriteLLVMIR for ComputeBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
-        None
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleWrapper<'a>) -> Option<LLVMInstruction<'a>> {
+        let mut stack = vec![];
+        for i in &self.stack {
+            let inst = i.produce_llvm_ir(producer, module.clone());
+            // Do not use as argument instructions that do not generate an instruction
+            if let Some(inst) = inst {
+                stack.push(inst);
+            }
+        }
+        let args: Vec<_> = stack.into_iter().map(|i| {
+            module.borrow().to_basic_metadata_enum(i)
+        }).collect();
+        let i = match &self.op {
+            OperatorType::Mul => {
+                module.borrow().create_call("fr_mul", &args)
+            }
+            OperatorType::Div => {todo!()}
+            OperatorType::Add => {
+                module.borrow().create_call("fr_add", &args)
+            }
+            OperatorType::Sub => {todo!()}
+            OperatorType::Pow => {todo!()}
+            OperatorType::IntDiv => {todo!()}
+            OperatorType::Mod => {todo!()}
+            OperatorType::ShiftL => {todo!()}
+            OperatorType::ShiftR => {todo!()}
+            OperatorType::LesserEq => {todo!()}
+            OperatorType::GreaterEq => {todo!()}
+            OperatorType::Lesser => {todo!()}
+            OperatorType::Greater => {todo!()}
+            OperatorType::Eq(_) => {todo!()}
+            OperatorType::NotEq => {todo!()}
+            OperatorType::BoolOr => {todo!()}
+            OperatorType::BoolAnd => {todo!()}
+            OperatorType::BitOr => {todo!()}
+            OperatorType::BitAnd => {todo!()}
+            OperatorType::BitXor => {todo!()}
+            OperatorType::PrefixSub => {todo!()}
+            OperatorType::BoolNot => {todo!()}
+            OperatorType::Complement => {todo!()}
+            OperatorType::ToAddress => {todo!()}
+            OperatorType::MulAddress => {todo!()}
+            OperatorType::AddAddress => {todo!()}
+        };
+        Some(i)
     }
 }
 
