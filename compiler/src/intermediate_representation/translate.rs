@@ -444,7 +444,9 @@ fn translate_statement(stmt: Statement, state: &mut State, context: &Context) {
         translate_log(stmt, state, context);
     } else if stmt.is_initialization_block() {
         unreachable!("This statement is syntactic sugar");
-    } else {
+    } else if stmt.is_underscore_substitution(){
+        unreachable!("Unknown statement");
+    } else{
         unreachable!("Unknown statement");
     }
 }

@@ -74,8 +74,6 @@ impl CompilerVersionError {
     }
 }
 
-
-
 pub struct NoCompilerVersionWarning{
     pub path: String,
     pub version: Version,

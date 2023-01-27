@@ -132,7 +132,8 @@ pub fn run_parser(
                     let program_archive_result = apply_syntactic_sugar( &mut program_archive);
                     match program_archive_result {
                         Result::Err(v) => {Result::Err((lib,vec![v]))}
-                        Result::Ok(()) => {Ok((program_archive, warnings))}
+                        Result::Ok(mut warnings2) => { warnings.append(&mut warnings2); 
+                                                        Ok((program_archive, warnings))}
                     }
                 }
             }

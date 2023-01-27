@@ -175,6 +175,7 @@ fn remove_anonymous_from_statement(
                 Result::Ok((Statement::Block { meta : meta, stmts : substs}, declarations))   
             }
         }
+        Statement::UnderscoreSubstitution { .. } => unreachable!(),
     }
 }
 
@@ -423,7 +424,8 @@ pub fn separate_declarations_in_comp_var_subs(declarations: Vec<Statement>) -> (
     }
     (components_dec, variables_dec, substitutions)
 }
-pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<(),Report> {
+pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<Vec<Report>,Report> {
+    let mut warnings = Vec::new();
     let mut new_templates : HashMap<String, TemplateData> = HashMap::new();
     if program_archive.get_main_expression().is_anonymous_comp() {
         return Result::Err(AnonymousCompError::anonymous_general_error(program_archive.get_main_expression().get_meta().clone(),"The main component cannot contain an anonymous call  ".to_string()));
@@ -441,7 +443,7 @@ pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<(
             init_block.append(&mut substitutions);
             init_block.append(&mut stmts);
             let new_body_with_inits = build_block(meta, init_block);
-            let new_body = remove_tuples_from_statement(&mut program_archive.templates, &program_archive.file_library, new_body_with_inits)?;
+            let new_body = remove_tuples_from_statement(&mut program_archive.templates, &program_archive.file_library, new_body_with_inits, &mut warnings)?;
             let t2 = TemplateData::copy(t.get_name().to_string(), t.get_file_id(), new_body, t.get_num_of_params(), t.get_name_of_params().clone(),
                                 t.get_param_location(), t.get_inputs().clone(), t.get_outputs().clone(), t.is_parallel(), t.is_custom_gate(), t.get_declaration_inputs().clone(), t.get_declaration_outputs().clone());
             new_templates.insert(temp.0.clone(), t2);            
@@ -450,10 +452,11 @@ pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<(
         }
     }
     program_archive.templates = new_templates;
-    Result::Ok(())
+    Result::Ok(warnings)
 }
 
-fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, file_lib: &FileLibrary, stm: Statement) -> Result<Statement, Report> {
+fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, file_lib: &FileLibrary, stm: Statement,
+                                warnings: &mut Vec<Report>) -> Result<Statement, Report> {
    match stm.clone() {
         Statement::MultSubstitution { meta, lhe, op, rhe  } => {
             let ok = remove_tuple_from_expression(templates, file_lib, lhe)?;
@@ -469,6 +472,8 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
                                 let rhe = values2.remove(0);
                                 if name != "_" {                                
                                     substs.push(build_substitution(meta.clone(), name.clone(), access.to_vec(), op, rhe));
+                                } else{
+                                    substs.push(Statement::UnderscoreSubstitution { meta: meta, op, rhe: rhe });
                                 }
                             } else{   
                                 return Result::Err(TupleError::tuple_general_error(meta.clone(),"The elements of the receiving tuple must be signals or variables.".to_string()));
@@ -495,13 +500,13 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
             if cond.contains_tuple() {
                 return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()));       
               } else{
-                let if_ok = remove_tuples_from_statement(templates, file_lib, *if_case)?;
+                let if_ok = remove_tuples_from_statement(templates,  file_lib, *if_case,warnings)?;
                 let b_if = Box::new(if_ok);
                 if else_case.is_none(){
                     Result::Ok(Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::None})
                 }else {
                     let else_c = *(else_case.unwrap());
-                    let else_ok = remove_tuples_from_statement(templates, file_lib, else_c)?;
+                    let else_ok = remove_tuples_from_statement(templates,  file_lib, else_c,warnings)?;
                     let b_else = Box::new(else_ok);
                     Result::Ok(Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::Some(b_else)})
                 }
@@ -512,7 +517,7 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
             if cond.contains_tuple() {
                 return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()));       
            } else{
-                let while_ok = remove_tuples_from_statement(templates, file_lib, *stmt)?;
+                let while_ok = remove_tuples_from_statement(templates,  file_lib, *stmt,warnings)?;
                 let b_while = Box::new(while_ok);
                 Result::Ok(Statement::While { meta : meta, cond : cond, stmt : b_while})
             }
@@ -557,7 +562,7 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
         {
             let mut new_inits = Vec::new();
             for stmt in initializations {
-                let stmt_ok = remove_tuples_from_statement(templates, file_lib, stmt)?;
+                let stmt_ok = remove_tuples_from_statement(templates,  file_lib, stmt,warnings)?;
                 new_inits.push(stmt_ok);
             }
             Result::Ok(Statement::InitializationBlock { meta: meta, xtype: xtype, initializations: new_inits })
@@ -565,7 +570,7 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
         Statement::Block { meta, stmts } => { 
             let mut new_stmts = Vec::new();
             for stmt in stmts {
-                let stmt_ok = remove_tuples_from_statement(templates, file_lib, stmt)?;
+                let stmt_ok = remove_tuples_from_statement(templates, file_lib, stmt,warnings)?;
                 new_stmts.push(stmt_ok);
             }
             Result::Ok(Statement::Block { meta : meta, stmts: new_stmts})
@@ -578,10 +583,11 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
             if var != "_" {   
                 Result::Ok(Statement::Substitution { meta: meta.clone(), var: var, access: access, op: op, rhe: new_rhe })
             }
-            else {//If this
-                Result::Ok(build_block(meta, Vec::new()))
+            else {
+                Result::Ok(Statement::UnderscoreSubstitution { meta: meta, op, rhe: new_rhe })
             }
         }
+    Statement::UnderscoreSubstitution { .. } => unreachable!(),
     }
 }
 

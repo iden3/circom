@@ -48,7 +48,10 @@ fn reduce_types_in_statement(stmt: &mut Statement, environment: &mut Environment
         ConstraintEquality { lhe, rhe, .. } => {
             reduce_types_in_constraint_equality(lhe, rhe, environment)
         }
-        MultSubstitution { .. } => unreachable!()
+        MultSubstitution { .. } => unreachable!(),
+        UnderscoreSubstitution { rhe, .. } => {
+            reduce_types_in_expression(rhe, environment);
+        },
     }
 }
 

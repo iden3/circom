@@ -27,9 +27,9 @@ fn treat_statement(
     use Statement::*;
     match stmt {
         IfThenElse { if_case, else_case, .. } => {
-            treat_statement(if_case, false, template_id, reports);
+            treat_statement(if_case, signal_declaration_allowed, template_id, reports);
             if let Option::Some(else_block) = else_case {
-                treat_statement(else_block, false, template_id, reports);
+                treat_statement(else_block, signal_declaration_allowed, template_id, reports);
             }
         }
         While { stmt, .. } => {
@@ -37,7 +37,7 @@ fn treat_statement(
         }
         Block { stmts, .. } => {
             for stmt in stmts.iter() {
-                treat_statement(stmt, false, template_id, reports);
+                treat_statement(stmt, signal_declaration_allowed, template_id, reports);
             }
         }
         InitializationBlock { meta, xtype, .. } => match xtype {

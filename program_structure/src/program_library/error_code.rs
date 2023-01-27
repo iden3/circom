@@ -14,6 +14,7 @@ pub enum ReportCode {
     UnableToTypeFunction,
     UnreachableConstraints,
     UnreachableTags,
+    UnreachableSignals,
     UnknownIndex,
     UnknownDimension,
     SameFunctionDeclaredTwice,
@@ -74,8 +75,10 @@ pub enum ReportCode {
     NonComputableExpression,
     // Constraint analysis codes
     UnconstrainedSignal,
-    OneConstraintIntermediate,
-    NoOutputInInstance,
+    UnconstrainedIOSignal,
+    UnusedInput,
+    UnusedOutput,
+
     ErrorWat2Wasm,
     CustomGateIntermediateSignalWarning,
     CustomGateConstraintError,
@@ -83,6 +86,7 @@ pub enum ReportCode {
     CustomGatesPragmaError,
     CustomGatesVersionError,
     AnonymousCompError,
+    UnderscoreWithNoSignalWarning,
     TupleError,
     InvalidSignalTagAccess,
 }
@@ -101,8 +105,6 @@ impl fmt::Display for ReportCode {
             UninitializedSymbolInExpression => "T2003",
             UnableToTypeFunction => "T2004",
             UnreachableConstraints => "T2005",
-            UnreachableTags => "T2015",
-            MainComponentWithTags => "T2016",
             SameFunctionDeclaredTwice => "T2006",
             SameTemplateDeclaredTwice => "T2007",
             SameSymbolDeclaredTwice => "T2008",
@@ -152,6 +154,9 @@ impl fmt::Display for ReportCode {
             MustBeSameDimension => "T2046",
             MustBeArithmetic => "T2047",
             OutputTagCannotBeModifiedOutside => "T2048",
+            UnreachableTags => "T2049",
+            UnreachableSignals => "T2050",
+            MainComponentWithTags => "T2051",
             RuntimeError => "T3001",
             RuntimeWarning => "T3002",
             UnknownDimension => "T20460",
@@ -162,8 +167,9 @@ impl fmt::Display for ReportCode {
             WrongNumberOfArguments(..) => "T20465",
             // Constraint analysis codes
             UnconstrainedSignal => "CA01",
-            OneConstraintIntermediate => "CA02",
-            NoOutputInInstance => "CA03",
+            UnconstrainedIOSignal => "CA02",
+            UnusedInput => "CA03",
+            UnusedOutput => "CA04",
             ErrorWat2Wasm => "W01",
             CustomGateIntermediateSignalWarning => "CG01",
             CustomGateConstraintError => "CG02",
@@ -171,7 +177,8 @@ impl fmt::Display for ReportCode {
             CustomGatesPragmaError => "CG04",
             CustomGatesVersionError => "CG05",
             AnonymousCompError => "TAC01",
-            TupleError => "TAC02"
+            TupleError => "TAC02",
+            UnderscoreWithNoSignalWarning => "TAC03",
         };
         f.write_str(string_format)
     }
