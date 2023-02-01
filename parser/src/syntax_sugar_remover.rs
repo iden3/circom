@@ -13,8 +13,7 @@ use num_bigint::BigInt;
 
 use crate::errors::{AnonymousCompError,TupleError};
 
-pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<Vec<Report>,Report> {
-    let mut warnings = Vec::new();
+pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<(), Report> {
     let mut new_templates : HashMap<String, TemplateData> = HashMap::new();
     if program_archive.get_main_expression().is_anonymous_comp() {
         return Result::Err(AnonymousCompError::anonymous_general_error(program_archive.get_main_expression().get_meta().clone(),"The main component cannot contain an anonymous call  ".to_string()));
@@ -33,7 +32,8 @@ pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<V
             init_block.append(&mut substitutions);
             init_block.append(&mut stmts);
             let new_body_with_inits = build_block(meta, init_block);
-            let new_body = remove_tuples_from_statement(&mut program_archive.templates, &program_archive.file_library, new_body_with_inits, &mut warnings)?;
+            check_tuples_statement(&new_body_with_inits)?;
+            let new_body = remove_tuples_from_statement(new_body_with_inits)?;
             let t2 = TemplateData::copy(t.get_name().to_string(), t.get_file_id(), new_body, t.get_num_of_params(), t.get_name_of_params().clone(),
                                 t.get_param_location(), t.get_inputs().clone(), t.get_outputs().clone(), t.is_parallel(), t.is_custom_gate(), t.get_declaration_inputs().clone(), t.get_declaration_outputs().clone());
             new_templates.insert(temp.0.clone(), t2);            
@@ -42,7 +42,7 @@ pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<V
         }
     }
     program_archive.templates = new_templates;
-    Result::Ok(warnings)
+    Result::Ok(())
 }
 
 
@@ -276,7 +276,7 @@ fn remove_anonymous_from_statement(
             let (if_ok,mut declarations) = remove_anonymous_from_statement(templates, file_lib, *if_case, var_access)?;
             let b_if = Box::new(if_ok);
             if else_case.is_none(){
-                Result::Ok((Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::None}, declarations))
+                Result::Ok((Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::None},declarations))
             }else {
                 let else_c = *(else_case.unwrap());
                 let (else_ok, mut declarations2) = remove_anonymous_from_statement(templates, file_lib, else_c, var_access)?;
@@ -392,7 +392,7 @@ pub fn remove_anonymous_from_expression(
     file_lib : &FileLibrary,
     exp : Expression,
     var_access: &Option<Expression>, // in case the call is inside a loop, variable used to control the access
-) -> Result<(Vec<Statement>, Vec<Statement>, Expression), Report>{
+) -> Result<(Vec<Statement>, Vec<Statement>, Expression),Report>{
     use Expression::*;
     match exp {
         AnonymousComp { meta, id, params, signals, names,  is_parallel } => {
@@ -583,14 +583,199 @@ pub fn separate_declarations_in_comp_var_subs(declarations: Vec<Statement>) -> (
     (components_dec, variables_dec, substitutions)
 }
 
+fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
+    match stm{
+        Statement::MultSubstitution { lhe, rhe, ..  } => {
+            check_tuples_expression(lhe)?;
+            check_tuples_expression(rhe)?;
+            Result::Ok(())
+        },
+        Statement::IfThenElse { cond, if_case, else_case, meta, .. } 
+        => { 
+            if cond.contains_tuple() {
+                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()))     
+            } else{
+                check_tuples_statement(if_case)?;
+                if else_case.is_some(){
+                    check_tuples_statement(else_case.as_ref().unwrap())?;
+                }
+                Result::Ok(())
+            }
+        }
 
-fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, file_lib: &FileLibrary, stm: Statement,
-                                warnings: &mut Vec<Report>) -> Result<Statement, Report> {
-   match stm.clone() {
+        Statement::While { meta, cond, stmt }   => {
+            if cond.contains_tuple() {
+                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()))       
+           } else{      
+                check_tuples_statement(stmt)
+            }
+        }     
+        Statement::LogCall {args, .. } => {
+            for arg in args {
+                match arg {
+                    LogArgument::LogStr(_) => {},
+                    LogArgument::LogExp(exp) => {
+                        check_tuples_expression(&exp)?;
+                    },
+                }
+            }
+            Result::Ok(())
+        }  
+        Statement::Assert { meta, arg}   => { 
+            if arg.contains_tuple(){
+                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in a return ".to_string()))       
+            }
+            else{ 
+                Result::Ok(())
+            }
+        }
+        Statement::Return {  meta, value: arg}=> {
+            if arg.contains_tuple(){
+                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a function ".to_string()))     
+            }
+            else{ 
+                Result::Ok(())
+            }
+        }
+        Statement::ConstraintEquality {meta, lhe, rhe } => {
+            if lhe.contains_tuple() || rhe.contains_tuple() {
+                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used with the operator === ".to_string()))       
+            }
+            else{ 
+                Result::Ok(()) 
+            }
+        }
+        Statement::Declaration { meta,
+                                 dimensions, .. } =>
+        {
+            for exp in dimensions.clone(){
+                if exp.contains_tuple(){
+                    return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
+                }
+            }
+            Result::Ok(())
+        }
+        Statement::InitializationBlock {initializations, ..} =>
+        {
+            for stmt in initializations {
+                check_tuples_statement(stmt)?;
+            }
+            Result::Ok(())
+        }
+        Statement::Block { stmts, ..} => { 
+            for stmt in stmts {
+                check_tuples_statement(stmt)?;
+            }
+            Result::Ok(())
+        }
+        Statement::Substitution { rhe, access, meta,  ..} => {
+            use program_structure::ast::Access::ComponentAccess;
+            use program_structure::ast::Access::ArrayAccess;
+            for acc in access{
+                match acc{
+                    ArrayAccess(exp) =>{
+                        if exp.contains_tuple(){
+                            return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array".to_string()));
+                        }
+                    },
+                    ComponentAccess(_)=>{},
+                }
+            }
+            check_tuples_expression(rhe)
+        }
+        Statement::UnderscoreSubstitution { .. } => unreachable!(),
+    }
+}
+
+
+pub fn check_tuples_expression(exp: &Expression) -> Result<(), Report>{
+    use Expression::*;
+    match exp{
+        ArrayInLine { meta, values } => {    
+            for value in values{
+                if value.contains_tuple() {
+                    return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
+                }
+            }
+            Result::Ok(())
+        }, 
+        UniformArray { meta, value, dimension } => {
+            if value.contains_tuple() || dimension.contains_tuple() {
+                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
+            }
+            Result::Ok(())
+        },
+        Number(_, _) => {
+            Result::Ok(())
+        },
+        Variable { access, meta,  .. } => {
+            use program_structure::ast::Access::*;
+            for acc in access{
+                match acc{
+                    ArrayAccess(exp) =>{
+                        if exp.contains_tuple(){
+                            return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array".to_string()));
+                        }
+                    },
+                    ComponentAccess(_)=>{},
+                }
+            }
+            Result::Ok(())
+        },
+        InfixOp { meta, lhe, rhe, .. } => {
+            if lhe.contains_tuple() || rhe.contains_tuple() {
+                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in the middle of an operation".to_string()))     
+            } else{
+                Result::Ok(())
+            }
+        },
+        PrefixOp { meta, rhe, .. } => {
+            if rhe.contains_tuple()  {
+                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in the middle of an operation".to_string()))     
+            } else{
+                Result::Ok(())
+            }
+        },
+        InlineSwitchOp { meta, cond, if_true,  if_false } => {
+            if cond.contains_tuple() || if_true.contains_tuple() || if_false.contains_tuple() {
+                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside an inline switch".to_string()))      
+            } else{
+                Result::Ok(())
+            }
+        },
+        Call { meta, args, .. } => {
+            for value in args{
+                if value.contains_tuple() {
+                    return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used as a parameter of a function call".to_string()));       
+                }
+            }
+            Result::Ok(())
+        },
+        AnonymousComp { .. } => {
+            unreachable!();
+        }
+        Tuple { values, .. } => {
+            for val in values {
+                check_tuples_expression(val)?;                          
+            }
+            Result::Ok(())
+        },
+        ParallelOp { meta, rhe} => {
+            if rhe.contains_tuple()  {
+                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in a parallel operator ".to_string()))       
+            } else{
+                Result::Ok(())
+            }
+        },
+    }
+}
+
+fn remove_tuples_from_statement(stm: Statement) -> Result<Statement, Report> {
+    match stm{
         Statement::MultSubstitution { meta, lhe, op, rhe  } => {
-            let ok = remove_tuple_from_expression(templates, file_lib, lhe)?;
-            let ok2 = remove_tuple_from_expression(templates, file_lib, rhe)?;
-            match (ok, ok2) {
+            let new_exp_lhe = remove_tuple_from_expression(lhe);
+            let new_exp_rhe = remove_tuple_from_expression(rhe);
+            match (new_exp_lhe, new_exp_rhe) {
                 (Expression::Tuple { values: mut values1, .. },
                     Expression::Tuple { values: mut values2, .. }) => {
                     if values1.len() == values2.len() {
@@ -600,7 +785,7 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
                             if let Expression::Variable { meta, name, access } = lhe {  
                                 let rhe = values2.remove(0);
                                 if name != "_" {                                
-                                    substs.push(build_substitution(meta.clone(), name.clone(), access.to_vec(), op, rhe));
+                                    substs.push(build_substitution(meta, name, access, op, rhe));
                                 } else{
                                     substs.push(Statement::UnderscoreSubstitution { meta: meta, op, rhe: rhe });
                                 }
@@ -626,72 +811,43 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
         },
         Statement::IfThenElse { meta, cond, if_case, else_case } 
         => { 
-            if cond.contains_tuple() {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()));       
-              } else{
-                let if_ok = remove_tuples_from_statement(templates,  file_lib, *if_case,warnings)?;
-                let b_if = Box::new(if_ok);
-                if else_case.is_none(){
-                    Result::Ok(Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::None})
-                }else {
-                    let else_c = *(else_case.unwrap());
-                    let else_ok = remove_tuples_from_statement(templates,  file_lib, else_c,warnings)?;
-                    let b_else = Box::new(else_ok);
-                    Result::Ok(Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::Some(b_else)})
-                }
+            let if_ok = remove_tuples_from_statement(*if_case)?;
+            let b_if = Box::new(if_ok);
+            if else_case.is_none(){
+                Result::Ok(Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::None})
+            }else {
+                let else_c = *(else_case.unwrap());
+                let else_ok = remove_tuples_from_statement(else_c)?;
+                let b_else = Box::new(else_ok);
+                Result::Ok(Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::Some(b_else)})
             }
         }
 
         Statement::While { meta, cond, stmt }   => {
-            if cond.contains_tuple() {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()));       
-           } else{
-                let while_ok = remove_tuples_from_statement(templates,  file_lib, *stmt,warnings)?;
-                let b_while = Box::new(while_ok);
-                Result::Ok(Statement::While { meta : meta, cond : cond, stmt : b_while})
-            }
+            let while_ok = remove_tuples_from_statement(*stmt)?;
+            let b_while = Box::new(while_ok);
+            Result::Ok(Statement::While { meta : meta, cond : cond, stmt : b_while})
         }     
         Statement::LogCall {meta, args } => {
             let mut newargs = Vec::new();
             for arg in args {
                 match arg {
-                    LogArgument::LogStr(str) => {newargs.push(LogArgument::LogStr(str));},
+                    LogArgument::LogStr(str) => {
+                        newargs.push(LogArgument::LogStr(str));
+                    },
                     LogArgument::LogExp(exp) => {
-                            let mut args2 = separate_tuple_for_logcall(vec![exp]);
-                            newargs.append(&mut args2);
+                        let mut args2 = separate_tuple_for_logcall(vec![exp]);
+                        newargs.append(&mut args2);
                     },
                 }
             }
             Result::Ok(build_log_call(meta, newargs))
         }  
-        Statement::Assert { meta, arg}   => { Result::Ok(build_assert(meta, arg))}
-        Statement::Return {  meta, value: arg}=> {
-            if arg.contains_tuple(){
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a function ".to_string()));       
-            }
-            else{ Result::Ok(build_return(meta, arg))}
-        }
-        Statement::ConstraintEquality {meta, lhe, rhe } => {
-            if lhe.contains_tuple() || rhe.contains_tuple() {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used with the operator === ".to_string()));       
-            }
-            else{ Result::Ok(build_constraint_equality(meta, lhe, rhe)) }
-        }
-        Statement::Declaration { meta , xtype , name ,
-                                 dimensions, .. } =>
-        {
-            for exp in dimensions.clone(){
-                if exp.contains_tuple(){
-                    return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
-                 }
-            }
-            Result::Ok(build_declaration(meta, xtype, name, dimensions))
-        }
         Statement::InitializationBlock { meta, xtype, initializations } =>
         {
             let mut new_inits = Vec::new();
             for stmt in initializations {
-                let stmt_ok = remove_tuples_from_statement(templates,  file_lib, stmt,warnings)?;
+                let stmt_ok = remove_tuples_from_statement(stmt)?;
                 new_inits.push(stmt_ok);
             }
             Result::Ok(Statement::InitializationBlock { meta: meta, xtype: xtype, initializations: new_inits })
@@ -699,14 +855,14 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
         Statement::Block { meta, stmts } => { 
             let mut new_stmts = Vec::new();
             for stmt in stmts {
-                let stmt_ok = remove_tuples_from_statement(templates, file_lib, stmt,warnings)?;
+                let stmt_ok = remove_tuples_from_statement(stmt)?;
                 new_stmts.push(stmt_ok);
             }
             Result::Ok(Statement::Block { meta : meta, stmts: new_stmts})
         }
         Statement::Substitution {  meta, var, op, rhe, access} => {
-            let new_rhe = remove_tuple_from_expression(templates, file_lib, rhe)?;
-             if new_rhe.is_tuple() {
+            let new_rhe = remove_tuple_from_expression(rhe);
+            if new_rhe.is_tuple() {
                 return Result::Err(TupleError::tuple_general_error(meta.clone(),"Left-side of the statement is not a tuple".to_string()));       
             }
             if var != "_" {   
@@ -716,7 +872,8 @@ fn remove_tuples_from_statement(templates: &mut HashMap<String, TemplateData>, f
                 Result::Ok(Statement::UnderscoreSubstitution { meta: meta, op, rhe: new_rhe })
             }
         }
-    Statement::UnderscoreSubstitution { .. } => unreachable!(),
+        Statement::UnderscoreSubstitution { .. } => unreachable!(),
+        _ => Result::Ok(stm), // The rest of cases do not change the stmt (cannot contain tuples)
     }
 }
 
@@ -737,77 +894,25 @@ fn separate_tuple_for_logcall(values: Vec<Expression>) ->  Vec<LogArgument> {
 }
 
 
-pub fn remove_tuple_from_expression(templates : &mut HashMap<String, TemplateData>, file_lib : & FileLibrary, exp : Expression) -> Result<Expression,Report>{
+pub fn remove_tuple_from_expression(exp : Expression) -> Expression{
     use Expression::*;
-    match exp.clone() {
-        ArrayInLine { meta, values } => {    
-        for value in values{
-            if value.contains_tuple() {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
-            }
-        }
-        Result::Ok(exp)
-        }, 
-        UniformArray { meta, value, dimension } => {
-            if value.contains_tuple() || dimension.contains_tuple() {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
-            }
-            Result::Ok(exp)
-        },
-        Number(_, _) => { Result::Ok(exp) },
-        Variable { meta, .. } => {
-            if exp.contains_tuple(){
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to access an array ".to_string()));       
-   
-            }
-            Result::Ok(exp)
-        },
-        InfixOp { meta, lhe, rhe, .. } => {
-            if lhe.contains_tuple() || rhe.contains_tuple() {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in the middle of an operation".to_string()));       
-            }
-            Result::Ok(exp)
-        },
-        PrefixOp { meta, rhe, .. } => {
-            if rhe.contains_tuple()  {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in the middle of an operation".to_string()));       
-            }
-            Result::Ok(exp)
-        },
-        InlineSwitchOp { meta, cond, if_true,  if_false } => {
-            if cond.contains_tuple() || if_true.contains_tuple() || if_false.contains_tuple() {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside an inline switch".to_string()));       
-            }
-            Result::Ok(exp)
-        },
-        Call { meta, args, .. } => {
-            for value in args{
-                if value.contains_tuple() {
-                    return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used as a parameter of a function call".to_string()));       
-                }
-            }
-            Result::Ok(exp)
-        },
+    match exp {
         AnonymousComp { .. } => {
             unreachable!();
         }
         Tuple { meta, values } => {
             let mut unfolded_values =  Vec::new();
             for val in values {
-                let exp = remove_tuple_from_expression(templates, file_lib, val)?;
+                let exp = remove_tuple_from_expression(val);
                 if let Tuple { values: mut values2, ..} = exp {
                     unfolded_values.append(&mut values2);
                 }  else {
                     unfolded_values.push(exp);
                 }                               
             }
-            Result::Ok(build_tuple(meta, unfolded_values))
+            build_tuple(meta, unfolded_values)
         },
-        ParallelOp { meta, rhe} => {
-            if rhe.contains_tuple()  {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in a parallel operator ".to_string()));       
-            }
-            Result::Ok(exp)
-        },
+        _ => exp,
     }
 }
+
