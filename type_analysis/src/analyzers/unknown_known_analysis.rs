@@ -192,7 +192,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     reports: ReportCollection::with_capacity(0),
                     modified_variables : HashSet::new(),
                     tags_modified : false,
-                    signals_declared: true,
+                    signals_declared: false,
                 }
             };
             constraints_declared =
