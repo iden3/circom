@@ -1,7 +1,8 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::llvm_code_generator::build_fn_name;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -47,7 +48,6 @@ impl ObtainMeta for CreateCmpBucket {
     fn get_line(&self) -> usize {
         self.line
     }
-
     fn get_message_id(&self) -> usize {
         self.message_id
     }
@@ -66,8 +66,12 @@ impl ToString for CreateCmpBucket {
 }
 
 impl WriteLLVMIR for CreateCmpBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
-        None
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+        let build_fn_name = build_fn_name(self.symbol.clone());
+        let id = self.sub_cmp_id.produce_llvm_ir(producer, llvm.clone()).expect("The id of a subcomponent must yield a value!");
+        let call = llvm.borrow().create_call(build_fn_name.as_str(), &[]);
+        llvm.borrow_mut().add_subcomponent(self.message_id, id.into_int_value(), call.into_pointer_value());
+        Some(call)
     }
 }
 

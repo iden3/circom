@@ -1,7 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -49,13 +49,13 @@ impl ToString for ValueBucket {
 }
 
 impl WriteLLVMIR for ValueBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         // Represents a literal value
         match self.parse_as {
             ValueType::BigInt =>
-                Some(module.borrow().get_const(self.value)),
+                Some(llvm.borrow().get_const(self.value)),
             ValueType::U32 =>
-                Some(module.borrow().create_literal_u32(self.value as u64))
+                Some(llvm.borrow().create_literal_u32(self.value as u64))
         }
     }
 }

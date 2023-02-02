@@ -1,7 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
 use code_producers::wasm_elements::*;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -136,25 +136,25 @@ impl ToString for ComputeBucket {
 }
 
 impl WriteLLVMIR for ComputeBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         let mut stack = vec![];
         for i in &self.stack {
-            let inst = i.produce_llvm_ir(producer, module.clone());
+            let inst = i.produce_llvm_ir(producer, llvm.clone());
             // Do not use as argument instructions that do not generate an instruction
             if let Some(inst) = inst {
                 stack.push(inst);
             }
         }
         let args: Vec<_> = stack.into_iter().map(|i| {
-            module.borrow().to_basic_metadata_enum(i)
+            llvm.borrow().to_basic_metadata_enum(i)
         }).collect();
         let i = match &self.op {
             OperatorType::Mul => {
-                module.borrow().create_call("fr_mul", &args)
+                llvm.borrow().create_call("fr_mul", &args)
             }
             OperatorType::Div => {todo!()}
             OperatorType::Add => {
-                module.borrow().create_call("fr_add", &args)
+                llvm.borrow().create_call("fr_add", &args)
             }
             OperatorType::Sub => {todo!()}
             OperatorType::Pow => {todo!()}

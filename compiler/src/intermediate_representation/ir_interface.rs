@@ -16,7 +16,7 @@ pub use super::value_bucket::ValueBucket;
 
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
 use code_producers::wasm_elements::*;
 
 pub trait IntoInstruction {
@@ -127,20 +127,20 @@ impl WriteWasm for Instruction {
 }
 
 impl WriteLLVMIR for Instruction {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         use Instruction::*;
         match self {
-            Value(v) => v.produce_llvm_ir(producer, module),
-            Load(v) => v.produce_llvm_ir(producer, module),
-            Store(v) => v.produce_llvm_ir(producer, module),
-            Compute(v) => v.produce_llvm_ir(producer, module),
-            Call(v) => v.produce_llvm_ir(producer, module),
-            Branch(v) => v.produce_llvm_ir(producer, module),
-            Return(v) => v.produce_llvm_ir(producer, module),
-            Loop(v) => v.produce_llvm_ir(producer, module),
-            Assert(v) => v.produce_llvm_ir(producer, module),
-            CreateCmp(v) => v.produce_llvm_ir(producer, module),
-            Log(v) => v.produce_llvm_ir(producer, module),
+            Value(v) => v.produce_llvm_ir(producer, llvm),
+            Load(v) => v.produce_llvm_ir(producer, llvm),
+            Store(v) => v.produce_llvm_ir(producer, llvm),
+            Compute(v) => v.produce_llvm_ir(producer, llvm),
+            Call(v) => v.produce_llvm_ir(producer, llvm),
+            Branch(v) => v.produce_llvm_ir(producer, llvm),
+            Return(v) => v.produce_llvm_ir(producer, llvm),
+            Loop(v) => v.produce_llvm_ir(producer, llvm),
+            Assert(v) => v.produce_llvm_ir(producer, llvm),
+            CreateCmp(v) => v.produce_llvm_ir(producer, llvm),
+            Log(v) => v.produce_llvm_ir(producer, llvm),
         }
     }
 }

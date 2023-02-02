@@ -2,7 +2,7 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use code_producers::llvm_elements::*;
 use std::io::Write;
-use code_producers::llvm_elements::llvm_code_generator::create_module;
+use code_producers::llvm_elements::llvm_code_generator::create_llvm;
 
 pub trait WriteC {
     /*
@@ -31,9 +31,9 @@ pub trait WriteWasm {
 }
 
 pub trait WriteLLVMIR {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>>;
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>>;
     fn write_llvm_ir(&self, llvm_path: &str, producer: &LLVMProducer) -> Result<(), ()> {
-        let module = create_module(producer, llvm_path);
+        let module = create_llvm(producer, llvm_path);
         self.produce_llvm_ir(producer, module.clone());
         let x = module.borrow().write_to_file(llvm_path);
         x

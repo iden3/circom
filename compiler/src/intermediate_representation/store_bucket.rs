@@ -2,7 +2,8 @@ use std::rc::Rc;
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::llvm_code_generator::run_fn_name;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -52,21 +53,52 @@ impl ToString for StoreBucket {
 }
 
 impl WriteLLVMIR for StoreBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         // A store instruction has a source instruction that states the origin of the value that is going to be stored
-        let location =  self.dest.produce_llvm_ir(producer, module.clone());
+        let location =  self.dest.produce_llvm_ir(producer, llvm.clone());
         let index = match location {
             None => panic!("We need to produce some kind of instruction!"),
             Some(inst) => inst.into_int_value()
         };
-
+        let mut sub_cmp = None;
         let gep = match &self.dest_address_type {
-            AddressType::Variable => module.borrow().get_variable(self.message_id, index).into_pointer_value(),
-            AddressType::Signal => module.borrow().get_signal(self.message_id, index),
-            AddressType::SubcmpSignal { .. } => todo!()
+            AddressType::Variable => llvm.borrow().get_variable(self.message_id, index).into_pointer_value(),
+            AddressType::Signal => llvm.borrow().get_signal(self.message_id, index),
+            AddressType::SubcmpSignal { cmp_address, .. } => {
+                let addr = cmp_address.produce_llvm_ir(producer, llvm.clone()).expect("The address of a subcomponent must yield a value!");
+                sub_cmp = Some(llvm.borrow().get_subcomponent(self.message_id, addr.into_int_value()).into_pointer_value());
+                llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "").into_pointer_value()
+            }
         };
-        let source = module.borrow().to_enum(self.src.produce_llvm_ir(producer, module.clone()).unwrap());
-        let store = module.borrow().create_store(gep, source);
+        let source = llvm.borrow().to_enum(self.src.produce_llvm_ir(producer, llvm.clone()).unwrap());
+        let store = llvm.borrow().create_store(gep, source);
+        let sub_cmp_name = match &self.dest {
+            LocationRule::Indexed { template_header, .. } => template_header.clone(),
+            _ => None
+        };
+        match &self.dest_address_type {
+            AddressType::SubcmpSignal {input_information, ..} => match input_information {
+                InputInformation::Input { status } => {
+                    match status {
+                        StatusInput::Last => {
+                            let run_fn = run_fn_name(sub_cmp_name.expect("Could not get the name of the subcomponent"));
+                            let arg = llvm
+                                .borrow()
+                                .to_basic_metadata_enum(
+                                    llvm
+                                        .borrow()
+                                        .to_enum(
+                                            sub_cmp
+                                                .expect("Attempting to call a run function with a null ptr!")));
+                            llvm.borrow().create_call(run_fn.as_str(), &[arg]);
+                        },
+                        _ => {}
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        }
         Some(store)
     }
 }

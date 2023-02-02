@@ -2,7 +2,8 @@ use std::rc::Rc;
 use crate::intermediate_representation::{InstructionList, InstructionPointer};
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::llvm_code_generator::{build_fn_name, run_fn_name};
 use code_producers::wasm_elements::*;
 use crate::intermediate_representation::Instruction::{Assert, Branch, Call, Compute, CreateCmp, Load, Log, Loop, Return, Store, Value};
 
@@ -40,17 +41,17 @@ impl ToString for TemplateCodeInfo {
 
 
 impl WriteLLVMIR for TemplateCodeInfo {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
-        let void = module.borrow().void_type();
-        let template_struct = module.borrow().create_template_struct(self.number_of_inputs + self.number_of_outputs);
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+        let void = llvm.borrow().void_type();
+        let template_struct = llvm.borrow().create_template_struct(self.number_of_inputs + self.number_of_outputs);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Build function
-        let build_function = module.borrow().create_function(format!("{}_build", self.name).as_str(), template_struct.fn_type(&[], false));
-        let main = module.borrow().create_bb(build_function, "main");
-        module.borrow().set_current_bb(main);
-        let alloca = module.borrow().create_alloca(template_struct.get_element_type(), "");
-        let _ = module.borrow().create_return(alloca.into_pointer_value());
+        let build_function = llvm.borrow().create_function(build_fn_name(self.header.clone()).as_str(), template_struct.fn_type(&[], false));
+        let main = llvm.borrow().create_bb(build_function, "main");
+        llvm.borrow().set_current_bb(main);
+        let alloca = llvm.borrow().create_alloca(template_struct.get_element_type(), "");
+        let _ = llvm.borrow().create_return(alloca.into_pointer_value());
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Run function
@@ -58,14 +59,14 @@ impl WriteLLVMIR for TemplateCodeInfo {
         // Run function prelude
 
         // TODO: Parameters of the run function that correspond to the arguments of the template
-        let run_function = module.borrow().create_function(
-            format!("{}_run", self.name).as_str(),
+        let run_function = llvm.borrow().create_function(
+            run_fn_name(self.header.clone()).as_str(),
             void.fn_type(&[template_struct.into()], false)
         );
-        let prelude = module.borrow().create_bb(run_function, "prelude");
-        module.borrow().set_current_bb(prelude);
-        module.borrow_mut().create_stack(self.id, self.var_stack_depth);
-        module.borrow_mut().create_signal_geps(self.id, self.number_of_inputs + self.number_of_outputs);
+        let prelude = llvm.borrow().create_bb(run_function, "prelude");
+        llvm.borrow().set_current_bb(prelude);
+        llvm.borrow_mut().create_stack(self.id, self.var_stack_depth);
+        llvm.borrow_mut().create_signal_geps(self.id, self.number_of_inputs + self.number_of_outputs);
         // TODO: Move the GEPs of each signal to the function prelude and store those pointers to avoid repeating the pattern
         // In Vanguard the domain will search for each GEP and then use the load and stores (depending if input or output signal) as the llvm::Value.
         // This means that a signal can have several llvm::Value values since it could be used in several points.
@@ -76,20 +77,20 @@ impl WriteLLVMIR for TemplateCodeInfo {
         // Run function body
         for t in &self.body {
             println!("{}", t.to_string());
-            let bb = module.borrow().create_bb(run_function, t.label_name(run_function.count_basic_blocks()).as_str());
-            module.borrow().create_br(bb);
+            let bb = llvm.borrow().create_bb(run_function, t.label_name(run_function.count_basic_blocks()).as_str());
+            llvm.borrow().create_br(bb);
             last_bb = bb;
-            module.borrow().set_current_bb(bb);
-            t.produce_llvm_ir(producer, module.clone());
+            llvm.borrow().set_current_bb(bb);
+            t.produce_llvm_ir(producer, llvm.clone());
         }
 
         // Run function prologue
 
-        let prologue = module.borrow().create_bb(run_function, "prologue");
-        module.borrow().create_br(prologue);
-        module.borrow().set_current_bb(prologue);
+        let prologue = llvm.borrow().create_bb(run_function, "prologue");
+        llvm.borrow().create_br(prologue);
+        llvm.borrow().set_current_bb(prologue);
 
-        let ret = module.borrow().create_return_void();
+        let ret = llvm.borrow().create_return_void();
 
         Some(ret)
     }

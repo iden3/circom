@@ -1,7 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, ModuleAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -47,20 +47,23 @@ impl ToString for LoadBucket {
 }
 
 impl WriteLLVMIR for LoadBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         // Generate the code of the location and use the last value as the reference
-        let ir = self.src.produce_llvm_ir(producer, module.clone());
+        let ir = self.src.produce_llvm_ir(producer, llvm.clone());
         let index = match ir {
             None => panic!("We need to produce some kind of instruction!"),
             Some(inst) => inst.into_int_value()
         };
-        // let zero = module.borrow().create_literal_u32(0);
-        // GEP to load the struct at the index taken from the location
-        // let template_arg = module.borrow().get_template_arg().unwrap();
-        // let gep = module.borrow().create_gep(template_arg, &[zero.into_int_value(), index], "");
-        let gep = module.borrow().get_signal(self.message_id, index);
-        // Load from the GEP
-        let load = module.borrow().create_load(gep, "");
+        let gep = match &self.address_type {
+            AddressType::Variable => todo!(),
+            AddressType::Signal => llvm.borrow().get_signal(self.message_id, index),
+            AddressType::SubcmpSignal { cmp_address, ..  } => {
+                let addr = cmp_address.produce_llvm_ir(producer, llvm.clone()).expect("The address of a subcomponent must yield a value!");
+                let sub_cmp = Some(llvm.borrow().get_subcomponent(self.message_id, addr.into_int_value()).into_pointer_value());
+                llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "").into_pointer_value()
+            }
+        };
+        let load = llvm.borrow().create_load(gep, "");
         Some(load)
     }
 }

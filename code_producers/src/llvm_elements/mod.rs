@@ -33,27 +33,29 @@ impl Default for LLVMProducer {
     }
 }
 
-pub type ModuleAdapter<'a> = Rc<RefCell<ModuleWrapperStruct<'a>>>;
+pub type LLVMAdapter<'a> = Rc<RefCell<LLVM<'a>>>;
+pub type BigIntType<'a> = IntType<'a>; // i256
 
-pub struct ModuleWrapperStruct<'a> {
+pub struct LLVM<'a> {
     module: Module<'a>,
     builder: Builder<'a>,
     template_signals: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
     constant_fields: Option<GlobalValue<'a>>,
     stacks: HashMap<usize, PointerValue<'a>>,
     template_variables: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
-
+    template_subcomponents: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>
 }
 
-impl<'a> ModuleWrapperStruct<'a> {
+impl<'a> LLVM<'a> {
     pub fn from_context(context: &'a Context, name: &str) -> Self {
-        ModuleWrapperStruct {
+        LLVM {
             module: context.create_module(name),
             builder: context.create_builder(),
             template_signals: HashMap::new(),
             constant_fields: None,
             stacks: HashMap::new(),
-            template_variables: HashMap::new()
+            template_variables: HashMap::new(),
+            template_subcomponents: HashMap::new()
         }
     }
 
@@ -72,8 +74,8 @@ impl<'a> ModuleWrapperStruct<'a> {
     pub fn i32_type(&self) -> IntType<'a> {
         self.module.get_context().i32_type()
     }
-    pub fn i128_type(&self) -> IntType<'a> {
-        self.module.get_context().i128_type()
+    pub fn bigint_type(&self) -> BigIntType<'a> {
+        self.module.get_context().custom_width_int_type(256)
     }
 
     pub fn create_function(&self, name: &str, ty: FunctionType<'a>) -> FunctionValue<'a> {
@@ -92,10 +94,14 @@ impl<'a> ModuleWrapperStruct<'a> {
         self.module.get_context().i32_type().const_int(val, false).as_any_value_enum()
     }
 
+    pub fn zero(&self) -> IntValue<'a> {
+        self.module.get_context().i32_type().const_zero()
+    }
+
     pub fn create_template_struct(&self, n_signals: usize) -> PointerType<'a> {
         let context = self.module.get_context();
         let fields: Vec<_> = (0..n_signals).map(|_| {
-            context.i128_type().as_basic_type_enum()
+            self.bigint_type().as_basic_type_enum()
         }).collect();
         let str = context.struct_type(&fields, false);
         let ptr = str.ptr_type(Default::default());
@@ -125,9 +131,11 @@ impl<'a> ModuleWrapperStruct<'a> {
         self.template_variables.get(&id).unwrap().get(&idx).unwrap().as_any_value_enum()
     }
 
-    pub fn template_arg_id(&self) -> u32 { 0 }
+    fn template_arg_id(&self) -> u32 {
+        0
+    }
 
-    pub fn get_template_arg(&self) -> Option<PointerValue<'a>> {
+    fn get_template_arg(&self) -> Option<PointerValue<'a>> {
         if let Some(bb) = self.builder.get_insert_block() {
             if let Some(func) = bb.get_parent() {
                 if let Some(val) = func.get_nth_param(self.template_arg_id()) {
@@ -162,26 +170,25 @@ impl<'a> ModuleWrapperStruct<'a> {
         match ty {
             AnyTypeEnum::ArrayType(ty) => self.builder.build_alloca(ty, name),
             AnyTypeEnum::FloatType(ty) => self.builder.build_alloca(ty, name),
-            AnyTypeEnum::FunctionType(ty) => panic!("We cannot allocate a function type!"),
             AnyTypeEnum::IntType(ty) => self.builder.build_alloca(ty, name),
             AnyTypeEnum::PointerType(ty) => self.builder.build_alloca(ty, name),
             AnyTypeEnum::StructType(ty) => self.builder.build_alloca(ty, name),
             AnyTypeEnum::VectorType(ty) => self.builder.build_alloca(ty, name),
+            AnyTypeEnum::FunctionType(ty) => panic!("We cannot allocate a function type!"),
             AnyTypeEnum::VoidType(ty) => panic!("We cannot allocate a void type!")
         }.as_any_value_enum()
     }
 
     pub fn create_store(&self, ptr: PointerValue<'a>, value: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
         match value {
-            AnyValueEnum::ArrayValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
-            AnyValueEnum::IntValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
-            AnyValueEnum::FloatValue(v)  => self.builder.build_store(ptr, v).as_any_value_enum(),
-            AnyValueEnum::PointerValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
-            AnyValueEnum::StructValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
-            AnyValueEnum::VectorValue(v) => self.builder.build_store(ptr, v).as_any_value_enum(),
+            AnyValueEnum::ArrayValue(v) => self.builder.build_store(ptr, v),
+            AnyValueEnum::IntValue(v) => self.builder.build_store(ptr, v),
+            AnyValueEnum::FloatValue(v)  => self.builder.build_store(ptr, v),
+            AnyValueEnum::PointerValue(v) => self.builder.build_store(ptr, v),
+            AnyValueEnum::StructValue(v) => self.builder.build_store(ptr, v),
+            AnyValueEnum::VectorValue(v) => self.builder.build_store(ptr, v),
             _ => panic!("We cannot create a store from a non basic value! There is a bug somewhere.")
-        }
-
+        }.as_any_value_enum()
     }
 
     pub fn create_call(&self, name: &str, arguments: &[BasicMetadataValueEnum<'a>]) -> AnyValueEnum<'a> {
@@ -194,20 +201,18 @@ impl<'a> ModuleWrapperStruct<'a> {
     }
 
     pub fn get_const(&self, value: usize) -> AnyValueEnum<'a> {
-        let arr = self.constant_fields.unwrap().get_initializer().unwrap().into_array_value();
+        let arr = self.constant_fields.expect("Access to constant before initialization!").get_initializer().unwrap().into_array_value();
         let mut idx = vec![value as u32];
         let gep = arr.const_extract_value(&mut idx);
         gep.as_any_value_enum()
     }
 
     pub fn create_consts(&mut self, fields: &Vec<String>) -> AnyValueEnum<'a> {
-        let i128_ty = self.module.get_context().i128_type();
+        let bigint_ty = self.bigint_type();
         let vals: Vec<_> = fields.into_iter().map(|f| {
-            i128_ty.const_int_from_string(f.as_str(), StringRadix::Decimal).unwrap()
+            bigint_ty.const_int_from_string(f.as_str(), StringRadix::Decimal).unwrap()
         }).collect();
-        let tys: Vec<_> = fields.into_iter().map(|_| {i128_ty.as_basic_type_enum()}).collect();
-        let values_arr = i128_ty.const_array(&vals);
-
+        let values_arr = bigint_ty.const_array(&vals);
         let global = self.module.add_global(values_arr.get_type(), None, "constant_fields");
         global.set_initializer(&values_arr);
         self.constant_fields = Some(global);
@@ -216,8 +221,8 @@ impl<'a> ModuleWrapperStruct<'a> {
 
     pub fn create_stack(&mut self, id: usize, depth: usize) -> AnyValueEnum<'a> {
         let mut var_ptrs= HashMap::new();
-        let i128_ty = self.module.get_context().i128_type();
-        let stack = self.create_alloca(i128_ty.array_type(depth as u32).as_any_type_enum(), "stack");
+        let bigint_ty = self.bigint_type();
+        let stack = self.create_alloca(bigint_ty.array_type(depth as u32).as_any_type_enum(), "stack");
         self.stacks.insert(id, stack.into_pointer_value());
         for i in 0..depth {
             let idx = self.create_literal_u32(i as u64);
@@ -233,5 +238,22 @@ impl<'a> ModuleWrapperStruct<'a> {
             Ok(v) => v,
             Err(_) => panic!("Attempted to convert a value that does not support BasicMetadataValueEnum")
         }
+    }
+
+    pub fn add_subcomponent(&mut self, id: usize, cmp_id: IntValue<'a>, ptr: PointerValue<'a>) {
+        if !self.template_subcomponents.contains_key(&id) {
+            self.template_subcomponents.insert(id, HashMap::new());
+        }
+        let mut tmp = self.template_subcomponents.get_mut(&id).unwrap();
+        tmp.insert(cmp_id, ptr);
+    }
+
+    pub fn get_subcomponent(&self, id: usize, cmp_id: IntValue<'a>) -> AnyValueEnum<'a> {
+        self.template_subcomponents
+            .get(&id)
+            .expect("Access to component before initialization!")
+            .get(&cmp_id)
+            .expect("Access to subcomponent before initialization!")
+            .as_any_value_enum()
     }
 }

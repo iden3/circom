@@ -35,14 +35,14 @@ impl Default for Circuit {
 }
 
 impl WriteLLVMIR for Circuit {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, module: ModuleAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         // Code for prelude
 
         // Code for definitions
-        module.borrow_mut().create_consts(&producer.field_tracking);
+        llvm.borrow_mut().create_consts(&producer.field_tracking);
 
         // Code for standard library?
-        load_fr(producer, module.clone());
+        load_fr(producer, llvm.clone());
 
         // Code for the functions
         for f in &self.functions {
@@ -53,7 +53,7 @@ impl WriteLLVMIR for Circuit {
         // Code for the templates
         for t in &self.templates {
             // code.append(&mut t.produce_llvm_ir(producer));
-            t.produce_llvm_ir(producer, module.clone());
+            t.produce_llvm_ir(producer, llvm.clone());
         }
 
         // Code for prologue

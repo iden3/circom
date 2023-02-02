@@ -493,6 +493,9 @@ fn translate_while(stmt: Statement, state: &mut State, context: &Context) {
 }
 
 fn translate_substitution(stmt: Statement, state: &mut State, context: &Context) {
+    // Add here the assign op so that the store and call instructions knows if they come from a <== or a <--
+    // Modify the instructions to have a boolean flag that is true if it was a <==, false otherwise
+    // The llvm generator will check that flag and add the appropriate code.
     use Statement::Substitution;
     if let Substitution { meta, var, access, rhe, .. } = stmt {
         debug_assert!(!meta.get_type_knowledge().is_component());
