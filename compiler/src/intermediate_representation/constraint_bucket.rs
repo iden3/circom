@@ -1,8 +1,9 @@
 use code_producers::c_elements::CProducer;
+use code_producers::llvm_elements::{LLVMAdapter, LLVMInstruction, LLVMProducer};
 use code_producers::wasm_elements::WASMProducer;
 use crate::intermediate_representation::{Instruction, InstructionPointer};
 use crate::intermediate_representation::ir_interface::{Allocate, IntoInstruction, ObtainMeta};
-use crate::translating_traits::{WriteC, WriteWasm};
+use crate::translating_traits::{WriteC, WriteLLVMIR, WriteWasm};
 
 #[derive(Clone)]
 pub struct ConstraintBucket {
@@ -36,6 +37,13 @@ impl ToString for ConstraintBucket {
             "CONSTRAINT:{}",
             self.wrapped.to_string()
         )
+    }
+}
+
+impl WriteLLVMIR for ConstraintBucket {
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+        // TODO: Create the constraint call
+        self.wrapped.produce_llvm_ir(producer, llvm)
     }
 }
 

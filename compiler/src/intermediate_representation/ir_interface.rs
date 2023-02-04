@@ -146,6 +146,7 @@ impl WriteLLVMIR for Instruction {
             Assert(v) => v.produce_llvm_ir(producer, llvm),
             CreateCmp(v) => v.produce_llvm_ir(producer, llvm),
             Log(v) => v.produce_llvm_ir(producer, llvm),
+            Constraint(v) => v.produce_llvm_ir(producer, llvm)
         }
     }
 }
@@ -206,6 +207,8 @@ impl Instruction {
             Assert(_v) => format!("assert{}", idx),
             CreateCmp(_v) => format!("create_cmp{}", idx),
             Log(_v) => format!("log{}", idx),
+            // We use the label name of the wrapped instruction
+            Constraint(v) => v.wrapped.label_name(idx)
         }
     }
 }
