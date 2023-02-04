@@ -13,6 +13,7 @@ pub use super::store_bucket::StoreBucket;
 pub use super::log_bucket::LogBucketArg;
 pub use super::types::{InstrContext, ValueType};
 pub use super::value_bucket::ValueBucket;
+pub use super::constraint_bucket::ConstraintBucket;
 
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
@@ -50,6 +51,7 @@ pub enum Instruction {
     Log(LogBucket),
     Loop(LoopBucket),
     CreateCmp(CreateCmpBucket),
+    Constraint(ConstraintBucket)
 }
 
 impl Allocate for Instruction {
@@ -73,6 +75,7 @@ impl ObtainMeta for Instruction {
             Assert(v) => v.get_line(),
             CreateCmp(v) => v.get_line(),
             Log(v) => v.get_line(),
+            Constraint(v) => v.get_line()
         }
     }
 
@@ -90,6 +93,7 @@ impl ObtainMeta for Instruction {
             Assert(v) => v.get_message_id(),
             CreateCmp(v) => v.get_message_id(),
             Log(v) => v.get_message_id(),
+            Constraint(v) => v.get_message_id()
         }
     }
 }
@@ -121,6 +125,7 @@ impl WriteWasm for Instruction {
             Assert(v) => v.produce_wasm(producer),
             CreateCmp(v) => v.produce_wasm(producer),
             Log(v) => v.produce_wasm(producer),
+            Constraint(v) => v.produce_wasm(producer)
         }
     }
 }
@@ -141,6 +146,7 @@ impl WriteC for Instruction {
             Assert(v) => v.produce_c(producer, parallel),
             CreateCmp(v) => v.produce_c(producer, parallel),
             Log(v) => v.produce_c(producer, parallel),
+            Constraint(v) => v.produce_c(producer, parallel)
         }
     }
 }
@@ -160,6 +166,7 @@ impl ToString for Instruction {
             Assert(v) => v.to_string(),
             CreateCmp(v) => v.to_string(),
             Log(v) => v.to_string(),
+            Constraint(v) => v.to_string()
         }
     }
 }

@@ -27,7 +27,12 @@ pub fn visit_instruction(
         Assert(b) => visit_assert(b, function_to_arena_size),
         CreateCmp(b) => visit_create_cmp(b, function_to_arena_size),
         Log(b) => visit_log(b, function_to_arena_size),
+        Constraint(b) => visit_constraint(b, function_to_arena_size)
     }
+}
+
+pub fn visit_constraint(bucket: &mut ConstraintBucket, function_to_arena_size: &HashMap<String, usize>) {
+    visit_instruction(&mut bucket.wrapped, function_to_arena_size)
 }
 
 pub fn visit_branch(bucket: &mut BranchBucket, function_to_arena_size: &HashMap<String, usize>) {
