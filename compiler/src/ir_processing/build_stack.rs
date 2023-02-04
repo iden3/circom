@@ -23,7 +23,12 @@ pub fn build_instruction(instruction: &mut Instruction, fresh: usize) -> usize {
         Assert(b) => build_assert(b, fresh),
         CreateCmp(b) => build_create_cmp(b, fresh),
         Log(b) => build_log(b, fresh),
+        Constraint(b) => build_constraint(b, fresh)
     }
+}
+
+pub fn build_constraint(bucket: &mut ConstraintBucket, fresh: usize) -> usize {
+    build_instruction(&mut bucket.wrapped, fresh)
 }
 
 pub fn build_branch(bucket: &mut BranchBucket, fresh: usize) -> usize {

@@ -7,6 +7,7 @@ use program_structure::ast::*;
 use program_structure::file_definition::FileLibrary;
 use program_structure::utils::environment::VarEnvironment;
 use std::collections::{HashMap, BTreeMap, HashSet};
+use program_structure::ast::AssignOp;
 
 type Length = usize;
 pub type E = VarEnvironment<SymbolInfo>;
@@ -497,7 +498,7 @@ fn translate_substitution(stmt: Statement, state: &mut State, context: &Context)
     // Modify the instructions to have a boolean flag that is true if it was a <==, false otherwise
     // The llvm generator will check that flag and add the appropriate code.
     use Statement::Substitution;
-    if let Substitution { meta, var, access, rhe, .. } = stmt {
+    if let Substitution { meta, var, access, op, rhe,  } = stmt {
         debug_assert!(!meta.get_type_knowledge().is_component());
         let def = SymbolDef { meta: meta.clone(), symbol: var, acc: access };
         let str_info =
@@ -507,7 +508,12 @@ fn translate_substitution(stmt: Statement, state: &mut State, context: &Context)
         } else {
             translate_standard_case(str_info, state, context)
         };
-        state.code.push(store_instruction);
+        if op == AssignOp::AssignConstraintSignal {
+            let wrapper = ConstraintBucket { wrapped: store_instruction};
+            state.code.push(wrapper.allocate())
+        } else {
+            state.code.push(store_instruction);
+        }
     } else {
         unreachable!();
     }
@@ -605,7 +611,8 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
         let assert_instruction =
             AssertBucket { line: starts_at, message_id: state.message_id, evaluate: equality }
                 .allocate();
-        state.code.push(assert_instruction);
+        let constraint_instruction = ConstraintBucket { wrapped: assert_instruction }.allocate();
+        state.code.push(constraint_instruction);
     } else {
         unimplemented!()
     }

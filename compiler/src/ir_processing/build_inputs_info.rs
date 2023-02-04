@@ -45,7 +45,16 @@ pub fn visit_instruction(
         Assert(b) => visit_assert(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
         CreateCmp(b) => visit_create_cmp(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
         Log(b) => visit_log(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
+        Constraint(b) => visit_constraint(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop)
     }
+}
+
+pub fn visit_constraint(bucket: &mut ConstraintBucket,
+                        known_last_component: &mut ComponentsSet,
+                        unknown_last_component: &mut ComponentsSet,
+                        found_unknown_address: bool,
+                        inside_loop: bool) -> bool {
+    visit_instruction(&mut bucket.wrapped, known_last_component, unknown_last_component, found_unknown_address, inside_loop)
 }
 
 pub fn visit_branch(

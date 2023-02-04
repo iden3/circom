@@ -22,7 +22,13 @@ pub fn reduce_instruction(instr: Instruction) -> Instruction {
         Loop(b) => reduce_loop(b),
         CreateCmp(b) => reduce_crt_cmp(b),
         Compute(b) => reduce_compute(b),
+        Constraint(b) => reduce_constraint(b)
     }
+}
+
+pub fn reduce_constraint(mut bucket: ConstraintBucket) -> Instruction {
+    bucket.wrapped = Allocate::allocate(reduce_instruction(*bucket.wrapped));
+    IntoInstruction::into_instruction(bucket)
 }
 
 pub fn reduce_compute(mut bucket: ComputeBucket) -> Instruction {

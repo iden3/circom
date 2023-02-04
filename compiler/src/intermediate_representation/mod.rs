@@ -12,6 +12,7 @@ mod return_bucket;
 mod store_bucket;
 mod types;
 mod value_bucket;
+mod constraint_bucket;
 
 pub mod ir_interface;
 pub mod translate;
