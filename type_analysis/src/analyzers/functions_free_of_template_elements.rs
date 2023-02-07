@@ -115,6 +115,19 @@ fn analyse_statement(
         Return { value, .. } => {
             analyse_expression(value, function_names, reports);
         }
+        UnderscoreSubstitution { meta, op, rhe } => {
+            if op.is_signal_operator() {
+                let mut report = Report::error(
+                    "Function uses template operators".to_string(),
+                    ReportCode::UndefinedFunction,
+                );
+                let location =
+                    file_definition::generate_file_location(meta.get_start(), meta.get_end());
+                report.add_primary(location, file_id, "Template operator found".to_string());
+                reports.push(report);
+            }
+            analyse_expression(rhe, function_names, reports);
+        },
     }
 }
 

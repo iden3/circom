@@ -457,7 +457,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     let mut deleted = HashSet::new();
     let mut lconst = LinkedList::new();
     let mut no_rounds = smp.no_rounds;
-    let remove_unused = apply_linear;
+    let remove_unused = true;
 
     let relevant_signals = {
         // println!("Creating first relevant set");
@@ -529,7 +529,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         relevant
     };
 
-    let linear_substitutions = if remove_unused {
+    let linear_substitutions = if apply_linear {
         let now = SystemTime::now();
         let (subs, mut cons) = linear_simplification(
             &mut substitution_log,
@@ -585,7 +585,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     let mut round_id = 0;
     let _ = round_id;
     let mut linear = with_linear;
-    let mut apply_round = remove_unused && no_rounds > 0 && !linear.is_empty();
+    let mut apply_round = no_rounds > 0 && !linear.is_empty();
     let mut non_linear_map = if apply_round || remove_unused {
         // println!("Building non-linear map");
         let now = SystemTime::now();
