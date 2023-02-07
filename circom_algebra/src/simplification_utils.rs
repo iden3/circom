@@ -493,14 +493,17 @@ pub fn debug_substitution_check(substitutions: &HashMap<usize, S>) -> bool {
     result
 }
 
-pub fn fast_encoded_constraint_substitution(c: &mut C, enc: &HashMap<usize, A>, field: &BigInt) {
+pub fn fast_encoded_constraint_substitution(c: &mut C, enc: &HashMap<usize, A>, field: &BigInt)-> bool {
     let signals = C::take_cloned_signals(c);
+    let mut applied_substitution = false;
     for signal in signals {
         if let Some(expr) = HashMap::get(enc, &signal) {
             let sub = S::new(signal, expr.clone()).unwrap();
             C::apply_substitution(c, &sub, field);
+            applied_substitution = true;
         }
     }
+    applied_substitution
 }
 
 pub fn fast_encoded_substitution_substitution(s: &mut S, enc: &HashMap<usize, A>, field: &BigInt) {
@@ -658,6 +661,7 @@ pub fn check_substitutions(
         let mut cons = S::substitution_into_constraint(s.clone(), field);
         for s_2 in subs_2{
             C::apply_substitution(&mut cons, s_2, field);
+            C::fix_constraint(&mut cons, field);
         }
         if !cons.is_empty(){
             println!("ERROR: FOUND NOT EMPTY SUBS");
@@ -672,6 +676,7 @@ pub fn check_substitutions(
         let mut cons = S::substitution_into_constraint(s.clone(), field);
         for s_2 in subs_1{
             C::apply_substitution(&mut cons, s_2, field);
+            C::fix_constraint(&mut cons, field);
         }
         if !cons.is_empty(){
             println!("ERROR: FOUND NOT EMPTY SUBS");
