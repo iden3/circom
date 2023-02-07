@@ -40,7 +40,7 @@ fn infer_type_stmt(stmt: &Statement, state: &State, context: &mut SearchInfo) ->
         Option::None
     } else if stmt.is_assert() {
         Option::None
-    } else {
+    } else{
         unreachable!()
     }
 }

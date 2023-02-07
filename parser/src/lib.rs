@@ -131,8 +131,8 @@ pub fn run_parser(
                     let lib = program_archive.get_file_library().clone();
                     let program_archive_result = apply_syntactic_sugar( &mut program_archive);
                     match program_archive_result {
-                        Result::Err(v) => {Result::Err((lib,vec![v]))}
-                        Result::Ok(()) => {Ok((program_archive, warnings))}
+                        Result::Err(v) => Result::Err((lib,vec![v])),
+                        Result::Ok(_) => Ok((program_archive, warnings)),
                     }
                 }
             }
