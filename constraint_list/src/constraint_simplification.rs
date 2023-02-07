@@ -585,16 +585,14 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         crate::state_utils::empty_encoding_constraints(&mut smp.dag_encoding);
         let _dur = now.elapsed().unwrap().as_millis();
         // println!("Storages built in {} ms", dur);
-        if remove_unused {
-            no_rounds -= 1;
-        }
+        no_rounds -= 1;
         (with_linear, storage)
     };
 
     let mut round_id = 0;
     let _ = round_id;
     let mut linear = with_linear;
-    let mut apply_round = no_rounds > 0 && !linear.is_empty();
+    let mut apply_round = apply_linear && no_rounds > 0 && !linear.is_empty();
     let mut non_linear_map = if apply_round || remove_unused {
         // println!("Building non-linear map");
         let now = SystemTime::now();
