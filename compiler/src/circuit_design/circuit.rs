@@ -7,7 +7,7 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use code_producers::llvm_elements::*;
 use std::io::Write;
-use code_producers::llvm_elements::llvm_code_generator::load_fr;
+use code_producers::llvm_elements::llvm_code_generator::{load_fr, load_stdlib};
 
 pub struct CompilationFlags {
     pub main_inputs_log: bool,
@@ -43,6 +43,7 @@ impl WriteLLVMIR for Circuit {
 
         // Code for standard library?
         load_fr(producer, llvm.clone());
+        load_stdlib(producer, llvm.clone());
 
         // Code for the functions
         for f in &self.functions {

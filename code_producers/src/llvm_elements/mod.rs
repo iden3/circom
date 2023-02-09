@@ -7,8 +7,9 @@ use std::iter::Map;
 use std::rc::Rc;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
-use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, InstructionValue, IntValue, PointerValue, StructValue};
+use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, InstructionValue, IntMathValue, IntValue, PointerValue, StructValue};
 use inkwell::context::{Context, ContextRef};
+use inkwell::IntPredicate::EQ;
 use inkwell::module::Module;
 use inkwell::values::FunctionValue;
 use inkwell::types::{AnyType, AnyTypeEnum, BasicType, FunctionType, IntType, PointerType, StringRadix, StructType, VoidType};
@@ -43,7 +44,8 @@ pub struct LLVM<'a> {
     constant_fields: Option<GlobalValue<'a>>,
     stacks: HashMap<usize, PointerValue<'a>>,
     template_variables: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
-    template_subcomponents: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>
+    template_subcomponents: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
+    constraint_count: u64
 }
 
 impl<'a> LLVM<'a> {
@@ -55,7 +57,8 @@ impl<'a> LLVM<'a> {
             constant_fields: None,
             stacks: HashMap::new(),
             template_variables: HashMap::new(),
-            template_subcomponents: HashMap::new()
+            template_subcomponents: HashMap::new(),
+            constraint_count: 0
         }
     }
 
@@ -68,6 +71,9 @@ impl<'a> LLVM<'a> {
         self.module.print_to_file(path).map_err(|_| {})
     }
 
+    pub fn bool_type(&self) -> IntType<'a> {
+        self.module.get_context().bool_type()
+    }
     pub fn void_type(&self) -> VoidType<'a> {
         self.module.get_context().void_type()
     }
@@ -191,9 +197,31 @@ impl<'a> LLVM<'a> {
         }.as_any_value_enum()
     }
 
+    pub fn create_eq<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+        self.builder.build_int_compare(EQ, lhs, rhs, name).as_any_value_enum()
+    }
+
+    pub fn create_add<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+        self.builder.build_int_add(lhs, rhs, name).as_any_value_enum()
+    }
+
+    pub fn create_mul<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+        self.builder.build_int_mul(lhs, rhs, name).as_any_value_enum()
+    }
+
+    pub fn create_conditional_branch(&self, comparison: IntValue<'a>, then_block: BasicBlock<'a>, else_block: BasicBlock< 'a>) -> AnyValueEnum<'a> {
+        self.builder.build_conditional_branch(comparison, then_block, else_block).as_any_value_enum()
+    }
+
     pub fn create_call(&self, name: &str, arguments: &[BasicMetadataValueEnum<'a>]) -> AnyValueEnum<'a> {
         let f = self.module.get_function(name).expect(format!("Cannot find function {}", name).as_str());
         self.builder.build_call(f, arguments, "").as_any_value_enum()
+    }
+
+    pub fn new_constraint(&mut self) -> AnyValueEnum<'a> {
+        let v = self.module.add_global(self.bool_type(), None, format!("constraint.{}", self.constraint_count).as_str());
+        self.constraint_count += 1;
+        v.as_any_value_enum()
     }
 
     pub fn to_enum<T: AnyValue<'a>>(&self, v: T) -> AnyValueEnum<'a> {
@@ -255,5 +283,14 @@ impl<'a> LLVM<'a> {
             .get(&cmp_id)
             .expect("Access to subcomponent before initialization!")
             .as_any_value_enum()
+    }
+
+    pub fn get_arg(&self, inst: InstructionValue<'a>, idx: u32) -> AnyValueEnum<'a> {
+        let r = inst.get_operand(idx).unwrap();
+        if r.is_left() {
+            r.unwrap_left().as_any_value_enum()
+        } else {
+            r.unwrap_right().get_last_instruction().unwrap().as_any_value_enum()
+        }
     }
 }

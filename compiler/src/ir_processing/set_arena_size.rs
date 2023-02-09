@@ -32,7 +32,11 @@ pub fn visit_instruction(
 }
 
 pub fn visit_constraint(bucket: &mut ConstraintBucket, function_to_arena_size: &HashMap<String, usize>) {
-    visit_instruction(&mut bucket.wrapped, function_to_arena_size)
+    let x = match bucket {
+        ConstraintBucket::Substitution(i) => i,
+        ConstraintBucket::Equality(i) => i
+    };
+    visit_instruction(x, function_to_arena_size)
 }
 
 pub fn visit_branch(bucket: &mut BranchBucket, function_to_arena_size: &HashMap<String, usize>) {

@@ -2,6 +2,7 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::llvm_code_generator::ASSERT_FN_NAME;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -43,7 +44,8 @@ impl ToString for AssertBucket {
 
 impl WriteLLVMIR for AssertBucket {
     fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
-        None
+        let bool = self.evaluate.produce_llvm_ir(producer, llvm.clone()).expect("An assert bucket needs a value to assert!");
+        Some(llvm.borrow().create_call(ASSERT_FN_NAME, &[bool.into_int_value().into()]))
     }
 }
 

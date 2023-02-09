@@ -8,6 +8,7 @@ use program_structure::file_definition::FileLibrary;
 use program_structure::utils::environment::VarEnvironment;
 use std::collections::{HashMap, BTreeMap, HashSet};
 use program_structure::ast::AssignOp;
+use crate::intermediate_representation::constraint_bucket::ConstraintBucket;
 
 type Length = usize;
 pub type E = VarEnvironment<SymbolInfo>;
@@ -509,7 +510,7 @@ fn translate_substitution(stmt: Statement, state: &mut State, context: &Context)
             translate_standard_case(str_info, state, context)
         };
         if op == AssignOp::AssignConstraintSignal {
-            let wrapper = ConstraintBucket { wrapped: store_instruction};
+            let wrapper = ConstraintBucket::Substitution(store_instruction);
             state.code.push(wrapper.allocate())
         } else {
             state.code.push(store_instruction);
@@ -611,7 +612,7 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
         let assert_instruction =
             AssertBucket { line: starts_at, message_id: state.message_id, evaluate: equality }
                 .allocate();
-        let constraint_instruction = ConstraintBucket { wrapped: assert_instruction }.allocate();
+        let constraint_instruction = ConstraintBucket::Equality(assert_instruction).allocate();
         state.code.push(constraint_instruction);
     } else {
         unimplemented!()

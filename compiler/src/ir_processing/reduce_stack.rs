@@ -27,7 +27,12 @@ pub fn reduce_instruction(instr: Instruction) -> Instruction {
 }
 
 pub fn reduce_constraint(mut bucket: ConstraintBucket) -> Instruction {
-    bucket.wrapped = Allocate::allocate(reduce_instruction(*bucket.wrapped));
+    bucket = match bucket {
+        ConstraintBucket::Substitution(b) =>
+            ConstraintBucket::Substitution(Allocate::allocate(reduce_instruction(*b))),
+        ConstraintBucket::Equality(b) =>
+            ConstraintBucket::Equality(Allocate::allocate(reduce_instruction(*b)))
+    };
     IntoInstruction::into_instruction(bucket)
 }
 

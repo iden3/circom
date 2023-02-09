@@ -28,7 +28,10 @@ pub fn build_instruction(instruction: &mut Instruction, fresh: usize) -> usize {
 }
 
 pub fn build_constraint(bucket: &mut ConstraintBucket, fresh: usize) -> usize {
-    build_instruction(&mut bucket.wrapped, fresh)
+    build_instruction(match bucket {
+        ConstraintBucket::Substitution(i) => i,
+        ConstraintBucket::Equality(i) => i
+    }, fresh)
 }
 
 pub fn build_branch(bucket: &mut BranchBucket, fresh: usize) -> usize {

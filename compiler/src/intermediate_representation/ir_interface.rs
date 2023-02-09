@@ -13,7 +13,7 @@ pub use super::store_bucket::StoreBucket;
 pub use super::log_bucket::LogBucketArg;
 pub use super::types::{InstrContext, ValueType};
 pub use super::value_bucket::ValueBucket;
-pub use super::constraint_bucket::ConstraintBucket;
+pub use super::constraint_bucket::{ConstraintBucket};
 
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
@@ -208,7 +208,10 @@ impl Instruction {
             CreateCmp(_v) => format!("create_cmp{}", idx),
             Log(_v) => format!("log{}", idx),
             // We use the label name of the wrapped instruction
-            Constraint(v) => v.wrapped.label_name(idx)
+            Constraint(v) => match v {
+                ConstraintBucket::Substitution(i) => i,
+                ConstraintBucket::Equality(i) => i
+            }.label_name(idx)
         }
     }
 }

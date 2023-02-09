@@ -2,6 +2,7 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::llvm_code_generator::{FR_ADD_FN_NAME, FR_EQ_FN_NAME, FR_MUL_FN_NAME};
 use code_producers::wasm_elements::*;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -150,11 +151,11 @@ impl WriteLLVMIR for ComputeBucket {
         }).collect();
         let i = match &self.op {
             OperatorType::Mul => {
-                llvm.borrow().create_call("fr_mul", &args)
+                llvm.borrow().create_call(FR_MUL_FN_NAME, &args)
             }
             OperatorType::Div => {todo!()}
             OperatorType::Add => {
-                llvm.borrow().create_call("fr_add", &args)
+                llvm.borrow().create_call(FR_ADD_FN_NAME, &args)
             }
             OperatorType::Sub => {todo!()}
             OperatorType::Pow => {todo!()}
@@ -166,7 +167,9 @@ impl WriteLLVMIR for ComputeBucket {
             OperatorType::GreaterEq => {todo!()}
             OperatorType::Lesser => {todo!()}
             OperatorType::Greater => {todo!()}
-            OperatorType::Eq(_) => {todo!()}
+            OperatorType::Eq(_) => {
+                llvm.borrow().create_call(FR_EQ_FN_NAME, &args)
+            }
             OperatorType::NotEq => {todo!()}
             OperatorType::BoolOr => {todo!()}
             OperatorType::BoolAnd => {todo!()}

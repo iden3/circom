@@ -54,7 +54,11 @@ pub fn visit_constraint(bucket: &mut ConstraintBucket,
                         unknown_last_component: &mut ComponentsSet,
                         found_unknown_address: bool,
                         inside_loop: bool) -> bool {
-    visit_instruction(&mut bucket.wrapped, known_last_component, unknown_last_component, found_unknown_address, inside_loop)
+    let x = match bucket {
+        ConstraintBucket::Substitution(i) => i,
+        ConstraintBucket::Equality(i) => i
+    };
+    visit_instruction(x, known_last_component, unknown_last_component, found_unknown_address, inside_loop)
 }
 
 pub fn visit_branch(
