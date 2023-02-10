@@ -459,6 +459,30 @@ fn execute_statement(
                 &runtime.call_trace,
             )?
         }
+        UnderscoreSubstitution{ meta, rhe, op} =>{
+            let f_result = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
+            let arithmetic_slice = safe_unwrap_to_arithmetic_slice(f_result, line!());
+            if *op == AssignOp::AssignConstraintSignal{
+                for i in 0..AExpressionSlice::get_number_of_cells(&arithmetic_slice){
+                    let _value_cell = treat_result_with_memory_error(
+                        AExpressionSlice::access_value_by_index(&arithmetic_slice, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    //let constraint_expression = AExpr::transform_expression_to_constraint_form(
+                    //    value_cell,
+                    //    runtime.constants.get_p(),
+                    //).unwrap();
+                    //if let Option::Some(node) = actual_node {
+                        //for signal in constraint_expression.take_signals(){
+                        //    node.add_underscored_signal(signal);
+                        //} 
+                    //}
+                }
+            }
+            Option::None
+        }
     };
     Result::Ok(res)
 }
@@ -960,8 +984,7 @@ fn perform_assign(
                             }
                         }
                     }
-                    /* else { // it is a tag that does not belong to the value
-
+                    else { // it is a tag that does not belong to the signal 
                         reference_to_tags.insert(tag.clone(), value.clone());
                         if let Option::Some(node) = actual_node{
                             node.add_tag_signal(symbol, &tag, value.clone());
@@ -969,7 +992,6 @@ fn perform_assign(
                             unreachable!();
                         }
                     } 
-                    */
                 }
             }
         }

@@ -15,6 +15,7 @@ impl Statement {
             | ConstraintEquality { meta, .. }
             | InitializationBlock { meta, .. } => meta,
             | MultSubstitution { meta, ..} => meta,
+            | UnderscoreSubstitution { meta, .. } => meta,
         }
     }
     pub fn get_mut_meta(&mut self) -> &mut Meta {
@@ -31,6 +32,7 @@ impl Statement {
             | ConstraintEquality { meta, .. }
             | InitializationBlock { meta, .. } => meta,
             | MultSubstitution { meta, ..} => meta,
+            | UnderscoreSubstitution { meta, .. } => meta,
         }
     }
 
@@ -77,6 +79,15 @@ impl Statement {
     pub fn is_substitution(&self) -> bool {
         use Statement::Substitution;
         if let Substitution { .. } = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_underscore_substitution(&self) -> bool {
+        use Statement::UnderscoreSubstitution;
+        if let UnderscoreSubstitution { .. } = self {
             true
         } else {
             false
@@ -146,10 +157,14 @@ impl FillMeta for Statement {
             LogCall { meta, args, .. } => fill_log_call(meta, args, file_id, element_id),
             Block { meta, stmts, .. } => fill_block(meta, stmts, file_id, element_id),
             Assert { meta, arg, .. } => fill_assert(meta, arg, file_id, element_id),
+            UnderscoreSubstitution { meta, rhe, .. } => {
+                fill_underscore_substitution(meta, rhe, file_id, element_id);
+            },
             
         }
     }
 }
+
 
 fn fill_conditional(
     meta: &mut Meta,
@@ -267,4 +282,10 @@ fn fill_block(meta: &mut Meta, stmts: &mut [Statement], file_id: usize, element_
 fn fill_assert(meta: &mut Meta, arg: &mut Expression, file_id: usize, element_id: &mut usize) {
     meta.set_file_id(file_id);
     arg.fill(file_id, element_id);
+}
+
+fn fill_underscore_substitution(meta: &mut Meta, rhe: &mut Expression, file_id: usize, element_id: &mut usize) {
+    meta.set_file_id(file_id);
+    rhe.fill(file_id, element_id);
+
 }

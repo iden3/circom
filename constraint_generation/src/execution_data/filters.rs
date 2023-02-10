@@ -100,6 +100,10 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
             *arg = computed_or_original(analysis, arg);
             apply_computed_expr(arg, analysis);
         }
+        UnderscoreSubstitution {  rhe, .. } => {
+            *rhe = computed_or_original(analysis, rhe);
+            apply_computed_expr(rhe, analysis);
+        },
     }
 }
 

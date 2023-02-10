@@ -379,6 +379,21 @@ fn type_statement(
             analysis_information.environment.remove_variable_block();
         }
         MultSubstitution { .. } => unreachable!(),
+        UnderscoreSubstitution { rhe , ..} => {
+            let rhe_response = type_expression(rhe, program_archive, analysis_information);
+            let rhe_type = if let Result::Ok(r_type) = rhe_response {
+                r_type
+            } else {
+                return;
+            };
+            if rhe_type.is_template() {
+                add_report(
+                    ReportCode::MustBeArithmetic,
+                    rhe.get_meta(),
+                    &mut analysis_information.reports,
+                );
+            }
+        },
     }
 }
 fn type_expression(
