@@ -1,5 +1,17 @@
 # Release notes
 
+## February 10, 2023 circom 2.1.4
+
+ #### Extensions
+ - Improving the efficiency of the parser regarding the anonnymous components and tuples. 
+ - Improving the substitution process: better compilation times for --O1 and --O2.
+ - Improving the handling of the underscore substitution.
+ - Extending the substitution to allow the inheritance of signal tags.
+ - Removing unused signal when applying --O1. (If a signal does not appear in any constraint, it is removed).  
+
+ #### Fixed Bugs
+ - Solving bug in the release of the memory of the components.
+
 ## January 16, 2023 circom 2.1.3
  #### Extensions
  - Improving error messages: invalid access and invalid assignment.
