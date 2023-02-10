@@ -35,6 +35,22 @@ Then, whenever the previous template is instantiated, the compiler checks if the
 
 It is important to highlight that the compiler does never make any check about the validity of the tags. It is the programmer's responsability to include the constraints and executable code to guarantee that the inteded meaning of each signal is always true.
 
+When doing a substitution from a tagged signal to another signal, the tags are always inherited by it (even if it is not declared with it). For instance,
+
+```
+template A() {
+    signal input {binary} in;
+    signal intermediate;
+    signal {binary} out;
+    intermediate <== in;
+    out <== intermediate;
+}
+```
+
+In this example, the intermediate signal inherits the binary tag from in even though it is not declared as binary. Finally, out also receives the tag as expected, since the input is binary.
+
+
+
 Let us consider another well-known template that the programmer can use to guarantee that the output signal is always binary. 
 
 ```
