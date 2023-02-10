@@ -1,9 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use inkwell::memory_buffer::MemoryBuffer;
-use inkwell::module::Module;
-use inkwell::values::FunctionValue;
-use crate::llvm_elements::{LLVMInstruction, LLVMProducer, LLVM, LLVMAdapter};
+use crate::llvm_elements::{LLVMProducer, LLVM, LLVMAdapter};
 
 pub fn create_llvm<'a>(producer: &'a LLVMProducer, name: &str) -> LLVMAdapter<'a> {
     Rc::new(RefCell::new(LLVM::from_context(&producer.context, name)))
@@ -14,8 +11,6 @@ pub const FR_MUL_FN_NAME: &str = "fr_mul";
 pub const FR_EQ_FN_NAME: &str = "fr_eq";
 
 mod fr {
-    use std::convert::TryInto;
-    use inkwell::values::AnyValue;
     use crate::llvm_elements::{LLVMAdapter, LLVMProducer};
     use crate::llvm_elements::llvm_code_generator::{FR_ADD_FN_NAME, FR_EQ_FN_NAME, FR_MUL_FN_NAME};
 
@@ -70,7 +65,6 @@ pub const CONSTRAINT_VALUE_FN_NAME: &str = "__constraint_value";
 pub const ASSERT_FN_NAME: &str = "__assert";
 
 mod stdlib {
-    use inkwell::types::{AnyType, BasicType};
     use inkwell::values::AnyValue;
     use crate::llvm_elements::{LLVMAdapter, LLVMProducer};
     use crate::llvm_elements::llvm_code_generator::{ASSERT_FN_NAME, CONSTRAINT_VALUE_FN_NAME, CONSTRAINT_VALUES_FN_NAME};

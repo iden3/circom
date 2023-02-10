@@ -17,13 +17,12 @@ pub struct CompilerConfig {
     pub c_file: String,
     pub llvm_file: String,
     pub llvm_folder: String,
-    pub summary_file: String,
+    pub clean_llvm: bool,
     pub dat_file: String,
     pub wat_flag: bool,
     pub wasm_flag: bool,
     pub c_flag: bool,
     pub llvm_flag: bool,
-    pub summary_flag: bool,
     pub debug_output: bool,
     pub produce_input_log: bool,
     pub vcp: VCP,
@@ -60,7 +59,7 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
     }
 
     if config.llvm_flag {
-        compiler_interface::write_llvm_ir(&mut circuit, &config.llvm_folder, &config.llvm_file)?;
+        compiler_interface::write_llvm_ir(&mut circuit, &config.llvm_folder, &config.llvm_file, config.clean_llvm)?;
         println!(
           "{} {}",
             Colour::Green.paint("Written successfully:"),

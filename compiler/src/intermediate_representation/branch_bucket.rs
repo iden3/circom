@@ -54,7 +54,7 @@ impl ToString for BranchBucket {
 }
 
 impl WriteLLVMIR for BranchBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a>(&self, _producer: &'a LLVMProducer, _llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
         None
     }
 }

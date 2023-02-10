@@ -46,7 +46,7 @@ impl WriteLLVMIR for Circuit {
         load_stdlib(producer, llvm.clone());
 
         // Code for the functions
-        for f in &self.functions {
+        for _f in &self.functions {
             // code.append(&mut f.produce_llvm_ir(producer));
 
         }
@@ -494,7 +494,7 @@ impl Circuit {
         wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path).map_err(|_err| {})?;
         self.write_wasm(writer, &self.wasm_producer)
     }
-    pub fn produce_llvm_ir(&mut self, llvm_folder: &str, llvm_path: &str) -> Result<(), ()> {
+    pub fn produce_llvm_ir(&mut self, _llvm_folder: &str, llvm_path: &str) -> Result<(), ()> {
         self.write_llvm_ir(llvm_path, &self.llvm_producer)
     }
 }

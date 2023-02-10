@@ -3,18 +3,15 @@ pub mod llvm_code_generator;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::iter::Map;
 use std::rc::Rc;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
-use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, InstructionValue, IntMathValue, IntValue, PointerValue, StructValue};
-use inkwell::context::{Context, ContextRef};
+use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, GlobalValue, InstructionValue, IntMathValue, IntValue, PointerValue};
+use inkwell::context::{Context};
 use inkwell::IntPredicate::EQ;
 use inkwell::module::Module;
 use inkwell::values::FunctionValue;
-use inkwell::types::{AnyType, AnyTypeEnum, BasicType, FunctionType, IntType, PointerType, StringRadix, StructType, VoidType};
-
-use crate::components::*;
+use inkwell::types::{AnyType, AnyTypeEnum, BasicType, FunctionType, IntType, PointerType, StringRadix, VoidType};
 
 
 pub type LLVMInstruction<'a> = AnyValueEnum<'a>;
@@ -29,7 +26,7 @@ impl Default for LLVMProducer {
         let context = Box::new(Context::create());
         LLVMProducer {
             context,
-            field_tracking: vec![]
+            field_tracking: vec![],
         }
     }
 }
@@ -67,7 +64,7 @@ impl<'a> LLVM<'a> {
     }
 
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
-        self.module.print_to_stderr();
+        // self.module.print_to_stderr();
         self.module.print_to_file(path).map_err(|_| {})
     }
 
@@ -180,8 +177,8 @@ impl<'a> LLVM<'a> {
             AnyTypeEnum::PointerType(ty) => self.builder.build_alloca(ty, name),
             AnyTypeEnum::StructType(ty) => self.builder.build_alloca(ty, name),
             AnyTypeEnum::VectorType(ty) => self.builder.build_alloca(ty, name),
-            AnyTypeEnum::FunctionType(ty) => panic!("We cannot allocate a function type!"),
-            AnyTypeEnum::VoidType(ty) => panic!("We cannot allocate a void type!")
+            AnyTypeEnum::FunctionType(_) => panic!("We cannot allocate a function type!"),
+            AnyTypeEnum::VoidType(_) => panic!("We cannot allocate a void type!")
         }.as_any_value_enum()
     }
 
@@ -272,7 +269,7 @@ impl<'a> LLVM<'a> {
         if !self.template_subcomponents.contains_key(&id) {
             self.template_subcomponents.insert(id, HashMap::new());
         }
-        let mut tmp = self.template_subcomponents.get_mut(&id).unwrap();
+        let tmp = self.template_subcomponents.get_mut(&id).unwrap();
         tmp.insert(cmp_id, ptr);
     }
 

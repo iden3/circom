@@ -1,9 +1,10 @@
+use std::path::Path;
 use ansi_term::Colour;
 use compiler::hir::very_concrete_program::VCP;
 use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::ConstraintExporter;
 use program_structure::program_archive::ProgramArchive;
-
+use summary::SummaryRoot;
 
 pub struct ExecutionConfig {
     pub r1cs: String,
@@ -21,6 +22,9 @@ pub struct ExecutionConfig {
     pub json_substitution_flag: bool,
     pub json_constraint_flag: bool,
     pub prime: String,
+    pub summary_file: String,
+    pub summary_flag: bool,
+    pub llvm_folder: String
 }
 
 pub fn execute_project(
@@ -51,7 +55,35 @@ pub fn execute_project(
     if config.json_constraint_flag {
         generate_json_constraints(&debug, exporter.as_ref())?;
     }
+    if config.summary_flag {
+        generate_summary( config.summary_file.as_str(), config.llvm_folder.as_str(), &vcp)?;
+    }
+
     Result::Ok(vcp)
+}
+
+fn generate_summary(summary_file: &str, llvm_folder: &str, vcp: &VCP) -> Result<(), ()> {
+    let summary = SummaryRoot::new(vcp);
+    if Path::new(llvm_folder).is_dir() {
+        std::fs::remove_dir_all(llvm_folder).map_err(|err| {
+            eprintln!("{} {}", Colour::Red.paint("Could not write the output in the given path:"), err);
+            ()
+        })?;
+    }
+    std::fs::create_dir(llvm_folder).map_err(|err| {
+        eprintln!("{} {}", Colour::Red.paint("Could not write the output in the given path:"), err);
+        ()
+    })?;
+    match summary.write_to_file(summary_file) {
+        Err(err) => {
+            eprintln!("{} {}", Colour::Red.paint("Could not write the output in the given path:"), err);
+            Err(())
+        }
+        Ok(()) => {
+            println!("{} {}", Colour::Green.paint("Written summary successfully:"), summary_file);
+            Ok(())
+        }
+    }
 }
 
 fn generate_output_r1cs(file: &str, exporter: &dyn ConstraintExporter, custom_gates: bool) -> Result<(), ()> {

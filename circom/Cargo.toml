@@ -19,6 +19,7 @@ type_analysis = { path = "../type_analysis" }
 constraint_generation = { path = "../constraint_generation" }
 constraint_writers = { path = "../constraint_writers" }
 compiler = { path = "../compiler" }
+summary = { path = "../summary" }
 dag = { path = "../dag" }
 clap = "2.33.0"
 ansi_term = "0.12.1"

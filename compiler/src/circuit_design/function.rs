@@ -3,7 +3,6 @@ use crate::hir::very_concrete_program::Param;
 use crate::intermediate_representation::InstructionList;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer};
 use code_producers::wasm_elements::*;
 //use std::io::Write;
 

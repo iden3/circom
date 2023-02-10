@@ -22,8 +22,8 @@ pub struct SymbolInfo {
 
 #[derive(Clone)]
 pub struct SignalInfo{
-    signal_type: SignalType,
-    lengths: Vec<usize>,
+    pub signal_type: SignalType,
+    pub lengths: Vec<usize>,
 }
 
 #[derive(Clone)]

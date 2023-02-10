@@ -1,11 +1,9 @@
-use std::rc::Rc;
-use crate::intermediate_representation::{InstructionList, InstructionPointer};
+use crate::intermediate_representation::{InstructionList};
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
 use code_producers::llvm_elements::llvm_code_generator::{build_fn_name, run_fn_name};
 use code_producers::wasm_elements::*;
-use crate::intermediate_representation::Instruction::{Assert, Branch, Call, Compute, CreateCmp, Load, Log, Loop, Return, Store, Value};
 
 pub type TemplateID = usize;
 pub type TemplateCode = Box<TemplateCodeInfo>;
@@ -73,13 +71,10 @@ impl WriteLLVMIR for TemplateCodeInfo {
         // For input signals maybe I can get away with creating a single load instruction and using that for reading the value of the signal.
 
 
-        let mut last_bb = prelude;
         // Run function body
         for t in &self.body {
-            println!("{}", t.to_string());
             let bb = llvm.borrow().create_bb(run_function, t.label_name(run_function.count_basic_blocks()).as_str());
             llvm.borrow().create_br(bb);
-            last_bb = bb;
             llvm.borrow().set_current_bb(bb);
             t.produce_llvm_ir(producer, llvm.clone());
         }

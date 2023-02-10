@@ -9,6 +9,7 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 use ansi_term::Colour;
 use input_user::Input;
+
 fn main() {
     let result = start();
     if result.is_err() {
@@ -42,7 +43,10 @@ fn start() -> Result<(), ()> {
         sym: user_input.sym_file().to_string(),
         r1cs: user_input.r1cs_file().to_string(),
         json_constraints: user_input.json_constraints_file().to_string(),
-        prime: user_input.prime(),        
+        prime: user_input.prime(),
+        summary_file: user_input.summary_file().to_string(),
+        summary_flag: user_input.summary_flag(),
+        llvm_folder: user_input.llvm_folder().to_string()
     };
     let circuit = execution_user::execute_project(program_archive, config)?;
     let compilation_config = CompilerConfig {
@@ -51,7 +55,6 @@ fn start() -> Result<(), ()> {
         c_flag: user_input.c_flag(),
         wasm_flag: user_input.wasm_flag(),
         llvm_flag: user_input.llvm_flag(),
-        summary_flag: user_input.summary_flag(),
         wat_flag: user_input.wat_flag(),
 	    js_folder: user_input.js_folder().to_string(),
 	    wasm_name: user_input.wasm_name().to_string(),
@@ -60,7 +63,7 @@ fn start() -> Result<(), ()> {
         c_file: user_input.c_file().to_string(),
         llvm_file: user_input.llvm_file().to_string(),
         llvm_folder: user_input.llvm_folder().to_string(),
-        summary_file: user_input.summary_file().to_string(),
+        clean_llvm: !user_input.summary_flag(), // If we generate the summary then the llvm folder is prepared at that step
         dat_file: user_input.dat_file().to_string(),
         wat_file: user_input.wat_file().to_string(),
         wasm_file: user_input.wasm_file().to_string(),
