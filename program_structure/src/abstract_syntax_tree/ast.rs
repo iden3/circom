@@ -201,6 +201,11 @@ pub enum Statement {
         op: AssignOp,
         rhe: Expression,
     },
+    UnderscoreSubstitution{
+        meta: Meta,
+        op: AssignOp,
+        rhe: Expression,
+    },
     ConstraintEquality {
         meta: Meta,
         lhe: Expression,

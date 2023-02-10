@@ -109,6 +109,8 @@ fn produce_vcf_stmt(stmt: &Statement, state: &mut State, environment: &mut E) {
         produce_vcf_while(stmt, state, environment);
     } else if stmt.is_if_then_else() {
         produce_vcf_conditional(stmt, state, environment);
+    } else if stmt.is_underscore_substitution() {
+        //No code should be produced for an instruction of the form _ <== exp;
     } else {
         unreachable!();
     }
@@ -359,6 +361,8 @@ fn link_stmt(stmt: &mut Statement, state: &State, env: &mut E) {
         link_declaration(stmt, state, env);
     } else if stmt.is_substitution() {
         link_substitution(stmt, state, env);
+    } else if stmt.is_underscore_substitution() {
+        //No code should be produced for an instruction of the form _ <== exp;
     } else {
         unreachable!();
     }

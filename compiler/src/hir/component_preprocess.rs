@@ -18,9 +18,15 @@ fn rm_statement(stmt: &mut Statement) {
         rm_init(stmt);
     } else if stmt.is_substitution(){ 
         rm_substitution(stmt);
+    } else if stmt.is_underscore_substitution(){ 
+        rm_underscore_substitution(stmt);
     }
-    else{
+}
 
+fn rm_underscore_substitution(stmt: &mut Statement){
+    use Statement::{Block, UnderscoreSubstitution};
+    if let UnderscoreSubstitution { meta, .. } = stmt{
+        *stmt = Block{ meta: meta.clone(), stmts: Vec::new() };
     }
 }
 

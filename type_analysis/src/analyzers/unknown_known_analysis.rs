@@ -152,6 +152,15 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                 }
             }
         }
+        UnderscoreSubstitution {   op, rhe, .. } => {
+            let _expression_tag = tag(rhe, &environment);
+            if *op == AssignOp::AssignConstraintSignal {
+                constraints_declared = true;
+                if is_non_quadratic(rhe, &environment) {
+                    add_report(ReportCode::NonQuadratic, rhe.get_meta(), file_id, &mut reports);
+                }
+            }
+        },
         ConstraintEquality { lhe, rhe, .. } => {
             constraints_declared = true;
             if is_non_quadratic(lhe, &environment) {

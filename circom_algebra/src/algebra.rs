@@ -762,14 +762,20 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
     ) {
         use ArithmeticExpression::*;
         match expr {
-            Linear { coefficients } => raw_substitution(coefficients, substitution, field),
+            Linear { coefficients } => {
+               raw_substitution(coefficients, substitution, field);
+               *coefficients = remove_zero_value_coefficients(std::mem::take(coefficients));
+            }
             Signal { symbol } if *symbol == substitution.from => {
                 *expr = Linear { coefficients: substitution.to.clone() };
             }
             Quadratic { a, b, c } => {
                 raw_substitution(a, substitution, field);
+                *a = remove_zero_value_coefficients(std::mem::take(a));
                 raw_substitution(b, substitution, field);
+                *b = remove_zero_value_coefficients(std::mem::take(b));
                 raw_substitution(c, substitution, field);
+                *c = remove_zero_value_coefficients(std::mem::take(c));
             }
             _ => {}
         }
@@ -1137,7 +1143,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         raw_substitution(&mut constraint.a, substitution, field);
         raw_substitution(&mut constraint.b, substitution, field);
         raw_substitution(&mut constraint.c, substitution, field);
-        Constraint::fix_constraint(constraint, field);
+        //Constraint::fix_constraint(constraint, field);
     }
 
     pub fn remove_zero_value_coefficients(constraint: &mut Constraint<C>) {
@@ -1284,7 +1290,7 @@ fn raw_substitution<C>(
         ArithmeticExpression::multiply_coefficients_by_constant(&val, &mut coefficients, field);
         ArithmeticExpression::add_coefficients_to_coefficients(&coefficients, change, field);
     }
-    *change = remove_zero_value_coefficients(std::mem::take(change));
+    //*change = remove_zero_value_coefficients(std::mem::take(change));
 }
 
 fn remove_zero_value_coefficients<C>(raw_expression: HashMap<C, BigInt>) -> HashMap<C, BigInt>

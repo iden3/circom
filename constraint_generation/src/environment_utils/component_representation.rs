@@ -129,9 +129,18 @@ impl ComponentRepresentation {
 
         for (symbol, route) in node.outputs() {
             component.outputs.insert(symbol.clone(), SignalSlice::new_with_route(route, &true));
+            
             let tags_output = node.signal_to_tags.get(symbol);
-            if tags_output.is_some(){
-                component.outputs_tags.insert(symbol.to_string(), tags_output.unwrap().clone());
+            let component_tags_output = component.outputs_tags.get_mut(symbol);
+            if tags_output.is_some() && component_tags_output.is_some(){
+                let result_tags_output = tags_output.unwrap();
+                let result_component_tags_output = component_tags_output.unwrap();
+                for (tag, value) in result_tags_output{
+                    // only update the output tag in case it contains the tag in the definition
+                    if result_component_tags_output.contains_key(tag){
+                        result_component_tags_output.insert(tag.clone(), value.clone());
+                    }
+                }
             }
         }
         component.node_pointer = Option::Some(node_pointer);
