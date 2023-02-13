@@ -9,6 +9,7 @@ pub struct LoadBucket {
     pub message_id: usize,
     pub address_type: AddressType,
     pub src: LocationRule,
+    pub context: InstrContext,
 }
 
 impl IntoInstruction for LoadBucket {
@@ -230,15 +231,18 @@ impl WriteC for LoadBucket {
                     prologue.push(format!("{{"));
 		            prologue.push(format!("int aux1 = {};",cmp_index_ref.clone()));
 		            prologue.push(format!("int aux2 = {};",src_index.clone()));
+                    // check each one of the outputs of the assignment, we add i to check them one by one
+                    prologue.push(format!("for (int i = 0; i < {}; i++) {{",self.context.size));
 		            prologue.push(format!(
-                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[aux1]].mutexes[aux2]);",
+                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[aux1]].mutexes[aux2 + i]);",
                         CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
 		            prologue.push(format!(
-                        "{}->componentMemory[{}[aux1]].cvs[aux2].wait(lk, [{},{},aux1,aux2]() {{return {}->componentMemory[{}[aux1]].outputIsSet[aux2];}});",
+                        "{}->componentMemory[{}[aux1]].cvs[aux2 + i].wait(lk, [{},{},aux1,aux2, i]() {{return {}->componentMemory[{}[aux1]].outputIsSet[aux2 + i];}});",
 			            CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, CIRCOM_CALC_WIT,
 			            MY_SUBCOMPONENTS, CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
+                    prologue.push(format!("}}"));
 		            prologue.push(format!("}}"));
                 }
             }
@@ -254,15 +258,18 @@ impl WriteC for LoadBucket {
                 prologue.push(format!("{{"));
 		        prologue.push(format!("int aux1 = {};",cmp_index_ref.clone()));
 		        prologue.push(format!("int aux2 = {};",src_index.clone()));
-		        prologue.push(format!(
-                    "std::unique_lock<std::mutex> lk({}->componentMemory[{}[aux1]].mutexes[aux2]);",
+		        // check each one of the outputs of the assignment, we add i to check them one by one
+                prologue.push(format!("for (int i = 0; i < {}; i++) {{",self.context.size));
+                prologue.push(format!(
+                    "std::unique_lock<std::mutex> lk({}->componentMemory[{}[aux1]].mutexes[aux2 + i]);",
                     CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                 );
-	            prologue.push(format!(
-                    "{}->componentMemory[{}[aux1]].cvs[aux2].wait(lk, [{},{},aux1,aux2]() {{return {}->componentMemory[{}[aux1]].outputIsSet[aux2];}});",
-		            CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, CIRCOM_CALC_WIT,
-		            MY_SUBCOMPONENTS, CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
+                prologue.push(format!(
+                    "{}->componentMemory[{}[aux1]].cvs[aux2 + i].wait(lk, [{},{},aux1,aux2, i]() {{return {}->componentMemory[{}[aux1]].outputIsSet[aux2 + i];}});",
+                    CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, CIRCOM_CALC_WIT,
+                    MY_SUBCOMPONENTS, CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                 );
+                prologue.push(format!("}}"));
 		        prologue.push(format!("}}"));
                 
                 // end of case parallel, in case no parallel we do nothing
