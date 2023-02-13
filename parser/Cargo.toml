@@ -1,6 +1,6 @@
 [package]
 name = "parser"
-version = "2.1.1"
+version = "2.1.4"
 authors = ["Costa Group UCM","iden3"]
 edition = "2018"
 build = "build.rs"

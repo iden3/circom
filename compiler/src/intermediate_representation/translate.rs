@@ -1089,6 +1089,7 @@ impl ProcessedSymbol {
                 line: self.line,
                 message_id: self.message_id,
                 address_type: dest_type,
+                context: InstrContext { size: self.length },
             }
             .allocate()
         } else {
@@ -1102,6 +1103,7 @@ impl ProcessedSymbol {
                 address_type: xtype,
                 message_id: self.message_id,
                 src: LocationRule::Indexed { location: address, template_header: None },
+                context: InstrContext { size: self.length },
             }
             .allocate()
         }
