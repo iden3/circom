@@ -75,8 +75,10 @@ pub enum ReportCode {
     NonComputableExpression,
     // Constraint analysis codes
     UnconstrainedSignal,
-    OneConstraintIntermediate,
-    NoOutputInInstance,
+    UnconstrainedIOSignal,
+    UnusedInput,
+    UnusedOutput,
+
     ErrorWat2Wasm,
     CustomGateIntermediateSignalWarning,
     CustomGateConstraintError,
@@ -84,6 +86,7 @@ pub enum ReportCode {
     CustomGatesPragmaError,
     CustomGatesVersionError,
     AnonymousCompError,
+    UnderscoreWithNoSignalWarning,
     TupleError,
     InvalidSignalTagAccess,
 }
@@ -164,8 +167,9 @@ impl fmt::Display for ReportCode {
             WrongNumberOfArguments(..) => "T20465",
             // Constraint analysis codes
             UnconstrainedSignal => "CA01",
-            OneConstraintIntermediate => "CA02",
-            NoOutputInInstance => "CA03",
+            UnconstrainedIOSignal => "CA02",
+            UnusedInput => "CA03",
+            UnusedOutput => "CA04",
             ErrorWat2Wasm => "W01",
             CustomGateIntermediateSignalWarning => "CG01",
             CustomGateConstraintError => "CG02",
@@ -174,6 +178,7 @@ impl fmt::Display for ReportCode {
             CustomGatesVersionError => "CG05",
             AnonymousCompError => "TAC01",
             TupleError => "TAC02",
+            UnderscoreWithNoSignalWarning => "TAC03",
         };
         f.write_str(string_format)
     }
