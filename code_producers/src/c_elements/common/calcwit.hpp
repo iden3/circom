@@ -10,7 +10,7 @@
 #include "circom.hpp"
 #include "fr.hpp"
 
-#define NMUTEXES 12 //512
+#define NMUTEXES 64 //512
 
 u64 fnv1a(std::string s);
 
