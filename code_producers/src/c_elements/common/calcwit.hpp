@@ -32,9 +32,9 @@ public:
   // parallelism
   std::mutex numThreadMutex;
   std::condition_variable ntcvs;
-  uint numThread;
+  int numThread;
 
-  uint maxThread;
+  int maxThread;
 
   // Functions called by the circuit
   Circom_CalcWit(Circom_Circuit *aCircuit, uint numTh = NMUTEXES);

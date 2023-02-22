@@ -235,6 +235,7 @@ impl WriteC for LoadBucket {
                     prologue.push(format!("for (int i = 0; i < {}; i++) {{",self.context.size));
                     prologue.push(format!("ctx->numThreadMutex.lock();"));
                     prologue.push(format!("ctx->numThread--;"));
+                    //prologue.push(format!("printf(\"%i \\n\", ctx->numThread);"));
                     prologue.push(format!("ctx->numThreadMutex.unlock();"));
                     prologue.push(format!("ctx->ntcvs.notify_one();"));	 
 		            prologue.push(format!(
@@ -249,6 +250,7 @@ impl WriteC for LoadBucket {
                     prologue.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
                     prologue.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
                     prologue.push(format!("ctx->numThread++;"));
+                    //prologue.push(format!("printf(\"%i \\n\", ctx->numThread);"));
                     prologue.push(format!("}}"));
 		            prologue.push(format!("}}"));
                 }
@@ -269,6 +271,7 @@ impl WriteC for LoadBucket {
                 prologue.push(format!("for (int i = 0; i < {}; i++) {{",self.context.size));
                 prologue.push(format!("ctx->numThreadMutex.lock();"));
                 prologue.push(format!("ctx->numThread--;"));
+                //prologue.push(format!("printf(\"%i \\n\", ctx->numThread);"));
                 prologue.push(format!("ctx->numThreadMutex.unlock();"));
                 prologue.push(format!("ctx->ntcvs.notify_one();"));	 
 	            prologue.push(format!(
@@ -283,6 +286,7 @@ impl WriteC for LoadBucket {
                 prologue.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
                 prologue.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
                 prologue.push(format!("ctx->numThread++;"));
+                //prologue.push(format!("printf(\"%i \\n\", ctx->numThread);"));
                 prologue.push(format!("}}"));
 		        prologue.push(format!("}}"));
                 
