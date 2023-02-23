@@ -24,7 +24,10 @@ pub enum Error {
         required_version: Version,
         version: Version,
     },
-    MissingSemicolon,
+    MissingSemicolon{
+        location: FileLocation,
+        file_id: FileID,
+    },
     UnrecognizedInclude {
         location: FileLocation,
         file_id: FileID,
@@ -85,8 +88,14 @@ impl Error {
                     ReportCode::CompilerVersionError,
                 )
             }
-            Error::MissingSemicolon => {
-                Report::error("missing semicolon".to_owned(), ReportCode::ParseFail)
+            Error::MissingSemicolon {
+                location,
+                file_id,
+            } => {
+                let mut report = Report::error(format!("Missing semicolon"), 
+                    ReportCode::ParseFail);
+                report.add_primary(location, file_id, "A semicolon is needed here".to_string());
+                report
             }
             Error::UnrecognizedInclude{location, file_id} => {
                 let mut report =
