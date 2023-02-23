@@ -4,7 +4,11 @@ use constraint_writers::r1cs_writer::{ConstraintSection, CustomGatesAppliedData,
 
 pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
     let tree = Tree::new(dag);
-    let field_size = (tree.field.bits() / 64 + 1) * 8;
+    let field_size = if tree.field.bits() % 64 == 0 {
+        tree.field.bits() / 8
+    } else{
+        (tree.field.bits() / 64 + 1) * 8
+    };
     let mut log = Log::new();
     let r1cs = R1CSWriter::new(output.to_string(), field_size, custom_gates)?;
 

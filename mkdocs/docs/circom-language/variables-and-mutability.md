@@ -14,7 +14,7 @@ Variable assignment is made using the equal symbol `=`. Declarations may also in
 var x;
 x = 234556;
 var y = 0;
-var z[3] = [1,2,3]
+var z[3] = [1,2,3];
 ```
 
 An assignment is a statement and does not return any value, hence it cannot be part of an expression, which avoids misleading uses of `=`. Any use of `=` inside an expression will lead to a compilation error.

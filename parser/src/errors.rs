@@ -1,3 +1,4 @@
+use program_structure::ast::Meta;
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::Report;
 use program_structure::file_definition::{FileID, FileLocation};
@@ -131,5 +132,69 @@ impl NoCompilerVersionWarning {
             ),
             ReportCode::NoCompilerVersionWarning,
         )
+    }
+}
+
+pub struct AnonymousCompError{
+    pub location: FileLocation,
+    pub msg : String
+}
+
+impl AnonymousCompError {
+    pub fn produce_report( error : Self) -> Report {
+        Report::error(
+            format!("{}", error.msg),
+            ReportCode::AnonymousCompError,
+        )
+    }
+
+    pub fn anonymous_inside_condition_error(meta : Meta) -> Report {
+        let error = AnonymousCompError {msg: "An anonymous component cannot be used inside a condition ".to_string(), location : meta.location.clone()};
+                    let mut report = AnonymousCompError::produce_report(error);
+                    let file_id = meta.get_file_id().clone();
+                    report.add_primary(
+                        meta.location,
+                        file_id,
+                        "This is an anonymous component used inside a condition".to_string(),
+                    );
+                    report
+    }
+    
+    pub fn anonymous_general_error(meta : Meta, msg : String) -> Report {
+        let error = AnonymousCompError {msg, location : meta.location.clone()};
+                    let mut report = AnonymousCompError::produce_report(error);
+                    let file_id = meta.get_file_id().clone();
+                    report.add_primary(
+                        meta.location,
+                        file_id,
+                        "This is the anonymous component whose use is not allowed".to_string(),
+                    );
+                    report
+    }
+}
+
+pub struct TupleError{
+    pub location: FileLocation,
+    pub msg : String
+}
+
+impl TupleError {
+    pub fn produce_report( error : Self) -> Report {
+        Report::error(
+            format!("{}", error.msg),
+            ReportCode::TupleError,
+        )
+    }
+
+    pub fn tuple_general_error(meta : Meta, msg : String) -> Report {
+        let error = TupleError {msg, location : meta.location.clone()};
+                    let mut report = TupleError::produce_report(error);
+                    let file_id = meta.get_file_id().clone();
+                    report.add_primary(
+                        meta.location,
+                        file_id,
+                        "This is the tuple whose use is not allowed".to_string(),
+                    );
+                    report
     }
 }

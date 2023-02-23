@@ -5,6 +5,9 @@ use dag::DAG;
 use num_bigint::BigInt;
 use program_structure::ast::{SignalType, Statement};
 use std::collections::{HashMap, HashSet};
+use crate::execution_data::AExpressionSlice;
+use crate::execution_data::TagInfo;
+
 
 struct Connexion {
     full_name: String,
@@ -14,6 +17,48 @@ struct Connexion {
     dag_jump: usize,
     dag_component_jump: usize,
 }
+
+#[derive(Clone)]
+pub struct PreExecutedTemplate {
+    pub template_name: String,
+    pub parameter_instances: Vec<AExpressionSlice>,
+    pub inputs: HashMap<String, HashSet<String>>,
+    pub outputs: HashMap<String, HashSet<String>>,
+} 
+
+impl PreExecutedTemplate {
+    pub fn new(
+        name: String,
+        instance: Vec<AExpressionSlice>,
+        inputs: HashMap<String, HashSet<String>>,
+        outputs: HashMap<String, HashSet<String>>,
+    ) -> PreExecutedTemplate {
+        PreExecutedTemplate {
+            template_name: name,
+            parameter_instances: instance,
+            inputs,
+            outputs,
+        }
+    }
+
+    pub fn template_name(&self) -> &String {
+        &self.template_name
+    }
+
+    pub fn parameter_instances(&self) -> &Vec<AExpressionSlice>{
+        &self.parameter_instances
+    }
+
+    pub fn inputs(&self) -> &HashMap<String, HashSet<String>> {
+        &self.inputs
+    }
+
+    pub fn outputs(&self) -> &HashMap<String, HashSet<String>> {
+        &self.outputs
+    }
+}
+
+
 
 pub struct ExecutedTemplate {
     pub code: Statement,
@@ -28,6 +73,8 @@ pub struct ExecutedTemplate {
     pub number_of_components: usize,
     pub public_inputs: HashSet<String>,
     pub parameter_instances: ParameterContext,
+    pub tag_instances: TagContext,
+    pub signal_to_tags: TagContext,
     pub is_parallel: bool,
     pub has_parallel_sub_cmp: bool,
     pub is_custom_gate: bool,
@@ -40,6 +87,7 @@ impl ExecutedTemplate {
         name: String,
         report_name: String,
         instance: ParameterContext,
+        tag_instances: TagContext,
         code: Statement,
         is_parallel: bool,
         is_custom_gate: bool
@@ -54,6 +102,8 @@ impl ExecutedTemplate {
             code: code.clone(),
             template_name: name,
             parameter_instances: instance,
+            signal_to_tags: tag_instances.clone(),
+            tag_instances,
             inputs: SignalCollector::new(),
             outputs: SignalCollector::new(),
             intermediates: SignalCollector::new(),
@@ -65,14 +115,16 @@ impl ExecutedTemplate {
         }
     }
 
-    pub fn is_equal(&self, name: &str, context: &ParameterContext) -> bool {
-        self.template_name == name && self.parameter_instances == *context
+    pub fn is_equal(&self, name: &str, context: &ParameterContext, tag_context: &TagContext) -> bool {
+        self.template_name == name 
+            && self.parameter_instances == *context
+            && self.tag_instances == *tag_context
     }
 
     pub fn add_arrow(&mut self, component_name: String, data: SubComponentData) {
         let cnn =
             Connexion { full_name: component_name, inspect: data, dag_offset: 0, dag_component_offset: 0, dag_jump: 0, dag_component_jump: 0};
-        self.connexions.push(cnn);
+            self.connexions.push(cnn);
     }
 
     pub fn add_input(&mut self, input_name: &str, dimensions: &[usize]) {
@@ -108,6 +160,17 @@ impl ExecutedTemplate {
         }
     }
 
+    pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>){
+        let tags_signal = self.signal_to_tags.get_mut(signal_name);
+        if tags_signal.is_none(){
+            let mut new_tags_signal = TagInfo::new();
+            new_tags_signal.insert(tag_name.to_string(), value);
+            self.signal_to_tags.insert(signal_name.to_string(), new_tags_signal);
+        } else {
+            tags_signal.unwrap().insert(tag_name.to_string(), value);
+        }
+    }
+
     pub fn add_component(&mut self, component_name: &str, dimensions: &[usize]) {
         self.components.push((component_name.to_string(), dimensions.to_vec()));
         self.number_of_components += dimensions.iter().fold(1, |p, c| p * (*c));
@@ -123,6 +186,10 @@ impl ExecutedTemplate {
 
     pub fn parameter_instances(&self) -> &ParameterContext {
         &self.parameter_instances
+    }
+
+    pub fn tag_instances(&self) -> &TagContext {
+        &self.tag_instances
     }
 
     pub fn inputs(&self) -> &SignalCollector {
@@ -280,6 +347,7 @@ impl ExecutedTemplate {
             code: self.code,
             name: self.template_name,
             number_of_components : self.number_of_components,
+            signals_to_tags: self.signal_to_tags,
         };
 
         let mut instance = TemplateInstance::new(config);
@@ -296,29 +364,30 @@ impl ExecutedTemplate {
         let mut local_id = 0;
         let mut dag_local_id = 1;
         for (name, lengths) in self.outputs {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Output };
+            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Output};
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
         for (name, lengths) in public {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input };
+            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input};
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
         for (name, lengths) in not_public {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input };
+            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input};
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
         for (name, lengths) in self.intermediates {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Intermediate };
+            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Intermediate};
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
+
         instance
     }
 }
@@ -453,6 +522,7 @@ fn build_clusters(tmp: &ExecutedTemplate, instances: &[TemplateInstance]) -> Vec
                 end += 1;
             }
         }
+        
         let cluster = TriggerCluster {
             slice: start..end,
             length: end - start,

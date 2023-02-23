@@ -18,7 +18,7 @@ pub enum OperatorType {
     GreaterEq,
     Lesser,
     Greater,
-    Eq,
+    Eq(usize),
     NotEq,
     BoolOr,
     BoolAnd,
@@ -39,11 +39,21 @@ impl OperatorType {
             || *self == OperatorType::AddAddress
             || *self == OperatorType::MulAddress
     }
+
+    pub fn is_multiple_eq(&self) -> bool {
+        match self {
+            OperatorType::Eq(n) => *n > 1,
+            _ => false
+        }
+    }
 }
 
 impl ToString for OperatorType {
     fn to_string(&self) -> String {
         use OperatorType::*;
+	if let Eq(n) = self {
+	    format!("EQ({})", n)
+	} else {
         match self {
             Mul => "MUL",
             Div => "DIV",
@@ -58,7 +68,6 @@ impl ToString for OperatorType {
             GreaterEq => "GREATER_EQ",
             Lesser => "LESSER",
             Greater => "GREATER",
-            Eq => "EQ",
             NotEq => "NOT_EQ",
             BoolOr => "BOOL_OR",
             BoolAnd => "BOOL_AND",
@@ -71,8 +80,10 @@ impl ToString for OperatorType {
             ToAddress => "TO_ADDRESS",
             MulAddress => "MUL_ADDRESS",
             AddAddress => "ADD_ADDRESS",
+	    _ => "",
         }
         .to_string()
+	}
     }
 }
 
@@ -159,7 +170,7 @@ impl WriteWasm for ComputeBucket {
                 instructions.push(call("$Fr_toInt"));
             }
             _ => {
-                match &self.op {
+                match self.op {
                     OperatorType::Add => {
                         instructions.push(call("$Fr_add")); // Result, Argument, Argument
                     }
@@ -199,8 +210,45 @@ impl WriteWasm for ComputeBucket {
                     OperatorType::Greater => {
                         instructions.push(call("$Fr_gt"));
                     }
-                    OperatorType::Eq => {
-                        instructions.push(call("$Fr_eq"));
+                    OperatorType::Eq(n) => {
+			assert!(n != 0);
+			if n == 1 {
+                            instructions.push(call("$Fr_eq"));
+                        } else {
+                            instructions.push(set_local(producer.get_aux_2_tag()));
+			    instructions.push(set_local(producer.get_aux_1_tag()));
+			    instructions.push(set_local(producer.get_aux_0_tag()));
+                            instructions.push(set_constant(&n.to_string()));
+                            instructions.push(set_local(producer.get_counter_tag()));
+                            instructions.push(add_block());
+                            instructions.push(add_loop());
+                            instructions.push(get_local(producer.get_aux_0_tag()));
+                            instructions.push(get_local(producer.get_aux_1_tag()));
+                            instructions.push(get_local(producer.get_aux_2_tag()));
+                            instructions.push(call("$Fr_eq"));
+                            instructions.push(get_local(producer.get_aux_0_tag()));
+                            instructions.push(call("$Fr_isTrue"));
+                            instructions.push(eqz32());
+			    instructions.push(br_if("1"));
+                            instructions.push(get_local(producer.get_counter_tag()));
+                            instructions.push(set_constant("1"));
+                            instructions.push(sub32());
+                            instructions.push(tee_local(producer.get_counter_tag()));
+                            instructions.push(eqz32());
+                            instructions.push(br_if("1"));
+                            instructions.push(get_local(producer.get_aux_1_tag()));
+                            let s = producer.get_size_32_bits_in_memory() * 4;
+                            instructions.push(set_constant(&s.to_string()));
+                            instructions.push(add32());
+                            instructions.push(set_local(producer.get_aux_1_tag()));
+                            instructions.push(get_local(producer.get_aux_2_tag()));
+                            instructions.push(set_constant(&s.to_string()));
+                            instructions.push(add32());
+                            instructions.push(set_local(producer.get_aux_2_tag()));
+                            instructions.push(br("0"));
+                            instructions.push(add_end());
+                            instructions.push(add_end());
+                        }
                     }
                     OperatorType::NotEq => {
                         instructions.push(call("$Fr_neq"));
@@ -262,7 +310,7 @@ impl WriteC for ComputeBucket {
                 OperatorType::GreaterEq => "Fr_geq".to_string(),
                 OperatorType::Lesser => "Fr_lt".to_string(),
                 OperatorType::Greater => "Fr_gt".to_string(),
-                OperatorType::Eq => "Fr_eq".to_string(),
+                OperatorType::Eq(_) => "Fr_eq".to_string(),
                 OperatorType::NotEq => "Fr_neq".to_string(),
                 OperatorType::BoolOr => "Fr_lor".to_string(),
                 OperatorType::BoolAnd => "Fr_land".to_string(),
@@ -278,7 +326,6 @@ impl WriteC for ComputeBucket {
 
         let mut compute_c = vec![];
         let mut operands = vec![];
-	//compute_c.push(format!("// start of compute bucket {}",self.to_string()));
 
         let result;
         for instr in &self.stack {
@@ -296,6 +343,34 @@ impl WriteC for ComputeBucket {
             OperatorType::ToAddress => {
                 result = build_call("Fr_toInt".to_string(), operands);
             }
+
+            OperatorType::Eq(n) => {
+                let exp_aux_index = self.op_aux_no.to_string();
+                let operator = get_fr_op(self.op);
+                let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
+                let mut arguments = vec![result_ref.clone()];
+                let operands_copy = operands.clone();
+                arguments.append(&mut operands);
+                compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+                if *n > 1 {
+                    compute_c.push(format!("{} = 1;", index_multiple_eq()));
+                    compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), n, result_ref));
+                    operands = vec![];
+                    arguments = vec![result_ref.clone()];
+                    for operand in &operands_copy {
+                        operands.push(format!("{} + {}", operand, index_multiple_eq()));
+                    }
+                    arguments.append(&mut operands);
+                    compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+                    compute_c.push(format!("{}++;", index_multiple_eq()));
+                    compute_c.push(format!("}}"));
+                    
+                }
+                result = result_ref;
+
+                
+            }
+
             _ => {
                 let exp_aux_index = self.op_aux_no.to_string();
                 // build assign

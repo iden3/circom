@@ -47,7 +47,7 @@ pub fn custom_gate_analysis(
                         );
                         warnings.push(warning);
                     }
-                    Component => {
+                    Component | AnonymousComponent => {
                         let mut error = Report::error(
                             String::from("Component inside custom template"),
                             ReportCode::CustomGateSubComponentError
@@ -99,6 +99,24 @@ pub fn custom_gate_analysis(
             Block { stmts, .. } => {
                 for stmt in stmts {
                     custom_gate_analysis(custom_gate_name, stmt, errors, warnings);
+                }
+            }
+            UnderscoreSubstitution { meta, op, .. } => {
+                use AssignOp::*;
+                match op {
+                    AssignConstraintSignal => {
+                        let mut error = Report::error(
+                            String::from("Added constraint inside custom template"),
+                            ReportCode::CustomGateConstraintError
+                        );
+                        error.add_primary(
+                            meta.location.clone(),
+                            meta.file_id.unwrap(),
+                            String::from("Added constraint")
+                        );
+                        errors.push(error);
+                    }
+                    _ => {}
                 }
             }
             _ => {}

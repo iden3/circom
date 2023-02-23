@@ -234,6 +234,9 @@ where
         assert!(self.has_component(symbol), "Method call in file {} line {}", file, line);
         self.components.get_mut(symbol).unwrap()
     }
+    pub fn get_components_ref(&self)-> &HashMap<String, CC>{
+        &self.components
+    }
 }
 
 impl<T, CC, SC, VC> RawEnvironment<T, CC, SC, VC>

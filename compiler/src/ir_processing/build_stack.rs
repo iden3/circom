@@ -89,10 +89,10 @@ pub fn build_return(bucket: &mut ReturnBucket, fresh: usize) -> usize {
 
 pub fn build_log(bucket: &mut LogBucket, fresh: usize) -> usize {
     let mut in_log = usize::min_value();
-    for arglog in bucket.argsprint.clone() {
+    for arglog in &mut bucket.argsprint {
         match arglog {
-            LogBucketArg::LogExp(mut arg) => {
-                let new_log = build_instruction(&mut arg, fresh);
+            LogBucketArg::LogExp(_) => {
+                let new_log = build_instruction(arglog.get_mut_arg_logexp(), fresh);
                 in_log = std::cmp::max(in_log, new_log);
             }
             LogBucketArg::LogStr(..) => {}

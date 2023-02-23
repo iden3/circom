@@ -53,9 +53,9 @@ bool Fr_init() {
     return true;
 }
 
-void Fr_str2element(PFrElement pE, char const *s) {
+void Fr_str2element(PFrElement pE, char const *s, uint base) {
     mpz_t mr;
-    mpz_init_set_str(mr, s, 10);
+    mpz_init_set_str(mr, s, base);
     mpz_fdiv_r(mr, mr, q);
     Fr_fromMpz(pE, mr);
     mpz_clear(mr);

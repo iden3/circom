@@ -10,6 +10,7 @@ fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis, prime: &String) ->
     use Statement::*;
     match stmt {
         While { stmt, .. } => clean_dead_code(stmt, analysis, prime),
+        MultSubstitution { .. } => unreachable!(),
         IfThenElse { if_case, else_case, cond, meta } => {
             let field = program_structure::constants::UsefulConstants::new(prime).get_p().clone();
             let empty_block = Box::new(Block { meta: meta.clone(), stmts: vec![] });
@@ -49,6 +50,7 @@ fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis, prime: &String) ->
 pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
     use Statement::*;
     match stmt {
+        MultSubstitution { .. } => unreachable!(),
         IfThenElse { cond, if_case, else_case, .. } => {
             *cond = computed_or_original(analysis, cond);
             apply_computed_expr(cond, analysis);
@@ -98,6 +100,10 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
             *arg = computed_or_original(analysis, arg);
             apply_computed_expr(arg, analysis);
         }
+        UnderscoreSubstitution {  rhe, .. } => {
+            *rhe = computed_or_original(analysis, rhe);
+            apply_computed_expr(rhe, analysis);
+        },
     }
 }
 
@@ -183,5 +189,6 @@ fn apply_computed_expr(expr: &mut Expression, analysis: &Analysis) {
             *rhe = Box::new(computed_or_original(analysis, rhe));
             apply_computed_expr(rhe, analysis);
         }
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }

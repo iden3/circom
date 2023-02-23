@@ -27,6 +27,7 @@ fn analyse_statement(
     use Statement::*;
     let file_id = stmt.get_meta().get_file_id();
     match stmt {
+        MultSubstitution { .. } => unreachable!(),
         IfThenElse { cond, if_case, else_case, .. } => {
             analyse_expression(cond, function_names, reports);
             analyse_statement(if_case, function_names, reports);
@@ -114,6 +115,19 @@ fn analyse_statement(
         Return { value, .. } => {
             analyse_expression(value, function_names, reports);
         }
+        UnderscoreSubstitution { meta, op, rhe } => {
+            if op.is_signal_operator() {
+                let mut report = Report::error(
+                    "Function uses template operators".to_string(),
+                    ReportCode::UndefinedFunction,
+                );
+                let location =
+                    file_definition::generate_file_location(meta.get_start(), meta.get_end());
+                report.add_primary(location, file_id, "Template operator found".to_string());
+                reports.push(report);
+            }
+            analyse_expression(rhe, function_names, reports);
+        },
     }
 }
 
@@ -191,5 +205,6 @@ fn analyse_expression(
 
 
         }
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }

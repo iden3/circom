@@ -69,6 +69,14 @@ pub fn declare_sub_component_aux() -> CInstruction {
     format!("uint {}", SUBCOMPONENT_AUX)
 }
 
+pub const INDEX_MULTIPLE_EQ: &str = "index_multiple_eq"; // type PFrElements[]
+pub fn declare_index_multiple_eq() -> CInstruction {
+    format!("uint {}", INDEX_MULTIPLE_EQ)
+}
+pub fn index_multiple_eq() -> CInstruction {
+    format!("{}", INDEX_MULTIPLE_EQ)
+}
+
 pub const FUNCTION_DESTINATION: &str = "destination"; // type PFrElements[]
 pub fn declare_dest_pointer() -> CInstruction {
     format!("{}* {}", T_FR_ELEMENT, FUNCTION_DESTINATION)
@@ -725,6 +733,38 @@ pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageLi
     //instructions.push(format!("#define {} = {}1;\n", list_of_messages, list_of_messages));
     instructions
 }
+
+pub fn generate_function_release_memory_component() -> Vec<String>{
+    let mut instructions = vec![];
+    instructions.push("void release_memory_component(Circom_CalcWit* ctx, uint pos) {{\n".to_string());
+    instructions.push("if (pos != 0){{\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].subcomponents)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].subcomponents;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].subcomponentsParallel)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].subcomponentsParallel;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].outputIsSet)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].outputIsSet;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].mutexes)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].mutexes;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].cvs)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].cvs;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].sbct)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].sbct;\n".to_string());
+    instructions.push("}}\n\n".to_string());
+    instructions.push("}}\n\n".to_string());
+    instructions
+}
+
+pub fn generate_function_release_memory_circuit() -> Vec<String>{ 
+    // deleting each one of the components
+    let mut instructions = vec![];
+    instructions.push("void release_memory(Circom_CalcWit* ctx) {{\n".to_string());
+    instructions.push("for (int i = 0; i < get_number_of_components(); i++) {{\n".to_string());
+    instructions.push("release_memory_component(ctx, i);\n".to_string());
+    instructions.push("}}\n".to_string());
+    instructions.push("}}\n".to_string());
+    instructions
+  }
 
 pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
