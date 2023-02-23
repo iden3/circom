@@ -401,7 +401,7 @@ ParseStatement2 : Statement = {
     <s:@L> "assert" "(" <arg: ParseExpression> ")" Semicolon <e:@R>
     => build_assert(Meta::new(s,e),arg),
 
-    <s:@L> <lhe: ParseExpression> ";" <e:@R>
+    <s:@L> <lhe: ParseExpression> Semicolon <e:@R>
     => build_anonymous_component_statement(Meta::new(s,e), lhe),
 
     ParseBlock
