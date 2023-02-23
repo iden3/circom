@@ -27,7 +27,7 @@ IdentifierListDef : Vec<String> = {
 
 Semicolon:() = {
     ";" => (),
-    ! => errors.push(Error::MissingSemicolon)
+    <s:@L> ! <e:@R> => errors.push(Error::MissingSemicolon{ location: s..e, file_id })
 }
 
 // ====================================================================
@@ -98,7 +98,7 @@ ParsePublicList : Vec<String> = {
 };
 
 pub ParseMainComponent : MainComponent = {
-    <s:@L> "component" "main" <public_list: ParsePublicList?> "=" <init: ParseExpression> Semicolon <e:@L>
+    <s:@L> "component" "main" <public_list: ParsePublicList?> "=" <init: ParseExpression> Semicolon <e:@R>
     => match public_list {
         None => build_main_component(Vec::new(),init),
         Some(list) => build_main_component(list,init)
@@ -401,7 +401,7 @@ ParseStatement2 : Statement = {
     <s:@L> "assert" "(" <arg: ParseExpression> ")" Semicolon <e:@R>
     => build_assert(Meta::new(s,e),arg),
 
-    <s:@L> <lhe: ParseExpression> ";" <e:@R>
+    <s:@L> <lhe: ParseExpression> Semicolon <e:@R>
     => build_anonymous_component_statement(Meta::new(s,e), lhe),
 
     ParseBlock
