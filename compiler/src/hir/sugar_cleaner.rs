@@ -26,6 +26,7 @@ impl State {
         -Inline if-then-else removal
         -Inline array removal
         -Initialization Block removal (no longer needed)
+        -Uniform array removal
 */
 
 pub fn clean_sugar(vcp: &mut VCP) {
@@ -61,7 +62,7 @@ fn extend_statement(stmt: &mut Statement, state: &mut State, context: &Context) 
         extend_log_call(stmt, state, context)
     } else if stmt.is_assert() {
         extend_assert(stmt, state, context)
-    } else {
+    } else{
         unreachable!()
     }
 }
@@ -81,6 +82,7 @@ fn extend_block(stmt: &mut Statement, state: &mut State, context: &Context) -> V
         map_init_blocks(stmts);
         map_stmts_with_sugar(stmts, state, context);
         map_substitutions(stmts);
+        map_constraint_equalities(stmts);
         state.fresh_id = map_returns(stmts, state.fresh_id);
         state.fresh_id = checkpoint_id;
         vec![]
@@ -417,6 +419,17 @@ fn map_substitutions(stmts: &mut Vec<Statement>) {
     }
 }
 
+fn map_constraint_equalities(stmts: &mut Vec<Statement>) {
+    let work = std::mem::take(stmts);
+    for w in work {
+        if w.is_constraint_equality() {
+            into_single_constraint_equality(w, stmts);
+        } else {
+            stmts.push(w);
+        }
+    }
+}
+
 fn map_returns(stmts: &mut Vec<Statement>, mut fresh_id: usize) -> usize {
     use Statement::Return;
     let work = std::mem::take(stmts);
@@ -587,6 +600,71 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
         } else {
             unreachable!()
         }
+    } else {
+        unreachable!()
+    }
+}
+
+fn into_single_constraint_equality(stmt: Statement, stmts: &mut Vec<Statement>) {
+    use Statement::ConstraintEquality;
+    match &stmt {
+        ConstraintEquality { rhe, lhe, meta, .. } =>{
+            if lhe.is_array() {
+                lhe_array_ce(meta, lhe, rhe, stmts)
+            }
+            else if rhe.is_array(){
+                lhe_array_ce(meta, rhe, lhe, stmts)
+            }
+            else{
+                stmts.push(stmt);
+            }
+        }
+        _ => stmts.push(stmt),
+    }
+}
+
+fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, stmts: &mut Vec<Statement>) {
+    use num_bigint_dig::BigInt;
+    use Expression::{ArrayInLine, Number, UniformArray, Variable};
+    use Statement::ConstraintEquality;
+    if let ArrayInLine { values: values_l, .. } = expr_array {
+        if let ArrayInLine { values: values_r, .. } = other_expr {
+            for i in 0..values_l.len() {
+                let ce = ConstraintEquality {
+                    lhe: values_l[i].clone(),
+                    rhe: values_r[i].clone(),
+                    meta: meta.clone(),
+                };
+                stmts.push(ce);
+            }
+        }
+        else if let UniformArray {value, ..} = other_expr {
+            for i in 0..values_l.len() {
+                let ce = ConstraintEquality {
+                    lhe: values_l[i].clone(),
+                    rhe: *value.clone(),
+                    meta: meta.clone(),
+                };
+                stmts.push(ce);
+            }
+        }
+        else if let Variable { meta: meta_var, name, access, ..} = other_expr {
+            for i in 0..values_l.len() {
+                let mut index_meta = meta.clone();
+                index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
+                let expr_index = Number(index_meta, BigInt::from(i));
+                let as_access = Access::ArrayAccess(expr_index);
+                let mut accessed_with = access.clone();
+                accessed_with.push(as_access);
+                let ce = ConstraintEquality {
+                    lhe: values_l[i].clone(),
+                    rhe: Variable {name: name.clone(), access: accessed_with, meta: meta_var.clone()},
+                    meta: meta.clone(),
+                };
+                stmts.push(ce);
+            }
+        }
+        
     } else {
         unreachable!()
     }

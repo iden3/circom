@@ -213,6 +213,17 @@ pub enum Statement {
         op: AssignOp,
         rhe: Expression,
     },
+    MultSubstitution {
+        meta: Meta,
+        lhe: Expression,
+        op: AssignOp,
+        rhe: Expression,
+    },
+    UnderscoreSubstitution{
+        meta: Meta,
+        op: AssignOp,
+        rhe: Expression,
+    },
     ConstraintEquality {
         meta: Meta,
         lhe: Expression,
@@ -233,24 +244,20 @@ pub enum Statement {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum SignalElementType {
-    Empty,
-    Binary,
-    FieldElement,
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SignalType {
     Output,
     Input,
     Intermediate,
 }
 
-#[derive(Copy, Clone, PartialEq, Ord, PartialOrd, Eq)]
+pub type TagList = Vec<String>;
+
+#[derive(Clone, PartialEq, Ord, PartialOrd, Eq)]
 pub enum VariableType {
     Var,
-    Signal(SignalType, SignalElementType),
+    Signal(SignalType, TagList),
     Component,
+    AnonymousComponent,
 }
 
 #[derive(Clone)]
@@ -287,7 +294,19 @@ pub enum Expression {
         id: String,
         args: Vec<Expression>,
     },
+    AnonymousComp{
+        meta: Meta,
+        id: String,
+        is_parallel: bool,
+        params: Vec<Expression>,
+        signals: Vec<Expression>,
+        names: Option<Vec<(AssignOp,String)>>,
+    },
     ArrayInLine {
+        meta: Meta,
+        values: Vec<Expression>,
+    },
+    Tuple {
         meta: Meta,
         values: Vec<Expression>,
     },
@@ -355,6 +374,7 @@ pub enum TypeReduction {
     Variable,
     Component,
     Signal,
+    Tag,
 }
 
 #[derive(Clone)]
@@ -395,6 +415,9 @@ impl TypeKnowledge {
     }
     pub fn is_signal(&self) -> bool {
         self.get_reduces_to() == TypeReduction::Signal
+    }
+    pub fn is_tag(&self) -> bool {
+        self.get_reduces_to() == TypeReduction::Tag
     }
 }
 

@@ -31,7 +31,7 @@ Circom_CalcWit::Circom_CalcWit (Circom_Circuit *aCircuit, uint maxTh) {
     inputSignalAssigned[i] = false;
   }
   signalValues = new FrElement[get_total_signal_no()];
-  Fr_str2element(&signalValues[0], "1");
+  Fr_str2element(&signalValues[0], "1", 10);
   componentMemory = new Circom_Component[get_number_of_components()];
   circuitConstants = circuit ->circuitConstants;
   templateInsId2IOSignalInfo = circuit -> templateInsId2IOSignalInfo;

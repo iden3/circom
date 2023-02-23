@@ -317,5 +317,6 @@ fn look_for_type_in_expression(
             let has_type = start(id, explored_functions, function_info, &params_types);
             has_type
         }
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }

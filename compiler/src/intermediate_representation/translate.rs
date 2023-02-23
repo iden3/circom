@@ -6,7 +6,7 @@ use num_bigint_dig::BigInt;
 use program_structure::ast::*;
 use program_structure::file_definition::FileLibrary;
 use program_structure::utils::environment::VarEnvironment;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{HashMap, BTreeMap, HashSet};
 
 type Length = usize;
 pub type E = VarEnvironment<SymbolInfo>;
@@ -15,13 +15,21 @@ pub type FieldTracker = ConstantTracker<String>;
 pub struct SymbolInfo {
     access_instruction: InstructionPointer,
     dimensions: Vec<Length>,
+    is_component: bool,
+}
+
+#[derive(Clone)]
+pub struct SignalInfo{
+    signal_type: SignalType,
+    lengths: Vec<usize>,
 }
 
 #[derive(Clone)]
 pub struct TemplateDB {
     // one per template instance
     pub signal_addresses: Vec<E>,
-    pub signal_info: Vec<HashMap<String, SignalType>>,
+    // stores the type and the length of signal
+    pub signal_info: Vec<HashMap<String, SignalInfo>>,
     // template_name to usize
     pub indexes: HashMap<String, usize>,
     // one per generic template, gives its signal to code correspondence
@@ -65,10 +73,12 @@ impl TemplateDB {
             0,
             ConstantTracker::new(),
             HashMap::with_capacity(0),
+            instance.signals_to_tags.clone(),
         );
         let mut signal_info = HashMap::new();
         for signal in instance.signals.clone() {
-            signal_info.insert(signal.name, signal.xtype);
+            let info = SignalInfo{ signal_type: signal.xtype, lengths: signal.lengths};
+            signal_info.insert(signal.name, info);
         }
         initialize_signals(&mut state, instance.signals.clone());
         db.signal_addresses.push(state.environment);
@@ -80,8 +90,9 @@ struct State {
     field_tracker: FieldTracker,
     environment: E,
     component_to_parallel:  HashMap<String, ParallelClusters>,
-    component_to_instance: HashMap<String, usize>,
+    component_to_instance: HashMap<String, HashSet<usize>>,
     signal_to_type: HashMap<String, SignalType>,
+    signal_to_tags: BTreeMap<String, TagInfo>,
     message_id: usize,
     signal_stack: usize,
     variable_stack: usize,
@@ -99,11 +110,13 @@ impl State {
         cmp_id_offset: usize,
         field_tracker: FieldTracker,
         component_to_parallel:  HashMap<String, ParallelClusters>,
+        signal_to_tags: BTreeMap<String, TagInfo>
     ) -> State {
         State {
             field_tracker,
             component_to_parallel,
             signal_to_type: HashMap::new(),
+            signal_to_tags,
             component_to_instance: HashMap::new(),
             environment: E::new(),
             message_id: msg_id,
@@ -161,7 +174,7 @@ fn initialize_parameters(state: &mut State, params: Vec<Param>) {
         };
         let address_instruction = address_instruction.allocate();
         let symbol_info =
-            SymbolInfo { dimensions: lengths, access_instruction: address_instruction.clone() };
+            SymbolInfo { dimensions: lengths, access_instruction: address_instruction.clone(), is_component:false };
         state.environment.add_variable(&p.name, symbol_info);
     }
 }
@@ -180,7 +193,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
         }
         .allocate();
         let symbol_info =
-            SymbolInfo { access_instruction: address_instruction.clone(), dimensions };
+            SymbolInfo { access_instruction: address_instruction.clone(), dimensions, is_component:false };
         state.environment.add_variable(&arg.name, symbol_info);
         let mut index = 0;
         for value in arg.values {
@@ -237,9 +250,9 @@ fn initialize_signals(state: &mut State, signals: Vec<Signal>) {
             op_aux_no: 0,
         }
         .allocate();
-        let info = SymbolInfo { access_instruction: instruction, dimensions: signal.lengths };
+        let info = SymbolInfo { access_instruction: instruction, dimensions: signal.lengths, is_component:false };
         state.environment.add_variable(&signal.name, info);
-        state.signal_to_type.insert(signal.name, signal.xtype);
+        state.signal_to_type.insert(signal.name.clone(), signal.xtype);
     }
 }
 
@@ -255,7 +268,7 @@ fn initialize_components(state: &mut State, components: Vec<Component>) {
             op_aux_no: 0,
         }
         .allocate();
-        let info = SymbolInfo { access_instruction: instruction, dimensions: component.lengths };
+        let info = SymbolInfo { access_instruction: instruction, dimensions: component.lengths, is_component: true };
         state.environment.add_variable(&component.name, info);
     }
 }
@@ -264,7 +277,17 @@ fn initialize_components(state: &mut State, components: Vec<Component>) {
 fn create_components(state: &mut State, triggers: &[Trigger], clusters: Vec<TriggerCluster>) {
     use ClusterType::*;
     for trigger in triggers {
-        state.component_to_instance.insert(trigger.component_name.clone(), trigger.template_id);
+        let component_info = state.component_to_instance.get_mut(&trigger.component_name);
+        match component_info{
+            Some(info) =>{
+                info.insert(trigger.template_id);
+            }
+            None =>{
+                let mut new_info = HashSet::new();
+                new_info.insert(trigger.template_id);
+                state.component_to_instance.insert(trigger.component_name.clone(), new_info);
+            }
+        }
     }
     for cluster in clusters {
         match cluster.xtype.clone() {
@@ -532,7 +555,7 @@ fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) 
             op_aux_no: 0,
         }
         .allocate();
-        let info = SymbolInfo { access_instruction: instruction, dimensions };
+        let info = SymbolInfo { access_instruction: instruction, dimensions, is_component: false };
         state.environment.add_variable(&name, info);
     } else {
         unreachable!()
@@ -556,8 +579,15 @@ fn translate_block(stmt: Statement, state: &mut State, context: &Context) {
 
 fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::ConstraintEquality;
+    use Expression::Variable;
     if let ConstraintEquality { meta, lhe, rhe } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
+
+        let length = if let Variable { meta, name, access} = lhe.clone() {
+            let def = SymbolDef { meta, symbol: name, acc: access };
+            ProcessedSymbol::new(def, state, context).length
+        } else {1};
+        
         let lhe_pointer = translate_expression(lhe, state, context);
         let rhe_pointer = translate_expression(rhe, state, context);
         let stack = vec![lhe_pointer, rhe_pointer];
@@ -565,7 +595,7 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
             line: starts_at,
             message_id: state.message_id,
             op_aux_no: 0,
-            op: OperatorType::Eq,
+            op: OperatorType::Eq(length),
             stack,
         }
         .allocate();
@@ -727,15 +757,45 @@ fn translate_prefix(
     }
 }
 
+fn check_tag_access(name_signal: &String, access: &Vec<Access>, state: &mut State) -> Option<BigInt> {
+    use Access::*;
+
+    let symbol_info = state.environment.get_variable(name_signal).unwrap().clone();
+    let mut value_tag = None;
+    if !symbol_info.is_component{
+        for acc in access {
+            match acc {
+                ArrayAccess(..) => {},
+                ComponentAccess(name) => {
+                    let tags_signal = state.signal_to_tags.get(name_signal).unwrap();
+                    let value = tags_signal.get(name).unwrap();
+
+                    value_tag = if value.is_some() {
+                        Some(value.clone().unwrap())
+                    } else {
+                        unreachable!()
+                    };
+                }
+            }
+        }
+    }
+    value_tag
+}
+
 fn translate_variable(
     expression: Expression,
     state: &mut State,
     context: &Context,
 ) -> InstructionPointer {
-    use Expression::Variable;
+    use Expression::{Variable};
     if let Variable { meta, name, access, .. } = expression {
-        let def = SymbolDef { meta, symbol: name, acc: access };
-        ProcessedSymbol::new(def, state, context).into_load(state)
+        let tag_access = check_tag_access(&name, &access, state);
+        if tag_access.is_some(){
+            translate_number( Expression::Number(meta.clone(), tag_access.unwrap()), state, context)
+        } else{
+            let def = SymbolDef { meta, symbol: name, acc: access };
+            ProcessedSymbol::new(def, state, context).into_load(state)
+        }
     } else {
         unreachable!()
     }
@@ -778,7 +838,7 @@ fn translate_infix_operator(op: ExpressionInfixOpcode) -> OperatorType {
         GreaterEq => OperatorType::GreaterEq,
         Lesser => OperatorType::Lesser,
         Greater => OperatorType::Greater,
-        Eq => OperatorType::Eq,
+        Eq => OperatorType::Eq(1),
         NotEq => OperatorType::NotEq,
         BoolOr => OperatorType::BoolOr,
         BoolAnd => OperatorType::BoolAnd,
@@ -860,6 +920,7 @@ impl ProcessedSymbol {
         let mut signal_type = state.signal_to_type.get(&symbol_name).cloned();
         let mut bf_index = vec![];
         let mut af_index = vec![];
+        let mut multiple_possible_lengths: Vec<Vec<usize>> = vec![];
         for acc in definition.acc {
             match acc {
                 ArrayAccess(exp) if signal.is_none() => {
@@ -868,16 +929,39 @@ impl ProcessedSymbol {
                     bf_index.push(translate_expression(exp, state, context));
                 }
                 ArrayAccess(exp) => {
+                    for possible_length in &mut multiple_possible_lengths{
+                        possible_length.pop();
+                    }
                     af_index.push(translate_expression(exp, state, context));
                 }
                 ComponentAccess(name) => {
-                    with_length = 1;
-                    let cmp_id = *state.component_to_instance.get(&symbol_name).unwrap();
-                    signal_type = context.tmp_database.signal_info[cmp_id].get(&name).cloned();
+                    let possible_cmp_id = state.component_to_instance.get(&symbol_name).unwrap().clone();
+                    for cmp_id in possible_cmp_id{
+                        let aux = context.tmp_database.signal_info[cmp_id].get(&name).unwrap();
+                        signal_type = Some(aux.signal_type);
+                        let mut new_length = aux.lengths.clone();
+                        new_length.reverse();
+                        multiple_possible_lengths.push(new_length);
+                    }
                     signal = Some(name);
                 }
             }
         }
+        if signal.is_some(){
+            let mut is_first = true;
+            for possible_length in multiple_possible_lengths{
+                if is_first{
+                    with_length = possible_length.iter().fold(1, |r, c| r * (*c));
+                    is_first = false;
+                }
+                else{
+                    if with_length != possible_length.iter().fold(1, |r, c| r * (*c)){
+                        unreachable!("On development: Circom compiler does not accept for now the assignment of arrays of unknown sizes during the execution of loops");
+                    }
+                }
+            } 
+        }
+
         let signal_location = signal.map(|signal_name| {
             build_signal_location(
                 &signal_name,
@@ -1165,7 +1249,8 @@ pub struct CodeInfo<'a> {
     pub functions: &'a HashMap<String, Vec<Length>>,
     pub field_tracker: FieldTracker,
     pub component_to_parallel: HashMap<String, ParallelClusters>,
-    pub string_table: HashMap<String, usize>
+    pub string_table: HashMap<String, usize>,
+    pub signals_to_tags: BTreeMap<String, TagInfo>,
 }
 
 pub struct CodeOutput {
@@ -1185,6 +1270,7 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         code_info.fresh_cmp_id,
         code_info.field_tracker,
         code_info.component_to_parallel,
+        code_info.signals_to_tags,
     );
     state.string_table = code_info.string_table;
     initialize_components(&mut state, code_info.components);

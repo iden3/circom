@@ -87,6 +87,10 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(format!(" (local {} i32)", producer.get_lvar_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_expaux_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_temp_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_aux_0_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_aux_1_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_aux_2_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_counter_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_store_aux_1_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_store_aux_2_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_copy_counter_tag()));
@@ -207,12 +211,21 @@ impl TemplateCodeInfo {
 	        component_offset(),
             COMPONENT_FATHER
         ));
-        create_body.push(format!(
-            "{}->componentMemory[{}].subcomponents = new uint[{}];",
-            CIRCOM_CALC_WIT,
-            component_offset(),
-            &self.number_of_components.to_string()
-        ));
+        if self.number_of_components > 0{
+            create_body.push(format!(
+                "{}->componentMemory[{}].subcomponents = new uint[{}]{{0}};",
+                CIRCOM_CALC_WIT,
+                component_offset(),
+                &self.number_of_components.to_string()
+            ));
+        } else{
+            create_body.push(format!(
+                "{}->componentMemory[{}].subcomponents = new uint[{}];",
+                CIRCOM_CALC_WIT,
+                component_offset(),
+                &self.number_of_components.to_string()
+            ));
+        }
 	if self.has_parallel_sub_cmp {
             create_body.push(format!(
 		"{}->componentMemory[{}].sbct = new std::thread[{}];",
@@ -275,6 +288,7 @@ impl TemplateCodeInfo {
         run_body.push(format!("{};", declare_expaux(self.expression_stack_depth)));
         run_body.push(format!("{};", declare_lvar(self.var_stack_depth)));
         run_body.push(format!("{};", declare_sub_component_aux()));
+        run_body.push(format!("{};", declare_index_multiple_eq()));
         for t in &self.body {
             let (mut instructions_body, _) = t.produce_c(producer, Some(parallel));
             run_body.append(&mut instructions_body);
@@ -296,6 +310,21 @@ impl TemplateCodeInfo {
 	    run_body.push(format!("ctx->numThreadMutex.unlock();"));
 	    run_body.push(format!("ctx->ntcvs.notify_one();"));	     
 	}
+
+        // to release the memory of its subcomponents
+        run_body.push(format!("for (uint i = 0; i < {}; i++){{", &self.number_of_components.to_string()));
+        run_body.push(format!(
+            "uint index_subc = {}->componentMemory[{}].subcomponents[i];",
+            CIRCOM_CALC_WIT,
+            ctx_index(),
+        ));
+        run_body.push(format!("if (index_subc != 0){};", 
+            build_call(
+                "release_memory_component".to_string(), 
+                vec![CIRCOM_CALC_WIT.to_string(), "index_subc".to_string()]
+            )));
+        
+        run_body.push(format!("}}"));
         let run_fun = build_callable(run_header, run_params, run_body);
         vec![create_fun, run_fun]
     }

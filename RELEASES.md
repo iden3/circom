@@ -1,5 +1,69 @@
 # Release notes
 
+## February 10, 2023 circom 2.1.4
+
+ #### Extensions
+ - Improving the efficiency of the parser regarding the anonnymous components and tuples. 
+ - Improving the substitution process: better compilation times for --O1 and --O2.
+ - Improving the handling of the underscore substitution.
+ - Extending the substitution to allow the inheritance of signal tags.
+ - Removing unused signal when applying --O1. (If a signal does not appear in any constraint, it is removed).  
+
+ #### Fixed Bugs
+ - Solving bug in the release of the memory of the components.
+
+## January 16, 2023 circom 2.1.3
+ #### Extensions
+ - Improving error messages: invalid access and invalid assignment.
+ - Avoiding side effects in out of bounds log operations.
+ - Adding check to detect components that are created but do not receive all their inputs.
+ - Fixing field size of goldilocks when writing r1cs file.
+
+ #### Fixed Bugs
+ - Fixing a problem with the use of integer division and ===, <== operators. If an integer division is involved in the expression of one of these operators, then we consider the expression as no quadratic.
+ - Fixing bug in code generation of constraint equalities with arrays
+
+
+## November 7, 2022 circom 2.1.2
+
+ #### Fixed bugs
+ - Fixed bug in C++ witness generation: function release_memory_component failed when releasing the memory of an array of components with some empty positions
+ - Fixed bug in logging of arithmetic expressions 
+ 
+## November 4, 2022 circom 2.1.1
+ #### Extensions
+ - New feature of anonymous components: programmers can pass the parameters indicate the input names receiving the values.[See here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/anonymous-components-and-tuples.md).
+ - circom now exits with 0 when it finishes successfully (last version exists with Exist(0) which broke some projects).
+ - Improving tags assignment: case multiple assignments in an array giving the same value to a tag.
+ - Allowing in cpp the use of binary, octal and hexadecimal numbers as inputs from a json file
+ - Adding support for non-64bit architectures.
+ - Witness_calculator adapted to work with negative numbers in the json input.
+
+ #### Fixed bugs
+ - Fixing bug in C++ witness generation: function Fr_toInt in fr.asm
+ - Improving error handling division by zero (instead of throwing a panic)
+ 
+## October 11, 2022 circom 2.1.0
+#### New features
+- Tags: more information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/tags.md).
+- Anonymous Components: more information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/anonymous-components-and-tuples.md).
+
+#### Extensions
+- Improving the memory consumption during the C++ witness generation.
+
+## September 21, 2022 circom 2.0.9
+ #### Extensions
+ - Adding a warning  if the programmer is using the operator <-- when it is possible to use <== instead (if the right side is a quadratic expression and the instruction is not contained in a custom template).
+ - Signal ids in custom templates changed to 64 bits.
+ - Array sizes are expected to be usize. Now, we throw an error in other case.
+ - Separating optimization option -O2 in two different options: --O2 and --O2rounds. Explanation can be found [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/include.md). The default option is currently --O2.
+- Writing Sections 4 and 5 of the r1cs file, only if "pragma custom_templates" is used (which is needed if custom templates are present).
+ - Improving --O1 optimization. 
+ - Adding a new documentation section about the different compilation options and flags. 
+
+ #### Fixed bugs
+ - Fixing -l option to disallow several values for one option: each value must have its own -l option.
+
 ## August 26, 2022 circom 2.0.8
 
 #### Extensions

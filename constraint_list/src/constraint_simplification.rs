@@ -362,6 +362,7 @@ fn apply_substitution_to_map(
             let c_id = *c_id;
             let mut constraint = storage.read_constraint(c_id).unwrap();
             C::apply_substitution(&mut constraint, substitution, field);
+            C::fix_constraint(&mut constraint, field);
             if C::is_linear(&constraint) {
                 linear.push_back(c_id);
             }
@@ -457,7 +458,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     let mut deleted = HashSet::new();
     let mut lconst = LinkedList::new();
     let mut no_rounds = smp.no_rounds;
-    let remove_unused = apply_linear;
+    let remove_unused = true;
 
     let relevant_signals = {
         // println!("Creating first relevant set");
@@ -486,10 +487,14 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         LinkedList::append(&mut lconst, &mut cons);
         let mut substitutions = build_encoded_fast_substitutions(subs);
         for constraint in &mut linear {
-            fast_encoded_constraint_substitution(constraint, &substitutions, &field);
+            if fast_encoded_constraint_substitution(constraint, &substitutions, &field){
+                C::fix_constraint(constraint, &field);
+            }
         }
         for constraint in &mut cons_equalities {
-            fast_encoded_constraint_substitution(constraint, &substitutions, &field);
+            if fast_encoded_constraint_substitution(constraint, &substitutions, &field){
+                C::fix_constraint(constraint, &field);
+            }
         }
         for signal in substitutions.keys().cloned() {
             deleted.insert(signal);
@@ -508,7 +513,9 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         LinkedList::append(&mut lconst, &mut cons);
         let substitutions = build_encoded_fast_substitutions(subs);
         for constraint in &mut linear {
-            fast_encoded_constraint_substitution(constraint, &substitutions, &field);
+            if fast_encoded_constraint_substitution(constraint, &substitutions, &field){
+                C::fix_constraint(constraint, &field);
+            }
         }
         for signal in substitutions.keys().cloned() {
             deleted.insert(signal);
@@ -529,7 +536,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         relevant
     };
 
-    let linear_substitutions = if remove_unused {
+    let linear_substitutions = if apply_linear {
         let now = SystemTime::now();
         let (subs, mut cons) = linear_simplification(
             &mut substitution_log,
@@ -555,7 +562,9 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         // println!("End of cluster simplification: {} ms", dur);
         LinkedList::append(&mut lconst, &mut cons);
         for constraint in &mut lconst {
-            fast_encoded_constraint_substitution(constraint, &substitutions, &field);
+            if fast_encoded_constraint_substitution(constraint, &substitutions, &field){
+                C::fix_constraint(constraint, &field);
+            }
         }
         substitutions
     } else {
@@ -576,16 +585,14 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         crate::state_utils::empty_encoding_constraints(&mut smp.dag_encoding);
         let _dur = now.elapsed().unwrap().as_millis();
         // println!("Storages built in {} ms", dur);
-        if remove_unused {
-            no_rounds -= 1;
-        }
+        no_rounds -= 1;
         (with_linear, storage)
     };
 
     let mut round_id = 0;
     let _ = round_id;
     let mut linear = with_linear;
-    let mut apply_round = remove_unused && no_rounds > 0 && !linear.is_empty();
+    let mut apply_round = apply_linear && no_rounds > 0 && !linear.is_empty();
     let mut non_linear_map = if apply_round || remove_unused {
         // println!("Building non-linear map");
         let now = SystemTime::now();
@@ -616,6 +623,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
             for substitution in &substitutions {
                 C::apply_substitution(constraint, substitution, &field);
             }
+            C::fix_constraint(constraint, &field);
         }
         linear = apply_substitution_to_map(
             &mut constraint_storage,

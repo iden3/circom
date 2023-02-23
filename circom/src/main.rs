@@ -16,7 +16,7 @@ fn main() {
         std::process::exit(1);
     } else {
         println!("{}", Colour::Green.paint("Everything went okay, circom safe"));
-        std::process::exit(0);
+        //std::process::exit(0);
     }
 }
 

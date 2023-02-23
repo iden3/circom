@@ -45,6 +45,10 @@ pub struct WASMProducer {
     call_lvar_tag: String,
     expaux_tag: String,
     temp_tag: String,
+    aux_0_tag: String,
+    aux_1_tag: String,
+    aux_2_tag: String,
+    counter_tag: String,
     store_aux_1_tag: String,
     store_aux_2_tag: String,
     copy_counter_tag: String,
@@ -103,6 +107,10 @@ impl Default for WASMProducer {
             call_lvar_tag: "$calllvar".to_string(),
             expaux_tag: "$expaux".to_string(),
             temp_tag: "$temp".to_string(),
+            aux_0_tag: "$aux0".to_string(),
+            aux_1_tag: "$aux1".to_string(),
+            aux_2_tag: "$aux2".to_string(),
+            counter_tag: "$counter".to_string(),
             store_aux_1_tag: "$storeaux1".to_string(),
             store_aux_2_tag: "$storeaux2".to_string(),
             copy_counter_tag: "$copycounter".to_string(),
@@ -361,6 +369,18 @@ impl WASMProducer {
     }
     pub fn get_temp_tag(&self) -> &str {
         &self.temp_tag
+    }
+    pub fn get_aux_0_tag(&self) -> &str {
+        &self.aux_0_tag
+    }
+    pub fn get_aux_1_tag(&self) -> &str {
+        &self.aux_1_tag
+    }
+    pub fn get_aux_2_tag(&self) -> &str {
+        &self.aux_2_tag
+    }
+    pub fn get_counter_tag(&self) -> &str {
+        &self.counter_tag
     }
     pub fn get_store_aux_1_tag(&self) -> &str {
         &self.store_aux_1_tag

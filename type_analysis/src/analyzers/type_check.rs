@@ -1,3 +1,4 @@
+use program_structure::ast::Expression::Call;
 use super::type_given_function::type_given_function;
 use super::type_register::TypeRegister;
 use program_structure::ast::*;
@@ -10,7 +11,7 @@ use std::collections::HashSet;
 
 type ArithmeticType = usize;
 type ComponentInfo = (Option<String>, ArithmeticType);
-type TypingEnvironment = CircomEnvironment<ComponentInfo, ArithmeticType, ArithmeticType>;
+type TypingEnvironment = CircomEnvironment<ComponentInfo,  (ArithmeticType, std::vec::Vec<std::string::String>), ArithmeticType>;
 type CallRegister = TypeRegister<ArithmeticType>;
 
 struct AnalysisInformation {
@@ -85,11 +86,36 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
             &mut analysis_information.reports,
         );
     }
+
+    if check_main_has_tags(initial_expression, program_archive) {
+            add_report(
+                ReportCode::MainComponentWithTags,
+                initial_expression.get_meta(),
+                &mut analysis_information.reports,
+            );
+    }
+
+
     if analysis_information.reports.is_empty() {
         Result::Ok(OutInfo { reached: analysis_information.reached })
     } else {
         Result::Err(analysis_information.reports)
     }
+}
+
+fn check_main_has_tags(initial_expression: &Expression, program_archive: &ProgramArchive) -> bool {
+    if let  Call { id, .. } = initial_expression{
+        let inputs = program_archive.get_template_data(id).get_inputs();
+        let mut tag_in_inputs = false;
+        for input in inputs {
+            if !input.1.1.is_empty(){
+                tag_in_inputs = true;
+                break;
+            }
+        }
+        tag_in_inputs
+    }
+    else { unreachable!()}
 }
 
 fn type_statement(
@@ -116,19 +142,22 @@ fn type_statement(
                 }
             }
             match xtype {
-                VariableType::Signal(s_type, _) => {
+                VariableType::Signal(s_type, tags) => {
                     if let SignalType::Input = s_type {
-                        analysis_information.environment.add_input(name, dimensions.len());
+                        analysis_information.environment.add_input(name, (dimensions.len(),tags.clone()));
                     } else if let SignalType::Output = s_type {
-                        analysis_information.environment.add_output(name, dimensions.len());
+                        analysis_information.environment.add_output(name, (dimensions.len(),tags.clone()));
                     } else {
-                        analysis_information.environment.add_intermediate(name, dimensions.len());
+                        analysis_information.environment.add_intermediate(name, (dimensions.len(),tags.clone()));
                     }
                 }
                 VariableType::Var => {
                     analysis_information.environment.add_variable(name, dimensions.len())
                 }
                 VariableType::Component => analysis_information
+                    .environment
+                    .add_component(name, (meta.component_inference.clone(), dimensions.len())),
+                VariableType::AnonymousComponent => analysis_information
                     .environment
                     .add_component(name, (meta.component_inference.clone(), dimensions.len())),
             }
@@ -142,12 +171,22 @@ fn type_statement(
             };
 
             let access_information_result =
-                treat_access(access, meta, program_archive, analysis_information);
+                treat_access(var, access, meta, program_archive, analysis_information);
+
             let access_information = if let Result::Ok(info) = access_information_result {
                 info
             } else {
                 return;
             };
+
+            if analysis_information.environment.has_component(var) && access_information.2.is_some(){
+                return add_report(
+                    ReportCode::OutputTagCannotBeModifiedOutside,
+                    meta,
+                    &mut analysis_information.reports,
+                );
+            }
+
             let symbol_type_result = apply_access_to_symbol(
                 var,
                 meta,
@@ -167,6 +206,7 @@ fn type_statement(
                 | (SymbolInformation::Signal(_), AssignOp::AssignSignal)
                 | (SymbolInformation::Var(_), AssignOp::AssignVar)
                 | (SymbolInformation::Component(_), AssignOp::AssignVar) => {}
+                | (SymbolInformation::Tag, AssignOp::AssignVar) => {}
                 _ => {
                     return add_report(
                         ReportCode::WrongTypesInAssignOperation,
@@ -197,16 +237,11 @@ fn type_statement(
                         )
                     }
                 }
-                SymbolInformation::Signal(dim) if dim > 0 => add_report(
-                    ReportCode::MustBeSingleArithmetic,
-                    rhe.get_meta(),
-                    &mut analysis_information.reports,
-                ),
                 SymbolInformation::Signal(dim)
                     if dim == rhe_type.dim() && !rhe_type.is_template() => {}
-                SymbolInformation::Var(dim) if dim == rhe_type.dim() && !rhe_type.is_template() => {
-                }
-
+                SymbolInformation::Var(dim)
+                    if dim == rhe_type.dim() && !rhe_type.is_template() => {}
+                SymbolInformation::Tag if !rhe_type.is_template() => {}
                 _ => add_report(
                     ReportCode::WrongTypesInAssignOperation,
                     meta,
@@ -227,16 +262,23 @@ fn type_statement(
             } else {
                 return;
             };
-            if lhe_type.is_template() || lhe_type.dim() > 0 {
+            if lhe_type.is_template() {
                 add_report(
-                    ReportCode::MustBeSingleArithmetic,
+                    ReportCode::MustBeArithmetic,
                     lhe.get_meta(),
                     &mut analysis_information.reports,
                 );
             }
-            if rhe_type.is_template() || rhe_type.dim() > 0 {
+            if rhe_type.is_template() {
                 add_report(
-                    ReportCode::MustBeSingleArithmetic,
+                    ReportCode::MustBeArithmetic,
+                    rhe.get_meta(),
+                    &mut analysis_information.reports,
+                );
+            }
+            if rhe_type.dim() != lhe_type.dim() {
+                add_report(
+                    ReportCode::MustBeSameDimension,
                     rhe.get_meta(),
                     &mut analysis_information.reports,
                 );
@@ -336,6 +378,22 @@ fn type_statement(
             }
             analysis_information.environment.remove_variable_block();
         }
+        MultSubstitution { .. } => unreachable!(),
+        UnderscoreSubstitution { rhe , ..} => {
+            let rhe_response = type_expression(rhe, program_archive, analysis_information);
+            let rhe_type = if let Result::Ok(r_type) = rhe_response {
+                r_type
+            } else {
+                return;
+            };
+            if rhe_type.is_template() {
+                add_report(
+                    ReportCode::MustBeArithmetic,
+                    rhe.get_meta(),
+                    &mut analysis_information.reports,
+                );
+            }
+        },
     }
 }
 fn type_expression(
@@ -484,7 +542,7 @@ fn type_expression(
         Variable { name, access, meta, .. } => {
             debug_assert!(analysis_information.environment.has_symbol(name));
             let access_information =
-                treat_access(access, meta, program_archive, analysis_information)?;
+                treat_access(name, access, meta, program_archive, analysis_information)?;
             let environment = &analysis_information.environment;
             let reports = &mut analysis_information.reports;
             let symbol_information = apply_access_to_symbol(
@@ -501,6 +559,9 @@ fn type_expression(
                 }
                 SymbolInformation::Var(dim) | SymbolInformation::Signal(dim) => {
                     Result::Ok(FoldedType::arithmetic_type(dim))
+                }
+                SymbolInformation::Tag => {
+                    Result::Ok(FoldedType::arithmetic_type(0))
                 }
                 SymbolInformation::Component(possible_template) if possible_template.is_none() => {
                     add_report_and_end(ReportCode::UninitializedSymbolInExpression, meta, reports)
@@ -564,6 +625,7 @@ fn type_expression(
             let folded_value = returned_type?;
             Result::Ok(folded_value)
         }
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
 //************************************************* Statement support *************************************************
@@ -580,15 +642,16 @@ fn treat_sequence_of_statements(
 //************************************************* Expression support *************************************************
 // 0: symbol dimensions accessed
 // 1: Signal accessed and dimensions accessed in that signal (optional)
-type AccessInfo = (ArithmeticType, Option<(String, ArithmeticType)>);
+type AccessInfo = (ArithmeticType, Option<(String, ArithmeticType)>, Option<String>);
 fn treat_access(
+    var: &String,
     accesses: &[Access],
     meta: &Meta,
     program_archive: &ProgramArchive,
     analysis_information: &mut AnalysisInformation,
 ) -> Result<AccessInfo, ()> {
     use Access::*;
-    let mut access_info: AccessInfo = (0, Option::None);
+    let mut access_info: AccessInfo = (0, Option::None, Option::None);
     let mut successful = Result::Ok(());
     for access in accesses {
         match access {
@@ -609,15 +672,46 @@ fn treat_access(
                     }
                 }
             }
-            ComponentAccess(signal_name) => {
-                if access_info.1.is_some() {
-                    successful = add_report_and_end(
-                        ReportCode::InvalidSignalAccess,
-                        meta,
-                        &mut analysis_information.reports,
-                    );
+            ComponentAccess(name) => {
+                if let Option::Some(signal_info) = & access_info.1 {
+                    let accessed_comp = analysis_information.environment.get_component(var).unwrap().0.as_ref().unwrap();  
+                    let comp_info = program_archive.get_template_data(accessed_comp);
+                    let comp_outputs = comp_info.get_outputs();
+                    let comp_inputs = comp_info.get_inputs();
+                    if signal_info.1 > 0 {
+                        add_report(
+                            ReportCode::InvalidArraySize,
+                            meta,
+                            &mut analysis_information.reports,
+                        );
+                    }
+                    else if comp_inputs.contains_key(&signal_info.0) {
+                        successful = add_report_and_end(
+                            ReportCode::InvalidSignalTagAccess, //We can report more exactly input signals cannot be accessed.
+                            meta,
+                            &mut analysis_information.reports,
+                        );
+                    } else if comp_outputs.contains_key(&signal_info.0) {
+                        let output_info = &comp_outputs.get(&signal_info.0).unwrap().1;
+                        if !output_info.contains(name) || access_info.2.is_some() {
+                            successful = add_report_and_end(
+                                ReportCode::InvalidSignalTagAccess,
+                                  meta,
+                                  &mut analysis_information.reports,
+                                );
+                        } else {
+                            access_info.2 = Option::Some(name.clone());
+                        }
+                    }
+                    else {
+                      successful = add_report_and_end(
+                        ReportCode::InvalidSignalTagAccess,
+                          meta,
+                          &mut analysis_information.reports,
+                        );
+                    }
                 } else {
-                    access_info.1 = Option::Some((signal_name.clone(), 0));
+                    access_info.1 = Option::Some((name.clone(), 0));
                 }
             }
         }
@@ -630,6 +724,7 @@ enum SymbolInformation {
     Component(Option<String>),
     Var(ArithmeticType),
     Signal(ArithmeticType),
+    Tag,
 }
 fn apply_access_to_symbol(
     symbol: &str,
@@ -639,12 +734,15 @@ fn apply_access_to_symbol(
     reports: &mut ReportCollection,
     program_archive: &ProgramArchive,
 ) -> Result<SymbolInformation, ()> {
-    let (current_template, mut current_dim) = if environment.has_component(symbol) {
-        environment.get_component_or_break(symbol, file!(), line!()).clone()
+    let (current_template, mut current_dim, possible_tags) = if environment.has_component(symbol) {
+        let (temp, dim) = environment.get_component_or_break(symbol, file!(), line!()).clone();
+        (temp,dim, Vec::new())
     } else if environment.has_signal(symbol) {
-        (Option::None, *environment.get_signal_or_break(symbol, file!(), line!()))
+        let(dim, tags) = environment.get_signal_or_break(symbol, file!(), line!());
+        (Option::None,  *dim, tags.clone())
     } else {
-        (Option::None, *environment.get_variable_or_break(symbol, file!(), line!()))
+        let dim = environment.get_variable_or_break(symbol, file!(), line!());
+        (Option::None, *dim, Vec::new())
     };
 
     if access_information.0 > current_dim {
@@ -653,8 +751,25 @@ fn apply_access_to_symbol(
         current_dim -= access_information.0
     }
 
-    if access_information.1.is_some() && (current_dim > 0 || current_template.is_none()) {
-        add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports)
+    if access_information.0 == 0 && environment.has_component(symbol) && access_information.1.is_some() && access_information.2.is_some() {
+            Result::Ok(SymbolInformation::Tag)
+    }
+    else if access_information.1.is_some() && environment.has_signal(symbol){
+         if access_information.0 == 0 && contains_the_tag(access_information.1.clone(), &possible_tags)
+        {
+            Result::Ok(SymbolInformation::Tag)
+        }
+        else {
+            if access_information.0 == 0 {
+                add_report_and_end(ReportCode::InvalidTagAccess, meta, reports)
+            }
+            else {
+                add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports)
+            }
+        }
+    }
+    else if access_information.1.is_some() && (current_dim > 0 || current_template.is_none()) {
+            add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports)
     } else if let Option::Some((signal_name, dims_accessed)) = access_information.1 {
         let template_name = current_template.unwrap();
         let input = program_archive.get_template_data(&template_name).get_input_info(&signal_name);
@@ -680,6 +795,13 @@ fn apply_access_to_symbol(
     } else {
         add_report_and_end(ReportCode::InvalidPartialArray, meta, reports)
     }
+}
+
+fn contains_the_tag(access_information: Option<(String, usize)>, tags: &Vec<String>) -> bool {
+    if let Option::Some(access) = access_information {
+            tags.contains(&access.0)
+    }
+    else {false}
 }
 
 fn type_array_of_expressions(
@@ -801,6 +923,9 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
             "Array access does not match the dimensions of the expression".to_string()
         }
         InvalidSignalAccess => "Signal not found in component".to_string(),
+        InvalidSignalTagAccess => "The latest access cannot be done from component".to_string(),
+        InvalidTagAccess => "Tag not found in signal".to_string(),
+        InvalidTagAccessAfterArray => "Tag cannot be found after an array access".to_string(),
         InvalidArrayType => "Components can not be declared inside inline arrays".to_string(),
         InfixOperatorWithWrongTypes | PrefixOperatorWithWrongTypes => {
             "Type not allowed by the operator".to_string()
@@ -814,6 +939,10 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         InvalidArgumentInCall => "Components can not be passed as arguments".to_string(),
         UnableToTypeFunction => "Unable to infer the type of this function".to_string(),
         MustBeSingleArithmetic => "Must be a single arithmetic expression".to_string(),
+        MustBeArithmetic => "Must be a single arithmetic expression or an array".to_string(),
+        OutputTagCannotBeModifiedOutside => "Output tag from a subcomponent cannot be modified".to_string(),
+        MustBeSameDimension => "Must be two arrays of the same dimensions".to_string(),
+        MainComponentWithTags => "Main component cannot have inputs with tags".to_string(),
         ExpectedDimDiffGotDim(expected, got) => {
             format!("Function should return {} but returns {}", expected, got)
         }
