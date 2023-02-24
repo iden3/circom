@@ -1,6 +1,6 @@
-use super::errors::Error;
 use super::lang;
-use program_structure::ast::AST;
+use program_structure::ast::{AST, produce_report, produce_generic_report};
+use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{ReportCollection};
 use program_structure::file_definition::FileID;
 
@@ -75,7 +75,7 @@ pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, ReportCollectio
     }
     if state == 2 {
         Err(vec![
-            Error::UnclosedComment { location: block_start..block_start, file_id }.produce_report()
+            produce_report(ReportCode::UnclosedComment,  block_start..block_start, file_id)
         ])
     } else {
         Ok(pp)
@@ -92,30 +92,29 @@ pub fn parse_file(src: &str, file_id: FileID) -> Result<AST, ReportCollection> {
         .parse(file_id, &mut errors, &preprocess)
         // TODO: is this always fatal?
         .map_err(|parse_error| match parse_error {
-            InvalidToken { location } => Error::GenericParsing {
-                file_id,
-                msg: format!("{:?}", parse_error),
-                location: location..location,
-            },
-            UnrecognizedToken { ref token, .. } => Error::GenericParsing {
-                file_id,
-                msg: format!("{:?}", parse_error),
-                location: token.0..token.2,
-            },
-            ExtraToken { ref token } => Error::GenericParsing {
-                file_id,
-                msg: format!("{:?}", parse_error),
-                location: token.0..token.2,
-            },
-            _ => {
-                Error::GenericParsing { file_id, msg: format!("{:?}", parse_error), location: 0..0 }
-            }
+            InvalidToken { location } => 
+                produce_generic_report(
+                format!("{:?}", parse_error),
+                 location..location, file_id
+                ),
+            UnrecognizedToken { ref token, .. } => 
+            produce_generic_report(
+                format!("{:?}", parse_error),
+                 token.0..token.2, file_id
+                ),
+            ExtraToken { ref token } => produce_generic_report(
+                format!("{:?}", parse_error),
+                 token.0..token.2, file_id
+                ),
+            _ => produce_generic_report(
+                format!("{:?}", parse_error),
+                 0..0, file_id
+                )
         })
-        .map_err(Error::produce_report)
         .map_err(|e| vec![e])?;
 
     if !errors.is_empty() {
-        return Err(errors.into_iter().map(|e| e.produce_report()).collect());
+        return Err(errors.into_iter().collect());
     }
 
     Ok(ast)

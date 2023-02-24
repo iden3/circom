@@ -3,6 +3,21 @@ use std::fmt::Formatter;
 
 #[derive(Copy, Clone)]
 pub enum ReportCode {
+    //Parse Errors
+    UnclosedComment,
+    GenericParsing,
+    FileOs,
+    NoMain,
+    MultipleMain,
+    CompilerVersion,
+    MissingSemicolon,
+    UnrecognizedInclude,
+    UnrecognizedVersion,
+    UnrecognizedPragma,
+    IncludeNotFound,
+    IllegalExpression,
+    MultiplePragma,
+    //
     AssertWrongType,
     ParseFail,
     CompilerVersionError,
@@ -174,6 +189,19 @@ impl fmt::Display for ReportCode {
             CustomGatesVersionError => "CG05",
             AnonymousCompError => "TAC01",
             TupleError => "TAC02",
+            UnclosedComment => "P01",
+            GenericParsing  => "P02",
+            FileOs  => "P03",
+            NoMain => "P04",
+            MultipleMain => "P05",
+            CompilerVersion => "P06",
+            MissingSemicolon => "P07",
+            UnrecognizedInclude => "P08",
+            UnrecognizedVersion => "P09",
+            UnrecognizedPragma => "P10",
+            IllegalExpression => "P11",
+            MultiplePragma => "P12",
+            IncludeNotFound => "P13",
         };
         f.write_str(string_format)
     }

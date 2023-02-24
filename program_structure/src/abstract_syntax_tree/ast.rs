@@ -1,11 +1,11 @@
-use crate::file_definition::FileLocation;
+use crate::{file_definition::{FileLocation, FileID}, error_definition::Report, error_code::ReportCode};
 use num_bigint::BigInt;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Pragma {
-    Version(Version),
-    CustomGates,
+    Version(Meta, FileID, Version),
+    CustomGates(Meta ,FileID),
     Unrecognized,
 }
 
@@ -99,24 +99,25 @@ impl AST {
         includes: Vec<String>,
         definitions: Vec<Definition>,
         main_component: Option<MainComponent>,
-    ) -> AST {
+    ) -> (AST,Vec<Report>) {
         let mut custom_gates = None;
         let mut compiler_version = None;
-
+        let mut reports = Vec::new();
         for p in pragmas {
             match p {
                 // TODO: don't panic
-                Pragma::Version(ver) => match compiler_version {
-                    Some(_) => panic!("multiple circom pragmas"),
+                Pragma::Version(location, file_id, ver) => match compiler_version {
+                    Some(_) => reports.push(produce_report(
+                            ReportCode::MultiplePragma,location.start..location.end, file_id)),
                     None => compiler_version = Some(ver),
                 },
-                Pragma::CustomGates => match custom_gates {
-                    Some(_) => panic!("multiple custom gates pragmas"),
+                Pragma::CustomGates(location, file_id ) => match custom_gates {
+                    Some(_) => reports.push(produce_report(
+                        ReportCode::MultiplePragma, location.start..location.end, file_id)),
                     None => custom_gates = Some(true),
                 },
-                // unrecognized
-                // TODO: maybe warn?
-                _ => (),
+                Pragma::Unrecognized => {}, //This error is previously handled, and the
+                                            //parsing continues to catch more parsing errors.
             }
         }
 
@@ -124,7 +125,7 @@ impl AST {
             matches!(definition, Definition::Template { is_custom_gate: true, .. })
         });
 
-        AST {
+        (AST {
             meta,
             compiler_version,
             custom_gates: custom_gates.unwrap_or(false),
@@ -132,7 +133,7 @@ impl AST {
             includes,
             definitions,
             main_component,
-        }
+        }, reports)
     }
 }
 
@@ -460,3 +461,100 @@ impl MemoryKnowledge {
         }
     }
 }
+
+
+
+pub fn produce_report_with_message(error_code : ReportCode, msg : String) -> Report {
+    match error_code {
+        ReportCode::FileOs => {
+            Report::error(
+            format!("Could not open file {}", msg),
+            ReportCode::FileOs,
+            )
+        }
+        ReportCode::IncludeNotFound => {
+            Report::error(
+                format!(" The file {} to be included has not been found", msg),
+                ReportCode::FileOs,
+                )
+        },
+        _ => unreachable!()
+    }
+}
+
+pub fn produce_generic_report( msg : String, location : FileLocation, file_id : FileID) -> Report {
+    let mut report = Report::error(msg, ReportCode::GenericParsing);
+    report.add_primary(location, file_id, "Error here".to_string());
+    report
+}
+pub fn produce_compiler_version_report(path : String, required_version : Version, version :  Version) -> Report {
+    let report = Report::error(
+        format!("File {} requires pragma version {:?} that is not supported by the compiler (version {:?})", path, required_version, version ),
+        ReportCode::CompilerVersionError,
+    );
+    report
+}
+
+
+ pub fn produce_report(error_code: ReportCode, location : FileLocation, file_id : FileID) -> Report {
+    use ReportCode::*;
+    let report  = match error_code {
+            UnclosedComment => {
+                let mut report =
+                    Report::error("unterminated /* */".to_string(), ReportCode::UnclosedComment);
+                report.add_primary(location, file_id, "Comment starts here".to_string());
+                report
+            }
+            NoMain => Report::error(
+                "No main specified in the project structure".to_string(),
+                ReportCode::NoMainFoundInProject,
+            ),
+            MultipleMain =>{
+                Report::error(
+                    "Multiple main components in the project structure".to_string(),
+                    ReportCode::MultipleMainInComponent,
+                )
+            }
+            MissingSemicolon => {
+                let mut report = Report::error(format!("Missing semicolon"), 
+                    ReportCode::MissingSemicolon);
+                report.add_primary(location, file_id, "A semicolon is needed here".to_string());
+                report
+            }
+            UnrecognizedInclude => {
+                let mut report =
+                Report::error("unrecognized argument in include directive".to_string(), ReportCode::UnrecognizedInclude);
+            report.add_primary(location, file_id, "this argument".to_string());
+            report
+
+            }
+            UnrecognizedPragma => {
+                let mut report =
+                Report::error("unrecognized argument in pragma directive".to_string(), ReportCode::UnrecognizedPragma);
+            report.add_primary(location, file_id, "this argument".to_string());
+            report
+
+            }        
+            UnrecognizedVersion => {
+                let mut report =
+                Report::error("unrecognized version argument in pragma directive".to_string(), ReportCode::UnrecognizedVersion);
+            report.add_primary(location, file_id, "this argument".to_string());
+            report
+            }      
+            IllegalExpression => {
+                let mut report =
+                Report::error("illegal expression".to_string(), ReportCode::IllegalExpression);
+            report.add_primary(location, file_id, "here".to_string());
+            report
+            }
+            MultiplePragma => {
+                let mut report =
+                Report::error("Multiple pragma directives".to_string(), ReportCode::MultiplePragma);
+            report.add_primary(location, file_id, "here".to_string());
+            report
+            },
+            _ => unreachable!(),    
+    };
+    report
+}
+

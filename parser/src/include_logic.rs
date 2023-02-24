@@ -1,8 +1,8 @@
+use program_structure::ast::produce_report_with_message;
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::Report;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use crate::errors::Error;
 
 pub struct FileStack {
     current_location: PathBuf,
@@ -42,8 +42,7 @@ impl FileStack {
                 }
             }
         }
-        let error = "Include not found: ".to_string() + &name;
-        Result::Err(Report::error(error, ReportCode::ParseFail))
+        Result::Err( produce_report_with_message(ReportCode::IncludeNotFound, name))
     }
 
     pub fn take_next(f_stack: &mut FileStack) -> Option<PathBuf> {
@@ -92,8 +91,7 @@ impl IncludesGraph {
         let mut crr = PathBuf::new();
         crr.push(old_path.clone());
         let path = std::fs::canonicalize(crr)
-            .map_err(|_| Error::FileOs { path: old_path })
-            .map_err(|e| Error::produce_report(e))?;
+            .map_err(|_e| produce_report_with_message(ReportCode::FileOs,old_path))?;
         let edges = self.adjacency.entry(path).or_insert(vec![]);
         edges.push(self.nodes.len() - 1);
         Ok(())

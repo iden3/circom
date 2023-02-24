@@ -13,15 +13,18 @@ mod parser_logic;
 mod syntax_sugar_remover;
 
 use include_logic::{FileStack, IncludesGraph};
+use program_structure::ast::produce_compiler_version_report;
+use program_structure::ast::produce_report;
+use program_structure::ast::produce_report_with_message;
 use program_structure::error_code::ReportCode;
-use program_structure::error_definition::{Report, ReportCollection};
+use program_structure::error_definition::ReportCollection;
+use program_structure::error_definition::Report;
 use program_structure::file_definition::{FileLibrary};
 use program_structure::program_archive::ProgramArchive;
 use std::path::{PathBuf, Path};
 use syntax_sugar_remover::{apply_syntactic_sugar};
 
 use std::str::FromStr;
-use errors::Error;
 
 pub type Version = (usize, usize, usize);
 
@@ -110,10 +113,10 @@ pub fn run_parser(
     }
 
     if main_components.len() == 0 {
-        let report = Error::NoMain.produce_report();
+        let report = produce_report(ReportCode::NoMain,0..0, 0);
         Err((file_library, vec![report]))
     } else if main_components.len() > 1 {
-        let report = Error::MultipleMain.produce_report();
+        let report = produce_report(ReportCode::MultipleMain,0..0, 0);
         Err((file_library, vec![report]))
     } else {
         let errors: ReportCollection = includes_graph.get_problematic_paths().iter().map(|path|
@@ -159,8 +162,7 @@ fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src */ 
     let path_str = format!("{:?}", path);
     read_to_string(path)
         .map(|contents| (path_str.clone(), contents))
-        .map_err(|_| Error::FileOs { path: path_str.clone() })
-        .map_err(|e| e.produce_report())
+        .map_err(|_| produce_report_with_message(ReportCode::FileOs, path_str.clone()))
 }
 
 fn parse_number_version(version: &str) -> Version {
@@ -185,13 +187,7 @@ fn check_number_version(
         {
             Ok(vec![])
         } else {
-            let report = Error::CompilerVersion {
-                path: file_path,
-                required_version,
-                version: version_compiler,
-            }
-            .produce_report();
-            Err(report)
+            Err(produce_compiler_version_report(file_path, required_version, version_compiler))
         }
     } else {
         let report =
