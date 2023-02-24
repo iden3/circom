@@ -1,4 +1,4 @@
-use program_structure::ast::produce_report_with_message;
+use program_structure::error_code::produce_report_with_message;
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::Report;
 use std::collections::{HashMap, HashSet};

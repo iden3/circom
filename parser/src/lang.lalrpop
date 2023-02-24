@@ -5,6 +5,7 @@ use program_structure::ast::*;
 use program_structure::ast_shortcuts::{self,Symbol,TupleInit};
 use std::str::FromStr;
 use lalrpop_util::ParseError;
+use program_structure::error_code::produce_report;
 use program_structure::error_definition::Report;
 use program_structure::error_code::ReportCode;
 
