@@ -13,9 +13,9 @@ mod parser_logic;
 mod syntax_sugar_remover;
 
 use include_logic::{FileStack, IncludesGraph};
-use program_structure::ast::produce_compiler_version_report;
-use program_structure::ast::produce_report;
-use program_structure::ast::produce_report_with_message;
+use program_structure::error_code::produce_compiler_version_report;
+use program_structure::error_code::produce_report;
+use program_structure::error_code::produce_report_with_message;
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::ReportCollection;
 use program_structure::error_definition::Report;
