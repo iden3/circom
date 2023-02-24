@@ -7,15 +7,12 @@ extern crate lalrpop_util;
 
 lalrpop_mod!(pub lang);
 
-mod errors;
 mod include_logic;
 mod parser_logic;
 mod syntax_sugar_remover;
 
 use include_logic::{FileStack, IncludesGraph};
-use program_structure::error_code::produce_compiler_version_report;
-use program_structure::error_code::produce_report;
-use program_structure::error_code::produce_report_with_message;
+use program_structure::ast::{produce_compiler_version_report, produce_report, produce_report_with_message, produce_version_warning_report};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::ReportCollection;
 use program_structure::error_definition::Report;
@@ -191,10 +188,7 @@ fn check_number_version(
         }
     } else {
         let report =
-            errors::NoCompilerVersionWarning::produce_report(errors::NoCompilerVersionWarning {
-                path: file_path,
-                version: version_compiler,
-            });
+            produce_version_warning_report(file_path, version_compiler);
         Ok(vec![report])
     }
 }
