@@ -11,12 +11,10 @@ use num_bigint::BigInt;
 
 
 
-use crate::errors::{AnonymousCompError,TupleError};
-
 pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<(), Report> {
     let mut new_templates : HashMap<String, TemplateData> = HashMap::new();
     if program_archive.get_main_expression().is_anonymous_comp() {
-        return Result::Err(AnonymousCompError::anonymous_general_error(program_archive.get_main_expression().get_meta().clone(),"The main component cannot contain an anonymous call  ".to_string()));
+        return Result::Err(anonymous_general_error(program_archive.get_main_expression().get_meta().clone(),"The main component cannot contain an anonymous call  ".to_string()));
      
     }
     for temp in program_archive.templates.clone() {
@@ -52,7 +50,7 @@ fn check_anonymous_components_statement(
     match stm {
         Statement::MultSubstitution {meta, lhe, rhe,  ..} => {
             if lhe.contains_anonymous_comp() {
-                Result::Err(AnonymousCompError::anonymous_general_error(
+                Result::Err(anonymous_general_error(
                     meta.clone(),
                     "An anonymous component cannot be used in the left side of an assignment".to_string())
                 )
@@ -63,7 +61,7 @@ fn check_anonymous_components_statement(
         Statement::IfThenElse { meta, cond, if_case, else_case, .. } 
         => { 
             if cond.contains_anonymous_comp() {
-                Result::Err(AnonymousCompError::anonymous_inside_condition_error(meta.clone()))
+                Result::Err(anonymous_inside_condition_error(meta.clone()))
             } else{
                 check_anonymous_components_statement(if_case)?;
                 if else_case.is_some(){
@@ -74,7 +72,7 @@ fn check_anonymous_components_statement(
         }
         Statement::While { meta, cond, stmt, .. }   => {
             if cond.contains_anonymous_comp() {
-                Result::Err(AnonymousCompError::anonymous_inside_condition_error(meta.clone()))
+                Result::Err(anonymous_inside_condition_error(meta.clone()))
             } else{
                 check_anonymous_components_statement(stmt)
             }
@@ -83,7 +81,7 @@ fn check_anonymous_components_statement(
             for arg in args {
                 if let program_structure::ast::LogArgument::LogExp( exp ) = arg {
                     if exp.contains_anonymous_comp() {
-                        return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone() ,"An anonymous component cannot be used inside a log".to_string()))
+                        return Result::Err(anonymous_general_error(meta.clone() ,"An anonymous component cannot be used inside a log".to_string()))
                     }
                 }
             }
@@ -91,21 +89,21 @@ fn check_anonymous_components_statement(
         }  
         Statement::Assert { meta, arg}   => {
             if arg.contains_anonymous_comp() {
-                Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(), "An anonymous component cannot be used inside an assert".to_string()))
+                Result::Err(anonymous_general_error(meta.clone(), "An anonymous component cannot be used inside an assert".to_string()))
             } else{
                 Result::Ok(())
             }
         }
         Statement::Return {  meta, value: arg}=> {
             if arg.contains_anonymous_comp(){
-                Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(), "An anonymous component cannot be used inside a function ".to_string()))
+                Result::Err(anonymous_general_error(meta.clone(), "An anonymous component cannot be used inside a function ".to_string()))
             } else{
                 Result::Ok(())
             }
         }
         Statement::ConstraintEquality {meta, lhe, rhe } => {
             if lhe.contains_anonymous_comp() || rhe.contains_anonymous_comp() {
-                Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(), "An anonymous component cannot be used with operator === ".to_string()))
+                Result::Err(anonymous_general_error(meta.clone(), "An anonymous component cannot be used with operator === ".to_string()))
             }
             else{
                 Result::Ok(()) 
@@ -114,7 +112,7 @@ fn check_anonymous_components_statement(
         Statement::Declaration { meta, dimensions, .. } => {
             for exp in dimensions{
                 if exp.contains_anonymous_comp(){
-                    return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()));
+                    return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()));
                 }
             }
             Result::Ok(())
@@ -140,7 +138,7 @@ fn check_anonymous_components_statement(
                 match acc{
                     ArrayAccess(exp) =>{
                         if exp.contains_anonymous_comp(){
-                            return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()));
+                            return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()));
                         }
                     },
                     ComponentAccess(_)=>{},
@@ -160,14 +158,14 @@ pub fn check_anonymous_components_expression(
         ArrayInLine { meta, values, .. } => {    
             for value in values{
                 if value.contains_anonymous_comp() {
-                    return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()));
+                    return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()));
                 }
             }
             Result::Ok(())
         }, 
         UniformArray { meta, value, dimension } => {
             if value.contains_anonymous_comp() || dimension.contains_anonymous_comp() {
-                Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()))
+                Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()))
             } else{
                 Result::Ok(())
             }
@@ -182,7 +180,7 @@ pub fn check_anonymous_components_expression(
                 match acc{
                     ArrayAccess(exp) =>{
                         if exp.contains_anonymous_comp(){
-                            return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()));
+                            return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()));
                         }
                     },
                     ComponentAccess(_)=>{},
@@ -192,21 +190,21 @@ pub fn check_anonymous_components_expression(
         },
         InfixOp { meta, lhe, rhe, .. } => {
             if lhe.contains_anonymous_comp() || rhe.contains_anonymous_comp() {
-                Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used in the middle of an operation ".to_string()))
+                Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used in the middle of an operation ".to_string()))
             } else{
                 Result::Ok(())
             }
         },
         PrefixOp { meta, rhe, .. } => {
             if rhe.contains_anonymous_comp()  {
-                Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used in the middle of an operation ".to_string()))
+                Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used in the middle of an operation ".to_string()))
             } else{
                 Result::Ok(())
             }
         },
         InlineSwitchOp { meta, cond, if_true,  if_false } => {
             if cond.contains_anonymous_comp() || if_true.contains_anonymous_comp() || if_false.contains_anonymous_comp() {
-                Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used inside an inline switch ".to_string()))
+                Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used inside an inline switch ".to_string()))
             } else{
                 Result::Ok(())
             }
@@ -214,7 +212,7 @@ pub fn check_anonymous_components_expression(
         Call { meta, args, .. } => {
             for value in args{
                 if value.contains_anonymous_comp() {
-                    return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used as a parameter in a template call ".to_string()));
+                    return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used as a parameter in a template call ".to_string()));
                 }
             }
             Result::Ok(())
@@ -222,7 +220,7 @@ pub fn check_anonymous_components_expression(
         AnonymousComp {meta, params, signals, .. } => {
             for value in params{
                 if value.contains_anonymous_comp() {
-                    return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used as a parameter in a template call ".to_string()));
+                    return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used as a parameter in a template call ".to_string()));
                 }
             }
             for value in signals{
@@ -239,10 +237,10 @@ pub fn check_anonymous_components_expression(
         },
         ParallelOp { meta, rhe } => {
             if !rhe.is_call() && !rhe.is_anonymous_comp() && rhe.contains_anonymous_comp() {
-                return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"Bad use of parallel operator in combination with anonymous components ".to_string()));       
+                return Result::Err(anonymous_general_error(meta.clone(),"Bad use of parallel operator in combination with anonymous components ".to_string()));       
             }
             else if rhe.is_call() && rhe.contains_anonymous_comp() {
-                return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"An anonymous component cannot be used as a parameter in a template call ".to_string()));
+                return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used as a parameter in a template call ".to_string()));
             }
             Result::Ok(())
         },
@@ -401,7 +399,7 @@ pub fn remove_anonymous_from_expression(
             // get the template we are calling to
             let template = templates.get(&id);
             if template.is_none(){
-                return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"The template does not exist ".to_string()));
+                return Result::Err(anonymous_general_error(meta.clone(),"The template does not exist ".to_string()));
             }
             let id_anon_temp = id.to_string() + "_" + &file_lib.get_line(meta.start, meta.get_file_id()).unwrap().to_string() + "_" + &meta.start.to_string();
             
@@ -456,7 +454,7 @@ pub fn remove_anonymous_from_expression(
                 for (signal, _) in inputs{
                     if !names.contains(signal) {
                         let error = signal.clone() + " has not been found in the anonymous call";
-                        return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),error));
+                        return Result::Err(anonymous_general_error(meta.clone(),error));
                     } else {
                         let pos = names.iter().position(|r| r == signal).unwrap();
                         new_signals.push(signals.get(pos).unwrap().clone());
@@ -471,7 +469,7 @@ pub fn remove_anonymous_from_expression(
                 }
             }
             if inputs.len() != new_signals.len() {
-                return Result::Err(AnonymousCompError::anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
+                return Result::Err(anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
             }
 
             // generate the substitutions for the inputs
@@ -593,7 +591,7 @@ fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
         Statement::IfThenElse { cond, if_case, else_case, meta, .. } 
         => { 
             if cond.contains_tuple() {
-                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()))     
+                Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()))     
             } else{
                 check_tuples_statement(if_case)?;
                 if else_case.is_some(){
@@ -605,7 +603,7 @@ fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
 
         Statement::While { meta, cond, stmt }   => {
             if cond.contains_tuple() {
-                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()))       
+                Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used inside a condition ".to_string()))       
            } else{      
                 check_tuples_statement(stmt)
             }
@@ -623,7 +621,7 @@ fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
         }  
         Statement::Assert { meta, arg}   => { 
             if arg.contains_tuple(){
-                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in a return ".to_string()))       
+                Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used in a return ".to_string()))       
             }
             else{ 
                 Result::Ok(())
@@ -631,7 +629,7 @@ fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
         }
         Statement::Return {  meta, value: arg}=> {
             if arg.contains_tuple(){
-                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside a function ".to_string()))     
+                Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used inside a function ".to_string()))     
             }
             else{ 
                 Result::Ok(())
@@ -639,7 +637,7 @@ fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
         }
         Statement::ConstraintEquality {meta, lhe, rhe } => {
             if lhe.contains_tuple() || rhe.contains_tuple() {
-                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used with the operator === ".to_string()))       
+                Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used with the operator === ".to_string()))       
             }
             else{ 
                 Result::Ok(()) 
@@ -650,7 +648,7 @@ fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
         {
             for exp in dimensions.clone(){
                 if exp.contains_tuple(){
-                    return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
+                    return Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
                 }
             }
             Result::Ok(())
@@ -675,7 +673,7 @@ fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
                 match acc{
                     ArrayAccess(exp) =>{
                         if exp.contains_tuple(){
-                            return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array".to_string()));
+                            return Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array".to_string()));
                         }
                     },
                     ComponentAccess(_)=>{},
@@ -694,14 +692,14 @@ pub fn check_tuples_expression(exp: &Expression) -> Result<(), Report>{
         ArrayInLine { meta, values } => {    
             for value in values{
                 if value.contains_tuple() {
-                    return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
+                    return Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
                 }
             }
             Result::Ok(())
         }, 
         UniformArray { meta, value, dimension } => {
             if value.contains_tuple() || dimension.contains_tuple() {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
+                return Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array ".to_string()));       
             }
             Result::Ok(())
         },
@@ -714,7 +712,7 @@ pub fn check_tuples_expression(exp: &Expression) -> Result<(), Report>{
                 match acc{
                     ArrayAccess(exp) =>{
                         if exp.contains_tuple(){
-                            return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array".to_string()));
+                            return Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used to define a dimension of an array".to_string()));
                         }
                     },
                     ComponentAccess(_)=>{},
@@ -724,21 +722,21 @@ pub fn check_tuples_expression(exp: &Expression) -> Result<(), Report>{
         },
         InfixOp { meta, lhe, rhe, .. } => {
             if lhe.contains_tuple() || rhe.contains_tuple() {
-                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in the middle of an operation".to_string()))     
+                Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used in the middle of an operation".to_string()))     
             } else{
                 Result::Ok(())
             }
         },
         PrefixOp { meta, rhe, .. } => {
             if rhe.contains_tuple()  {
-                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in the middle of an operation".to_string()))     
+                Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used in the middle of an operation".to_string()))     
             } else{
                 Result::Ok(())
             }
         },
         InlineSwitchOp { meta, cond, if_true,  if_false } => {
             if cond.contains_tuple() || if_true.contains_tuple() || if_false.contains_tuple() {
-                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used inside an inline switch".to_string()))      
+                Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used inside an inline switch".to_string()))      
             } else{
                 Result::Ok(())
             }
@@ -746,7 +744,7 @@ pub fn check_tuples_expression(exp: &Expression) -> Result<(), Report>{
         Call { meta, args, .. } => {
             for value in args{
                 if value.contains_tuple() {
-                    return Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used as a parameter of a function call".to_string()));       
+                    return Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used as a parameter of a function call".to_string()));       
                 }
             }
             Result::Ok(())
@@ -762,7 +760,7 @@ pub fn check_tuples_expression(exp: &Expression) -> Result<(), Report>{
         },
         ParallelOp { meta, rhe} => {
             if rhe.contains_tuple()  {
-                Result::Err(TupleError::tuple_general_error(meta.clone(),"A tuple cannot be used in a parallel operator ".to_string()))       
+                Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used in a parallel operator ".to_string()))       
             } else{
                 Result::Ok(())
             }
@@ -790,21 +788,21 @@ fn remove_tuples_from_statement(stm: Statement) -> Result<Statement, Report> {
                                     substs.push(Statement::UnderscoreSubstitution { meta: meta, op, rhe: rhe });
                                 }
                             } else{   
-                                return Result::Err(TupleError::tuple_general_error(meta.clone(),"The elements of the receiving tuple must be signals or variables.".to_string()));
+                                return Result::Err(tuple_general_error(meta.clone(),"The elements of the receiving tuple must be signals or variables.".to_string()));
                             }
                         }
                         return Result::Ok(build_block(meta.clone(),substs));
                     } else if values1.len() > 0 {
-                        return Result::Err(TupleError::tuple_general_error(meta.clone(),"The number of elements in both tuples does not coincide".to_string()));           
+                        return Result::Err(tuple_general_error(meta.clone(),"The number of elements in both tuples does not coincide".to_string()));           
                     } else {
-                        return Result::Err(TupleError::tuple_general_error(meta.clone(),"This expression must be in the right side of an assignment".to_string()));           
+                        return Result::Err(tuple_general_error(meta.clone(),"This expression must be in the right side of an assignment".to_string()));           
                     }
                 },
                 (lhe, rhe) => { 
                     if lhe.is_tuple() || lhe.is_variable(){
-                        return Result::Err(TupleError::tuple_general_error(rhe.get_meta().clone(),"This expression must be a tuple or an anonymous component".to_string()));
+                        return Result::Err(tuple_general_error(rhe.get_meta().clone(),"This expression must be a tuple or an anonymous component".to_string()));
                     } else {
-                        return Result::Err(TupleError::tuple_general_error(lhe.get_meta().clone(),"This expression must be a tuple, a component, a signal or a variable ".to_string()));    
+                        return Result::Err(tuple_general_error(lhe.get_meta().clone(),"This expression must be a tuple, a component, a signal or a variable ".to_string()));    
                     }
                 }
             }
@@ -863,7 +861,7 @@ fn remove_tuples_from_statement(stm: Statement) -> Result<Statement, Report> {
         Statement::Substitution {  meta, var, op, rhe, access} => {
             let new_rhe = remove_tuple_from_expression(rhe);
             if new_rhe.is_tuple() {
-                return Result::Err(TupleError::tuple_general_error(meta.clone(),"Left-side of the statement is not a tuple".to_string()));       
+                return Result::Err(tuple_general_error(meta.clone(),"Left-side of the statement is not a tuple".to_string()));       
             }
             if var != "_" {   
                 Result::Ok(Statement::Substitution { meta: meta.clone(), var: var, access: access, op: op, rhe: new_rhe })
