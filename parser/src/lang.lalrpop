@@ -4,10 +4,11 @@ use program_structure::expression_builders::*;
 use program_structure::ast::*;
 use program_structure::ast_shortcuts::{self,Symbol,TupleInit};
 use std::str::FromStr;
-use crate::errors::Error;
 use lalrpop_util::ParseError;
+use program_structure::error_definition::Report;
+use program_structure::error_code::ReportCode;
 
-grammar<'err>(file_id: usize, errors:&'err mut Vec<Error>);
+grammar<'err>(file_id: usize, errors:&'err mut Vec<Report>);
 
 CommaSepList<T>:Vec<T> = {
     <mut e:(<T> ",")*> <t:T> => {
@@ -27,7 +28,7 @@ IdentifierListDef : Vec<String> = {
 
 Semicolon:() = {
     ";" => (),
-    <s:@L> ! <e:@R> => errors.push(Error::MissingSemicolon{ location: s..e, file_id })
+    <s:@L> ! <e:@R> => errors.push(produce_report(ReportCode::MissingSemicolon, s..e, file_id))
 }
 
 // ====================================================================
@@ -42,20 +43,20 @@ Semicolon:() = {
 
 ParsePragma:Pragma = {
     // version
-    "pragma" "circom" <Version> Semicolon => Pragma::Version(<>),
+    <s:@L> "pragma" "circom" <v: Version> Semicolon <e:@R> => Pragma::Version(Meta::new(s,e), file_id, v),
     "pragma" "circom" <!> Semicolon => match <>.error {
             ParseError::UnrecognizedToken { ref token, .. } => {
-                errors.push(Error::UnrecognizedVersion{location: token.0..token.2, file_id});
+                errors.push(produce_report(ReportCode::UnrecognizedVersion,token.0..token.2, file_id));
                 Pragma::Unrecognized
             } 
             _ => unreachable!(),
         },
     // custom templates
-    "pragma" "custom_templates" Semicolon => Pragma::CustomGates,
+    <s:@L> "pragma" "custom_templates" Semicolon  <e:@R> => Pragma::CustomGates(Meta::new(s,e), file_id),
     // unrecognized
     "pragma" <!> Semicolon => match <>.error {
             ParseError::UnrecognizedToken { ref token, .. } => {
-                errors.push(Error::UnrecognizedPragma{location: token.0..token.2, file_id});
+                errors.push(produce_report(ReportCode::UnrecognizedPragma,token.0..token.2, file_id));
                 Pragma::Unrecognized
             } 
             _ => unreachable!(),
@@ -69,7 +70,7 @@ ParseInclude:String = {
     "include" <!> Semicolon => {
         match <>.error {
             ParseError::UnrecognizedToken { ref token, .. } => {
-                errors.push(Error::UnrecognizedInclude{location: token.0..token.2, file_id});
+                errors.push(produce_report(ReportCode::UnrecognizedInclude, token.0..token.2, file_id));
             } 
             _ => unreachable!(),
         }
@@ -84,7 +85,10 @@ ParseInclude:String = {
 // Parsing the declaration of the main component
 pub ParseAst:AST = {
     <s:@L> <pragmas:ParsePragma*> <includes:ParseInclude*> <definitions:ParseDefinition*> <main:ParseMainComponent?> <e:@R>
-    => AST::new(Meta::new(s,e), pragmas, includes, definitions, main),
+    => { let (ast, mut ers) = AST::new(Meta::new(s,e), pragmas, includes, definitions, main);
+        errors.append(&mut ers);
+        ast
+    },
 };
 
 // ====================================================================
@@ -638,7 +642,7 @@ Expression0: Expression = {
 
     <!> => match <>.error {
         ParseError::UnrecognizedToken { ref token, .. } => {
-            errors.push(Error::IllegalExpression{location: token.0..token.2, file_id});
+            errors.push(produce_report(ReportCode::IllegalExpression, token.0..token.2, file_id));
             // doesn't matter
             build_number(Meta::new(0,0),BigInt::from(0))
         }
