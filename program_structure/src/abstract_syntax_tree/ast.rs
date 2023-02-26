@@ -471,14 +471,14 @@ impl MemoryKnowledge {
                 report.add_primary(location, file_id, "Comment starts here".to_string());
                 report
             }
-            NoMain => Report::error(
+            NoMainFoundInProject => Report::error(
                 "No main specified in the project structure".to_string(),
                 ReportCode::NoMainFoundInProject,
             ),
             MultipleMain =>{
                 Report::error(
                     "Multiple main components in the project structure".to_string(),
-                    ReportCode::MultipleMainInComponent,
+                    ReportCode::MultipleMain,
                 )
             }
             MissingSemicolon => {
@@ -525,13 +525,15 @@ impl MemoryKnowledge {
 }
 
 pub fn produce_version_warning_report(path : String, version : Version) -> Report {
-    Report::warning(
+    let mut r = Report::warning(
         format!(
             "File {} does not include pragma version. Assuming pragma version {:?}",
             path, version
         ),
         ReportCode::NoCompilerVersionWarning,
-    )
+    );
+    r.add_note(format!("At the beginning of file {}, you should add the directive \"pragma circom <Version>\", to indicate which compiler version you are using.",path));
+    r
 }
 
 
@@ -544,20 +546,17 @@ pub fn produce_report_with_message(error_code : ReportCode, msg : String) -> Rep
             )
         }
         ReportCode::IncludeNotFound => {
-            Report::error(
+            let mut r = Report::error(
                 format!(" The file {} to be included has not been found", msg),
-                ReportCode::FileOs,
-                )
+                ReportCode::IncludeNotFound,
+                );
+                r.add_note("Consider using compilation option -l to indicate include paths".to_string());
+                r
         },
         _ => unreachable!()
     }
 }
 
-pub fn produce_generic_report( msg : String, location : FileLocation, file_id : FileID) -> Report {
-    let mut report = Report::error(msg, ReportCode::GenericParsing);
-    report.add_primary(location, file_id, "Error here".to_string());
-    report
-}
 pub fn produce_compiler_version_report(path : String, required_version : Version, version :  Version) -> Report {
     let report = Report::error(
         format!("File {} requires pragma version {:?} that is not supported by the compiler (version {:?})", path, required_version, version ),

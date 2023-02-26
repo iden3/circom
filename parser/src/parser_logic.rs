@@ -1,8 +1,8 @@
 use super::lang;
 use program_structure::ast::{AST};
-use program_structure::ast::{produce_report, produce_generic_report};
+use program_structure::ast::produce_report;
 use program_structure::error_code::ReportCode;
-use program_structure::error_definition::{ReportCollection};
+use program_structure::error_definition::{ReportCollection, Report};
 use program_structure::file_definition::FileID;
 
 pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, ReportCollection> {
@@ -120,3 +120,10 @@ pub fn parse_file(src: &str, file_id: FileID) -> Result<AST, ReportCollection> {
 
     Ok(ast)
 }
+
+fn produce_generic_report(format: String, token: std::ops::Range<usize>, file_id: usize) -> Report {
+    let mut report = Report::error(format, ReportCode::IllegalExpression);
+    report.add_primary(token, file_id, "here".to_string());
+    report
+}
+

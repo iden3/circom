@@ -12,7 +12,7 @@ mod parser_logic;
 mod syntax_sugar_remover;
 
 use include_logic::{FileStack, IncludesGraph};
-use program_structure::ast::{produce_compiler_version_report, produce_report, produce_report_with_message, produce_version_warning_report};
+use program_structure::ast::{produce_compiler_version_report, produce_report, produce_report_with_message, produce_version_warning_report, Expression};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::ReportCollection;
 use program_structure::error_definition::Report;
@@ -110,10 +110,10 @@ pub fn run_parser(
     }
 
     if main_components.len() == 0 {
-        let report = produce_report(ReportCode::NoMain,0..0, 0);
+        let report = produce_report(ReportCode::NoMainFoundInProject,0..0, 0);
         Err((file_library, vec![report]))
     } else if main_components.len() > 1 {
-        let report = produce_report(ReportCode::MultipleMain,0..0, 0);
+        let report = produce_report_with_main_components(main_components);
         Err((file_library, vec![report]))
     } else {
         let errors: ReportCollection = includes_graph.get_problematic_paths().iter().map(|path|
@@ -152,6 +152,21 @@ pub fn run_parser(
             }
         }
     }
+}
+
+fn produce_report_with_main_components(main_components: Vec<(usize, (Vec<String>, Expression), bool)>) -> Report {
+    let mut j = 0;
+    let mut r = produce_report(ReportCode::MultipleMain, 0..0, 0);
+    for (i,exp,_) in main_components{
+        if j > 0 {
+            r.add_secondary(exp.1.get_meta().location.clone(), i, Option::Some("Here it is another main component".to_string()));
+        }
+        else {
+            r.add_primary(exp.1.get_meta().location.clone(), i, "This is a main component".to_string());
+        }
+        j+=1;
+    }
+    r
 }
 
 fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src */ {
