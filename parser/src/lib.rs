@@ -111,12 +111,14 @@ pub fn run_parser(
 
     if main_components.len() == 0 {
         let report = produce_report(ReportCode::NoMainFoundInProject,0..0, 0);
-        Err((file_library, vec![report]))
+        warnings.push(report);
+        Err((file_library, warnings))
     } else if main_components.len() > 1 {
         let report = produce_report_with_main_components(main_components);
-        Err((file_library, vec![report]))
+        warnings.push(report);
+        Err((file_library, warnings))
     } else {
-        let errors: ReportCollection = includes_graph.get_problematic_paths().iter().map(|path|
+        let mut errors: ReportCollection = includes_graph.get_problematic_paths().iter().map(|path|
             Report::error(
                 format!(
                     "Missing custom templates pragma in file {} because of the following chain of includes {}",
@@ -127,7 +129,8 @@ pub fn run_parser(
             )
         ).collect();
         if errors.len() > 0 {
-            Err((file_library, errors))
+            warnings.append(& mut errors);
+            Err((file_library, warnings))
         } else {
             let (main_id, main_component, custom_gates) = main_components.pop().unwrap();
             let result_program_archive = ProgramArchive::new(
@@ -138,14 +141,17 @@ pub fn run_parser(
                 custom_gates,
             );
             match result_program_archive {
-                Err((lib, rep)) => {
-                    Err((lib, rep))
+                Err((lib, mut rep)) => {
+                    warnings.append(&mut rep);
+                    Err((lib, warnings))
                 }
                 Ok(mut program_archive) => {
                     let lib = program_archive.get_file_library().clone();
                     let program_archive_result = apply_syntactic_sugar( &mut program_archive);
                     match program_archive_result {
-                        Result::Err(v) => Result::Err((lib,vec![v])),
+                        Result::Err(v) => {
+                            warnings.push(v);
+                            Result::Err((lib,warnings))},
                         Result::Ok(_) => Ok((program_archive, warnings)),
                     }
                 }
