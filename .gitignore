@@ -10,3 +10,4 @@ type_analysis/target/
 .idea/
 .vscode/
 .DS_Store
+rust-toolchain.toml
