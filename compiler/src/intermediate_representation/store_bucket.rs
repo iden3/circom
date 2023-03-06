@@ -60,23 +60,35 @@ impl WriteLLVMIR for StoreBucket {
             Some(inst) => inst.into_int_value()
         };
         let mut sub_cmp = None;
+        let mut sub_cmp_counter = None;
         let gep = match &self.dest_address_type {
             AddressType::Variable => llvm.borrow().get_variable(self.message_id, index).into_pointer_value(),
             AddressType::Signal => llvm.borrow().get_signal(self.message_id, index),
             AddressType::SubcmpSignal { cmp_address, .. } => {
                 let addr = cmp_address.produce_llvm_ir(producer, llvm.clone()).expect("The address of a subcomponent must yield a value!");
                 sub_cmp = Some(llvm.borrow().get_subcomponent(self.message_id, addr.into_int_value()).into_pointer_value());
-                llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "").into_pointer_value()
+                sub_cmp_counter = Some(llvm.borrow().get_subcomponent_counter(self.message_id, addr.into_int_value()).into_pointer_value());
+                llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "subcmp.signal").into_pointer_value()
             }
         };
         let source = llvm.borrow().to_enum(self.src.produce_llvm_ir(producer, llvm.clone()).unwrap());
         let store = llvm.borrow().create_store(gep, source);
+        match (&self.dest_address_type, sub_cmp_counter) {
+            (AddressType::SubcmpSignal { .. }, None) => panic!("How come we have a subcomponent and not the counter?"),
+            (AddressType::SubcmpSignal { .. }, Some(counter)) => {
+                let value = llvm.borrow().create_load(counter, "load.subcmp.counter");
+                let new_value = llvm.borrow().create_sub(value.into_int_value(), llvm.borrow().create_literal_u32(1), "decrement.counter");
+                llvm.borrow().create_store(counter, new_value);
+            },
+            _ => {}
+        }
         let sub_cmp_name = match &self.dest {
             LocationRule::Indexed { template_header, .. } => template_header.clone(),
             _ => None
         };
+        // If the input information is unknown add a check that checks the counter and if its zero call the subcomponent
         match &self.dest_address_type {
-            AddressType::SubcmpSignal {input_information, ..} => match input_information {
+            AddressType::SubcmpSignal { input_information, .. } => match input_information {
                 InputInformation::Input { status } => {
                     match status {
                         StatusInput::Last => {
@@ -90,6 +102,28 @@ impl WriteLLVMIR for StoreBucket {
                                             sub_cmp
                                                 .expect("Attempting to call a run function with a null ptr!")));
                             llvm.borrow().create_call(run_fn.as_str(), &[arg]);
+                        },
+                        StatusInput::Unknown => {
+                            let sub_cmp_name = sub_cmp_name.expect("Could not get the name of the subcomponent");
+                            let run_fn = run_fn_name(sub_cmp_name.clone());
+                            let run_bb = llvm.borrow().create_bb_in_current_function(format!("maybe_run.{}", sub_cmp_name).as_str());
+                            let continue_bb = llvm.borrow().create_bb_in_current_function("continue.store");
+                            // Here we need to get the counter and check if its 0
+                            // If its is then call the run function because it means that all signals have been assigned
+                            let value = llvm.borrow().create_load(sub_cmp_counter.unwrap(), "load.subcmp.counter");
+                            llvm.borrow().create_conditional_branch(value.into_int_value(), run_bb, continue_bb);
+                            llvm.borrow().set_current_bb(run_bb);
+                            let arg = llvm
+                                .borrow()
+                                .to_basic_metadata_enum(
+                                    llvm
+                                        .borrow()
+                                        .to_enum(
+                                            sub_cmp
+                                                .expect("Attempting to call a run function with a null ptr!")));
+                            llvm.borrow().create_call(run_fn.as_str(), &[arg]);
+                            llvm.borrow().create_br(continue_bb);
+                            llvm.borrow().set_current_bb(continue_bb);
                         },
                         _ => {}
                     }

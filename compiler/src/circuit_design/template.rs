@@ -61,15 +61,11 @@ impl WriteLLVMIR for TemplateCodeInfo {
             run_fn_name(self.header.clone()).as_str(),
             void.fn_type(&[template_struct.into()], false)
         );
+        llvm.borrow_mut().set_current_function(run_function);
         let prelude = llvm.borrow().create_bb(run_function, "prelude");
         llvm.borrow().set_current_bb(prelude);
         llvm.borrow_mut().create_stack(self.id, self.var_stack_depth);
         llvm.borrow_mut().create_signal_geps(self.id, self.number_of_inputs + self.number_of_outputs);
-        // TODO: Move the GEPs of each signal to the function prelude and store those pointers to avoid repeating the pattern
-        // In Vanguard the domain will search for each GEP and then use the load and stores (depending if input or output signal) as the llvm::Value.
-        // This means that a signal can have several llvm::Value values since it could be used in several points.
-        // For input signals maybe I can get away with creating a single load instruction and using that for reading the value of the signal.
-
 
         // Run function body
         for t in &self.body {

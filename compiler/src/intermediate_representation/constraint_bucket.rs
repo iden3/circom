@@ -12,20 +12,6 @@ pub enum ConstraintBucket {
     Equality(InstructionPointer)
 }
 
-// #[derive(Clone)]
-// pub struct ConstraintBucket {
-//     pub wrapped: ConstrainedInstruction
-// }
-
-// impl ConstraintBucket {
-//     pub fn unwrap(self) -> InstructionPointer {
-//         match self.wrapped {
-//             ConstrainedInstruction::Substitution(i) => i,
-//             ConstrainedInstruction::Equality(i) => i
-//         }
-//     }
-// }
-
 impl IntoInstruction for ConstraintBucket {
     fn into_instruction(self) -> Instruction {
         Instruction::Constraint(self)
@@ -81,7 +67,7 @@ impl WriteLLVMIR for ConstraintBucket {
             ConstraintBucket::Substitution(_) => {
                 let lhs = llvm.borrow().get_arg(prev.into_instruction_value(), STORE_DST_IDX);
                 let rhs_ptr = llvm.borrow().get_arg(prev.into_instruction_value(), STORE_SRC_IDX);
-                let rhs = llvm.borrow().create_load(rhs_ptr.into_pointer_value(), "");
+                let rhs = llvm.borrow().create_load(rhs_ptr.into_pointer_value(), "load");
                 let constr = llvm.borrow_mut().new_constraint();
                 let call = llvm.borrow().create_call(CONSTRAINT_VALUES_FN_NAME, &[
                     llvm.borrow().to_basic_metadata_enum(lhs),

@@ -55,7 +55,7 @@ impl WriteLLVMIR for ValueBucket {
             ValueType::BigInt =>
                 Some(llvm.borrow().get_const(self.value)),
             ValueType::U32 =>
-                Some(llvm.borrow().create_literal_u32(self.value as u64))
+                Some(llvm.borrow().to_enum(llvm.borrow().create_literal_u32(self.value as u64)))
         }
     }
 }

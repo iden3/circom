@@ -55,15 +55,15 @@ impl WriteLLVMIR for LoadBucket {
             Some(inst) => inst.into_int_value()
         };
         let gep = match &self.address_type {
-            AddressType::Variable => todo!(),
+            AddressType::Variable => llvm.borrow().get_variable(self.message_id, index).into_pointer_value(),
             AddressType::Signal => llvm.borrow().get_signal(self.message_id, index),
             AddressType::SubcmpSignal { cmp_address, ..  } => {
                 let addr = cmp_address.produce_llvm_ir(producer, llvm.clone()).expect("The address of a subcomponent must yield a value!");
                 let sub_cmp = Some(llvm.borrow().get_subcomponent(self.message_id, addr.into_int_value()).into_pointer_value());
-                llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "").into_pointer_value()
+                llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "subcmp.signal").into_pointer_value()
             }
         };
-        let load = llvm.borrow().create_load(gep, "");
+        let load = llvm.borrow().create_load(gep, "load");
         Some(load)
     }
 }

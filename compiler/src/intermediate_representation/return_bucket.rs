@@ -43,8 +43,10 @@ impl ToString for ReturnBucket {
 }
 
 impl WriteLLVMIR for ReturnBucket {
-    fn produce_llvm_ir<'a>(&self, _producer: &'a LLVMProducer, _llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
-        None
+    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+        let ret_value = self.value.produce_llvm_ir(producer, llvm.clone())
+            .expect("Return instruction must produce a value to return");
+        Some(llvm.borrow().create_return_from_any_value(ret_value))
     }
 }
 

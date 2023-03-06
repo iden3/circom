@@ -65,7 +65,7 @@ impl ToString for CallBucket {
 
 impl WriteLLVMIR for CallBucket {
     fn produce_llvm_ir<'a>(&self, _producer: &'a LLVMProducer, _llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
-        None
+        todo!()
     }
 }
 

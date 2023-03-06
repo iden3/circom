@@ -70,7 +70,10 @@ impl WriteLLVMIR for CreateCmpBucket {
         let build_fn_name = build_fn_name(self.symbol.clone());
         let id = self.sub_cmp_id.produce_llvm_ir(producer, llvm.clone()).expect("The id of a subcomponent must yield a value!");
         let call = llvm.borrow().create_call(build_fn_name.as_str(), &[]);
-        llvm.borrow_mut().add_subcomponent(self.message_id, id.into_int_value(), call.into_pointer_value());
+        let counter = llvm.borrow().create_alloca(llvm.borrow().to_type_enum(llvm.borrow().i32_type()), "subcmp.counter").into_pointer_value();
+        // TODO: It needs to be initialized to the number of signals in the component!
+        llvm.borrow().create_store(counter, llvm.borrow().to_enum(llvm.borrow().zero()));
+        llvm.borrow_mut().add_subcomponent(self.message_id, id.into_int_value(), call.into_pointer_value(), counter);
         Some(call)
     }
 }

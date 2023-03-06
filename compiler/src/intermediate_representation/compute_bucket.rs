@@ -2,7 +2,7 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
-use code_producers::llvm_elements::llvm_code_generator::{FR_ADD_FN_NAME, FR_EQ_FN_NAME, FR_MUL_FN_NAME};
+use code_producers::llvm_elements::llvm_code_generator::{FR_ADD_FN_NAME, FR_DIV_FN_NAME, FR_EQ_FN_NAME, FR_LS_FN_NAME, FR_MUL_FN_NAME, FR_NEG_FN_NAME, FR_NEQ_FN_NAME};
 use code_producers::wasm_elements::*;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -153,7 +153,9 @@ impl WriteLLVMIR for ComputeBucket {
             OperatorType::Mul => {
                 llvm.borrow().create_call(FR_MUL_FN_NAME, &args)
             }
-            OperatorType::Div => {todo!()}
+            OperatorType::Div => {
+                llvm.borrow().create_call(FR_DIV_FN_NAME, &args)
+            }
             OperatorType::Add => {
                 llvm.borrow().create_call(FR_ADD_FN_NAME, &args)
             }
@@ -165,23 +167,39 @@ impl WriteLLVMIR for ComputeBucket {
             OperatorType::ShiftR => {todo!()}
             OperatorType::LesserEq => {todo!()}
             OperatorType::GreaterEq => {todo!()}
-            OperatorType::Lesser => {todo!()}
+            OperatorType::Lesser => {
+                llvm.borrow().create_call(FR_LS_FN_NAME, &args)
+            }
             OperatorType::Greater => {todo!()}
             OperatorType::Eq(_) => {
                 llvm.borrow().create_call(FR_EQ_FN_NAME, &args)
             }
-            OperatorType::NotEq => {todo!()}
+            OperatorType::NotEq => {
+                llvm.borrow().create_call(FR_NEQ_FN_NAME, &args)
+            }
             OperatorType::BoolOr => {todo!()}
             OperatorType::BoolAnd => {todo!()}
             OperatorType::BitOr => {todo!()}
             OperatorType::BitAnd => {todo!()}
             OperatorType::BitXor => {todo!()}
-            OperatorType::PrefixSub => {todo!()}
+            OperatorType::PrefixSub => {
+                llvm.borrow().create_call(FR_NEG_FN_NAME, &args)
+            }
             OperatorType::BoolNot => {todo!()}
             OperatorType::Complement => {todo!()}
-            OperatorType::ToAddress => {todo!()}
-            OperatorType::MulAddress => {todo!()}
-            OperatorType::AddAddress => {todo!()}
+            OperatorType::ToAddress => {
+                llvm.borrow().to_enum(args[0])
+            }
+            OperatorType::MulAddress => {
+                let lhs = args[0].into_int_value();
+                let rhs = args[1].into_int_value();
+                llvm.borrow().create_mul(lhs, rhs, "mul_addr")
+            }
+            OperatorType::AddAddress => {
+                let lhs = args[0].into_int_value();
+                let rhs = args[1].into_int_value();
+                llvm.borrow().create_add(lhs, rhs, "add_addr")
+            }
         };
         Some(i)
     }

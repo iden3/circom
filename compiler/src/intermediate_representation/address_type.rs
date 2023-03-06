@@ -1,13 +1,13 @@
 use super::ir_interface::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum StatusInput {
     Last,
     NoLast,
     Unknown,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum InputInformation {
     NoInput,
     Input {status: StatusInput},
