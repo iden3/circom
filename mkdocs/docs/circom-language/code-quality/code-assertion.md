@@ -20,7 +20,7 @@ Here, the assert can be evaluated during the compilation and the result of the e
 
 Recall that, when a constraint like `in * in === n;` is introduced with `===`, then an assert is automatically added in the witness generation code. In this case, `assert(in * in == n)`.
 
-- If the condition involves the value of a signal, the assert cannot be evaluated in compilation time. The compiler produces an assert which must be satisfied during the witness generation. If the input `in` passed as parameter to produce the witness does not satisfy the assert, then the witness will not be generated.
+- If the condition or the evaluation of the assert involves the value of a signal, the assert cannot be evaluated in compilation time. The compiler produces an assert which must be satisfied during the witness generation. If the input `in` passed as parameter to produce the witness does not satisfy the assert, then the witness will not be generated.
 
 ```text
 template Translate(n) {
