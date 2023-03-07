@@ -99,7 +99,7 @@ pragma circom 2.0.0;
 template A(){
    signal input in;
    signal output outA; 
-   var i = 0; var out;
+   var i = 0; var out = 0;
    while (i < in){
     out++; i++;
    }
@@ -122,5 +122,21 @@ Signals can only be assigned using the operations `<--` or `<==` (see [Basic ope
 out[k] <-- (in >> k) & 1;
 ```
 
+Since circom 2.1.5, signals and components can be now declared inside `if` blocks, but only if the condition is known at compilation time.
+```text
+pragma circom 2.1.5;
+template A(n){
+   signal input in;
+   signal output outA;
+   var i = 0;
+   if(i < n){
+    signal out <== 2;
+    i = out;
+   } 
+   outA <== i;
+}
+component main = A(5);
+```
 
+In the previous example, the condition `i < n` is known at compilation time, and then the declaration of signal `out` is allowed. However, if the condition where `in < n`, it is not known at compilation time and we outputs an error, because the declaration in this case is not allowed. 
 
