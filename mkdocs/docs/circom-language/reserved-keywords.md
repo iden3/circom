@@ -19,6 +19,7 @@ The list of reserved keywords is the following:
 * **log:** Print the result of the evaluation.
 * **assert:** Check the condition at construction time.
 * **include:** Include code of the indicated file.
+* ** parallel:** To generate C code with the parallel component or template.
 * **pragma circom**: Instruction to check the compiler version.
 * **pragma custom_templates**: Instruction to indicate the usage of custom templates.
 
