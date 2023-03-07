@@ -188,11 +188,15 @@ impl ComponentRepresentation {
             return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent));
         }
         if self.outputs.contains_key(signal_name) && !self.unassigned_inputs.is_empty() {
-            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputs));
+            // we return the name of an input that has not been assigned
+            let ex_signal = self.unassigned_inputs.iter().next().unwrap().0.clone();
+            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputs(ex_signal)));
         }
 
         if !self.is_initialized {
-            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent));
+            // we return the name of an input with tags that has not been assigned
+            let ex_signal = self.unassigned_tags.iter().next().unwrap().clone();
+            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputTags(ex_signal)));
         }
     
         let slice = if self.inputs.contains_key(signal_name) {
@@ -245,7 +249,7 @@ impl ComponentRepresentation {
         let tags_input = component.inputs_tags.get_mut(signal_name).unwrap();
         for (t, value) in tags_input{
             if !tags.contains_key(t){
-                return Result::Err(MemoryError::AssignmentMissingTags);
+                return Result::Err(MemoryError::AssignmentMissingTags(t.clone()));
             } else{
                 if component.unassigned_tags.contains(signal_name){
                     *value = tags.get(t).unwrap().clone();

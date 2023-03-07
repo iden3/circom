@@ -41,7 +41,7 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
         Report::print_reports(&r, &files);
     })?;
     Report::print_reports(&warnings, &files);
-    let (mut dag, mut vcp, warnings) = export(exe, program, config.flag_verbose).map_err(|r| {
+    let (mut dag, mut vcp, warnings) = export(exe, program, config.flag_verbose, config.inspect_constraints).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
     if config.inspect_constraints {
@@ -71,8 +71,8 @@ fn instantiation(program: &ProgramArchive, flag_verbose: bool, prime: &String) -
     }
 }
 
-fn export(exe: ExecutedProgram, program: ProgramArchive, flag_verbose: bool) -> ExportResult {
-    let exported = exe.export(program, flag_verbose);
+fn export(exe: ExecutedProgram, program: ProgramArchive, flag_verbose: bool, flag_inspect: bool) -> ExportResult {
+    let exported = exe.export(program, flag_verbose, flag_inspect);
     exported
 }
 

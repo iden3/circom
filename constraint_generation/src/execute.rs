@@ -441,6 +441,13 @@ fn execute_statement(
                     index += 1;
                 }
                 println!("");
+            } else{
+                for arglog in args {
+                    if let LogArgument::LogExp(arg) = arglog{
+                        let f_result = execute_expression(arg, program_archive, runtime, flag_verbose)?;
+                        let _arith = safe_unwrap_to_single_arithmetic_expression(f_result, line!());
+                    }
+                }
             }
             Option::None
         }
@@ -464,21 +471,21 @@ fn execute_statement(
             let arithmetic_slice = safe_unwrap_to_arithmetic_slice(f_result, line!());
             if *op == AssignOp::AssignConstraintSignal{
                 for i in 0..AExpressionSlice::get_number_of_cells(&arithmetic_slice){
-                    let _value_cell = treat_result_with_memory_error(
+                    let value_cell = treat_result_with_memory_error(
                         AExpressionSlice::access_value_by_index(&arithmetic_slice, i),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    //let constraint_expression = AExpr::transform_expression_to_constraint_form(
-                    //    value_cell,
-                    //    runtime.constants.get_p(),
-                    //).unwrap();
-                    //if let Option::Some(node) = actual_node {
-                        //for signal in constraint_expression.take_signals(){
-                        //    node.add_underscored_signal(signal);
-                        //} 
-                    //}
+                    let constraint_expression = AExpr::transform_expression_to_constraint_form(
+                        value_cell,
+                        runtime.constants.get_p(),
+                    ).unwrap();
+                    if let Option::Some(node) = actual_node {
+                        for signal in constraint_expression.take_signals(){
+                            node.add_underscored_signal(signal);
+                        } 
+                    }
                 }
             }
             Option::None
@@ -626,7 +633,7 @@ fn execute_expression(
     let expr_id = expr.get_meta().elem_id;
     let res_p = res.arithmetic_slice.clone();
     if let Some(slice) = res_p {
-        if slice.is_single() {
+        if slice.is_single() && !expr.is_call(){
             let value = AExpressionSlice::unwrap_to_single(slice);
             Analysis::computed(&mut runtime.analysis, expr_id, value);
         }
@@ -1521,7 +1528,7 @@ fn signal_to_arith(symbol: String, slice: SignalSlice) -> Result<AExpressionSlic
     if index == symbols.len() {
         Result::Ok(AExpressionSlice::new_array(route, expressions))
     } else {
-        Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::BadDimensions))
+        Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedSignal))
     }
 }
 
@@ -1568,44 +1575,40 @@ fn execute_component(
         &runtime.call_trace,
     )?;
     let resulting_component = safe_unwrap_to_single(slice_result, line!());
-    let read_result = if resulting_component.is_ready_initialize() {
-        Result::Ok(resulting_component)
-    } else {
-        Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent))
-    };
-    let checked_component = treat_result_with_memory_error(
-        read_result,
-        meta,
-        &mut runtime.runtime_errors,
-        &runtime.call_trace,
-    )?;
+    
     if let Some(acc) = access_information.tag_access {
-        if let Result::Ok(tags) = checked_component.get_signal(&access_information.signal_access.unwrap()) {
-            let btree_map = tags.0;
-            if btree_map.contains_key(&acc) {
-                let value_tag = btree_map.get(&acc).unwrap();
-                if let Some(value_tag) = value_tag {
-                    let a_value = AExpr::Number { value: value_tag.clone() };
-                    let ae_slice = AExpressionSlice::new(&a_value);
-                    Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
-                }
-                else {
-                    let error = MemoryError::TagValueNotInitializedAccess;
-                    treat_result_with_memory_error(
-                        Result::Err(error),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?
-                }
+        let (tags_signal, _) = treat_result_with_memory_error(
+            resulting_component.get_signal(&access_information.signal_access.unwrap()),
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        
+        if tags_signal.contains_key(&acc) {
+            let value_tag = tags_signal.get(&acc).unwrap();
+            if let Some(value_tag) = value_tag {
+                let a_value = AExpr::Number { value: value_tag.clone() };
+                let ae_slice = AExpressionSlice::new(&a_value);
+                Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
             }
-            else { unreachable!() }
-        } else { unreachable!()}
+            else {
+                let error = MemoryError::TagValueNotInitializedAccess;
+                treat_result_with_memory_error(
+                    Result::Err(error),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?
+            }
+        } else {
+            unreachable!()
+        }
+
     } 
     else if let Option::Some(signal_name) = &access_information.signal_access {
         let access_after_signal = &access_information.after_signal;
         let (tags_signal, signal) = treat_result_with_memory_error(
-            checked_component.get_signal(signal_name),
+            resulting_component.get_signal(signal_name),
             meta,
             &mut runtime.runtime_errors,
             &runtime.call_trace,
@@ -1631,6 +1634,19 @@ fn execute_component(
             &runtime.call_trace,
         )
     } else {
+        let read_result = if resulting_component.is_ready_initialize() {
+            Result::Ok(resulting_component)
+        } else {
+            Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent))
+        };
+
+        let checked_component = treat_result_with_memory_error(
+            read_result,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+
         Result::Ok(FoldedValue {
             node_pointer: checked_component.node_pointer,
             is_parallel: Some(false),
@@ -2052,8 +2068,11 @@ fn treat_result_with_memory_error_void(
     use ReportCode::RuntimeError;
     match memory_error {
         Result::Ok(()) => Result::Ok(()),
-        Result::Err(MemoryError::MismatchedDimensionsWeak) => {
-                    let report = Report::warning("Typing warning: Mismatched dimensions, assigning to an array an expression of smaller length, the remaining positions are assigned to 0".to_string(), RuntimeError);
+        Result::Err(MemoryError::MismatchedDimensionsWeak(dim_given, dim_original)) => {
+                    let report = Report::warning(
+                        format!("Typing warning: Mismatched dimensions, assigning to an array an expression of smaller length, the remaining positions are assigned to 0.\n  Expected length: {}, given {}",
+                            dim_original, dim_given),
+                        RuntimeError);
                     add_report_to_runtime(report, meta, runtime_errors, call_trace);
                     Ok(())
                 },
@@ -2061,16 +2080,24 @@ fn treat_result_with_memory_error_void(
             let report = match memory_error {
                 MemoryError::InvalidAccess(type_invalid_access) => {
                     match type_invalid_access{
-                        TypeInvalidAccess::MissingInputs =>{
-                            Report::error("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized".to_string(),
+                        TypeInvalidAccess::MissingInputs(input) =>{
+                            Report::error(
+                                format!("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized.\n Missing input: {}",
+                                    input),
+                                RuntimeError)
+                        },
+                        TypeInvalidAccess::MissingInputTags(input) =>{
+                            Report::error(
+                                format!("Exception caused by invalid access: trying to access to a signal of a component with not all its inputs with tags initialized.\n Missing input (with tags): {}",
+                                    input),
                                 RuntimeError)
                         },
                         TypeInvalidAccess::NoInitializedComponent =>{
                             Report::error("Exception caused by invalid access: trying to access to a component that is not initialized" .to_string(),
                                 RuntimeError)
                         },
-                        TypeInvalidAccess::BadDimensions =>{
-                            Report::error("Exception caused by invalid access: invalid dimensions" .to_string(),
+                        TypeInvalidAccess::NoInitializedSignal =>{
+                            Report::error("Exception caused by invalid access: trying to access to a signal that is not initialized" .to_string(),
                                 RuntimeError)
                         }
                     }
@@ -2090,15 +2117,19 @@ fn treat_result_with_memory_error_void(
                 MemoryError::OutOfBoundsError => {
                     Report::error("Out of bounds exception".to_string(), RuntimeError)
                 },
-                MemoryError::MismatchedDimensions => {
-                    Report::error("Typing error found: mismatched dimensions".to_string(), RuntimeError)
+                MemoryError::MismatchedDimensions(given, orig) => {
+                    Report::error(
+                        format!("Typing error found: mismatched dimensions.\n Expected length: {}, given {}",
+                            orig, given),
+                         RuntimeError)
                 },
 
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
                 },
-                MemoryError::AssignmentMissingTags => Report::error(
-                    "Invalid assignment: missing tags required by input signal".to_string(),
+                MemoryError::AssignmentMissingTags(tag) => Report::error(
+                    format!("Invalid assignment: missing tags required by input signal. \n Missing tag: {}",
+                            tag),
                     RuntimeError,
                 ),
                 MemoryError::AssignmentTagAfterInit => Report::error(
@@ -2113,7 +2144,7 @@ fn treat_result_with_memory_error_void(
                     "Invalid assignment: this tag belongs to an input which already got a value".to_string(),
                     RuntimeError,
                 ),
-                MemoryError::MismatchedDimensionsWeak => unreachable!()
+                MemoryError::MismatchedDimensionsWeak(..) => unreachable!()
                 ,
                 MemoryError::TagValueNotInitializedAccess => Report::error(
                     "Tag value has not been previously initialized".to_string(), 
@@ -2143,16 +2174,24 @@ fn treat_result_with_memory_error<C>(
             let report = match memory_error {
                 MemoryError::InvalidAccess(type_invalid_access) => {
                     match type_invalid_access{
-                        TypeInvalidAccess::MissingInputs =>{
-                            Report::error("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized".to_string(),
+                        TypeInvalidAccess::MissingInputs(input) =>{
+                            Report::error(
+                                format!("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized.\n Missing input: {}",
+                                    input),
+                                RuntimeError)
+                        },
+                        TypeInvalidAccess::MissingInputTags(input) =>{
+                            Report::error(
+                                format!("Exception caused by invalid access: trying to access to a signal of a component with not all its inputs with tags initialized.\n Missing input (with tags): {}",
+                                    input),
                                 RuntimeError)
                         },
                         TypeInvalidAccess::NoInitializedComponent =>{
                             Report::error("Exception caused by invalid access: trying to access to a component that is not initialized" .to_string(),
                                 RuntimeError)
                         },
-                        TypeInvalidAccess::BadDimensions =>{
-                            Report::error("Exception caused by invalid access: invalid dimensions" .to_string(),
+                        TypeInvalidAccess::NoInitializedSignal =>{
+                            Report::error("Exception caused by invalid access: trying to access to a signal that is not initialized" .to_string(),
                                 RuntimeError)
                         }
                     }
@@ -2169,8 +2208,9 @@ fn treat_result_with_memory_error<C>(
                         },
                     }
                 },
-                MemoryError::AssignmentMissingTags => Report::error(
-                    "Invalid assignment: missing tags required by input signal".to_string(),
+                MemoryError::AssignmentMissingTags(tag) => Report::error(
+                    format!("Invalid assignment: missing tags required by input signal. \n Missing tag: {}",
+                            tag),
                     RuntimeError,
                 ),
                 MemoryError::AssignmentTagAfterInit => Report::error(
@@ -2188,8 +2228,11 @@ fn treat_result_with_memory_error<C>(
                 MemoryError::OutOfBoundsError => {
                     Report::error("Out of bounds exception".to_string(), RuntimeError)
                 },
-                MemoryError::MismatchedDimensions => {
-                    Report::error(" Typing error found: mismatched dimensions".to_string(), RuntimeError)
+                MemoryError::MismatchedDimensions(given, orig) => {
+                    Report::error(
+                        format!("Typing error found: mismatched dimensions.\n Expected length: {}, given {}",
+                            orig, given),
+                         RuntimeError)
                 },
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
@@ -2198,7 +2241,7 @@ fn treat_result_with_memory_error<C>(
                     Report::error("Tag value has not been previously initialized".to_string(), RuntimeError)
 
                 } 
-                MemoryError::MismatchedDimensionsWeak => {
+                MemoryError::MismatchedDimensionsWeak(..) => {
                     unreachable!()
                 },
                 MemoryError::MissingInputs(name) => Report::error(

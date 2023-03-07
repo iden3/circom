@@ -29,10 +29,10 @@ fn bigint_as_bytes(number: &BigInt, with_bytes: usize) -> (Vec<u8>, usize) {
 
 fn initialize_section(writer: &mut BufWriter<File>, header: &[u8]) -> Result<u64, ()> {
     writer.write_all(header).map_err(|_err| {})?;
-    writer.flush().map_err(|_err| {})?;
+    //writer.flush().map_err(|_err| {})?;
     let go_back = writer.seek(SeekFrom::Current(0)).map_err(|_err| {})?;
     writer.write_all(PLACE_HOLDER).map_err(|_| {})?;
-    writer.flush().map_err(|_err| {})?;
+    //writer.flush().map_err(|_err| {})?;
     Result::Ok(go_back)
 }
 
@@ -42,7 +42,8 @@ fn end_section(writer: &mut BufWriter<File>, go_back: u64, size: usize) -> Resul
     let (stream, _) = bigint_as_bytes(&BigInt::from(size), 8);
     writer.write_all(&stream).map_err(|_err| {})?;
     writer.seek(SeekFrom::Start(go_back_1)).map_err(|_err| {})?;
-    writer.flush().map_err(|_| {})
+    //writer.flush().map_err(|_| {})
+    Result::Ok(())
 }
 
 fn obtain_linear_combination_block<T>(
@@ -81,21 +82,21 @@ fn write_constraint<T>(
     let (block_b, size_b) = obtain_linear_combination_block(b, field_size);
     let (block_c, size_c) = obtain_linear_combination_block(c, field_size);
     file.write_all(&block_a).map_err(|_err| {})?;
-    file.flush().map_err(|_err| {})?;
+    //file.flush().map_err(|_err| {})?;
     file.write_all(&block_b).map_err(|_err| {})?;
-    file.flush().map_err(|_err| {})?;
+    //file.flush().map_err(|_err| {})?;
     file.write_all(&block_c).map_err(|_err| {})?;
-    file.flush().map_err(|_err| {})?;
+    //file.flush().map_err(|_err| {})?;
     Result::Ok(size_a + size_b + size_c)
 }
 
 fn initialize_file(writer: &mut BufWriter<File>, num_sections: u8) -> Result<(), ()> {
     writer.write_all(MAGIC).map_err(|_err| {})?;
-    writer.flush().map_err(|_err| {})?;
+    //writer.flush().map_err(|_err| {})?;
     writer.write_all(VERSION).map_err(|_err| {})?;
-    writer.flush().map_err(|_err| {})?;
+    //writer.flush().map_err(|_err| {})?;
     writer.write_all(&[num_sections, 0, 0, 0]).map_err(|_err| {})?;
-    writer.flush().map_err(|_err| {})?;
+    //writer.flush().map_err(|_err| {})?;
     Result::Ok(())
 }
 
@@ -225,6 +226,10 @@ impl R1CSWriter {
             sections: r1cs.sections
         })
     }
+
+    pub fn finish_writing(mut r1cs: R1CSWriter) -> Result<(), ()> {
+	r1cs.writer.flush().map_err(|_err| {})
+    }
 }
 
 pub struct HeaderData {
@@ -243,7 +248,7 @@ impl HeaderSection {
         let (length_stream, bytes_size) = bigint_as_bytes(&BigInt::from(self.field_size), 4);
         self.writer.write_all(&length_stream).map_err(|_err| {})?;
         self.writer.write_all(&field_stream).map_err(|_err| {})?;
-        self.writer.flush().map_err(|_err| {})?;
+        //self.writer.flush().map_err(|_err| {})?;
         self.size += bytes_field + bytes_size;
 
         let data_stream = [
@@ -258,7 +263,7 @@ impl HeaderSection {
             let (stream, size) = bigint_as_bytes(&BigInt::from(data[0]), data[1]);
             self.size += size;
             self.writer.write_all(&stream).map_err(|_err| {})?;
-            self.writer.flush().map_err(|_err| {})?;
+            //self.writer.flush().map_err(|_err| {})?;
         }
         Result::Ok(())
     }
@@ -326,8 +331,8 @@ impl SignalSection {
     ) -> Result<(), ()> where T: AsRef<[u8]> {
         let (bytes, size) = into_format(bytes.as_ref(), 8);
         self.size += size;
-        self.writer.write_all(&bytes).map_err(|_err| {})?;
-        self.writer.flush().map_err(|_err| {})
+        self.writer.write_all(&bytes).map_err(|_err| {})//?;
+        //self.writer.flush().map_err(|_err| {})
     }
 
     pub fn write_signal_usize(&mut self, signal: usize) -> Result<(), ()> {
@@ -356,7 +361,7 @@ impl CustomGatesUsedSection {
             bigint_as_bytes(&BigInt::from(no_custom_gates), 4);
         self.size += no_custom_gates_size;
         self.writer.write_all(&no_custom_gates_stream).map_err(|_err| {})?;
-        self.writer.flush().map_err(|_err| {})?;
+        //self.writer.flush().map_err(|_err| {})?;
 
         for custom_gate in data {
             let custom_gate_name = custom_gate.0;
@@ -364,7 +369,7 @@ impl CustomGatesUsedSection {
             self.size += custom_gate_name_stream.len() + 1;
             self.writer.write_all(custom_gate_name_stream).map_err(|_err| {})?;
             self.writer.write_all(&[0]).map_err(|_err| {})?;
-            self.writer.flush().map_err(|_err| {})?;
+            //self.writer.flush().map_err(|_err| {})?;
 
             let custom_gate_parameters = custom_gate.1;
             let no_custom_gate_parameters = custom_gate_parameters.len();
@@ -372,13 +377,13 @@ impl CustomGatesUsedSection {
                 bigint_as_bytes(&BigInt::from(no_custom_gate_parameters), 4);
             self.size += no_custom_gate_parameters_size;
             self.writer.write_all(&no_custom_gate_parameters_stream).map_err(|_err| {})?;
-            self.writer.flush().map_err(|_err| {})?;
+            //self.writer.flush().map_err(|_err| {})?;
 
             for parameter in custom_gate_parameters {
                 let (parameter_stream, parameter_size) = bigint_as_bytes(&parameter, self.field_size);
                 self.size += parameter_size;
                 self.writer.write(&parameter_stream).map_err(|_err| {})?;
-                self.writer.flush().map_err(|_err| {})?;
+                //self.writer.flush().map_err(|_err| {})?;
             }
         }
 
@@ -406,7 +411,7 @@ impl CustomGatesAppliedSection {
             bigint_as_bytes(&BigInt::from(no_custom_gate_applications), 4);
         self.size += no_custom_gate_applications_size;
         self.writer.write_all(&no_custom_gate_applications_stream).map_err(|_err| {})?;
-        self.writer.flush().map_err(|_err| {})?;
+        //self.writer.flush().map_err(|_err| {})?;
 
         for custom_gate_application in data {
             let custom_gate_index = custom_gate_application.0;
@@ -414,7 +419,7 @@ impl CustomGatesAppliedSection {
                 bigint_as_bytes(&BigInt::from(custom_gate_index), 4);
             self.size += custom_gate_index_size;
             self.writer.write_all(&custom_gate_index_stream).map_err(|_err| {})?;
-            self.writer.flush().map_err(|_err| {})?;
+            //self.writer.flush().map_err(|_err| {})?;
 
             let custom_gate_signals = custom_gate_application.1;
             let no_custom_gate_signals = custom_gate_signals.len();
@@ -422,16 +427,16 @@ impl CustomGatesAppliedSection {
                 bigint_as_bytes(&BigInt::from(no_custom_gate_signals), 4);
             self.size += no_custom_gate_signals_size;
             self.writer.write_all(&no_custom_gate_signals_stream).map_err(|_err| {})?;
-            self.writer.flush().map_err(|_err| {})?;
+            //self.writer.flush().map_err(|_err| {})?;
 
             for signal in custom_gate_signals {
                 let (signal_stream, signal_size) = bigint_as_bytes(&BigInt::from(signal), 8);
                 self.size += signal_size;
                 self.writer.write(&signal_stream).map_err(|_err| {})?;
-                self.writer.flush().map_err(|_err| {})?;
+                //self.writer.flush().map_err(|_err| {})?;
             }
         }
-
+	//self.writer.flush().map_err(|_err| {})?;
         Result::Ok(())
     }
 

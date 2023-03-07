@@ -194,7 +194,7 @@ fn transform_big_int_to_usize(v: &BigInt) -> Option<usize> {
 fn report_invalid_dimension(meta: &Meta, reports: &mut ReportCollection) {
     use program_structure::error_code::ReportCode;
     use program_structure::error_definition::Report;
-    let error_code = ReportCode::InvalidArraySize;
+    let error_code = ReportCode::InvalidArraySize(0);
     let msg = "Invalid array size".to_string();
     let mut report = Report::error(msg, error_code);
     let message = "This expression can not be used as an array size".to_string();
