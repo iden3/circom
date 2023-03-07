@@ -1,6 +1,13 @@
-use crate::file_definition::FileLocation;
+use crate::{file_definition::{FileLocation, FileID}, error_definition::Report, error_code::{ReportCode}};
 use num_bigint::BigInt;
 use serde_derive::{Deserialize, Serialize};
+
+#[derive(Clone)]
+pub enum Pragma {
+    Version(Meta, FileID, Version),
+    CustomGates(Meta ,FileID),
+    Unrecognized,
+}
 
 pub trait FillMeta {
     fn fill(&mut self, file_id: usize, elem_id: &mut usize);
@@ -11,9 +18,7 @@ pub fn build_main_component(public: Vec<String>, call: Expression) -> MainCompon
     (public, call)
 }
 
-
 pub type Version = (usize, usize, usize);
-
 
 #[derive(Clone)]
 pub struct Meta {
@@ -86,27 +91,49 @@ pub struct AST {
     pub definitions: Vec<Definition>,
     pub main_component: Option<MainComponent>,
 }
+
 impl AST {
     pub fn new(
         meta: Meta,
-        compiler_version: Option<Version>,
-        custom_gates: bool,
+        pragmas: Vec<Pragma>,
         includes: Vec<String>,
         definitions: Vec<Definition>,
         main_component: Option<MainComponent>,
-    ) -> AST {
-        let custom_gates_declared = definitions.iter().any(
-            |definition| matches!(definition, Definition::Template { is_custom_gate: true, .. })
-        );
-        AST {
+    ) -> (AST,Vec<Report>) {
+        let mut custom_gates = None;
+        let mut compiler_version = None;
+        let mut reports = Vec::new();
+        for p in pragmas {
+            match p {
+                // TODO: don't panic
+                Pragma::Version(location, file_id, ver) => match compiler_version {
+                    Some(_) => reports.push(produce_report(
+                            ReportCode::MultiplePragma,location.start..location.end, file_id)),
+                    None => compiler_version = Some(ver),
+                },
+                Pragma::CustomGates(location, file_id ) => match custom_gates {
+                    Some(_) => reports.push(produce_report(
+                        ReportCode::MultiplePragma, location.start..location.end, file_id)),
+                    None => custom_gates = Some(true),
+                },
+                Pragma::Unrecognized => {}, //This error is previously handled, and the
+                                            //parsing continues to catch more parsing errors.
+            }
+        }
+
+        let custom_gates_declared = definitions.iter().any(|definition| {
+            matches!(definition, Definition::Template { is_custom_gate: true, .. })
+        });
+
+        (AST {
             meta,
             compiler_version,
-            custom_gates,
+            custom_gates: custom_gates.unwrap_or(false),
             custom_gates_declared,
             includes,
             definitions,
-            main_component
-        }
+            main_component,
+        }, reports)
     }
 }
 
@@ -138,15 +165,7 @@ pub fn build_template(
     parallel: bool,
     is_custom_gate: bool,
 ) -> Definition {
-    Definition::Template {
-        meta,
-        name,
-        args,
-        arg_location,
-        body,
-        parallel,
-        is_custom_gate,
-    }
+    Definition::Template { meta, name, args, arg_location, body, parallel, is_custom_gate }
 }
 
 pub fn build_function(
@@ -261,7 +280,7 @@ pub enum Expression {
         if_true: Box<Expression>,
         if_false: Box<Expression>,
     },
-    ParallelOp{
+    ParallelOp {
         meta: Meta,
         rhe: Box<Expression>,
     },
@@ -294,9 +313,9 @@ pub enum Expression {
     },
     UniformArray {
         meta: Meta,
-        value: Box<Expression>, 
+        value: Box<Expression>,
         dimension: Box<Expression>,
-    }
+    },
 }
 
 #[derive(Clone)]
@@ -371,7 +390,6 @@ pub fn build_log_expression(expr: Expression) -> LogArgument {
     LogArgument::LogExp(expr)
 }
 
-
 #[derive(Default, Clone)]
 pub struct TypeKnowledge {
     reduces_to: Option<TypeReduction>,
@@ -442,4 +460,150 @@ impl MemoryKnowledge {
             panic!("abstract memory address was look at without being initialized");
         }
     }
+}
+
+ pub fn produce_report(error_code: ReportCode, location : FileLocation, file_id : FileID) -> Report {
+    use ReportCode::*;
+    let report  = match error_code {
+            UnclosedComment => {
+                let mut report =
+                    Report::error("unterminated /* */".to_string(), ReportCode::UnclosedComment);
+                report.add_primary(location, file_id, "Comment starts here".to_string());
+                report
+            }
+            NoMainFoundInProject => Report::error(
+                "No main specified in the project structure".to_string(),
+                ReportCode::NoMainFoundInProject,
+            ),
+            MultipleMain =>{
+                Report::error(
+                    "Multiple main components in the project structure".to_string(),
+                    ReportCode::MultipleMain,
+                )
+            }
+            MissingSemicolon => {
+                let mut report = Report::error(format!("Missing semicolon"), 
+                    ReportCode::MissingSemicolon);
+                report.add_primary(location, file_id, "A semicolon is needed here".to_string());
+                report
+            }
+            UnrecognizedInclude => {
+                let mut report =
+                Report::error("unrecognized argument in include directive".to_string(), ReportCode::UnrecognizedInclude);
+            report.add_primary(location, file_id, "this argument".to_string());
+            report
+
+            }
+            UnrecognizedPragma => {
+                let mut report =
+                Report::error("unrecognized argument in pragma directive".to_string(), ReportCode::UnrecognizedPragma);
+            report.add_primary(location, file_id, "this argument".to_string());
+            report
+
+            }        
+            UnrecognizedVersion => {
+                let mut report =
+                Report::error("unrecognized version argument in pragma directive".to_string(), ReportCode::UnrecognizedVersion);
+            report.add_primary(location, file_id, "this argument".to_string());
+            report
+            }      
+            IllegalExpression => {
+                let mut report =
+                Report::error("illegal expression".to_string(), ReportCode::IllegalExpression);
+            report.add_primary(location, file_id, "here".to_string());
+            report
+            }
+            MultiplePragma => {
+                let mut report =
+                Report::error("Multiple pragma directives".to_string(), ReportCode::MultiplePragma);
+            report.add_primary(location, file_id, "here".to_string());
+            report
+            },
+            _ => unreachable!(),    
+    };
+    report
+}
+
+pub fn produce_version_warning_report(path : String, version : Version) -> Report {
+    let mut r = Report::warning(
+        format!(
+            "File {} does not include pragma version. Assuming pragma version {:?}",
+            path, version
+        ),
+        ReportCode::NoCompilerVersionWarning,
+    );
+    r.add_note(format!("At the beginning of file {}, you should add the directive \"pragma circom <Version>\", to indicate which compiler version you are using.",path));
+    r
+}
+
+
+pub fn produce_report_with_message(error_code : ReportCode, msg : String) -> Report {
+    match error_code {
+        ReportCode::FileOs => {
+            Report::error(
+            format!("Could not open file {}", msg),
+            ReportCode::FileOs,
+            )
+        }
+        ReportCode::IncludeNotFound => {
+            let mut r = Report::error(
+                format!(" The file {} to be included has not been found", msg),
+                ReportCode::IncludeNotFound,
+                );
+                r.add_note("Consider using compilation option -l to indicate include paths".to_string());
+                r
+        },
+        _ => unreachable!()
+    }
+}
+
+pub fn produce_compiler_version_report(path : String, required_version : Version, version :  Version) -> Report {
+    let report = Report::error(
+        format!("File {} requires pragma version {:?} that is not supported by the compiler (version {:?})", path, required_version, version ),
+        ReportCode::CompilerVersionError,
+    );
+    report
+}
+
+pub fn anonymous_inside_condition_error(meta : Meta) -> Report {
+    let msg = "An anonymous component cannot be used inside a condition ".to_string();
+                let mut report = Report::error(
+                    format!("{}", msg),
+                    ReportCode::AnonymousCompError,
+                );
+                let file_id = meta.get_file_id().clone();
+                report.add_primary(
+                    meta.location,
+                    file_id,
+                    "This is an anonymous component used inside a condition".to_string(),
+                );
+                report
+}
+
+pub fn anonymous_general_error(meta : Meta, msg : String) -> Report {
+    let mut report = Report::error(
+                    format!("{}", msg),
+                    ReportCode::AnonymousCompError,
+                );
+                let file_id = meta.get_file_id().clone();
+                report.add_primary(
+                    meta.location,
+                    file_id,
+                    "This is the anonymous component whose use is not allowed".to_string(),
+                );
+                report
+}
+
+pub fn tuple_general_error(meta : Meta, msg : String) -> Report {
+    let mut report = Report::error(
+                    format!("{}", msg),
+                    ReportCode::TupleError,
+                );
+                let file_id = meta.get_file_id().clone();
+                report.add_primary(
+                    meta.location,
+                    file_id,
+                    "This is the tuple whose use is not allowed".to_string(),
+                );
+                report
 }

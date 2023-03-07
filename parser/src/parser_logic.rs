@@ -1,10 +1,11 @@
-use super::errors::{ParsingError, UnclosedCommentError};
 use super::lang;
-use program_structure::ast::AST;
-use program_structure::error_definition::Report;
+use program_structure::ast::{AST};
+use program_structure::ast::produce_report;
+use program_structure::error_code::ReportCode;
+use program_structure::error_definition::{ReportCollection, Report};
 use program_structure::file_definition::FileID;
 
-pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, Report> {
+pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, ReportCollection> {
     let mut pp = String::new();
     let mut state = 0;
     let mut loc = 0;
@@ -63,8 +64,7 @@ pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, Report> {
                             pp.push(' ');
                         }
                     }
-                    None => {
-                    }
+                    None => {}
                 }
             }
             (_, c) => {
@@ -74,37 +74,56 @@ pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, Report> {
             }
         }
     }
-    if state == 2{
-        let error =
-            UnclosedCommentError { location: block_start..block_start, file_id };
-        Err(UnclosedCommentError::produce_report(error))
-    }
-    else{
+    if state == 2 {
+        Err(vec![
+            produce_report(ReportCode::UnclosedComment,  block_start..block_start, file_id)
+        ])
+    } else {
         Ok(pp)
     }
 }
 
-pub fn parse_file(src: &str, file_id: FileID) -> Result<AST, Report> {
+pub fn parse_file(src: &str, file_id: FileID) -> Result<AST, ReportCollection> {
     use lalrpop_util::ParseError::*;
-    lang::ParseAstParser::new()
-        .parse(&preprocess(src, file_id)?)
+
+    let mut errors = Vec::new();
+    let preprocess = preprocess(src, file_id)?;
+
+    let ast = lang::ParseAstParser::new()
+        .parse(file_id, &mut errors, &preprocess)
+        // TODO: is this always fatal?
         .map_err(|parse_error| match parse_error {
-            InvalidToken { location } => ParsingError {
-                file_id,
-                msg: format!("{:?}", parse_error),
-                location: location..location,
-            },
-            UnrecognizedToken { ref token, .. } => ParsingError {
-                file_id,
-                msg: format!("{:?}", parse_error),
-                location: token.0..token.2,
-            },
-            ExtraToken { ref token } => ParsingError {
-                file_id,
-                msg: format!("{:?}", parse_error),
-                location: token.0..token.2,
-            },
-            _ => ParsingError { file_id, msg: format!("{:?}", parse_error), location: 0..0 },
+            InvalidToken { location } => 
+                produce_generic_report(
+                format!("{:?}", parse_error),
+                 location..location, file_id
+                ),
+            UnrecognizedToken { ref token, .. } => 
+            produce_generic_report(
+                format!("{:?}", parse_error),
+                 token.0..token.2, file_id
+                ),
+            ExtraToken { ref token } => produce_generic_report(
+                format!("{:?}", parse_error),
+                 token.0..token.2, file_id
+                ),
+            _ => produce_generic_report(
+                format!("{:?}", parse_error),
+                 0..0, file_id
+                )
         })
-        .map_err(|parsing_error| ParsingError::produce_report(parsing_error))
+        .map_err(|e| vec![e])?;
+
+    if !errors.is_empty() {
+        return Err(errors.into_iter().collect());
+    }
+
+    Ok(ast)
 }
+
+fn produce_generic_report(format: String, token: std::ops::Range<usize>, file_id: usize) -> Report {
+    let mut report = Report::error(format, ReportCode::IllegalExpression);
+    report.add_primary(token, file_id, "here".to_string());
+    report
+}
+
