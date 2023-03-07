@@ -100,7 +100,7 @@ impl ExecutedProgram {
         node_index
     }
 
-    pub fn export(mut self, mut program: ProgramArchive, flag_verbose: bool) -> ExportResult {
+    pub fn export(mut self, mut program: ProgramArchive, flag_verbose: bool, flag_inspect: bool) -> ExportResult {
         use super::executed_template::templates_in_mixed_arrays;
         fn merge_mixed(org: Vec<bool>, new: Vec<bool>) -> Vec<bool> {
             let mut result = Vec::with_capacity(org.len());
@@ -132,8 +132,11 @@ impl ExecutedProgram {
         }
 
         temp_instances[dag.main_id()].is_not_parallel_component = true;
-        let mut w = dag.constraint_analysis()?;
-        warnings.append(&mut w);
+        dag.clean_constraints();
+        if flag_inspect{
+            let mut w = dag.constraint_analysis()?;
+            warnings.append(&mut w);
+        }
 
         let dag_stats = produce_dags_stats(&dag);
         crate::compute_constants::manage_functions(&mut program, flag_verbose, &self.prime)?;

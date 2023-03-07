@@ -145,9 +145,11 @@ pub struct Node {
     signal_correspondence: HashMap<String, Signal>,
     ordered_signals: Vec<String>,
     locals: HashSet<usize>,
+    reachables: HashSet<usize>, // locals and io of subcomponents
     forbidden_if_main: HashSet<usize>,
     io_signals: Vec<usize>,
     constraints: Vec<Constraint>,
+    underscored_signals: Vec<usize>,
     is_parallel: bool,
     has_parallel_sub_cmp: bool,
     is_custom_gate: bool,
@@ -182,6 +184,7 @@ impl Node {
         self.public_inputs_length += if is_public { 1 } else { 0 };
         self.signal_correspondence.insert(name, id);
         self.locals.insert(id);
+        self.reachables.insert(id);
         self.number_of_signals += 1;
         self.entry.out_number += 1;
         self.inputs_length += 1;
@@ -196,6 +199,7 @@ impl Node {
         self.signal_correspondence.insert(name, id);
         self.forbidden_if_main.insert(id);
         self.locals.insert(id);
+        self.reachables.insert(id);
         self.number_of_signals += 1;
         self.entry.out_number += 1;
         self.outputs_length += 1;
@@ -205,6 +209,7 @@ impl Node {
         let id = self.number_of_signals + 1;
         self.signal_correspondence.insert(name, id);
         self.locals.insert(id);
+        self.reachables.insert(id);
         self.number_of_signals += 1;
         self.entry.out_number += 1;
         self.intermediates_length += 1;
@@ -212,6 +217,10 @@ impl Node {
 
     fn add_constraint(&mut self, constraint: Constraint) {
         self.constraints.push(constraint)
+    }
+
+    fn add_underscored_signal(&mut self, signal: usize) {
+        self.underscored_signals.push(signal)
     }
 
     fn set_number_of_subcomponents_indexes(&mut self, number_scmp: usize) {
@@ -224,6 +233,10 @@ impl Node {
 
     fn is_local_signal(&self, s: usize) -> bool {
         self.locals.contains(&s)
+    }
+
+    fn is_reachable_signal(&self, s: usize) -> bool {
+        self.reachables.contains(&s)
     }
 
     pub fn number_of_signals(&self) -> usize {
@@ -333,14 +346,20 @@ impl DAG {
             };
             // add correspondence to current node
             let mut correspondence = std::mem::take(&mut self.nodes[from].signal_correspondence);
+            let mut reachables = std::mem::take(&mut self.nodes[from].reachables);
             for (signal, id) in self.nodes[to].correspondence() {
                 if self.nodes[to].is_local_signal(*id) {
                     let concrete_name = format!("{}.{}", label, signal);
                     let concrete_value = with.in_number + *id;
                     correspondence.insert(concrete_name, concrete_value);
+                    if *id <= self.nodes[to].inputs_length + self.nodes[to].outputs_length{
+                        // in case it is an input/output signal
+                        reachables.insert(concrete_value);
+                    }
                 }
             }
             self.nodes[from].signal_correspondence = correspondence;
+            self.nodes[from].reachables = reachables;
             self.nodes[from].has_parallel_sub_cmp |= self.nodes[to].is_parallel;
             self.adjacency[from].push(with);
             self.adjacency[from].last()
@@ -389,6 +408,12 @@ impl DAG {
         }
     }
 
+    pub fn add_underscored_signal(&mut self, signal: usize) {
+        if let Option::Some(node) = self.get_mut_main() {
+            node.add_underscored_signal(signal);
+        }
+    }
+
     pub fn set_number_of_subcomponents_indexes(&mut self, number_scmp: usize){
         if let Option::Some(node) = self.get_mut_main() {
             node.set_number_of_subcomponents_indexes(number_scmp);
@@ -434,12 +459,16 @@ impl DAG {
     }
 
     pub fn constraint_analysis(&mut self) -> Result<ReportCollection, ReportCollection> {
-        let reports = constraint_correctness_analysis::analyse(&mut self.nodes);
+        let reports = constraint_correctness_analysis::analyse(&self.nodes);
         if reports.errors.is_empty() {
             Ok(reports.warnings)
         } else {
             Err(reports.errors)
         }
+    }
+
+    pub fn clean_constraints(&mut self) {
+        constraint_correctness_analysis::clean_constraints(&mut self.nodes);
     }
 
     pub fn generate_r1cs_output(&self, output_file: &str, custom_gates: bool) -> Result<(), ()> {

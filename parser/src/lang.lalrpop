@@ -24,7 +24,10 @@ IdentifierListDef : Vec<String> = {
         let mut v = v;
         v.push(e);
         v
-    }
+    },
+    <v:(<IDENTIFIER> ",")*> <s:@L> ! <e:@R> => {
+            errors.push(produce_report(ReportCode::ExpectedIdentifier, s..e, file_id));
+            v }
 };
 
 Semicolon:() = {
@@ -729,7 +732,7 @@ HEXNUMBER : BigInt = {
 };
 
 IDENTIFIER : String = {
-    r"[$_]*[a-zA-Z][a-zA-Z$_0-9]*" => String::from(<>)
+    r"[$_]*[a-zA-Z][a-zA-Z$_0-9]*" => String::from(<>),
 };
 
 STRING : String = {
