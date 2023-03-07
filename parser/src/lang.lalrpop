@@ -4,13 +4,19 @@ use program_structure::expression_builders::*;
 use program_structure::ast::*;
 use program_structure::ast_shortcuts::{self,Symbol,TupleInit};
 use std::str::FromStr;
+use lalrpop_util::ParseError;
+use program_structure::ast::produce_report;
+use program_structure::error_definition::Report;
+use program_structure::error_code::ReportCode;
 
+grammar<'err>(file_id: usize, errors:&'err mut Vec<Report>);
 
-grammar;
-
-// ====================================================================
-// Body
-// ====================================================================
+CommaSepList<T>:Vec<T> = {
+    <mut e:(<T> ",")*> <t:T> => {
+        e.push(t);
+        e
+    },
+};
 
 // A identifier list is a comma separated list of identifiers
 IdentifierListDef : Vec<String> = {
@@ -21,34 +27,69 @@ IdentifierListDef : Vec<String> = {
     }
 };
 
-// Pragma is included at the start of the file.
-// Their structure is the following: pragma circom "version of the compiler"
-ParsePragma : Version = { // maybe change to usize instead of BigInt
-    "pragma circom" <version: Version>  ";"
-    => version,
-};
-
-// Pragma to indicate that we are allowing the definition of custom templates.
-ParseCustomGates : () = {
-    "pragma" "custom_templates" ";" => ()
+Semicolon:() = {
+    ";" => (),
+    <s:@L> ! <e:@R> => errors.push(produce_report(ReportCode::MissingSemicolon, s..e, file_id))
 }
 
+// ====================================================================
+// Body
+// ====================================================================
+
+// Pragmas are included at the start of the file,
+// their structure is the following: 
+// 'pragma circom "version of the compiler"' to indicate the version
+// or
+// 'pragma custom_templates' to indicate that we are allowing the definition of custom gates.
+
+ParsePragma:Pragma = {
+    // version
+    <s:@L> "pragma" "circom" <v: Version> Semicolon <e:@R> => Pragma::Version(Meta::new(s,e), file_id, v),
+    "pragma" "circom" <!> Semicolon => match <>.error {
+            ParseError::UnrecognizedToken { ref token, .. } => {
+                errors.push(produce_report(ReportCode::UnrecognizedVersion,token.0..token.2, file_id));
+                Pragma::Unrecognized
+            } 
+            _ => unreachable!(),
+        },
+    // custom templates
+    <s:@L> "pragma" "custom_templates" Semicolon  <e:@R> => Pragma::CustomGates(Meta::new(s,e), file_id),
+    // unrecognized
+    "pragma" <!> Semicolon => match <>.error {
+            ParseError::UnrecognizedToken { ref token, .. } => {
+                errors.push(produce_report(ReportCode::UnrecognizedPragma,token.0..token.2, file_id));
+                Pragma::Unrecognized
+            } 
+            _ => unreachable!(),
+        },
+};
+
 // Includes are added at the start of the file.
-// Their structure is the following: #include "path to the file"
-ParseInclude : String = {
-    "include" <file: STRING>  ";"
-    => file,
+// Their structure is the following:#include "path to the file"
+ParseInclude:String = {
+    "include" <STRING> Semicolon => <>,
+    "include" <!> Semicolon => {
+        match <>.error {
+            ParseError::UnrecognizedToken { ref token, .. } => {
+                errors.push(produce_report(ReportCode::UnrecognizedInclude, token.0..token.2, file_id));
+            } 
+            _ => unreachable!(),
+        }
+        "".to_owned()
+    },
 };
 
 // Parsing a program requires:
-// Parsing the version pragma, if there is one
-// Parsing the custom templates pragma, if there is one
-// Parsing "includes" instructions, if there is anyone
+// Parsing pragmas
+// Parsing "includes"
 // Parsing function and template definitions
 // Parsing the declaration of the main component
-pub ParseAst : AST = {
-    <s:@L> <version: ParsePragma?> <custom_gates: ParseCustomGates?> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent?> <e:@R>
-    => AST::new(Meta::new(s,e), version, custom_gates.is_some(), includes, definitions, main),
+pub ParseAst:AST = {
+    <s:@L> <pragmas:ParsePragma*> <includes:ParseInclude*> <definitions:ParseDefinition*> <main:ParseMainComponent?> <e:@R>
+    => { let (ast, mut ers) = AST::new(Meta::new(s,e), pragmas, includes, definitions, main);
+        errors.append(&mut ers);
+        ast
+    },
 };
 
 // ====================================================================
@@ -62,7 +103,7 @@ ParsePublicList : Vec<String> = {
 };
 
 pub ParseMainComponent : MainComponent = {
-    <s:@L> "component" "main" <public_list: ParsePublicList?> "=" <init: ParseExpression> ";" <e:@L>
+    <s:@L> "component" "main" <public_list: ParsePublicList?> "=" <init: ParseExpression> Semicolon <e:@R>
     => match public_list {
         None => build_main_component(Vec::new(),init),
         Some(list) => build_main_component(list,init)
@@ -342,45 +383,45 @@ ParseStatement1 : Statement = {
     ParseStatement2
 };
 ParseStatement2 : Statement = {
-    <s:@L> "for" "(" <init: ParseDeclaration> ";" <cond: ParseExpression> ";" <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
+    <s:@L> "for" "(" <init: ParseDeclaration> Semicolon <cond: ParseExpression> Semicolon <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
     => ast_shortcuts::for_into_while(Meta::new(s,e),init,cond,step,body),
 
-    <s:@L> "for" "(" <init: ParseSubstitution> ";" <cond: ParseExpression> ";" <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
+    <s:@L> "for" "(" <init: ParseSubstitution> Semicolon <cond: ParseExpression> Semicolon <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
     => ast_shortcuts::for_into_while(Meta::new(s,e),init,cond,step,body),
 
     <s:@L>"while" "(" <cond: ParseExpression> ")" <stmt: ParseStatement2> <e:@R>
     => build_while_block(Meta::new(s,e),cond,stmt),
 
-    <s:@L> "return" <value: ParseExpression> ";"<e:@R>
+    <s:@L> "return" <value: ParseExpression> Semicolon <e:@R>
     => build_return(Meta::new(s,e),value),
 
-    <subs: ParseSubstitution> ";"
+    <subs: ParseSubstitution> Semicolon
     => subs,
 
-    <s:@L> <lhe: ParseExpression> "===" <rhe: ParseExpression> ";" <e:@R>
+    <s:@L> <lhe: ParseExpression> "===" <rhe: ParseExpression> Semicolon <e:@R>
     => build_constraint_equality(Meta::new(s,e),lhe,rhe),
 
     ParseStatementLog,
 
-    <s:@L> "assert" "(" <arg: ParseExpression> ")" ";" <e:@R>
+    <s:@L> "assert" "(" <arg: ParseExpression> ")" Semicolon <e:@R>
     => build_assert(Meta::new(s,e),arg),
 
-    <s:@L> <lhe: ParseExpression> ";" <e:@R>
+    <s:@L> <lhe: ParseExpression> Semicolon <e:@R>
     => build_anonymous_component_statement(Meta::new(s,e), lhe),
 
     ParseBlock
 };
 
 ParseStatementLog : Statement = {
-    <s:@L> "log" "(" <args: LogListable> ")" ";" <e:@R>
+    <s:@L> "log" "(" <args: LogListable> ")" Semicolon <e:@R>
     => build_log_call(Meta::new(s,e),args),
 
-    <s:@L> "log" "(" ")" ";" <e:@R>
+    <s:@L> "log" "(" ")" Semicolon <e:@R>
     => build_log_call(Meta::new(s,e),Vec::new()),
 };
 
 ParseStatement3 : Statement = {
-    <dec: ParseDeclaration> ";"
+    <dec: ParseDeclaration> Semicolon
     => dec,
 
     ParseStatement
@@ -598,9 +639,17 @@ Expression0: Expression = {
     <s:@L> <value:HEXNUMBER> <e:@L>
     => build_number(Meta::new(s,e),value),
 
-    "(" <ParseExpression> ")"
-};
+    "(" <ParseExpression> ")",
 
+    <!> => match <>.error {
+        ParseError::UnrecognizedToken { ref token, .. } => {
+            errors.push(produce_report(ReportCode::IllegalExpression, token.0..token.2, file_id));
+            // doesn't matter
+            build_number(Meta::new(0,0),BigInt::from(0))
+        }
+        _ => unreachable!(),
+    }
+};
 
 // ====================================================================
 // Terminals
