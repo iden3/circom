@@ -40,7 +40,7 @@ template A(n){
 component main = A(5);
 ```
 
-In the previous example, the condition `i < n` is known at compilation time, and then the declaration of signal `out` is allowed. However, if the condition where `in < n`, it is not known at compilation time and we outputs an error, because the declaration in this case is not allowed. 
+In the previous example, the condition `i < n` is known at compilation time, and then the declaration of signal `out` is allowed. However, if the condition where `in < n`, it is not known at compilation time and we output an error, because the declaration in this case is not allowed. 
 
 
 
