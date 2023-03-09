@@ -4,7 +4,7 @@ description: >-
 ---
 # Improving security of circuits by using --inspect option 
 
-When using --inspect option, the compiler searches for signals that do not appear in any constraint. In case it finds some, then it throws a warning to let the programmer know those unconstrained signals. To avoid such a warning, the compiler could use the underscore notation '_' to inform the compiler that such a situation is expected. Let us see several cases where we can find that situation.
+When using --inspect option, the compiler searches for signals that do not appear in any constraint. In case it finds some, then it throws a warning to let the programmer know those unconstrained signals. The compiler also throws a warning when some input or output signal of a subcomponent in a template do not appear in any onstraint of the father component. To avoid these warnings, the compiler could use the underscore notation '_' to inform the compiler that such a situation is expected. Let us see several cases where we can find that situation.
 
 - The compiler throws a warning if a signal defined in a template do not appear in any constraint of such template.
 
@@ -34,6 +34,19 @@ In this example, `aux` is only used in the `if` branch. Thus, for the main compo
 ```warning[CA01]: In template "A(3)": Local signal aux does not appear in any constraint```
 
  To avoid the warning, we can add inside the `else` branch, the instruction `_ <== aux;` to indicate the compiler that aux is not used in this case.
+ Since `circom 2.1.5`, we can also define signals inside `if` blocks with conditions known at compilation time and thus, use this feature to solve the previous warning as follows:
+ ```
+template A(n){
+      signal out;
+      if(n == 2){
+        signal aux <== 2;
+        out <== B()(aux);
+      }
+      else{
+        out <== 5;
+      }
+}
+ ```
 
 - Another case when throwing a warning is using subcomponents inside a template: input and output signals of each subcomponent in a template should appear at least in one constraint of the father component.
 However, it is very common the use of subcomponents to check some property but ignoring the output of the subcomponent.
