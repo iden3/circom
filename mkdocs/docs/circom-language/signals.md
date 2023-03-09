@@ -99,7 +99,7 @@ pragma circom 2.0.0;
 template A(){
    signal input in;
    signal output outA; 
-   var i = 0; var out;
+   var i = 0; var out = 0;
    while (i < in){
     out++; i++;
    }
@@ -121,6 +121,3 @@ Signals can only be assigned using the operations `<--` or `<==` (see [Basic ope
 ```text
 out[k] <-- (in >> k) & 1;
 ```
-
-
-
