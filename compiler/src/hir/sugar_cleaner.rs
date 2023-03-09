@@ -315,6 +315,9 @@ fn extend_infix(expr: &mut Expression, state: &mut State, context: &Context) -> 
         *lhe = Box::new(expr_lhe);
 
         
+        } else{
+            *rhe = Box::new(expr_rhe);
+            *lhe = Box::new(expr_lhe);
         }
 
         // just to solve the case of X ** X in wasm
