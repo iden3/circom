@@ -160,8 +160,8 @@ pub fn analyse(nodes: &[Node]) -> AnalysisResult {
     let mut result = AnalysisResult { errors: vec![], warnings: vec![] };
     let mut visited : HashSet<String> = HashSet::new();
     for node in nodes {
-        let analysis = visit_node(node);
         if !node.is_custom_gate() && !visited.contains(&node.template_name.clone()){
+            let analysis = visit_node(node);
             let mut result2 = AnalysisResult { errors: vec![], warnings: vec![] };
             analysis_interpretation(analysis, &mut result2);    
             result.errors.append(&mut result2.errors);
