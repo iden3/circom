@@ -116,7 +116,7 @@ component main = B();
 
 This example produces a compilation error since value of signal `outA` depends on the value of signal `in`, even though, such a value is the constant 3.
 
-Signals can only be assigned using the operations `<--` or `<==` (see [Basic operators](../basic-operators)) with the signal on the left hand side and and `-->` or `==>` (see [Basic operators](../basic-operators)) with the signal on the right hand side. The safe options are `<==` and `==>`, since they assign values and also generate constraints at the same time. Using `<--` and `-->` is, in general, dangerous and should only be used when the assigned expression cannot be included in a constraint, like in the following example.
+Signals can only be assigned using the operations `<--` or `<==` (see [Basic operators](../basic-operators)) with the signal on the left hand side and `-->` or `==>` (see [Basic operators](../basic-operators)) with the signal on the right hand side. The safe options are `<==` and `==>`, since they assign values and also generate constraints at the same time. Using `<--` and `-->` is, in general, dangerous and should only be used when the assigned expression cannot be included in a constraint, like in the following example.
 
 ```text
 out[k] <-- (in >> k) & 1;
