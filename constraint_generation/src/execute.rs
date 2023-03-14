@@ -76,7 +76,12 @@ impl FoldedValue {
 
 impl Default for FoldedValue {
     fn default() -> Self {
-        FoldedValue { arithmetic_slice: Option::None, node_pointer: Option::None, is_parallel: Option::None, tags: Option::None }
+        FoldedValue { 
+            arithmetic_slice: Option::None, 
+            node_pointer: Option::None, 
+            is_parallel: Option::None, 
+            tags: Option::None,
+        }
     }
 }
 
@@ -157,20 +162,22 @@ pub fn execute_constant_expression(
     }
 }
 
+// returns the value and if it can be simplified
 fn execute_statement(
     stmt: &Statement,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     actual_node: &mut Option<ExecutedTemplate>,
     flag_verbose: bool,
-) -> Result<Option<FoldedValue>, ()> {
+) -> Result<(Option<FoldedValue>, bool), ()> {
     use Statement::*;
     let id = stmt.get_meta().elem_id;
     Analysis::reached(&mut runtime.analysis, id);
+    let mut can_be_simplified = true;
     let res = match stmt {
         MultSubstitution { .. } => unreachable!(),
         InitializationBlock { initializations, .. } => {
-            let possible_fold = execute_sequence_of_statements(
+            let (possible_fold, _) = execute_sequence_of_statements(
                 initializations,
                 program_archive,
                 runtime,
@@ -253,59 +260,58 @@ fn execute_statement(
             let possible_constraint =
                 perform_assign(meta, var, *op, &access_information, r_folded, actual_node, runtime, program_archive, flag_verbose)?;
             if let (Option::Some(node), AssignOp::AssignConstraintSignal) = (actual_node, op) {
-                    debug_assert!(possible_constraint.is_some());
-                    let constrained = possible_constraint.unwrap();
-                    for i in 0..AExpressionSlice::get_number_of_cells(&constrained.right){
-                        let value_right = treat_result_with_memory_error(
-                            AExpressionSlice::access_value_by_index(&constrained.right, i),
+                debug_assert!(possible_constraint.is_some());
+                let constrained = possible_constraint.unwrap();
+                for i in 0..AExpressionSlice::get_number_of_cells(&constrained.right){
+                    let value_right = treat_result_with_memory_error(
+                        AExpressionSlice::access_value_by_index(&constrained.right, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+
+                    if let AssignOp::AssignConstraintSignal = op {
+                                    let access_left = treat_result_with_memory_error(
+                            AExpressionSlice::get_access_index(&constrained.right, i),
                             meta,
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
                         )?;
+                            
+                        let full_symbol = format!("{}{}", 
+                            constrained.left, 
+                            create_index_appendix(&access_left),
+                        );
 
-                        if let AssignOp::AssignConstraintSignal = op {
-                                        let access_left = treat_result_with_memory_error(
-                                AExpressionSlice::get_access_index(&constrained.right, i),
+                        if value_right.is_nonquadratic() {
+                            let err = Result::Err(ExecutionError::NonQuadraticConstraint);
+                            treat_result_with_execution_error(
+                                err,
                                 meta,
                                 &mut runtime.runtime_errors,
                                 &runtime.call_trace,
                             )?;
-                            
-                            let full_symbol = format!("{}{}", 
-                                constrained.left, 
-                                create_index_appendix(&access_left),
-                            );
-
-                            if value_right.is_nonquadratic() {
-                                let err = Result::Err(ExecutionError::NonQuadraticConstraint);
-                                treat_result_with_execution_error(
-                                    err,
-                                    meta,
-                                    &mut runtime.runtime_errors,
-                                    &runtime.call_trace,
-                                )?;
-                            } else {
-                                let p = runtime.constants.get_p().clone();
-                                let symbol = AExpr::Signal { symbol: full_symbol };
-                                let expr = AExpr::sub(&symbol, &value_right, &p);
-                                let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
-                                node.add_constraint(ctr);
-                            }
+                        } else {
+                            let p = runtime.constants.get_p().clone();
+                            let symbol = AExpr::Signal { symbol: full_symbol };
+                            let expr = AExpr::sub(&symbol, &value_right, &p);
+                           let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
+                            node.add_constraint(ctr);
                         }
-                        else if let AssignOp::AssignSignal = op {
-                            //debug_assert!(possible_constraint.is_some());
-                            if !value_right.is_nonquadratic() && !node.is_custom_gate {
-                                let err : Result<(),ExecutionWarning> = Result::Err(ExecutionWarning::CanBeQuadraticConstraint);
-                                treat_result_with_execution_warning(
-                                    err,
-                                    meta,
-                                    &mut runtime.runtime_errors,
-                                    &runtime.call_trace,
-                                )?;
-                            }
+                    } else if let AssignOp::AssignSignal = op {// needs fix, check case arrays
+                        //debug_assert!(possible_constraint.is_some());
+                        if !value_right.is_nonquadratic() && !node.is_custom_gate {
+                            let err : Result<(),ExecutionWarning> = Result::Err(ExecutionWarning::CanBeQuadraticConstraint);
+                            treat_result_with_execution_warning(
+                                err,
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
                         }
                     }
-            }
+                }
+            } 
             Option::None
         }
         ConstraintEquality { meta, lhe, rhe, .. } => {
@@ -413,12 +419,14 @@ fn execute_statement(
         },
         Block { stmts, .. } => {
             ExecutionEnvironment::add_variable_block(&mut runtime.environment);
-            let return_value =
+            let (return_value, can_simplify_block) =
                 execute_sequence_of_statements(stmts, program_archive, runtime, actual_node, flag_verbose, false)?;
             ExecutionEnvironment::remove_variable_block(&mut runtime.environment);
+            can_be_simplified = can_simplify_block;
             return_value
         }
         LogCall { args, .. } => {
+            can_be_simplified = false;
             if flag_verbose{
                 let mut index = 0;
                 for arglog in args {
@@ -457,7 +465,11 @@ fn execute_statement(
             let possible_bool = AExpr::get_boolean_equivalence(&arith, runtime.constants.get_p());
             let result = match possible_bool {
                 Some(b) if !b => Err(ExecutionError::FalseAssert),
-                _ => Ok(None),
+                Some(b) if b => Ok(None),
+                _ => {
+                    can_be_simplified = false;
+                    Ok(None)
+                }
             };
             treat_result_with_execution_error(
                 result,
@@ -491,7 +503,7 @@ fn execute_statement(
             Option::None
         }
     };
-    Result::Ok(res)
+    Result::Ok((res, can_be_simplified))
 }
 
 fn execute_expression(
@@ -501,6 +513,7 @@ fn execute_expression(
     flag_verbose: bool
 ) -> Result<FoldedValue, ()> {
     use Expression::*;
+    let mut can_be_simplified = true;
     let res = match expr {
         Number(_, value) => {
             let a_value = AExpr::Number { value: value.clone() };
@@ -620,7 +633,9 @@ fn execute_expression(
             }
         }
         Call { id, args, .. } => {
-            execute_call(id, args, program_archive, runtime, flag_verbose)?
+            let (value, can_simplify) = execute_call(id, args, program_archive, runtime, flag_verbose)?;
+            can_be_simplified = can_simplify;
+            value
         }
         ParallelOp{rhe, ..} => {
             let folded_value = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
@@ -633,7 +648,7 @@ fn execute_expression(
     let expr_id = expr.get_meta().elem_id;
     let res_p = res.arithmetic_slice.clone();
     if let Some(slice) = res_p {
-        if slice.is_single() && !expr.is_call(){
+        if slice.is_single() && can_be_simplified{
             let value = AExpressionSlice::unwrap_to_single(slice);
             Analysis::computed(&mut runtime.analysis, expr_id, value);
         }
@@ -650,7 +665,7 @@ fn execute_call(
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     flag_verbose: bool,
-) -> Result<FoldedValue, ()> {
+) -> Result<(FoldedValue, bool), ()> {
     let mut arg_values = Vec::new();
     for arg_expression in args.iter() {
         let f_arg = execute_expression(arg_expression, program_archive, runtime, flag_verbose)?;
@@ -676,7 +691,7 @@ fn execute_call(
         Ok(folded_result)
     } else { // in this case we preexecute and check if it needs tags
         let folded_result = preexecute_template_call(id, &arg_values, program_archive, runtime)?;
-        Ok(folded_result)
+        Ok((folded_result, true))
     }
 }
 
@@ -1297,20 +1312,20 @@ fn execute_conditional_statement(
     let possible_cond_bool_value =
         AExpr::get_boolean_equivalence(&ae_cond, runtime.constants.get_p());
     if let Some(cond_bool_value) = possible_cond_bool_value {
-        let ret_value = match false_case {
+        let (ret_value, _can_simplify) = match false_case {
             Some(else_stmt) if !cond_bool_value => {
                 execute_statement(else_stmt, program_archive, runtime, actual_node, flag_verbose)?
             }
-            None if !cond_bool_value => None,
+            None if !cond_bool_value => (None, true),
             _ => execute_statement(true_case, program_archive, runtime, actual_node, flag_verbose)?,
         };
         Result::Ok((ret_value, Option::Some(cond_bool_value)))
     } else {
         let previous_block_type = runtime.block_type;
         runtime.block_type = BlockType::Unknown;
-        let mut ret_value = execute_statement(true_case, program_archive, runtime, actual_node, flag_verbose)?;
+        let (mut ret_value, _can_simplify) = execute_statement(true_case, program_archive, runtime, actual_node, flag_verbose)?;
         if let Option::Some(else_stmt) = false_case {
-            let else_ret = execute_statement(else_stmt, program_archive, runtime, actual_node, flag_verbose)?;
+            let (else_ret, _can_simplify) = execute_statement(else_stmt, program_archive, runtime, actual_node, flag_verbose)?;
             if ret_value.is_none() {
                 ret_value = else_ret;
             }
@@ -1327,17 +1342,19 @@ fn execute_sequence_of_statements(
     actual_node: &mut Option<ExecutedTemplate>,
     flag_verbose: bool,
     is_complete_template: bool
-) -> Result<Option<FoldedValue>, ()> {
+) -> Result<(Option<FoldedValue>, bool), ()> {
+    let mut can_be_simplified = true;
     for stmt in stmts.iter() {
-        let f_value = execute_statement(stmt, program_archive, runtime, actual_node, flag_verbose)?;
+        let (f_value, can_simplify) = execute_statement(stmt, program_archive, runtime, actual_node, flag_verbose)?;
+        can_be_simplified &= can_simplify;
         if f_value.is_some() {
-            return Result::Ok(f_value);
+            return Result::Ok((f_value, can_be_simplified));
         }
     }
     if is_complete_template{
         execute_delayed_declarations(program_archive, runtime, actual_node, flag_verbose)?;
     }
-    Result::Ok(Option::None)
+    Result::Ok((Option::None, true))
 }
 
 fn execute_delayed_declarations(
@@ -1680,16 +1697,16 @@ fn execute_function_call(
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     flag_verbose: bool
-) -> Result<FoldedValue, ()> {
+) -> Result<(FoldedValue, bool), ()> {
     let previous_block = runtime.block_type;
     runtime.block_type = BlockType::Known;
     let function_body = program_archive.get_function_data(id).get_body_as_vec();
-    let function_result =
+    let (function_result, can_be_simplified) =
         execute_sequence_of_statements(function_body, program_archive, runtime, &mut Option::None, flag_verbose, true)?;
     runtime.block_type = previous_block;
     let return_value = function_result.unwrap();
     debug_assert!(FoldedValue::valid_arithmetic_slice(&return_value));
-    Result::Ok(return_value)
+    Result::Ok((return_value, can_be_simplified))
 }
 
 fn execute_template_call(
@@ -1749,7 +1766,7 @@ fn execute_template_call(
             is_parallel,
             is_custom_gate
         ));
-        let ret = execute_sequence_of_statements(
+        let (ret, _) = execute_sequence_of_statements(
             template_body,
             program_archive,
             runtime,
