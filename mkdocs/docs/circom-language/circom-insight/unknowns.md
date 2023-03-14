@@ -1,10 +1,10 @@
 # Unknowns
 
-As expressions accepted during [constraint generation](../constraint-generation) can at most be quadratic only, certain checks and constraints are imposed on the use of unknown values at compile.
+As expressions accepted during [constraint generation](../constraint-generation) can at most be quadratic only, certain checks and conditions are imposed on the use of unknown values at compile time.
 
 In circom, **constant values** and **template parameters** are always considered known, while **signals** are always considered unknown.
 
-Expressions depending only on knowns are considered knowns, while those depending on unknowns are considered unknowns.
+Expressions depending only on knowns are considered knowns, while those depending on some unknowns are considered unknowns.
 
 ```text
 pragma circom 2.0.0;
@@ -64,7 +64,7 @@ In the code above, an array is defined with an unknown size of value `in` (as si
 
 ## Control Flow
 
-A constraint generated in a control flow must have a known condition.
+If `if-else` or `for-loop`blocks have unknown conditions, then the block is considered unknown and no constraint can be generated inside it. Consequently, constraint can only be generated in a control flow with known conditions. 
 
 Take an if-then statement as an example:
 
@@ -84,7 +84,7 @@ template A(){
 component main = A();
 ```
 
-In the code above, a constraint is defined in an if-then statement with a comparitive condition involving an unknown value `in` (as signals are always considered unknown).
+In the code above, a constraint is defined in an if-then statement with a comparative condition involving an unknown value `in` (as signals are always considered unknown).
 
 Similarly, using a for-loop as an example:
 
