@@ -107,6 +107,6 @@ To fix this example, we can add ` _ <== check.out` at the end of the template to
  out*4 === in;
 ```
 
-Here, many circom programmers avoid the use of `<==`, since they are using the `/` operator which in many cases turn the expression in non-quadratic. Then, programmer must add the corresponding constraint using `===` to guarantee the code is correct. However, it is important to notice that the inverse of 4 is another field element (which is computed by the compiler), and thus, `in / 4` is a linear expression. Consequently, the previous instructions can be replaced by `out <== in / 4`. In these cases, the compiler suggests to use `<==` instead of `<--`.
+Here, many circom programmers avoid the use of `<==`, since they are using the `/` operator which in many cases turn the expression in non-quadratic. Then, programmers must add the corresponding constraint using `===` to guarantee the code is correct. However, it is important to notice that the inverse of 4 is another field element (which is computed by the compiler), and thus, `in / 4` is a linear expression. Consequently, the previous instructions can be replaced by `out <== in / 4`. In these cases, the compiler suggests to use `<==` instead of `<--`.
 
 
