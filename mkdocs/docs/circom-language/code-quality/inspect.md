@@ -100,3 +100,13 @@ that do not appear in any constraint of the father component. = For example: che
 
 To fix this example, we can add ` _ <== check.out` at the end of the template to let the compiler know that the remaining positions are irrelevant.
 
+- Finally, the `--inspect` option also searches for assignments with operator `<--` that can be transformed into assignments with operator `<==`, which automatically include the corresponding constraint to guarantee the code is correct. A typical scenario of this situation is shown below:
+
+```
+ out <-- in / 4;
+ out*4 === in;
+```
+
+Here, many circom programmers avoid the use of `<==`, since they are using the `/` operator which in many cases turn the expression in non-quadratic. Then, programmer must add the corresponding constraint using `===` to guarantee the code is correct. However, it is important to notice that the inverse of 4 is another field element (which is computed by the compiler), and thus, `in / 4` is a linear expression. Consequently, the previous instructions can be replaced by `out <== in / 4`. In these cases, the compiler suggests to use `<==` instead of `<--`.
+
+
