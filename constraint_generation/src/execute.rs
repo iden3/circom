@@ -379,7 +379,7 @@ fn execute_statement(
         }
         IfThenElse { cond, if_case, else_case, .. } => {
             let else_case = else_case.as_ref().map(|e| e.as_ref());
-            let (possible_return, _) = execute_conditional_statement(
+            let (possible_return, can_simplify, _) = execute_conditional_statement(
                 cond,
                 if_case,
                 else_case,
@@ -388,10 +388,11 @@ fn execute_statement(
                 actual_node,
                 flag_verbose
             )?;
+            can_be_simplified = can_simplify;
             possible_return
         }
         While { cond, stmt, .. } => loop {
-            let (returned, condition_result) = execute_conditional_statement(
+            let (returned, can_simplify, condition_result) = execute_conditional_statement(
                 cond,
                 stmt,
                 Option::None,
@@ -400,10 +401,11 @@ fn execute_statement(
                 actual_node,
                 flag_verbose
             )?;
+            can_be_simplified &= can_simplify;
             if returned.is_some() {
                 break returned;
             } else if condition_result.is_none() {
-                let (returned, _) = execute_conditional_statement(
+                let (returned, _, _) = execute_conditional_statement(
                     cond,
                     stmt,
                     None,
@@ -1306,32 +1308,33 @@ fn execute_conditional_statement(
     runtime: &mut RuntimeInformation,
     actual_node: &mut Option<ExecutedTemplate>,
     flag_verbose: bool,
-) -> Result<(Option<FoldedValue>, Option<bool>), ()> {
+) -> Result<(Option<FoldedValue>, bool, Option<bool>), ()> {
     let f_cond = execute_expression(condition, program_archive, runtime, flag_verbose)?;
     let ae_cond = safe_unwrap_to_single_arithmetic_expression(f_cond, line!());
     let possible_cond_bool_value =
         AExpr::get_boolean_equivalence(&ae_cond, runtime.constants.get_p());
     if let Some(cond_bool_value) = possible_cond_bool_value {
-        let (ret_value, _can_simplify) = match false_case {
+        let (ret_value, can_simplify) = match false_case {
             Some(else_stmt) if !cond_bool_value => {
                 execute_statement(else_stmt, program_archive, runtime, actual_node, flag_verbose)?
             }
             None if !cond_bool_value => (None, true),
             _ => execute_statement(true_case, program_archive, runtime, actual_node, flag_verbose)?,
         };
-        Result::Ok((ret_value, Option::Some(cond_bool_value)))
+        Result::Ok((ret_value, can_simplify, Option::Some(cond_bool_value)))
     } else {
         let previous_block_type = runtime.block_type;
         runtime.block_type = BlockType::Unknown;
-        let (mut ret_value, _can_simplify) = execute_statement(true_case, program_archive, runtime, actual_node, flag_verbose)?;
+        let (mut ret_value, mut can_simplify) = execute_statement(true_case, program_archive, runtime, actual_node, flag_verbose)?;
         if let Option::Some(else_stmt) = false_case {
-            let (else_ret, _can_simplify) = execute_statement(else_stmt, program_archive, runtime, actual_node, flag_verbose)?;
+            let (else_ret, can_simplify_else) = execute_statement(else_stmt, program_archive, runtime, actual_node, flag_verbose)?;
+            can_simplify &= can_simplify_else;
             if ret_value.is_none() {
                 ret_value = else_ret;
             }
         }
         runtime.block_type = previous_block_type;
-        return Result::Ok((ret_value, Option::None));
+        return Result::Ok((ret_value, can_simplify, Option::None));
     }
 }
 
@@ -1354,7 +1357,7 @@ fn execute_sequence_of_statements(
     if is_complete_template{
         execute_delayed_declarations(program_archive, runtime, actual_node, flag_verbose)?;
     }
-    Result::Ok((Option::None, true))
+    Result::Ok((Option::None, can_be_simplified))
 }
 
 fn execute_delayed_declarations(
