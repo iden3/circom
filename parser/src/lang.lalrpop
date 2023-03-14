@@ -25,9 +25,6 @@ IdentifierListDef : Vec<String> = {
         v.push(e);
         v
     },
-    <v:(<IDENTIFIER> ",")*> <s:@L> ! <e:@R> => {
-            errors.push(produce_report(ReportCode::ExpectedIdentifier, s..e, file_id));
-            v }
 };
 
 Semicolon:() = {
