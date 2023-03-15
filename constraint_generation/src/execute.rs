@@ -2366,7 +2366,7 @@ fn treat_result_with_execution_warning<C>(
             let report = match execution_error {
                 CanBeQuadraticConstraintSingle() => {
                     let msg = format!(
-                        "Consider using <== instead of <-- to add the corresponding quadratic constraint.\n The constraint representing the assignment satisfies the R1CS format and can be added to the constraint system."
+                        "Consider using <== instead of <-- to add the corresponding constraint.\n The constraint representing the assignment satisfies the R1CS format and can be added to the constraint system."
                     );
                     Report::warning(
                         msg,
