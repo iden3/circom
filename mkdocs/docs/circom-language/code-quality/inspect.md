@@ -4,7 +4,7 @@ description: >-
 ---
 # Improving security of circuits by using --inspect option 
 
-When using --inspect option, the compiler searches for signals that may be underconstrained. In case it finds some, it throws a warning to let the programmer know whichs are those potentially underconstrained signals. For instance, the compiler throws a warning when some input or output signal of a subcomponent in a template do not appear in any constraint of the father component. In case this is intended, the programmer can use the underscore notation '_' to inform the compiler that such a situation is as expected. A warning is also shown when a signal is not used in any constraint in the component it belongs to. Let us see several cases where we can find that situation. 
+When using --inspect option, the compiler searches for signals that may be underconstrained. In case it finds some, it throws a warning to let the programmer know which are those potentially underconstrained signals. For instance, the compiler throws a warning when some input or output signal of a subcomponent in a template do not appear in any constraint of the father component. In case this is intended, the programmer can use the underscore notation '_' to inform the compiler that such a situation is as expected. A warning is also shown when a signal is not used in any constraint in the component it belongs to. Let us see several cases where we can find that situation. 
 
 1) The compiler throws a warning if a signal defined in a template do not appear in any constraint of such template for the given instantiation.
 
@@ -94,7 +94,7 @@ template check_bits(n){
 	_ <== check.out;
 }
 ```
-or even using annonymous components we can write
+or even using anonymous components we can write
 ```
 template check_bits(n){
 	signal input in;
