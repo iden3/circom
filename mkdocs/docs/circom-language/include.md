@@ -10,3 +10,4 @@ include "babyjub.circom";
 
 This piece of code includes the files `montgomery.circom`, `mux3.circom` and `babyjub.circom` from the circom library.
 
+Since circom 2.0.8, option `-l` is available to indicate the paths where searching the files to be included. 

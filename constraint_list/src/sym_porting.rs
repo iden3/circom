@@ -6,7 +6,8 @@ pub fn port_sym(list: &ConstraintList, file_name: &str) -> Result<(), ()> {
     let iter = EncodingIterator::new(&list.dag_encoding);
     let mut dot_sym = SymFile::new(file_name)?;
     signal_iteration(iter, &list.signal_map, &mut dot_sym)?;
-    SymFile::close(dot_sym);
+    SymFile::finish_writing(dot_sym)?;
+    //SymFile::close(dot_sym);
     Ok(())
 }
 

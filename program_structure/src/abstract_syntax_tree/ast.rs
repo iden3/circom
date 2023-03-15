@@ -390,6 +390,7 @@ pub fn build_log_expression(expr: Expression) -> LogArgument {
     LogArgument::LogExp(expr)
 }
 
+
 #[derive(Default, Clone)]
 pub struct TypeKnowledge {
     reduces_to: Option<TypeReduction>,
@@ -517,6 +518,12 @@ impl MemoryKnowledge {
                 let mut report =
                 Report::error("Multiple pragma directives".to_string(), ReportCode::MultiplePragma);
             report.add_primary(location, file_id, "here".to_string());
+            report
+            },
+            ExpectedIdentifier => {
+                let mut report =
+                Report::error("An identifier is expected".to_string(), ReportCode::ExpectedIdentifier);
+            report.add_primary(location, file_id, "This should be an identifier".to_string());
             report
             },
             _ => unreachable!(),    

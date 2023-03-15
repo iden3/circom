@@ -81,7 +81,7 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
     };
     if !first_type.is_template() {
         add_report(
-            ReportCode::WrongTypesInAssignOperation,
+            ReportCode::WrongTypesInAssignOperationTemplate,
             initial_expression.get_meta(),
             &mut analysis_information.reports,
         );
@@ -133,9 +133,16 @@ fn type_statement(
                 type_array_of_expressions(dimensions, program_archive, analysis_information);
             let dimensions_type = typing_response.unwrap_or_default();
             for (dim_expression, dim_type) in dimensions.iter().zip(dimensions_type) {
-                if dim_type.is_template() || dim_type.dim() > 0 {
+                if dim_type.is_template() {
                     add_report(
-                        ReportCode::InvalidArraySize,
+                        ReportCode::InvalidArraySizeT,
+                        dim_expression.get_meta(),
+                        &mut analysis_information.reports,
+                    );
+                }
+                else if dim_type.dim() > 0 {
+                    add_report(
+                        ReportCode::InvalidArraySize(dim_type.dim()),
                         dim_expression.get_meta(),
                         &mut analysis_information.reports,
                     );
@@ -171,7 +178,7 @@ fn type_statement(
             };
 
             let access_information_result =
-                treat_access(var, access, meta, program_archive, analysis_information);
+                treat_access(access, meta, program_archive, analysis_information);
 
             let access_information = if let Result::Ok(info) = access_information_result {
                 info
@@ -207,46 +214,96 @@ fn type_statement(
                 | (SymbolInformation::Var(_), AssignOp::AssignVar)
                 | (SymbolInformation::Component(_), AssignOp::AssignVar) => {}
                 | (SymbolInformation::Tag, AssignOp::AssignVar) => {}
+                (SymbolInformation::Signal(_), AssignOp::AssignVar)=>{
+                    return add_report(
+                        ReportCode::WrongTypesInAssignOperationOperatorSignal,
+                        meta,
+                        &mut analysis_information.reports,
+                    );
+                }
                 _ => {
                     return add_report(
-                        ReportCode::WrongTypesInAssignOperation,
+                        ReportCode::WrongTypesInAssignOperationOperatorNoSignal,
                         meta,
                         &mut analysis_information.reports,
                     );
                 }
             }
             match symbol_information {
-                SymbolInformation::Component(template)
-                    if template.is_none() && rhe_type.is_template() =>
-                {
-                    let (current_template, _) = analysis_information
-                        .environment
-                        .get_mut_component_or_break(var, file!(), line!());
-                    *current_template = rhe_type.template;
-                }
-                SymbolInformation::Component(possible_template)
-                    if possible_template.is_some() && rhe_type.is_template() =>
-                {
-                    let template = possible_template.unwrap();
-                    let r_template = rhe_type.template.unwrap();
-                    if template != r_template {
+                SymbolInformation::Component(possible_template) =>{
+                    if rhe_type.is_template(){
+                        if possible_template.is_none(){
+                            let (current_template, _) = analysis_information
+                                .environment
+                                .get_mut_component_or_break(var, file!(), line!());
+                            *current_template = rhe_type.template;
+                        } else{
+                            let template = possible_template.unwrap();
+                            let r_template = rhe_type.template.unwrap();
+                            if template != r_template {
+                                add_report(
+                                    ReportCode::WrongTypesInAssignOperationArrayTemplates,
+                                    meta,
+                                    &mut analysis_information.reports,
+                                )
+                            }
+                        }
+                    } else{
                         add_report(
-                            ReportCode::WrongTypesInAssignOperation,
+                            ReportCode::WrongTypesInAssignOperationTemplate,
                             meta,
                             &mut analysis_information.reports,
                         )
                     }
                 }
-                SymbolInformation::Signal(dim)
-                    if dim == rhe_type.dim() && !rhe_type.is_template() => {}
-                SymbolInformation::Var(dim)
-                    if dim == rhe_type.dim() && !rhe_type.is_template() => {}
-                SymbolInformation::Tag if !rhe_type.is_template() => {}
-                _ => add_report(
-                    ReportCode::WrongTypesInAssignOperation,
-                    meta,
-                    &mut analysis_information.reports,
-                ),
+                SymbolInformation::Signal(dim) =>{
+                    if rhe_type.is_template(){
+                        add_report(
+                            ReportCode::WrongTypesInAssignOperationExpression,
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    } else if dim != rhe_type.dim(){
+                        add_report(
+                            ReportCode::WrongTypesInAssignOperationDims(dim, rhe_type.dim()),
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    }
+                    
+                }
+                SymbolInformation::Var(dim) =>{
+                    if rhe_type.is_template(){
+                        add_report(
+                            ReportCode::WrongTypesInAssignOperationExpression,
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    } else if dim != rhe_type.dim(){
+                        add_report(
+                            ReportCode::WrongTypesInAssignOperationDims(dim, rhe_type.dim()), 
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    }
+                    
+                }
+                SymbolInformation::Tag =>{
+                    if rhe_type.is_template(){
+                        add_report(
+                            ReportCode::WrongTypesInAssignOperationExpression,
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    } else if 0 != rhe_type.dim(){
+                        add_report(
+                            ReportCode::WrongTypesInAssignOperationDims(0, rhe_type.dim()),
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    }
+                    
+                }
             }
         }
         ConstraintEquality { lhe, rhe, .. } => {
@@ -278,7 +335,7 @@ fn type_statement(
             }
             if rhe_type.dim() != lhe_type.dim() {
                 add_report(
-                    ReportCode::MustBeSameDimension,
+                    ReportCode::MustBeSameDimension(rhe_type.dim(), lhe_type.dim()),
                     rhe.get_meta(),
                     &mut analysis_information.reports,
                 );
@@ -287,15 +344,21 @@ fn type_statement(
         LogCall { args, meta } => {
             for arglog in args {
                 if let LogArgument::LogExp(arg) = arglog{
-                    let arg_response = type_expression(arg, program_archive, analysis_information);
+                    let arg_response = type_expression(&arg, program_archive, analysis_information);
                     let arg_type = if let Result::Ok(t) = arg_response {
                         t
                     } else {
                         return;
                     };
-                    if arg_type.is_template() || arg_type.dim() > 0 {
+                    if arg_type.is_template()  {
                         add_report(
-                            ReportCode::MustBeSingleArithmetic,
+                            ReportCode::MustBeSingleArithmeticT,
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    } else if arg_type.dim() > 0 {
+                        add_report(
+                            ReportCode::MustBeSingleArithmetic(arg_type.dim()),
                             meta,
                             &mut analysis_information.reports,
                         )
@@ -310,9 +373,15 @@ fn type_statement(
             } else {
                 return;
             };
-            if arg_type.is_template() || arg_type.dim() > 0 {
+            if arg_type.is_template() {
                 add_report(
-                    ReportCode::MustBeSingleArithmetic,
+                    ReportCode::MustBeSingleArithmeticT,
+                    meta,
+                    &mut analysis_information.reports,
+                )
+            } else if arg_type.dim() > 0 {
+                add_report(
+                    ReportCode::MustBeSingleArithmetic(arg_type.dim()),
                     meta,
                     &mut analysis_information.reports,
                 )
@@ -347,9 +416,15 @@ fn type_statement(
             } else {
                 return;
             };
-            if cond_type.is_template() || cond_type.dim() > 0 {
+            if cond_type.is_template(){
                 add_report(
-                    ReportCode::MustBeSingleArithmetic,
+                    ReportCode::MustBeSingleArithmeticT,
+                    cond.get_meta(),
+                    &mut analysis_information.reports,
+                )
+            }else if cond_type.dim() > 0 {
+                add_report(
+                    ReportCode::MustBeSingleArithmetic(cond_type.dim()),
                     cond.get_meta(),
                     &mut analysis_information.reports,
                 )
@@ -363,9 +438,15 @@ fn type_statement(
             } else {
                 return;
             };
-            if cond_type.is_template() || cond_type.dim() > 0 {
+            if cond_type.is_template(){
                 add_report(
-                    ReportCode::MustBeSingleArithmetic,
+                    ReportCode::MustBeSingleArithmeticT,
+                    cond.get_meta(),
+                    &mut analysis_information.reports,
+                )
+            }else if cond_type.dim() > 0 {
+                add_report(
+                    ReportCode::MustBeSingleArithmetic(cond_type.dim()),
                     cond.get_meta(),
                     &mut analysis_information.reports,
                 )
@@ -424,7 +505,7 @@ fn type_expression(
                     );
                 } else if inferred_dim != value_type.dim() {
                     add_report(
-                        ReportCode::NonHomogeneousArray,
+                        ReportCode::NonHomogeneousArray(inferred_dim, value_type.dim()),
                         expression.get_meta(),
                         &mut analysis_information.reports,
                     );
@@ -433,7 +514,7 @@ fn type_expression(
             Result::Ok(FoldedType::arithmetic_type(inferred_dim + 1))
         }
         UniformArray { meta, value, dimension } => {
-            let value_type = type_expression(value, program_archive, analysis_information).unwrap();
+            let value_type = type_expression(value, program_archive, analysis_information)?;
             if value_type.is_template() {
                 add_report(
                     ReportCode::InvalidArrayType,
@@ -441,7 +522,7 @@ fn type_expression(
                     &mut analysis_information.reports,
                 );
             };
-            let dim_type = type_expression(dimension, program_archive, analysis_information).unwrap();
+            let dim_type = type_expression(dimension, program_archive, analysis_information)?;
             if dim_type.is_template() {
                 add_report(
                     ReportCode::InvalidArrayType,
@@ -517,12 +598,19 @@ fn type_expression(
             } else {
                 return Result::Ok(if_true_type);
             };
-            if cond_type.is_template() || cond_type.dim() > 0 {
+            if cond_type.is_template(){
                 add_report(
-                    ReportCode::MustBeSingleArithmetic,
+                    ReportCode::MustBeSingleArithmeticT,
                     cond.get_meta(),
                     &mut analysis_information.reports,
-                );
+                )
+            }
+            else if cond_type.dim() > 0 {
+                add_report(
+                    ReportCode::MustBeSingleArithmetic(cond_type.dim()),
+                    cond.get_meta(),
+                    &mut analysis_information.reports,
+                )
             }
 
             let if_false_type = if let Result::Ok(f) = if_false_response {
@@ -542,7 +630,7 @@ fn type_expression(
         Variable { name, access, meta, .. } => {
             debug_assert!(analysis_information.environment.has_symbol(name));
             let access_information =
-                treat_access(name, access, meta, program_archive, analysis_information)?;
+                treat_access( access, meta, program_archive, analysis_information)?;
             let environment = &analysis_information.environment;
             let reports = &mut analysis_information.reports;
             let symbol_information = apply_access_to_symbol(
@@ -642,9 +730,9 @@ fn treat_sequence_of_statements(
 //************************************************* Expression support *************************************************
 // 0: symbol dimensions accessed
 // 1: Signal accessed and dimensions accessed in that signal (optional)
+// 2: Tag accessed (optional)
 type AccessInfo = (ArithmeticType, Option<(String, ArithmeticType)>, Option<String>);
 fn treat_access(
-    var: &String,
     accesses: &[Access],
     meta: &Meta,
     program_archive: &ProgramArchive,
@@ -652,62 +740,50 @@ fn treat_access(
 ) -> Result<AccessInfo, ()> {
     use Access::*;
     let mut access_info: AccessInfo = (0, Option::None, Option::None);
-    let mut successful = Result::Ok(());
     for access in accesses {
         match access {
             ArrayAccess(index) => {
-                let index_response = type_expression(index, program_archive, analysis_information);
-                if let Option::Some(signal_info) = &mut access_info.1 {
-                    signal_info.1 += 1;
-                } else {
-                    access_info.0 += 1;
-                }
-                if let Result::Ok(index_type) = index_response {
-                    if index_type.is_template() || index_type.dim() > 0 {
-                        add_report(
-                            ReportCode::InvalidArraySize,
-                            index.get_meta(),
-                            &mut analysis_information.reports,
-                        );
+                let index_response = type_expression(&index, program_archive, analysis_information);
+                
+                if access_info.2.is_some(){
+                    add_report(
+                        ReportCode::InvalidArrayAccess(0, 1),
+                        index.get_meta(),
+                        &mut analysis_information.reports,
+                    );
+                } else{
+                    if let Option::Some(signal_info) = &mut access_info.1 {
+                        signal_info.1 += 1;
+                    } else {
+                        access_info.0 += 1;
+                    }
+                    if let Result::Ok(index_type) = index_response {
+                        if index_type.is_template() {
+                            add_report(
+                                ReportCode::InvalidArraySizeT,
+                                index.get_meta(),
+                                &mut analysis_information.reports,
+                            );
+                        }
+                        else if index_type.dim() > 0 {
+                            add_report(
+                                ReportCode::InvalidArraySize(index_type.dim()),
+                                index.get_meta(),
+                                &mut analysis_information.reports,
+                            );
+                        }
                     }
                 }
             }
             ComponentAccess(name) => {
-                if let Option::Some(signal_info) = & access_info.1 {
-                    let accessed_comp = analysis_information.environment.get_component(var).unwrap().0.as_ref().unwrap();  
-                    let comp_info = program_archive.get_template_data(accessed_comp);
-                    let comp_outputs = comp_info.get_outputs();
-                    let comp_inputs = comp_info.get_inputs();
-                    if signal_info.1 > 0 {
+                if let Option::Some(_signal_info) = & access_info.1 {
+                    if access_info.2.is_none(){
+                        access_info.2 = Some(name.clone())
+                    } else{
                         add_report(
-                            ReportCode::InvalidArraySize,
+                            ReportCode::InvalidSignalTagAccess,
                             meta,
                             &mut analysis_information.reports,
-                        );
-                    }
-                    else if comp_inputs.contains_key(&signal_info.0) {
-                        successful = add_report_and_end(
-                            ReportCode::InvalidSignalTagAccess, //We can report more exactly input signals cannot be accessed.
-                            meta,
-                            &mut analysis_information.reports,
-                        );
-                    } else if comp_outputs.contains_key(&signal_info.0) {
-                        let output_info = &comp_outputs.get(&signal_info.0).unwrap().1;
-                        if !output_info.contains(name) || access_info.2.is_some() {
-                            successful = add_report_and_end(
-                                ReportCode::InvalidSignalTagAccess,
-                                  meta,
-                                  &mut analysis_information.reports,
-                                );
-                        } else {
-                            access_info.2 = Option::Some(name.clone());
-                        }
-                    }
-                    else {
-                      successful = add_report_and_end(
-                        ReportCode::InvalidSignalTagAccess,
-                          meta,
-                          &mut analysis_information.reports,
                         );
                     }
                 } else {
@@ -716,9 +792,9 @@ fn treat_access(
             }
         }
     }
-    successful?;
     Result::Ok(access_info)
 }
+
 
 enum SymbolInformation {
     Component(Option<String>),
@@ -746,45 +822,66 @@ fn apply_access_to_symbol(
     };
 
     if access_information.0 > current_dim {
-        return add_report_and_end(ReportCode::InvalidArrayAccess, meta, reports);
+        return add_report_and_end(ReportCode::InvalidArrayAccess(current_dim, access_information.0), meta, reports);
     } else {
         current_dim -= access_information.0
     }
 
-    if access_information.0 == 0 && environment.has_component(symbol) && access_information.1.is_some() && access_information.2.is_some() {
-            Result::Ok(SymbolInformation::Tag)
-    }
-    else if access_information.1.is_some() && environment.has_signal(symbol){
-         if access_information.0 == 0 && contains_the_tag(access_information.1.clone(), &possible_tags)
-        {
-            Result::Ok(SymbolInformation::Tag)
-        }
-        else {
-            if access_information.0 == 0 {
-                add_report_and_end(ReportCode::InvalidTagAccess, meta, reports)
+    // Case signals or tags 
+    if let Option::Some((signal_name, dims_accessed)) = access_information.1{
+        if current_template.is_some(){ // we are inside component
+            
+            if current_dim != 0{ // only allowed complete accesses to component
+                return add_report_and_end(ReportCode::InvalidPartialArray, meta, reports);
             }
-            else {
-                add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports)
+
+            let template_name = current_template.unwrap();
+            let input = program_archive.get_template_data(&template_name).get_input_info(&signal_name);
+            let output = program_archive.get_template_data(&template_name).get_output_info(&signal_name);
+            let tags;
+            (current_dim, tags) = match (input, output) {
+                (Option::Some((d, tags)), _) | (_, Option::Some((d, tags))) => (*d, tags),
+                _ => {
+                    return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
+                }
+            };
+            if access_information.2.is_some(){ // tag of io signal of component
+                if dims_accessed > 0{
+                    return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
+                }
+                else if !tags.contains(&access_information.2.unwrap()){
+                    return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
+                } else{
+                    return Result::Ok(SymbolInformation::Tag);
+                }
+            } else{ // io signal of component
+                if dims_accessed > current_dim {
+                    return add_report_and_end(ReportCode::InvalidArrayAccess(current_dim, dims_accessed), meta, reports);
+                } else {
+                    return Result::Ok(SymbolInformation::Signal(current_dim - dims_accessed));
+                }   
             }
-        }
-    }
-    else if access_information.1.is_some() && (current_dim > 0 || current_template.is_none()) {
-            add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports)
-    } else if let Option::Some((signal_name, dims_accessed)) = access_information.1 {
-        let template_name = current_template.unwrap();
-        let input = program_archive.get_template_data(&template_name).get_input_info(&signal_name);
-        let output =
-            program_archive.get_template_data(&template_name).get_output_info(&signal_name);
-        current_dim = match (input, output) {
-            (Option::Some((d, _)), _) | (_, Option::Some((d, _))) => *d,
-            _ => {
-                return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
+        } else{ // we are in template
+            if environment.has_signal(symbol){
+                if access_information.0 != 0{
+                    add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports)
+                } else if dims_accessed > 0{
+                    add_report_and_end(
+                        ReportCode::InvalidArrayAccess(0, dims_accessed),
+                        meta,
+                        reports,
+                    )
+                } else if !possible_tags.contains(&signal_name){
+                    add_report_and_end(ReportCode::InvalidTagAccess, meta, reports)
+                } else{
+                    Result::Ok(SymbolInformation::Tag)
+                }
+            
+            } else if environment.has_component(symbol){
+                add_report_and_end(ReportCode::UninitializedComponent, meta, reports)
+            } else{
+                add_report_and_end(ReportCode::InvalidSignalTagAccess, meta, reports)
             }
-        };
-        if dims_accessed > current_dim {
-            add_report_and_end(ReportCode::InvalidArrayAccess, meta, reports)
-        } else {
-            Result::Ok(SymbolInformation::Signal(current_dim - dims_accessed))
         }
     } else if environment.has_variable(symbol) {
         Result::Ok(SymbolInformation::Var(current_dim))
@@ -797,12 +894,6 @@ fn apply_access_to_symbol(
     }
 }
 
-fn contains_the_tag(access_information: Option<(String, usize)>, tags: &Vec<String>) -> bool {
-    if let Option::Some(access) = access_information {
-            tags.contains(&access.0)
-    }
-    else {false}
-}
 
 fn type_array_of_expressions(
     expressions: &[Expression],
@@ -912,36 +1003,63 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
     let mut report = Report::error("Typing error found".to_string(), error_code);
     let location = generate_file_location(meta.start, meta.end);
     let message = match error_code {
-        TypeCantBeUseAsCondition => "This type can not be used as a condition".to_string(),
-        BadArrayAccess => "This type can not be used as index".to_string(),
+        //TypeCantBeUseAsCondition => "This type can not be used as a condition".to_string(),
+        //BadArrayAccess => "This type can not be used as index".to_string(),
         EmptyArrayInlineDeclaration => "Empty arrays can not be declared inline".to_string(),
-        NonHomogeneousArray => "All the elements in a array must have the same type".to_string(),
-        InvalidArraySize => {
-            "Array indexes and lengths must be single arithmetic expressions".to_string()
+        NonHomogeneousArray(dim_1, dim_2) => 
+            format!("All the elements in a array must have the same type.\n Found elements in the array with {} and {} dimensions.",
+                dim_1, dim_2),
+        InvalidArraySize(dim) => {
+            format!("Array indexes and lengths must be single arithmetic expressions.\n Found expression with {} dimensions.",
+                dim)
         }
-        InvalidArrayAccess => {
-            "Array access does not match the dimensions of the expression".to_string()
+        InvalidArraySizeT =>{
+            "Array indexes and lengths must be single arithmetic expressions.\n Found component instead of expression.".to_string()
         }
-        InvalidSignalAccess => "Signal not found in component".to_string(),
-        InvalidSignalTagAccess => "The latest access cannot be done from component".to_string(),
-        InvalidTagAccess => "Tag not found in signal".to_string(),
-        InvalidTagAccessAfterArray => "Tag cannot be found after an array access".to_string(),
+        InvalidArrayAccess(expected, given) => {
+            format!("Array access does not match the dimensions of the expression. \n Expected {} dimensions, given {}.",
+                expected, given
+            )
+        }
+        InvalidSignalAccess => "Signal not found in component: only accesses to input/output signals are allowed".to_string(),
+        InvalidSignalTagAccess => "Invalid tag access: could not find the tag".to_string(),
+        InvalidTagAccess => "Tag not found in signal: only accesses to tags that appear in the definition of the signal are allowed".to_string(),
+        InvalidTagAccessAfterArray => "Invalid access to the tag of an array element: tags belong to complete arrays, not to individual positions.\n Hint: instead of signal[pos].tag use signal.tag".to_string(),
         InvalidArrayType => "Components can not be declared inside inline arrays".to_string(),
         InfixOperatorWithWrongTypes | PrefixOperatorWithWrongTypes => {
             "Type not allowed by the operator".to_string()
         }
         ParallelOperatorWithWrongTypes  => {
-            "Type not allowed by the operator parallel (needs a template)".to_string()
+            "Type not allowed by the operator parallel (parallel operator can only be applied to templates)".to_string()
         }
         InvalidPartialArray => "Only variable arrays can be accessed partially".to_string(),
         UninitializedSymbolInExpression => "The type of this symbol is not known".to_string(),
-        WrongTypesInAssignOperation => "Assignee and assigned types do not match".to_string(),
+        WrongTypesInAssignOperationOperatorSignal => {
+            format!("The operator does not match the types of the assigned elements.\n Assignments to signals do not allow the operator =, try using <== or <-- instead")
+        }
+        WrongTypesInAssignOperationOperatorNoSignal => {
+            format!("The operator does not match the types of the assigned elements.\n Only assignments to signals allow the operators <== and <--, try using = instead")
+        }
+        WrongTypesInAssignOperationArrayTemplates => "Assignee and assigned types do not match.\n All componentes of an array must be instances of the same template.".to_string(),
+        WrongTypesInAssignOperationTemplate => "Assignee and assigned types do not match.\n Expected template found expression.".to_string(),
+        WrongTypesInAssignOperationExpression => "Assignee and assigned types do not match.\n Expected expression found template.".to_string(),
+        WrongTypesInAssignOperationDims(expected, found) => {
+            format!("Assignee and assigned types do not match. \n Expected dimensions: {}, found {}",
+            expected, found)
+        }
         InvalidArgumentInCall => "Components can not be passed as arguments".to_string(),
         UnableToTypeFunction => "Unable to infer the type of this function".to_string(),
-        MustBeSingleArithmetic => "Must be a single arithmetic expression".to_string(),
-        MustBeArithmetic => "Must be a single arithmetic expression or an array".to_string(),
+        MustBeSingleArithmetic(dim) => {
+            format!("Must be a single arithmetic expression.\n Found expression of {} dimensions", dim)
+        }
+        MustBeSingleArithmeticT => {
+              format!("Must be a single arithmetic expression.\n Found component")
+        }
+        MustBeArithmetic => "Must be a single arithmetic expression or an array of arithmetic expressions. \n Found component".to_string(),
         OutputTagCannotBeModifiedOutside => "Output tag from a subcomponent cannot be modified".to_string(),
-        MustBeSameDimension => "Must be two arrays of the same dimensions".to_string(),
+        MustBeSameDimension(dim_1, dim_2) =>{
+            format!("Must be two arrays of the same dimensions.\n Found {} and {} dimensions", dim_1, dim_2)
+        }
         MainComponentWithTags => "Main component cannot have inputs with tags".to_string(),
         ExpectedDimDiffGotDim(expected, got) => {
             format!("Function should return {} but returns {}", expected, got)
@@ -949,6 +1067,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         WrongNumberOfArguments(expected, got) => {
             format!("Expecting {} arguments, {} where obtained", expected, got)
         }
+        UninitializedComponent => "Trying to access to a signal of a component that has not been initialized".to_string(),
         _ => panic!("Unimplemented error code"),
     };
     report.add_primary(location, file_id, message);
