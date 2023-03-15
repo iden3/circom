@@ -1,6 +1,6 @@
 [package]
 name = "compiler"
-version = "2.1.4"
+version = "2.1.5"
 authors = ["Costa Group UCM","iden3"]
 edition = "2018"
 
