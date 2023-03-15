@@ -12,7 +12,7 @@ This message means that it is allowed but uncommon, and hence it is better to ch
 
 This message means that it is allowed but should not happen in general.
 
-For instance, if a signal is not used in any constraint, a warning message will be generated (when compiling the program with the `--inspect` option). Moreover, if it is an input signal x, then the compiler would suggest adding a constraint of the form x \* 0 === 0;
+For instance, if a signal is not used in any constraint, a warning message will be generated when compiling the circuit with the `--inspect` option.
 
 ```text
 pragma circom 2.0.0;
