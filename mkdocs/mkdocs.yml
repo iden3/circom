@@ -57,7 +57,8 @@ nav:
           - Scoping: 'circom-language/scoping.md'
           - Code Quality:
                - Code Assertion: 'circom-language/code-quality/code-assertion.md'
-               - Debugging Operations: 'circom-language/code-quality/debugging-operations.md'
+               - Debugging Operations:'circom-language/code-quality/debugging-operations.md'
+               - Inspect Option: 'circom-language/code-quality/inspect.md'
           - Circom Insight:
                - Compiler Phases: 'circom-language/circom-insight/circom-phases.md'
                - Compiler Messages: 'circom-language/circom-insight/compiler-messages.md'
