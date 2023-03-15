@@ -1,9 +1,9 @@
 # Release notes
-## March 7, 2023 circom 2.1.5
+## March 15, 2023 circom 2.1.5
 
 #### Extensions
 - Definition of signals and components can be done now inside if blocks IF the condition is known at compilation time. If the condition is unknown and depends on the value of signals, then the compiler throws an error. 
-- Improving the --inspect option. It now detects underconstrained signals.
+- Improving the --inspect option. It now detects underconstrained signals and assignments using <-- in which <== could be used.
 - Improving the efficiency of the compiler. It does not execute the inspect and constraint generation phase only if there are not the corresponding flags.
 - Improving --O1 simplification: removing signals that do not appear in any constraint and avoiding unnecessary constraint normalizations.
 - Improving parallel: array assignments of outputs and efficiency by updating numThread while waiting and setting maxThreads to 32.
@@ -15,7 +15,7 @@
 #### Fixed Bugs
 - Fixing a problem with the memory release of the components (in C).
 - Fixing a problem with the parallel execution during the witness generation (in C).
-- Fixing a bug: functions must be always executed even if they output constants. 
+- Fixing a bug: functions are executed even if they output signals when they contain logs or asserts. 
 - Fixing a bug: During the witness generation, the computation of expressions like x**x was buggy (in wasm).
 
 ## February 10, 2023 circom 2.1.4
