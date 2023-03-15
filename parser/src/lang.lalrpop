@@ -24,7 +24,7 @@ IdentifierListDef : Vec<String> = {
         let mut v = v;
         v.push(e);
         v
-    }
+    },
 };
 
 Semicolon:() = {
@@ -729,7 +729,7 @@ HEXNUMBER : BigInt = {
 };
 
 IDENTIFIER : String = {
-    r"[$_]*[a-zA-Z][a-zA-Z$_0-9]*" => String::from(<>)
+    r"[$_]*[a-zA-Z][a-zA-Z$_0-9]*" => String::from(<>),
 };
 
 STRING : String = {

@@ -46,7 +46,7 @@ In the following, we explain these options.
 
 #####Flags and options related to the constraint generation process
 * Flag ```--verbose``` shows logs with known values at compilation time during the constraint generation process. 
-* Flag ```--inspect``` does an additional check over the R1CS system produced.
+* Flag ```--inspect``` does an additional check over the R1CS system produced. (see [--inspect](../circom-language/code-quality/inspect)).
 * Flag ```--use_old_simplification_heuristics``` allows to use an old heuristics of the optimization algorithm. However, it is not recommended since the new heuristics has produced better results in practice.
 
 

@@ -25,70 +25,75 @@ pub struct CompilerConfig {
 }
 
 pub fn compile(config: CompilerConfig) -> Result<(), ()> {
-    let circuit = compiler_interface::run_compiler(
-        config.vcp,
-        Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
-        VERSION
-    )?;
 
-    if config.c_flag {
-        compiler_interface::write_c(&circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
-        println!(
-            "{} {} and {}",
-            Colour::Green.paint("Written successfully:"),
-            config.c_file,
-            config.dat_file
-        );
-        println!(
-            "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
-            Colour::Green.paint("Written successfully:"),
-	    &config.c_folder,
-            "main.cpp".to_string(),
-            "circom.hpp".to_string(),
-            "calcwit.hpp".to_string(),
-            "calcwit.cpp".to_string(),
-            "fr.hpp".to_string(),
-            "fr.cpp".to_string(),
-            "fr.asm".to_string(),
-            "Makefile".to_string()
-        );
-    }
 
-    match (config.wat_flag, config.wasm_flag) {
-        (true, true) => {
-            compiler_interface::write_wasm(&circuit, &config.js_folder, &config.wasm_name, &config.wat_file)?;
-            println!("{} {}", Colour::Green.paint("Written successfully:"), config.wat_file);
-            let result = wat_to_wasm(&config.wat_file, &config.wasm_file);
-            match result {
-                Result::Err(report) => {
-                    Report::print_reports(&[report], &FileLibrary::new());
-                    return Err(());
-                }
-                Result::Ok(()) => {
-                    println!("{} {}", Colour::Green.paint("Written successfully:"), config.wasm_file);
+    if config.c_flag || config.wat_flag || config.wasm_flag{
+        let circuit = compiler_interface::run_compiler(
+            config.vcp,
+            Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
+            VERSION
+        )?;
+    
+        if config.c_flag {
+            compiler_interface::write_c(&circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
+            println!(
+                "{} {} and {}",
+                Colour::Green.paint("Written successfully:"),
+                config.c_file,
+                config.dat_file
+            );
+            println!(
+                "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
+                Colour::Green.paint("Written successfully:"),
+            &config.c_folder,
+                "main.cpp".to_string(),
+                "circom.hpp".to_string(),
+                "calcwit.hpp".to_string(),
+                "calcwit.cpp".to_string(),
+                "fr.hpp".to_string(),
+                "fr.cpp".to_string(),
+                "fr.asm".to_string(),
+                "Makefile".to_string()
+            );
+        }
+    
+        match (config.wat_flag, config.wasm_flag) {
+            (true, true) => {
+                compiler_interface::write_wasm(&circuit, &config.js_folder, &config.wasm_name, &config.wat_file)?;
+                println!("{} {}", Colour::Green.paint("Written successfully:"), config.wat_file);
+                let result = wat_to_wasm(&config.wat_file, &config.wasm_file);
+                match result {
+                    Result::Err(report) => {
+                        Report::print_reports(&[report], &FileLibrary::new());
+                        return Err(());
+                    }
+                    Result::Ok(()) => {
+                        println!("{} {}", Colour::Green.paint("Written successfully:"), config.wasm_file);
+                    }
                 }
             }
-        }
-        (false, true) => {
-            compiler_interface::write_wasm(&circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
-            let result = wat_to_wasm(&config.wat_file, &config.wasm_file);
-            std::fs::remove_file(&config.wat_file).unwrap();
-            match result {
-                Result::Err(report) => {
-                    Report::print_reports(&[report], &FileLibrary::new());
-                    return Err(());
-                }
-                Result::Ok(()) => {
-                    println!("{} {}", Colour::Green.paint("Written successfully:"), config.wasm_file);
+            (false, true) => {
+                compiler_interface::write_wasm(&circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
+                let result = wat_to_wasm(&config.wat_file, &config.wasm_file);
+                std::fs::remove_file(&config.wat_file).unwrap();
+                match result {
+                    Result::Err(report) => {
+                        Report::print_reports(&[report], &FileLibrary::new());
+                        return Err(());
+                    }
+                    Result::Ok(()) => {
+                        println!("{} {}", Colour::Green.paint("Written successfully:"), config.wasm_file);
+                    }
                 }
             }
+            (true, false) => {
+                compiler_interface::write_wasm(&circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
+                println!("{} {}", Colour::Green.paint("Written successfully:"), config.wat_file);
+            }
+            (false, false) => {}
         }
-        (true, false) => {
-            compiler_interface::write_wasm(&circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
-            println!("{} {}", Colour::Green.paint("Written successfully:"), config.wat_file);
-        }
-        (false, false) => {}
     }
+    
 
     Ok(())
 }

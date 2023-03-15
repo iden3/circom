@@ -27,9 +27,9 @@ fn treat_statement(
     use Statement::*;
     match stmt {
         IfThenElse { if_case, else_case, .. } => {
-            treat_statement(if_case, false, template_id, reports);
+            treat_statement(if_case, signal_declaration_allowed, template_id, reports);
             if let Option::Some(else_block) = else_case {
-                treat_statement(else_block, false, template_id, reports);
+                treat_statement(else_block, signal_declaration_allowed, template_id, reports);
             }
         }
         While { stmt, .. } => {
@@ -37,14 +37,14 @@ fn treat_statement(
         }
         Block { stmts, .. } => {
             for stmt in stmts.iter() {
-                treat_statement(stmt, false, template_id, reports);
+                treat_statement(stmt, signal_declaration_allowed, template_id, reports);
             }
         }
         InitializationBlock { meta, xtype, .. } => match xtype {
-            VariableType::Signal(_, _) | VariableType::Component | VariableType::AnonymousComponent => {
+            VariableType::Signal(_, _) | VariableType::Component  => {
                 if !signal_declaration_allowed {
                     let mut report = Report::error(
-                        "Signal or component declaration outside initial scope".to_string(),
+                        "Signal or component declaration inside While scope. Signal and component can only be defined in the initial scope or in If scopes with known condition".to_string(),
                         ReportCode::SignalOutsideOriginalScope,
                     );
                     let location =

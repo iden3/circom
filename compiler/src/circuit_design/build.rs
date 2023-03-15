@@ -334,8 +334,8 @@ fn write_main_inputs_log(vcp: &VCP) {
             let length = signal.size();
             let msg = format!("{} {}\n", name, length);
             writer.write_all(msg.as_bytes()).unwrap();
-            writer.flush().unwrap();
         }
+        writer.flush().unwrap();
     }
 }
 

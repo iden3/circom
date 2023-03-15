@@ -21,6 +21,7 @@ use super::{
 };
 use circom_algebra::num_bigint::BigInt;
 use std::collections::{HashMap, BTreeMap};
+use crate::FlagsExecution;
 type AExpr = ArithmeticExpressionGen<String>;
 type AnonymousComponentsInfo = BTreeMap<String, (Meta, Vec<Expression>)>;
 
@@ -76,7 +77,12 @@ impl FoldedValue {
 
 impl Default for FoldedValue {
     fn default() -> Self {
-        FoldedValue { arithmetic_slice: Option::None, node_pointer: Option::None, is_parallel: Option::None, tags: Option::None }
+        FoldedValue { 
+            arithmetic_slice: Option::None, 
+            node_pointer: Option::None, 
+            is_parallel: Option::None, 
+            tags: Option::None,
+        }
     }
 }
 
@@ -87,12 +93,15 @@ enum ExecutionError {
 }
 
 enum ExecutionWarning {
-    CanBeQuadraticConstraint,
+    CanBeQuadraticConstraintSingle(),
+    CanBeQuadraticConstraintMultiple(Vec<String>),
 }
+
+
 
 pub fn constraint_execution(
     program_archive: &ProgramArchive,
-    flag_verbose: bool, 
+    flags: FlagsExecution, 
     prime: &String,
 ) -> Result<(ExecutedProgram, ReportCollection), ReportCollection> {    
     let main_file_id = program_archive.get_file_id_main();
@@ -105,7 +114,7 @@ pub fn constraint_execution(
         if let Call { id, args, .. } = &program_archive.get_main_expression() {
             let mut arg_values = Vec::new();
             for arg_expression in args.iter() {
-                let f_arg = execute_expression(arg_expression, program_archive, &mut runtime_information, flag_verbose);
+                let f_arg = execute_expression(arg_expression, program_archive, &mut runtime_information, flags);
                 arg_values.push(safe_unwrap_to_arithmetic_slice(f_arg.unwrap(), line!()));
                 // improve
             }
@@ -115,7 +124,7 @@ pub fn constraint_execution(
                 BTreeMap::new(),
                 program_archive,
                 &mut runtime_information,
-                flag_verbose,
+                flags,
             )
         } else {
             unreachable!("The main expression should be a call."); 
@@ -135,14 +144,14 @@ pub fn execute_constant_expression(
     expression: &Expression,
     program_archive: &ProgramArchive,
     environment: ExecutionEnvironment,
-    flag_verbose: bool,
+    flags: FlagsExecution,
     prime: &String,
 ) -> Result<BigInt, ReportCollection> {
     let current_file = expression.get_meta().get_file_id();
     let mut runtime_information = RuntimeInformation::new(current_file, program_archive.id_max, prime);
     runtime_information.environment = environment;
     let folded_value_result =
-        execute_expression(expression, program_archive, &mut runtime_information, flag_verbose);
+        execute_expression(expression, program_archive, &mut runtime_information, flags);
     match folded_value_result {
         Result::Err(_) => Result::Err(runtime_information.runtime_errors),
         Result::Ok(folded_value) => {
@@ -157,25 +166,27 @@ pub fn execute_constant_expression(
     }
 }
 
+// returns the value and if it can be simplified
 fn execute_statement(
     stmt: &Statement,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     actual_node: &mut Option<ExecutedTemplate>,
-    flag_verbose: bool,
-) -> Result<Option<FoldedValue>, ()> {
+    flags: FlagsExecution,
+) -> Result<(Option<FoldedValue>, bool), ()> {
     use Statement::*;
     let id = stmt.get_meta().elem_id;
     Analysis::reached(&mut runtime.analysis, id);
+    let mut can_be_simplified = true;
     let res = match stmt {
         MultSubstitution { .. } => unreachable!(),
         InitializationBlock { initializations, .. } => {
-            let possible_fold = execute_sequence_of_statements(
+            let (possible_fold, _) = execute_sequence_of_statements(
                 initializations,
                 program_archive,
                 runtime,
                 actual_node,
-                flag_verbose, 
+                flags, 
                 false
             )?;
             debug_assert!(possible_fold.is_none());
@@ -196,7 +207,7 @@ fn execute_statement(
                     let mut arithmetic_values = Vec::new();
                     for dimension in dimensions.iter() {
                         let f_dimensions = 
-                            execute_expression(dimension, program_archive, runtime, flag_verbose)?;
+                            execute_expression(dimension, program_archive, runtime, flags)?;
                         arithmetic_values
                             .push(safe_unwrap_to_single_arithmetic_expression(f_dimensions, line!()));
                     }
@@ -248,13 +259,16 @@ fn execute_statement(
             Option::None
         }
         Substitution { meta, var, access, op, rhe, .. } => {
-            let access_information = treat_accessing(meta, access, program_archive, runtime, flag_verbose)?;
-            let r_folded = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
+            let access_information = treat_accessing(meta, access, program_archive, runtime, flags)?;
+            let r_folded = execute_expression(rhe, program_archive, runtime, flags)?;
             let possible_constraint =
-                perform_assign(meta, var, *op, &access_information, r_folded, actual_node, runtime, program_archive, flag_verbose)?;
-            if let (Option::Some(node), AssignOp::AssignConstraintSignal) = (actual_node, op) {
+                perform_assign(meta, var, *op, &access_information, r_folded, actual_node, runtime, program_archive, flags)?;
+            if let Option::Some(node) = actual_node {
+                if *op == AssignOp::AssignConstraintSignal || (*op == AssignOp::AssignSignal && flags.inspect){
                     debug_assert!(possible_constraint.is_some());
                     let constrained = possible_constraint.unwrap();
+
+                    let mut needs_double_arrow = Vec::new();
                     for i in 0..AExpressionSlice::get_number_of_cells(&constrained.right){
                         let value_right = treat_result_with_memory_error(
                             AExpressionSlice::access_value_by_index(&constrained.right, i),
@@ -263,19 +277,19 @@ fn execute_statement(
                             &runtime.call_trace,
                         )?;
 
-                        if let AssignOp::AssignConstraintSignal = op {
-                                        let access_left = treat_result_with_memory_error(
-                                AExpressionSlice::get_access_index(&constrained.right, i),
-                                meta,
-                                &mut runtime.runtime_errors,
-                                &runtime.call_trace,
-                            )?;
+                    
+                        let access_left = treat_result_with_memory_error(
+                            AExpressionSlice::get_access_index(&constrained.right, i),
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
                             
-                            let full_symbol = format!("{}{}", 
-                                constrained.left, 
-                                create_index_appendix(&access_left),
-                            );
-
+                        let full_symbol = format!("{}{}", 
+                            constrained.left, 
+                            create_index_appendix(&access_left),
+                        );
+                        if let AssignOp::AssignConstraintSignal = op {
                             if value_right.is_nonquadratic() {
                                 let err = Result::Err(ExecutionError::NonQuadraticConstraint);
                                 treat_result_with_execution_error(
@@ -291,27 +305,46 @@ fn execute_statement(
                                 let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
                                 node.add_constraint(ctr);
                             }
-                        }
-                        else if let AssignOp::AssignSignal = op {
+                        } else if let AssignOp::AssignSignal = op {// needs fix, check case arrays
                             //debug_assert!(possible_constraint.is_some());
                             if !value_right.is_nonquadratic() && !node.is_custom_gate {
-                                let err : Result<(),ExecutionWarning> = Result::Err(ExecutionWarning::CanBeQuadraticConstraint);
-                                treat_result_with_execution_warning(
-                                    err,
-                                    meta,
-                                    &mut runtime.runtime_errors,
-                                    &runtime.call_trace,
-                                )?;
+                                needs_double_arrow.push(full_symbol);
                             }
                         }
                     }
-            }
+
+                    if !needs_double_arrow.is_empty() && flags.inspect{
+                        // in case we can subsitute the complete expression to ==>
+                        if needs_double_arrow.len() == AExpressionSlice::get_number_of_cells(&constrained.right){
+                            let err : Result<(),ExecutionWarning> = 
+                                Result::Err(ExecutionWarning::CanBeQuadraticConstraintSingle());
+                        
+                            treat_result_with_execution_warning(
+                                err,
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
+                        } else{
+                            let err : Result<(),ExecutionWarning> = 
+                                Result::Err(ExecutionWarning::CanBeQuadraticConstraintMultiple(needs_double_arrow));
+                        
+                            treat_result_with_execution_warning(
+                    err,
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
+                        }
+                    }
+                }   
+            } 
             Option::None
         }
         ConstraintEquality { meta, lhe, rhe, .. } => {
             debug_assert!(actual_node.is_some());
-            let f_left = execute_expression(lhe, program_archive, runtime, flag_verbose)?;
-            let f_right = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
+            let f_left = execute_expression(lhe, program_archive, runtime, flags)?;
+            let f_right = execute_expression(rhe, program_archive, runtime, flags)?;
             let arith_left = safe_unwrap_to_arithmetic_slice(f_left, line!());
             let arith_right = safe_unwrap_to_arithmetic_slice(f_right, line!());
 
@@ -362,7 +395,7 @@ fn execute_statement(
             Option::None
         }
         Return { value, .. } => {
-            let mut f_return = execute_expression(value, program_archive, runtime, flag_verbose)?;
+            let mut f_return = execute_expression(value, program_archive, runtime, flags)?;
             if let Option::Some(slice) = &mut f_return.arithmetic_slice {
                 if runtime.block_type == BlockType::Unknown {
                     *slice = AExpressionSlice::new_with_route(slice.route(), &AExpr::NonQuadratic);
@@ -373,38 +406,40 @@ fn execute_statement(
         }
         IfThenElse { cond, if_case, else_case, .. } => {
             let else_case = else_case.as_ref().map(|e| e.as_ref());
-            let (possible_return, _) = execute_conditional_statement(
+            let (possible_return, can_simplify, _) = execute_conditional_statement(
                 cond,
                 if_case,
                 else_case,
                 program_archive,
                 runtime,
                 actual_node,
-                flag_verbose
+                flags
             )?;
+            can_be_simplified = can_simplify;
             possible_return
         }
         While { cond, stmt, .. } => loop {
-            let (returned, condition_result) = execute_conditional_statement(
+            let (returned, can_simplify, condition_result) = execute_conditional_statement(
                 cond,
                 stmt,
                 Option::None,
                 program_archive,
                 runtime,
                 actual_node,
-                flag_verbose
+                flags
             )?;
+            can_be_simplified &= can_simplify;
             if returned.is_some() {
                 break returned;
             } else if condition_result.is_none() {
-                let (returned, _) = execute_conditional_statement(
+                let (returned, _, _) = execute_conditional_statement(
                     cond,
                     stmt,
                     None,
                     program_archive,
                     runtime,
                     actual_node,
-                    flag_verbose
+                    flags
                 )?;
                 break returned;
             } else if !condition_result.unwrap() {
@@ -413,17 +448,19 @@ fn execute_statement(
         },
         Block { stmts, .. } => {
             ExecutionEnvironment::add_variable_block(&mut runtime.environment);
-            let return_value =
-                execute_sequence_of_statements(stmts, program_archive, runtime, actual_node, flag_verbose, false)?;
+            let (return_value, can_simplify_block) =
+                execute_sequence_of_statements(stmts, program_archive, runtime, actual_node, flags, false)?;
             ExecutionEnvironment::remove_variable_block(&mut runtime.environment);
+            can_be_simplified = can_simplify_block;
             return_value
         }
         LogCall { args, .. } => {
-            if flag_verbose{
+            can_be_simplified = false;
+            if flags.verbose{
                 let mut index = 0;
                 for arglog in args {
                     if let LogArgument::LogExp(arg) = arglog{
-                        let f_result = execute_expression(arg, program_archive, runtime, flag_verbose)?;
+                        let f_result = execute_expression(arg, program_archive, runtime, flags)?;
                         let arith = safe_unwrap_to_single_arithmetic_expression(f_result, line!());
                         if AExpr::is_number(&arith){
                             print!("{}", arith);
@@ -441,16 +478,27 @@ fn execute_statement(
                     index += 1;
                 }
                 println!("");
+            } else{
+                for arglog in args {
+                    if let LogArgument::LogExp(arg) = arglog{
+                        let f_result = execute_expression(arg, program_archive, runtime, flags)?;
+                        let _arith = safe_unwrap_to_single_arithmetic_expression(f_result, line!());
+                    }
+                }
             }
             Option::None
         }
         Assert { arg, meta, .. } => {
-            let f_result = execute_expression(arg, program_archive, runtime, flag_verbose)?;
+            let f_result = execute_expression(arg, program_archive, runtime, flags)?;
             let arith = safe_unwrap_to_single_arithmetic_expression(f_result, line!());
             let possible_bool = AExpr::get_boolean_equivalence(&arith, runtime.constants.get_p());
             let result = match possible_bool {
                 Some(b) if !b => Err(ExecutionError::FalseAssert),
-                _ => Ok(None),
+                Some(b) if b => Ok(None),
+                _ => {
+                    can_be_simplified = false;
+                    Ok(None)
+                }
             };
             treat_result_with_execution_error(
                 result,
@@ -460,40 +508,41 @@ fn execute_statement(
             )?
         }
         UnderscoreSubstitution{ meta, rhe, op} =>{
-            let f_result = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
+            let f_result = execute_expression(rhe, program_archive, runtime, flags)?;
             let arithmetic_slice = safe_unwrap_to_arithmetic_slice(f_result, line!());
             if *op == AssignOp::AssignConstraintSignal{
                 for i in 0..AExpressionSlice::get_number_of_cells(&arithmetic_slice){
-                    let _value_cell = treat_result_with_memory_error(
+                    let value_cell = treat_result_with_memory_error(
                         AExpressionSlice::access_value_by_index(&arithmetic_slice, i),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    //let constraint_expression = AExpr::transform_expression_to_constraint_form(
-                    //    value_cell,
-                    //    runtime.constants.get_p(),
-                    //).unwrap();
-                    //if let Option::Some(node) = actual_node {
-                        //for signal in constraint_expression.take_signals(){
-                        //    node.add_underscored_signal(signal);
-                        //} 
-                    //}
+                    let constraint_expression = AExpr::transform_expression_to_constraint_form(
+                        value_cell,
+                        runtime.constants.get_p(),
+                    ).unwrap();
+                    if let Option::Some(node) = actual_node {
+                        for signal in constraint_expression.take_signals(){
+                            node.add_underscored_signal(signal);
+                        } 
+                    }
                 }
             }
             Option::None
         }
     };
-    Result::Ok(res)
+    Result::Ok((res, can_be_simplified))
 }
 
 fn execute_expression(
     expr: &Expression,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool
+    flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
     use Expression::*;
+    let mut can_be_simplified = true;
     let res = match expr {
         Number(_, value) => {
             let a_value = AExpr::Number { value: value.clone() };
@@ -502,11 +551,11 @@ fn execute_expression(
         }
         Variable { meta, name, access, .. } => {
             if ExecutionEnvironment::has_signal(&runtime.environment, name) {
-                execute_signal(meta, name, access, program_archive, runtime, flag_verbose)?
+                execute_signal(meta, name, access, program_archive, runtime, flags)?
             } else if ExecutionEnvironment::has_component(&runtime.environment, name) {
-                execute_component(meta, name, access, program_archive, runtime, flag_verbose)?
+                execute_component(meta, name, access, program_archive, runtime, flags)?
             } else if ExecutionEnvironment::has_variable(&runtime.environment, name) {
-                execute_variable(meta, name, access, program_archive, runtime, flag_verbose)?
+                execute_variable(meta, name, access, program_archive, runtime, flags)?
             } else {
                 unreachable!();
             }
@@ -514,7 +563,7 @@ fn execute_expression(
         ArrayInLine { meta, values, .. } => {
             let mut arithmetic_slice_array = Vec::new();
             for value in values.iter() {
-                let f_value = execute_expression(value, program_archive, runtime, flag_verbose)?;
+                let f_value = execute_expression(value, program_archive, runtime, flags)?;
                 let slice_value = safe_unwrap_to_arithmetic_slice(f_value, line!());
                 arithmetic_slice_array.push(slice_value);
             }
@@ -544,7 +593,7 @@ fn execute_expression(
             FoldedValue { arithmetic_slice: Option::Some(array_slice), ..FoldedValue::default() }
         }
         UniformArray { meta, value, dimension, .. } => {
-            let f_dimension = execute_expression(dimension, program_archive, runtime, flag_verbose)?;
+            let f_dimension = execute_expression(dimension, program_archive, runtime, flags)?;
             let arithmetic_dimension = safe_unwrap_to_single_arithmetic_expression(f_dimension, line!());
             let usable_dimension = if let Option::Some(dimension) = cast_index(&arithmetic_dimension) {
                 dimension
@@ -552,7 +601,7 @@ fn execute_expression(
                 unreachable!()
             };
 
-            let f_value = execute_expression(value, program_archive, runtime, flag_verbose)?;
+            let f_value = execute_expression(value, program_archive, runtime, flags)?;
             let slice_value = safe_unwrap_to_arithmetic_slice(f_value, line!());
             
             let mut dims = vec![usable_dimension];
@@ -580,8 +629,8 @@ fn execute_expression(
             FoldedValue { arithmetic_slice: Option::Some(array_slice), ..FoldedValue::default() }
         }
         InfixOp { meta, lhe, infix_op, rhe, .. } => {
-            let l_fold = execute_expression(lhe, program_archive, runtime, flag_verbose)?;
-            let r_fold = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
+            let l_fold = execute_expression(lhe, program_archive, runtime, flags)?;
+            let r_fold = execute_expression(rhe, program_archive, runtime, flags)?;
             let l_value = safe_unwrap_to_single_arithmetic_expression(l_fold, line!());
             let r_value = safe_unwrap_to_single_arithmetic_expression(r_fold, line!());
             let r_value = execute_infix_op(meta, *infix_op, &l_value, &r_value, runtime)?;
@@ -589,7 +638,7 @@ fn execute_expression(
             FoldedValue { arithmetic_slice: Option::Some(r_slice), ..FoldedValue::default() }
         }
         PrefixOp { prefix_op, rhe, .. } => {
-            let folded_value = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
+            let folded_value = execute_expression(rhe, program_archive, runtime, flags)?;
             let arithmetic_value =
                 safe_unwrap_to_single_arithmetic_expression(folded_value, line!());
             let arithmetic_result = execute_prefix_op(*prefix_op, &arithmetic_value, runtime)?;
@@ -597,15 +646,15 @@ fn execute_expression(
             FoldedValue { arithmetic_slice: Option::Some(slice_result), ..FoldedValue::default() }
         }
         InlineSwitchOp { cond, if_true, if_false, .. } => {
-            let f_cond = execute_expression(cond, program_archive, runtime, flag_verbose)?;
+            let f_cond = execute_expression(cond, program_archive, runtime, flags)?;
             let ae_cond = safe_unwrap_to_single_arithmetic_expression(f_cond, line!());
             let possible_bool_cond =
                 AExpr::get_boolean_equivalence(&ae_cond, runtime.constants.get_p());
             if let Option::Some(bool_cond) = possible_bool_cond {
                 if bool_cond {
-                    execute_expression(if_true, program_archive, runtime, flag_verbose)?
+                    execute_expression(if_true, program_archive, runtime, flags)?
                 } else {
-                    execute_expression(if_false, program_archive, runtime, flag_verbose)?
+                    execute_expression(if_false, program_archive, runtime, flags)?
                 }
             } else {
                 let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
@@ -613,10 +662,12 @@ fn execute_expression(
             }
         }
         Call { id, args, .. } => {
-            execute_call(id, args, program_archive, runtime, flag_verbose)?
+            let (value, can_simplify) = execute_call(id, args, program_archive, runtime, flags)?;
+            can_be_simplified = can_simplify;
+            value
         }
         ParallelOp{rhe, ..} => {
-            let folded_value = execute_expression(rhe, program_archive, runtime, flag_verbose)?;
+            let folded_value = execute_expression(rhe, program_archive, runtime, flags)?;
             let (node_pointer, _) =
                 safe_unwrap_to_valid_node_pointer(folded_value, line!());
             FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(true), ..FoldedValue::default() }
@@ -626,7 +677,7 @@ fn execute_expression(
     let expr_id = expr.get_meta().elem_id;
     let res_p = res.arithmetic_slice.clone();
     if let Some(slice) = res_p {
-        if slice.is_single() {
+        if slice.is_single() && can_be_simplified{
             let value = AExpressionSlice::unwrap_to_single(slice);
             Analysis::computed(&mut runtime.analysis, expr_id, value);
         }
@@ -642,11 +693,11 @@ fn execute_call(
     args: &Vec<Expression>,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool,
-) -> Result<FoldedValue, ()> {
+    flags: FlagsExecution,
+) -> Result<(FoldedValue, bool), ()> {
     let mut arg_values = Vec::new();
     for arg_expression in args.iter() {
-        let f_arg = execute_expression(arg_expression, program_archive, runtime, flag_verbose)?;
+        let f_arg = execute_expression(arg_expression, program_archive, runtime, flags)?;
         arg_values.push(safe_unwrap_to_arithmetic_slice(f_arg, line!()));
     }
     if program_archive.contains_function(id){ // in this case we execute
@@ -659,7 +710,7 @@ fn execute_call(
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
 
         runtime.call_trace.push(id.clone());
-        let folded_result = execute_function_call(id, program_archive, runtime, flag_verbose)?;
+        let folded_result = execute_function_call(id, program_archive, runtime, flags)?;
 
         runtime.environment = previous_environment;
         runtime.current_file = previous_id;
@@ -669,7 +720,7 @@ fn execute_call(
         Ok(folded_result)
     } else { // in this case we preexecute and check if it needs tags
         let folded_result = preexecute_template_call(id, &arg_values, program_archive, runtime)?;
-        Ok(folded_result)
+        Ok((folded_result, true))
     }
 }
 
@@ -679,7 +730,7 @@ fn execute_template_call_complete(
     tags: BTreeMap<String, TagInfo>,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool,
+    flags: FlagsExecution,
 ) -> Result<FoldedValue, ()> {
     if program_archive.contains_template(id){ // in this case we execute
         let new_environment = prepare_environment_for_call(id, &arg_values, program_archive);
@@ -691,7 +742,7 @@ fn execute_template_call_complete(
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
 
         runtime.call_trace.push(id.clone());
-        let folded_result = execute_template_call(id, arg_values, tags, program_archive, runtime, flag_verbose)?;
+        let folded_result = execute_template_call(id, arg_values, tags, program_archive, runtime, flags)?;
 
         runtime.environment = previous_environment;
         runtime.current_file = previous_id;
@@ -784,7 +835,7 @@ fn perform_assign(
     actual_node: &mut Option<ExecutedTemplate>,
     runtime: &mut RuntimeInformation,
     program_archive: &ProgramArchive,
-    flag_verbose: bool
+    flags: FlagsExecution
 ) -> Result<Option<Constrained>, ()> {
     use super::execution_data::type_definitions::SubComponentData;
     let full_symbol = create_symbol(symbol, &accessing_information);
@@ -1102,7 +1153,7 @@ fn perform_assign(
                     inputs_tags,
                     program_archive,
                     runtime,
-                    flag_verbose,
+                    flags,
                 )?;
                 
                 let (node_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(result, line!());
@@ -1192,7 +1243,7 @@ fn perform_assign(
                     inputs_tags,
                     program_archive,
                     runtime,
-                    flag_verbose,
+                    flags,
                 )?;
                 
                 let (node_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(folded_result, line!());
@@ -1283,33 +1334,34 @@ fn execute_conditional_statement(
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     actual_node: &mut Option<ExecutedTemplate>,
-    flag_verbose: bool,
-) -> Result<(Option<FoldedValue>, Option<bool>), ()> {
-    let f_cond = execute_expression(condition, program_archive, runtime, flag_verbose)?;
+    flags: FlagsExecution,
+) -> Result<(Option<FoldedValue>, bool, Option<bool>), ()> {
+    let f_cond = execute_expression(condition, program_archive, runtime, flags)?;
     let ae_cond = safe_unwrap_to_single_arithmetic_expression(f_cond, line!());
     let possible_cond_bool_value =
         AExpr::get_boolean_equivalence(&ae_cond, runtime.constants.get_p());
     if let Some(cond_bool_value) = possible_cond_bool_value {
-        let ret_value = match false_case {
+        let (ret_value, can_simplify) = match false_case {
             Some(else_stmt) if !cond_bool_value => {
-                execute_statement(else_stmt, program_archive, runtime, actual_node, flag_verbose)?
+                execute_statement(else_stmt, program_archive, runtime, actual_node, flags)?
             }
-            None if !cond_bool_value => None,
-            _ => execute_statement(true_case, program_archive, runtime, actual_node, flag_verbose)?,
+            None if !cond_bool_value => (None, true),
+            _ => execute_statement(true_case, program_archive, runtime, actual_node, flags)?,
         };
-        Result::Ok((ret_value, Option::Some(cond_bool_value)))
+        Result::Ok((ret_value, can_simplify, Option::Some(cond_bool_value)))
     } else {
         let previous_block_type = runtime.block_type;
         runtime.block_type = BlockType::Unknown;
-        let mut ret_value = execute_statement(true_case, program_archive, runtime, actual_node, flag_verbose)?;
+        let (mut ret_value, mut can_simplify) = execute_statement(true_case, program_archive, runtime, actual_node, flags)?;
         if let Option::Some(else_stmt) = false_case {
-            let else_ret = execute_statement(else_stmt, program_archive, runtime, actual_node, flag_verbose)?;
+            let (else_ret, can_simplify_else) = execute_statement(else_stmt, program_archive, runtime, actual_node, flags)?;
+            can_simplify &= can_simplify_else;
             if ret_value.is_none() {
                 ret_value = else_ret;
             }
         }
         runtime.block_type = previous_block_type;
-        return Result::Ok((ret_value, Option::None));
+        return Result::Ok((ret_value, can_simplify, Option::None));
     }
 }
 
@@ -1318,31 +1370,33 @@ fn execute_sequence_of_statements(
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     actual_node: &mut Option<ExecutedTemplate>,
-    flag_verbose: bool,
+    flags: FlagsExecution,
     is_complete_template: bool
-) -> Result<Option<FoldedValue>, ()> {
+) -> Result<(Option<FoldedValue>, bool), ()> {
+    let mut can_be_simplified = true;
     for stmt in stmts.iter() {
-        let f_value = execute_statement(stmt, program_archive, runtime, actual_node, flag_verbose)?;
+        let (f_value, can_simplify) = execute_statement(stmt, program_archive, runtime, actual_node, flags)?;
+        can_be_simplified &= can_simplify;
         if f_value.is_some() {
-            return Result::Ok(f_value);
+            return Result::Ok((f_value, can_be_simplified));
         }
     }
     if is_complete_template{
-        execute_delayed_declarations(program_archive, runtime, actual_node, flag_verbose)?;
+        execute_delayed_declarations(program_archive, runtime, actual_node, flags)?;
     }
-    Result::Ok(Option::None)
+    Result::Ok((Option::None, can_be_simplified))
 }
 
 fn execute_delayed_declarations(
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     actual_node: &mut Option<ExecutedTemplate>,
-    flag_verbose: bool,
+    flags: FlagsExecution,
 )-> Result<(), ()> {
     for (component_name, (meta, dimensions)) in runtime.anonymous_components.clone(){
         let mut arithmetic_values = Vec::new();
         for dimension in dimensions.iter() {
-            let f_dimensions = execute_expression(dimension, program_archive, runtime, flag_verbose)?;
+            let f_dimensions = execute_expression(dimension, program_archive, runtime, flags)?;
             arithmetic_values
                 .push(safe_unwrap_to_single_arithmetic_expression(f_dimensions, line!()));
         }
@@ -1408,9 +1462,9 @@ fn execute_variable(
     access: &[Access],
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool
+    flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
-    let access_information = treat_accessing(meta, access, program_archive, runtime, flag_verbose)?;
+    let access_information = treat_accessing(meta, access, program_archive, runtime, flags)?;
     if access_information.undefined {
         let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
         return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
@@ -1441,9 +1495,9 @@ fn execute_signal(
     access: &[Access],
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool
+    flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
-    let access_information = treat_accessing(meta, access, program_archive, runtime, flag_verbose)?;
+    let access_information = treat_accessing(meta, access, program_archive, runtime, flags)?;
     if access_information.undefined {
         let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
         return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
@@ -1521,7 +1575,7 @@ fn signal_to_arith(symbol: String, slice: SignalSlice) -> Result<AExpressionSlic
     if index == symbols.len() {
         Result::Ok(AExpressionSlice::new_array(route, expressions))
     } else {
-        Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::BadDimensions))
+        Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedSignal))
     }
 }
 
@@ -1541,9 +1595,9 @@ fn execute_component(
     access: &[Access],
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool
+    flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
-    let access_information = treat_accessing(meta, access, program_archive, runtime, flag_verbose)?;
+    let access_information = treat_accessing(meta, access, program_archive, runtime, flags)?;
     if access_information.undefined {
         let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
         return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
@@ -1568,44 +1622,40 @@ fn execute_component(
         &runtime.call_trace,
     )?;
     let resulting_component = safe_unwrap_to_single(slice_result, line!());
-    let read_result = if resulting_component.is_ready_initialize() {
-        Result::Ok(resulting_component)
-    } else {
-        Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent))
-    };
-    let checked_component = treat_result_with_memory_error(
-        read_result,
-        meta,
-        &mut runtime.runtime_errors,
-        &runtime.call_trace,
-    )?;
+    
     if let Some(acc) = access_information.tag_access {
-        if let Result::Ok(tags) = checked_component.get_signal(&access_information.signal_access.unwrap()) {
-            let btree_map = tags.0;
-            if btree_map.contains_key(&acc) {
-                let value_tag = btree_map.get(&acc).unwrap();
-                if let Some(value_tag) = value_tag {
-                    let a_value = AExpr::Number { value: value_tag.clone() };
-                    let ae_slice = AExpressionSlice::new(&a_value);
-                    Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
-                }
-                else {
-                    let error = MemoryError::TagValueNotInitializedAccess;
-                    treat_result_with_memory_error(
-                        Result::Err(error),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?
-                }
+        let (tags_signal, _) = treat_result_with_memory_error(
+            resulting_component.get_signal(&access_information.signal_access.unwrap()),
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        
+        if tags_signal.contains_key(&acc) {
+            let value_tag = tags_signal.get(&acc).unwrap();
+            if let Some(value_tag) = value_tag {
+                let a_value = AExpr::Number { value: value_tag.clone() };
+                let ae_slice = AExpressionSlice::new(&a_value);
+                Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
             }
-            else { unreachable!() }
-        } else { unreachable!()}
+            else {
+                let error = MemoryError::TagValueNotInitializedAccess;
+                treat_result_with_memory_error(
+                    Result::Err(error),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?
+            }
+        } else {
+            unreachable!()
+        }
+
     } 
     else if let Option::Some(signal_name) = &access_information.signal_access {
         let access_after_signal = &access_information.after_signal;
         let (tags_signal, signal) = treat_result_with_memory_error(
-            checked_component.get_signal(signal_name),
+            resulting_component.get_signal(signal_name),
             meta,
             &mut runtime.runtime_errors,
             &runtime.call_trace,
@@ -1631,6 +1681,19 @@ fn execute_component(
             &runtime.call_trace,
         )
     } else {
+        let read_result = if resulting_component.is_ready_initialize() {
+            Result::Ok(resulting_component)
+        } else {
+            Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent))
+        };
+
+        let checked_component = treat_result_with_memory_error(
+            read_result,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+
         Result::Ok(FoldedValue {
             node_pointer: checked_component.node_pointer,
             is_parallel: Some(false),
@@ -1663,17 +1726,17 @@ fn execute_function_call(
     id: &str,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool
-) -> Result<FoldedValue, ()> {
+    flags: FlagsExecution
+) -> Result<(FoldedValue, bool), ()> {
     let previous_block = runtime.block_type;
     runtime.block_type = BlockType::Known;
     let function_body = program_archive.get_function_data(id).get_body_as_vec();
-    let function_result =
-        execute_sequence_of_statements(function_body, program_archive, runtime, &mut Option::None, flag_verbose, true)?;
+    let (function_result, can_be_simplified) =
+        execute_sequence_of_statements(function_body, program_archive, runtime, &mut Option::None, flags, true)?;
     runtime.block_type = previous_block;
     let return_value = function_result.unwrap();
     debug_assert!(FoldedValue::valid_arithmetic_slice(&return_value));
-    Result::Ok(return_value)
+    Result::Ok((return_value, can_be_simplified))
 }
 
 fn execute_template_call(
@@ -1682,7 +1745,7 @@ fn execute_template_call(
     tag_values: BTreeMap<String, TagInfo>,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool
+    flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
     debug_assert!(runtime.block_type == BlockType::Known);
     let is_main = std::mem::replace(&mut runtime.public_inputs, vec![]);
@@ -1733,12 +1796,12 @@ fn execute_template_call(
             is_parallel,
             is_custom_gate
         ));
-        let ret = execute_sequence_of_statements(
+        let (ret, _) = execute_sequence_of_statements(
             template_body,
             program_archive,
             runtime,
             &mut node_wrap,
-            flag_verbose, 
+            flags, 
             true
         )?;
         debug_assert!(ret.is_none());
@@ -1865,7 +1928,7 @@ fn treat_indexing(
     access: &[Access],
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool
+    flags: FlagsExecution
 ) -> Result<(Vec<AExpr>, Option<String>, usize), ()> {
     let mut index_accesses = Vec::new();
     let mut signal_name = Option::None;
@@ -1876,7 +1939,7 @@ fn treat_indexing(
         }
         match &access[act] {
             Access::ArrayAccess(index) => {
-                let index_fold = execute_expression(index, program_archive, runtime, flag_verbose)?;
+                let index_fold = execute_expression(index, program_archive, runtime, flags)?;
                 let index_arithmetic_expression =
                     safe_unwrap_to_single_arithmetic_expression(index_fold, line!());
                 index_accesses.push(index_arithmetic_expression);
@@ -1965,12 +2028,12 @@ fn treat_accessing(
     access: &[Access],
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
-    flag_verbose: bool
+    flags: FlagsExecution
 ) -> Result<AccessingInformation, ()> {
     let (ae_before_signal, signal_name, signal_index) =
-        treat_indexing(0, access, program_archive, runtime, flag_verbose)?;
+        treat_indexing(0, access, program_archive, runtime, flags)?;
     let (ae_after_signal, tag_name , _tag_index) =
-        treat_indexing(signal_index + 1, access, program_archive, runtime, flag_verbose)?;
+        treat_indexing(signal_index + 1, access, program_archive, runtime, flags)?;
     treat_result_with_memory_error(
         valid_indexing(&ae_before_signal),
         meta,
@@ -2052,8 +2115,11 @@ fn treat_result_with_memory_error_void(
     use ReportCode::RuntimeError;
     match memory_error {
         Result::Ok(()) => Result::Ok(()),
-        Result::Err(MemoryError::MismatchedDimensionsWeak) => {
-                    let report = Report::warning("Typing warning: Mismatched dimensions, assigning to an array an expression of smaller length, the remaining positions are assigned to 0".to_string(), RuntimeError);
+        Result::Err(MemoryError::MismatchedDimensionsWeak(dim_given, dim_original)) => {
+                    let report = Report::warning(
+                        format!("Typing warning: Mismatched dimensions, assigning to an array an expression of smaller length, the remaining positions are assigned to 0.\n  Expected length: {}, given {}",
+                            dim_original, dim_given),
+                        RuntimeError);
                     add_report_to_runtime(report, meta, runtime_errors, call_trace);
                     Ok(())
                 },
@@ -2061,16 +2127,24 @@ fn treat_result_with_memory_error_void(
             let report = match memory_error {
                 MemoryError::InvalidAccess(type_invalid_access) => {
                     match type_invalid_access{
-                        TypeInvalidAccess::MissingInputs =>{
-                            Report::error("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized".to_string(),
+                        TypeInvalidAccess::MissingInputs(input) =>{
+                            Report::error(
+                                format!("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized.\n Missing input: {}",
+                                    input),
+                                RuntimeError)
+                        },
+                        TypeInvalidAccess::MissingInputTags(input) =>{
+                            Report::error(
+                                format!("Exception caused by invalid access: trying to access to a signal of a component with not all its inputs with tags initialized.\n Missing input (with tags): {}",
+                                    input),
                                 RuntimeError)
                         },
                         TypeInvalidAccess::NoInitializedComponent =>{
                             Report::error("Exception caused by invalid access: trying to access to a component that is not initialized" .to_string(),
                                 RuntimeError)
                         },
-                        TypeInvalidAccess::BadDimensions =>{
-                            Report::error("Exception caused by invalid access: invalid dimensions" .to_string(),
+                        TypeInvalidAccess::NoInitializedSignal =>{
+                            Report::error("Exception caused by invalid access: trying to access to a signal that is not initialized" .to_string(),
                                 RuntimeError)
                         }
                     }
@@ -2090,15 +2164,19 @@ fn treat_result_with_memory_error_void(
                 MemoryError::OutOfBoundsError => {
                     Report::error("Out of bounds exception".to_string(), RuntimeError)
                 },
-                MemoryError::MismatchedDimensions => {
-                    Report::error("Typing error found: mismatched dimensions".to_string(), RuntimeError)
+                MemoryError::MismatchedDimensions(given, orig) => {
+                    Report::error(
+                        format!("Typing error found: mismatched dimensions.\n Expected length: {}, given {}",
+                            orig, given),
+                         RuntimeError)
                 },
 
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
                 },
-                MemoryError::AssignmentMissingTags => Report::error(
-                    "Invalid assignment: missing tags required by input signal".to_string(),
+                MemoryError::AssignmentMissingTags(tag) => Report::error(
+                    format!("Invalid assignment: missing tags required by input signal. \n Missing tag: {}",
+                            tag),
                     RuntimeError,
                 ),
                 MemoryError::AssignmentTagAfterInit => Report::error(
@@ -2113,7 +2191,7 @@ fn treat_result_with_memory_error_void(
                     "Invalid assignment: this tag belongs to an input which already got a value".to_string(),
                     RuntimeError,
                 ),
-                MemoryError::MismatchedDimensionsWeak => unreachable!()
+                MemoryError::MismatchedDimensionsWeak(..) => unreachable!()
                 ,
                 MemoryError::TagValueNotInitializedAccess => Report::error(
                     "Tag value has not been previously initialized".to_string(), 
@@ -2143,16 +2221,24 @@ fn treat_result_with_memory_error<C>(
             let report = match memory_error {
                 MemoryError::InvalidAccess(type_invalid_access) => {
                     match type_invalid_access{
-                        TypeInvalidAccess::MissingInputs =>{
-                            Report::error("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized".to_string(),
+                        TypeInvalidAccess::MissingInputs(input) =>{
+                            Report::error(
+                                format!("Exception caused by invalid access: trying to access to an output signal of a component with not all its inputs initialized.\n Missing input: {}",
+                                    input),
+                                RuntimeError)
+                        },
+                        TypeInvalidAccess::MissingInputTags(input) =>{
+                            Report::error(
+                                format!("Exception caused by invalid access: trying to access to a signal of a component with not all its inputs with tags initialized.\n Missing input (with tags): {}",
+                                    input),
                                 RuntimeError)
                         },
                         TypeInvalidAccess::NoInitializedComponent =>{
                             Report::error("Exception caused by invalid access: trying to access to a component that is not initialized" .to_string(),
                                 RuntimeError)
                         },
-                        TypeInvalidAccess::BadDimensions =>{
-                            Report::error("Exception caused by invalid access: invalid dimensions" .to_string(),
+                        TypeInvalidAccess::NoInitializedSignal =>{
+                            Report::error("Exception caused by invalid access: trying to access to a signal that is not initialized" .to_string(),
                                 RuntimeError)
                         }
                     }
@@ -2169,8 +2255,9 @@ fn treat_result_with_memory_error<C>(
                         },
                     }
                 },
-                MemoryError::AssignmentMissingTags => Report::error(
-                    "Invalid assignment: missing tags required by input signal".to_string(),
+                MemoryError::AssignmentMissingTags(tag) => Report::error(
+                    format!("Invalid assignment: missing tags required by input signal. \n Missing tag: {}",
+                            tag),
                     RuntimeError,
                 ),
                 MemoryError::AssignmentTagAfterInit => Report::error(
@@ -2188,8 +2275,11 @@ fn treat_result_with_memory_error<C>(
                 MemoryError::OutOfBoundsError => {
                     Report::error("Out of bounds exception".to_string(), RuntimeError)
                 },
-                MemoryError::MismatchedDimensions => {
-                    Report::error(" Typing error found: mismatched dimensions".to_string(), RuntimeError)
+                MemoryError::MismatchedDimensions(given, orig) => {
+                    Report::error(
+                        format!("Typing error found: mismatched dimensions.\n Expected length: {}, given {}",
+                            orig, given),
+                         RuntimeError)
                 },
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
@@ -2198,7 +2288,7 @@ fn treat_result_with_memory_error<C>(
                     Report::error("Tag value has not been previously initialized".to_string(), RuntimeError)
 
                 } 
-                MemoryError::MismatchedDimensionsWeak => {
+                MemoryError::MismatchedDimensionsWeak(..) => {
                     unreachable!()
                 },
                 MemoryError::MissingInputs(name) => Report::error(
@@ -2274,10 +2364,32 @@ fn treat_result_with_execution_warning<C>(
         Result::Ok(_) => Result::Ok(()),
         Result::Err(execution_error) => {
             let report = match execution_error {
-                CanBeQuadraticConstraint => Report::warning(
-                    "Consider using <== instead of <-- to add the corresponding quadratic constraint".to_string(),
-                    ReportCode::RuntimeWarning,
-                )
+                CanBeQuadraticConstraintSingle() => {
+                    let msg = format!(
+                        "Consider using <== instead of <-- to add the corresponding constraint.\n The constraint representing the assignment satisfies the R1CS format and can be added to the constraint system."
+                    );
+                    Report::warning(
+                        msg,
+                        ReportCode::RuntimeWarning,
+                    )
+                },  
+                CanBeQuadraticConstraintMultiple(positions) =>{
+                    let mut msg_positions = positions[0].clone();
+                    for i in 1..positions.len(){
+                        msg_positions = format!("{}, {}", msg_positions, positions[i].clone()) 
+                    };
+
+                    let msg = format!(
+                        "Consider using <== instead of <-- for some of positions of the array of signals being assigned.\n The constraints representing the assignment of the positions {} satisfy the R1CS format and can be added to the constraint system.",
+                        msg_positions
+                    );
+                    Report::warning(
+                        msg,
+                        ReportCode::RuntimeWarning,
+                    )
+                }
+
+
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Ok(())

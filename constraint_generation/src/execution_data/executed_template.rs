@@ -78,6 +78,7 @@ pub struct ExecutedTemplate {
     pub is_parallel: bool,
     pub has_parallel_sub_cmp: bool,
     pub is_custom_gate: bool,
+    pub underscored_signals: Vec<String>,
     connexions: Vec<Connexion>,
 }
 
@@ -112,6 +113,7 @@ impl ExecutedTemplate {
             components: ComponentCollector::new(),
             number_of_components: 0,
             connexions: Vec::new(),
+            underscored_signals: Vec::new(),
         }
     }
 
@@ -178,6 +180,10 @@ impl ExecutedTemplate {
 
     pub fn add_constraint(&mut self, constraint: Constraint) {
         self.constraints.push(constraint);
+    }
+
+    pub fn add_underscored_signal(&mut self, signal: &str) {
+        self.underscored_signals.push(signal.to_string());
     }
 
     pub fn template_name(&self) -> &String {
@@ -279,12 +285,19 @@ impl ExecutedTemplate {
         dag.set_number_of_subcomponents_indexes(self.number_of_components);
     }
     fn build_constraints(&self, dag: &mut DAG) {
+        
         for c in &self.constraints {
             let correspondence = dag.get_main().unwrap().correspondence();
             let cc = Constraint::apply_correspondence(c, correspondence);
             dag.add_constraint(cc);
         }
+        for s in &self.underscored_signals{
+            let correspondence = dag.get_main().unwrap().correspondence();
+            let new_s = correspondence.get(s).unwrap().clone();
+            dag.add_underscored_signal(new_s);
+        }
     }
+
     pub fn export_to_circuit(self, instances: &mut [TemplateInstance]) -> TemplateInstance {
         use SignalType::*;
         fn build_triggers(
