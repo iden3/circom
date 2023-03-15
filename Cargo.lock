@@ -155,7 +155,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "circom"
-version = "2.1.4"
+version = "2.1.5"
 dependencies = [
  "ansi_term",
  "clap",
@@ -205,7 +205,7 @@ dependencies = [
 
 [[package]]
 name = "code_producers"
-version = "2.1.4"
+version = "2.1.5"
 dependencies = [
  "handlebars",
  "lz_fnv",
@@ -234,7 +234,7 @@ dependencies = [
 
 [[package]]
 name = "compiler"
-version = "2.1.4"
+version = "2.1.5"
 dependencies = [
  "code_producers",
  "constant_tracking",
@@ -255,7 +255,7 @@ version = "2.0.0"
 
 [[package]]
 name = "constraint_generation"
-version = "2.1.4"
+version = "2.1.5"
 dependencies = [
  "ansi_term",
  "circom_algebra",
@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "constraint_list"
-version = "2.1.4"
+version = "2.1.5"
 dependencies = [
  "circom_algebra",
  "constraint_writers",
@@ -282,7 +282,7 @@ dependencies = [
 
 [[package]]
 name = "constraint_writers"
-version = "2.0.9"
+version = "2.1.5"
 dependencies = [
  "circom_algebra",
  "json",
@@ -319,7 +319,7 @@ dependencies = [
 
 [[package]]
 name = "dag"
-version = "2.1.3"
+version = "2.1.5"
 dependencies = [
  "circom_algebra",
  "constraint_list",
@@ -655,7 +655,7 @@ checksum = "a86ed3f5f244b372d6b1a00b72ef7f8876d0bc6a78a4c9985c53614041512063"
 
 [[package]]
 name = "parser"
-version = "2.1.4"
+version = "2.1.5"
 dependencies = [
  "lalrpop",
  "lalrpop-util",
@@ -764,7 +764,7 @@ dependencies = [
 
 [[package]]
 name = "program_structure"
-version = "2.1.4"
+version = "2.1.5"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -1188,7 +1188,7 @@ dependencies = [
 
 [[package]]
 name = "type_analysis"
-version = "2.1.4"
+version = "2.1.5"
 dependencies = [
  "num-bigint-dig",
  "num-traits",
