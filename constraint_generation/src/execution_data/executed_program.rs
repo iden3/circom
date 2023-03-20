@@ -1,5 +1,6 @@
 use super::analysis::Analysis;
-use super::executed_template::ExecutedTemplate;
+use crate::FlagsExecution;
+use super::executed_template::{ExecutedTemplate, PreExecutedTemplate};
 use super::type_definitions::*;
 use compiler::hir::very_concrete_program::{Stats, VCPConfig, VCP};
 use dag::DAG;
@@ -12,21 +13,29 @@ pub type ExportResult = Result<(DAG, VCP, ReportCollection), ReportCollection>;
 #[derive(Default)]
 pub struct ExecutedProgram {
     pub model: Vec<ExecutedTemplate>,
+    pub model_pretemplates: Vec<PreExecutedTemplate>,
     pub template_to_nodes: HashMap<String, Vec<NodePointer>>,
+    pub prime: String,
 }
 
 impl ExecutedProgram {
-    pub fn new() -> ExecutedProgram {
-        ExecutedProgram::default()
+    pub fn new(prime: &String) -> ExecutedProgram {
+        ExecutedProgram{
+            model: Vec::new(),
+            template_to_nodes: HashMap::new(),
+            prime: prime.clone(),
+            model_pretemplates: Vec::new(),
+        }
     }
-    pub fn identify_node(&self, name: &str, context: &ParameterContext) -> Option<NodePointer> {
+
+    pub fn identify_node(&self, name: &str, context: &ParameterContext, tag_context: &TagContext) -> Option<NodePointer> {
         if !self.template_to_nodes.contains_key(name) {
             return Option::None;
         }
         let related_nodes = self.template_to_nodes.get(name).unwrap();
         for index in related_nodes {
             let existing_node = &self.model[*index];
-            if ExecutedTemplate::is_equal(existing_node, name, context) {
+            if ExecutedTemplate::is_equal(existing_node, name, context, tag_context) {
                 return Option::Some(*index);
             }
         }
@@ -42,6 +51,30 @@ impl ExecutedProgram {
         Option::Some(&self.model[node_pointer])
     }
 
+    pub fn get_prenode(&self, node_pointer: NodePointer) -> Option<&PreExecutedTemplate> {
+        if node_pointer >= self.model_pretemplates.len() {
+            return Option::None;
+        }
+        Option::Some(&self.model_pretemplates[node_pointer])
+    }
+
+    pub fn get_prenode_value(&self, node_pointer: NodePointer) -> Option<PreExecutedTemplate> {
+        if node_pointer >= self.model_pretemplates.len() {
+            return Option::None;
+        }
+        Option::Some(self.model_pretemplates[node_pointer].clone())
+    }
+
+    pub fn add_prenode_to_scheme(
+        &mut self,
+        node: PreExecutedTemplate,
+    ) -> NodePointer {
+        // Insert pretemplate
+        let node_index = self.model_pretemplates.len();
+        self.model_pretemplates.push(node);
+        node_index
+    }
+
     pub fn add_node_to_scheme(
         &mut self,
         mut node: ExecutedTemplate,
@@ -49,10 +82,14 @@ impl ExecutedProgram {
     ) -> NodePointer {
         use super::filters::*;
         // Clean code
-        apply_unused(&mut node.code, &analysis);
+        apply_unused(&mut node.code, &analysis, &self.prime);
         apply_computed(&mut node.code, &analysis);
         // Insert template
-        let possible_index = self.identify_node(node.template_name(), node.parameter_instances());
+        let possible_index = self.identify_node(
+            node.template_name(), 
+            node.parameter_instances(),
+            node.tag_instances(),
+        );
         if let Option::Some(index) = possible_index {
             return index;
         }
@@ -64,7 +101,7 @@ impl ExecutedProgram {
         node_index
     }
 
-    pub fn export(mut self, mut program: ProgramArchive, flag_verbose: bool) -> ExportResult {
+    pub fn export(mut self, mut program: ProgramArchive, flags: FlagsExecution) -> ExportResult {
         use super::executed_template::templates_in_mixed_arrays;
         fn merge_mixed(org: Vec<bool>, new: Vec<bool>) -> Vec<bool> {
             let mut result = Vec::with_capacity(org.len());
@@ -77,7 +114,7 @@ impl ExecutedProgram {
         }
 
         let mut warnings = vec![];
-        let mut dag = DAG::new();
+        let mut dag = DAG::new(&self.prime);
         let mut temp_instances = Vec::with_capacity(self.model.len());
         let mut mixed_instances = vec![false; self.model.len()];
 
@@ -91,15 +128,20 @@ impl ExecutedProgram {
         }
 
         for exe in self.model {
-            let tmp_instance = exe.export_to_circuit(&temp_instances);
+            let tmp_instance = exe.export_to_circuit(&mut temp_instances);
             temp_instances.push(tmp_instance);
         }
-        let mut w = dag.constraint_analysis()?;
-        warnings.append(&mut w);
+
+        temp_instances[dag.main_id()].is_not_parallel_component = true;
+        dag.clean_constraints();
+        if flags.inspect{
+            let mut w = dag.constraint_analysis()?;
+            warnings.append(&mut w);
+        }
 
         let dag_stats = produce_dags_stats(&dag);
-        crate::compute_constants::manage_functions(&mut program, flag_verbose)?;
-        crate::compute_constants::compute_vct(&mut temp_instances, &program, flag_verbose)?;
+        crate::compute_constants::manage_functions(&mut program, flags, &self.prime)?;
+        crate::compute_constants::compute_vct(&mut temp_instances, &program, flags, &self.prime)?;
         let mut mixed = vec![];
         let mut index = 0;
         for in_mixed in mixed_instances {
@@ -115,6 +157,7 @@ impl ExecutedProgram {
             templates: temp_instances,
             templates_in_mixed: mixed,
             program,
+            prime: self.prime,
         };
         let vcp = VCP::new(config);
         Result::Ok((dag, vcp, warnings))

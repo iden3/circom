@@ -125,16 +125,19 @@ fn function_level_decorators(program_archive: &mut ProgramArchive, reports: &mut
 fn semantic_analyses(
     program_archive: &ProgramArchive,
     errors: &mut ReportCollection,
-    _warnings: &mut ReportCollection,
+    warnings: &mut ReportCollection,
 ) {
     for template_name in program_archive.get_template_names().iter() {
-        let result_0 = unknown_known_analysis(template_name, program_archive);
-        let result_1 = tag_analysis(template_name, program_archive);
-        if let Result::Err(mut unknown_known_report) = result_0 {
-            errors.append(&mut unknown_known_report);
-        }
-        if let Result::Err(mut tag_analysis_reports) = result_1 {
-            errors.append(&mut tag_analysis_reports);
+        if let Result::Err(mut unknown_known_report) =
+            unknown_known_analysis(template_name, program_archive) {
+                errors.append(&mut unknown_known_report);
+            }
+        if program_archive.get_template_data(template_name).is_custom_gate() {
+            let body = program_archive.get_template_data(template_name).get_body();
+            match custom_gate_analysis(template_name, body) {
+                Result::Ok(mut custom_gate_report) => warnings.append(&mut custom_gate_report),
+                Result::Err(mut custom_gate_report) => errors.append(&mut custom_gate_report)
+            }
         }
     }
 }

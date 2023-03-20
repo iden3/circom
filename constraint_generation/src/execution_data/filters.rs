@@ -1,21 +1,22 @@
 use super::analysis::Analysis;
 use program_structure::ast::*;
 
-pub fn apply_unused(stmt: &mut Statement, analysis: &Analysis) {
-    clean_dead_code(stmt, analysis);
+pub fn apply_unused(stmt: &mut Statement, analysis: &Analysis, prime: &String) {
+    clean_dead_code(stmt, analysis, prime);
 }
 
-fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis) -> bool {
+fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis, prime: &String) -> bool {
     use circom_algebra::modular_arithmetic::as_bool;
     use Statement::*;
     match stmt {
-        While { stmt, .. } => clean_dead_code(stmt, analysis),
+        While { stmt, .. } => clean_dead_code(stmt, analysis, prime),
+        MultSubstitution { .. } => unreachable!(),
         IfThenElse { if_case, else_case, cond, meta } => {
-            let field = program_structure::constants::UsefulConstants::new().get_p().clone();
+            let field = program_structure::constants::UsefulConstants::new(prime).get_p().clone();
             let empty_block = Box::new(Block { meta: meta.clone(), stmts: vec![] });
-            let if_case_empty = clean_dead_code(if_case, analysis);
+            let if_case_empty = clean_dead_code(if_case, analysis, prime);
             let else_case_empty =
-                if let Some(case) = else_case { clean_dead_code(case, analysis) } else { true };
+                if let Some(case) = else_case { clean_dead_code(case, analysis, prime) } else { true };
             if else_case_empty {
                 *else_case = None;
             }
@@ -34,7 +35,7 @@ fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis) -> bool {
             for mut w in work {
                 let id = w.get_meta().elem_id;
                 if Analysis::is_reached(analysis, id) {
-                    let empty = clean_dead_code(&mut w, analysis);
+                    let empty = clean_dead_code(&mut w, analysis, prime);
                     if !empty {
                         stmts.push(w)
                     }
@@ -49,6 +50,7 @@ fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis) -> bool {
 pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
     use Statement::*;
     match stmt {
+        MultSubstitution { .. } => unreachable!(),
         IfThenElse { cond, if_case, else_case, .. } => {
             *cond = computed_or_original(analysis, cond);
             apply_computed_expr(cond, analysis);
@@ -86,14 +88,22 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
             apply_computed_expr(lhe, analysis);
             apply_computed_expr(rhe, analysis);
         }
-        LogCall { arg, .. } => {
-            *arg = computed_or_original(analysis, arg);
-            apply_computed_expr(arg, analysis);
+        LogCall { args, .. } => {
+            for arglog in args {
+                if let LogArgument::LogExp(arg) = arglog{
+                    *arg = computed_or_original(analysis, arg);
+                    apply_computed_expr(arg, analysis);
+                }
+            }
         }
         Assert { arg, .. } => {
             *arg = computed_or_original(analysis, arg);
             apply_computed_expr(arg, analysis);
         }
+        UnderscoreSubstitution {  rhe, .. } => {
+            *rhe = computed_or_original(analysis, rhe);
+            apply_computed_expr(rhe, analysis);
+        },
     }
 }
 
@@ -169,5 +179,16 @@ fn apply_computed_expr(expr: &mut Expression, analysis: &Analysis) {
         ArrayInLine { values, .. } => {
             apply_computed_expr_vec(values, analysis);
         }
+        UniformArray { value, dimension, .. } => {
+            *value = Box::new(computed_or_original(analysis, value));
+            *dimension = Box::new(computed_or_original(analysis, dimension));
+            apply_computed_expr(value, analysis);
+            apply_computed_expr(dimension, analysis);
+        }
+        ParallelOp {rhe, .. } => {
+            *rhe = Box::new(computed_or_original(analysis, rhe));
+            apply_computed_expr(rhe, analysis);
+        }
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }

@@ -1,10 +1,8 @@
 [package]
 name = "dag"
-version = "2.0.1"
-authors = ["hermeGarcia <hermegarcianavarro@gmail.com>"]
+version = "2.1.5"
+authors = ["Costa Group UCM","iden3"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 constraint_list = { path = "../constraint_list" }
@@ -12,3 +10,6 @@ constraint_writers = { path = "../constraint_writers" }
 circom_algebra = { path = "../circom_algebra" }
 program_structure = { path = "../program_structure" }
 json = "0.12.4"
+serde = "1.0.117"
+serde_derive = "1.0.117"
+serde_json = "1.0.59"

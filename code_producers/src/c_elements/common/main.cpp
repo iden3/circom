@@ -95,21 +95,62 @@ Circom_Circuit* loadCircuit(std::string const &datFileName) {
     return circuit;
 }
 
+bool check_valid_number(std::string & s, uint base){
+  bool is_valid = true;
+  if (base == 16){
+    for (uint i = 0; i < s.size(); i++){
+      is_valid &= (
+        ('0' <= s[i] && s[i] <= '9') || 
+        ('a' <= s[i] && s[i] <= 'f') ||
+        ('A' <= s[i] && s[i] <= 'F')
+      );
+    }
+  } else{
+    for (uint i = 0; i < s.size(); i++){
+      is_valid &= ('0' <= s[i] && s[i] < char(int('0') + base));
+    }
+  }
+  return is_valid;
+}
+
 void json2FrElements (json val, std::vector<FrElement> & vval){
   if (!val.is_array()) {
     FrElement v;
-    std::string s;
+    std::string s_aux, s;
+    uint base;
     if (val.is_string()) {
-        s = val.get<std::string>();
+      s_aux = val.get<std::string>();
+      std::string possible_prefix = s_aux.substr(0, 2);
+      if (possible_prefix == "0b" || possible_prefix == "0B"){
+        s = s_aux.substr(2, s_aux.size() - 2);
+        base = 2; 
+      } else if (possible_prefix == "0o" || possible_prefix == "0O"){
+        s = s_aux.substr(2, s_aux.size() - 2);
+        base = 8; 
+      } else if (possible_prefix == "0x" || possible_prefix == "0X"){
+        s = s_aux.substr(2, s_aux.size() - 2);
+        base = 16;
+      } else{
+        s = s_aux;
+        base = 10;
+      }
+      if (!check_valid_number(s, base)){
+        std::ostringstream errStrStream;
+        errStrStream << "Invalid number in JSON input: " << s_aux << "\n";
+	      throw std::runtime_error(errStrStream.str() );
+      }
     } else if (val.is_number()) {
         double vd = val.get<double>();
         std::stringstream stream;
         stream << std::fixed << std::setprecision(0) << vd;
         s = stream.str();
+        base = 10;
     } else {
-        throw new std::runtime_error("Invalid JSON type");
+        std::ostringstream errStrStream;
+        errStrStream << "Invalid JSON type\n";
+	      throw std::runtime_error(errStrStream.str() );
     }
-    Fr_str2element (&v, s.c_str());
+    Fr_str2element (&v, s.c_str(), base);
     vval.push_back(v);
   } else {
     for (uint i = 0; i < val.size(); i++) {
@@ -126,6 +167,9 @@ void loadJson(Circom_CalcWit *ctx, std::string filename) {
   
   u64 nItems = j.size();
   // printf("Items : %llu\n",nItems);
+  if (nItems == 0){
+    ctx->tryRunCircuit();
+  }
   for (json::iterator it = j.begin(); it != j.end(); ++it) {
     // std::cout << it.key() << " => " << it.value() << '\n';
     u64 h = fnv1a(it.key());
@@ -223,13 +267,13 @@ int main (int argc, char *argv[]) {
      std::cerr << "Not all inputs have been set. Only " << get_main_input_signal_no()-ctx->getRemaingInputsToBeSet() << " out of " << get_main_input_signal_no() << std::endl;
      assert(false);
    }
-   /*
+   
      for (uint i = 0; i<get_size_of_witness(); i++){
      FrElement x;
      ctx->getWitness(i, &x);
      std::cout << i << ": " << Fr_element2str(&x) << std::endl;
      }
-   */
+   
   
    //auto t_mid = std::chrono::high_resolution_clock::now();
    //std::cout << std::chrono::duration<double, std::milli>(t_mid-t_start).count()<<std::endl;

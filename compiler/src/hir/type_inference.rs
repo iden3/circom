@@ -2,6 +2,7 @@ use super::analysis_utilities::*;
 use super::very_concrete_program::*;
 use program_structure::ast::*;
 use std::collections::HashSet;
+use num_traits::{ToPrimitive};
 
 struct SearchInfo {
     environment: E,
@@ -39,7 +40,7 @@ fn infer_type_stmt(stmt: &Statement, state: &State, context: &mut SearchInfo) ->
         Option::None
     } else if stmt.is_assert() {
         Option::None
-    } else {
+    } else{
         unreachable!()
     }
 }
@@ -140,6 +141,8 @@ fn infer_type_expresion(expr: &Expression, state: &State, context: &mut SearchIn
         Option::Some(VCT::with_capacity(0))
     } else if expr.is_prefix() {
         Option::Some(VCT::with_capacity(0))
+    } else if expr.is_parallel(){
+        infer_type_parallel(expr, state, context)
     } else if expr.is_number() {
         Option::Some(VCT::with_capacity(0))
     } else {
@@ -161,6 +164,15 @@ fn infer_type_switch(expr: &Expression, state: &State, context: &mut SearchInfo)
     }
 }
 
+fn infer_type_parallel(expr: &Expression, state: &State, context: &mut SearchInfo) -> Option<VCT> {
+    use Expression::ParallelOp;
+    if let ParallelOp { rhe, .. } = expr {
+        infer_type_expresion(rhe, state, context)
+    } else {
+        unreachable!()
+    }
+}
+
 fn infer_type_variable(expr: &Expression, _state: &State, context: &mut SearchInfo) -> Option<VCT> {
     use Expression::Variable;
     if let Variable { name, access, .. } = expr {
@@ -171,11 +183,33 @@ fn infer_type_variable(expr: &Expression, _state: &State, context: &mut SearchIn
     }
 }
 
+fn cast_dimension(ae_index: &Expression) -> Option<usize> {
+    use Expression::Number;
+
+    if let Number(_, value) = ae_index {
+        value.to_usize()
+    } else {
+        Option::None
+    }
+}
+
 fn infer_type_array(expr: &Expression, state: &State, context: &mut SearchInfo) -> Option<VCT> {
-    use Expression::ArrayInLine;
+    use Expression::{ArrayInLine, UniformArray};
     if let ArrayInLine { values, .. } = expr {
         let mut lengths = vec![values.len()];
         let with_type = infer_type_expresion(&values[0], state, context);
+        with_type.map(|mut l| {
+            lengths.append(&mut l);
+            lengths
+        })
+    } else if let UniformArray { value, dimension, .. } = expr {
+        let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
+            dimension
+        } else {
+            unreachable!()
+        };
+        let mut lengths = vec![usable_dimension];
+        let with_type = infer_type_expresion(&value, state, context);
         with_type.map(|mut l| {
             lengths.append(&mut l);
             lengths

@@ -1,4 +1,5 @@
 pub mod wasm_code_generator;
+
 use crate::components::*;
 
 type WasmInstruction = String;
@@ -16,6 +17,7 @@ pub struct WASMProducer {
     pub number_of_components: usize,
     pub main_header: String,
     pub prime: String,
+    pub prime_str: String,
     pub main_input_list: InputList,
     pub witness_to_signal_list: SignalList,
     pub io_map: TemplateInstanceIOMap,
@@ -23,7 +25,9 @@ pub struct WASMProducer {
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
     pub wat_flag: bool,
-    version: usize,
+    pub major_version: usize,
+    pub minor_version: usize,
+    pub patch_version: usize,
     stack_free_pos: usize,
     local_info_size_u32: usize,
     size_of_message_buffer_in_bytes: usize,
@@ -41,12 +45,18 @@ pub struct WASMProducer {
     call_lvar_tag: String,
     expaux_tag: String,
     temp_tag: String,
+    aux_0_tag: String,
+    aux_1_tag: String,
+    aux_2_tag: String,
+    counter_tag: String,
     store_aux_1_tag: String,
     store_aux_2_tag: String,
     copy_counter_tag: String,
     create_loop_sub_cmp_tag: String,
     create_loop_offset_tag: String,
     create_loop_counter_tag: String,
+    merror_tag: String,
+    string_table:  Vec<String>,
 }
 
 impl Default for WASMProducer {
@@ -60,6 +70,7 @@ impl Default for WASMProducer {
             main_signal_offset: 1,
             prime: "21888242871839275222246405745257275088548364400416034343698204186575808495617"
                 .to_string(),
+            prime_str: "bn128".to_string(),
             fr_memory_size: 1948,
             size_32_bit: 8,
             size_32_shift: 5,
@@ -76,8 +87,9 @@ impl Default for WASMProducer {
             template_instance_list: [].to_vec(),
             field_tracking: [].to_vec(),
             wat_flag: true,
-            // fix values
-            version: 2,
+            major_version: 0,
+            minor_version: 0,
+            patch_version: 0,
             stack_free_pos: 0,
             local_info_size_u32: 0, // in the future we can add some info like pointer to run father or text father
             size_of_message_buffer_in_bytes: 256,
@@ -95,12 +107,18 @@ impl Default for WASMProducer {
             call_lvar_tag: "$calllvar".to_string(),
             expaux_tag: "$expaux".to_string(),
             temp_tag: "$temp".to_string(),
+            aux_0_tag: "$aux0".to_string(),
+            aux_1_tag: "$aux1".to_string(),
+            aux_2_tag: "$aux2".to_string(),
+            counter_tag: "$counter".to_string(),
             store_aux_1_tag: "$storeaux1".to_string(),
             store_aux_2_tag: "$storeaux2".to_string(),
             copy_counter_tag: "$copycounter".to_string(),
             create_loop_sub_cmp_tag: "$createloopsubcmp".to_string(),
             create_loop_offset_tag: "$createloopoffset".to_string(),
             create_loop_counter_tag: "$createloopcounter".to_string(),
+	        merror_tag: "$merror".to_string(),
+            string_table: Vec::new(),
         }
     }
 }
@@ -135,7 +153,13 @@ impl WASMProducer {
         }
     */
     pub fn get_version(&self) -> usize {
-        self.version
+        self.major_version
+    }
+    pub fn get_minor_version(&self) -> usize {
+        self.minor_version
+    }
+    pub fn get_patch_version(&self) -> usize {
+        self.patch_version
     }
     pub fn get_main_header(&self) -> &str {
         &self.main_header
@@ -293,9 +317,14 @@ impl WASMProducer {
     pub fn get_message_list_start(&self) -> usize {
         self.get_message_buffer_start() + self.size_of_message_buffer_in_bytes
     }
-    pub fn get_constant_numbers_start(&self) -> usize {
+    pub fn get_string_list_start(&self) -> usize {
         self.get_message_list_start() + self.size_of_message_in_bytes * self.message_list.len()
     }
+
+    pub fn get_constant_numbers_start(&self) -> usize {
+        self.get_string_list_start() + self.size_of_message_in_bytes * self.string_table.len()
+    }
+    
     pub fn get_var_stack_memory_start(&self) -> usize {
         self.get_constant_numbers_start() + (self.size_32_bit + 2) * 4 * self.field_tracking.len()
     }
@@ -341,6 +370,18 @@ impl WASMProducer {
     pub fn get_temp_tag(&self) -> &str {
         &self.temp_tag
     }
+    pub fn get_aux_0_tag(&self) -> &str {
+        &self.aux_0_tag
+    }
+    pub fn get_aux_1_tag(&self) -> &str {
+        &self.aux_1_tag
+    }
+    pub fn get_aux_2_tag(&self) -> &str {
+        &self.aux_2_tag
+    }
+    pub fn get_counter_tag(&self) -> &str {
+        &self.counter_tag
+    }
     pub fn get_store_aux_1_tag(&self) -> &str {
         &self.store_aux_1_tag
     }
@@ -359,7 +400,18 @@ impl WASMProducer {
     pub fn get_create_loop_counter_tag(&self) -> &str {
         &self.create_loop_counter_tag
     }
+    pub fn get_merror_tag(&self) -> &str {
+	&self.merror_tag
+    }
     pub fn needs_comments(&self) -> bool{
         self.wat_flag
+    }
+
+    pub fn get_string_table(&self) -> &Vec<String> {
+        &self.string_table
+    }
+
+    pub fn set_string_table(&mut self, string_table: Vec<String>) {
+        self.string_table = string_table;
     }
 }

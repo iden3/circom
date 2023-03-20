@@ -26,8 +26,12 @@ pub struct SignalInfo {
 }
 pub struct EncodingNode {
     pub id: usize,
+    pub name: String,
+    pub parameters: Vec<BigInt>,
     pub signals: Vec<SignalInfo>,
+    pub ordered_signals: Vec<usize>,
     pub non_linear: LinkedList<C>,
+    pub is_custom_gate: bool,
 }
 
 pub struct EncodingEdge {
@@ -119,6 +123,7 @@ pub struct Simplifier {
     pub no_rounds: usize,
     pub parallel_flag: bool,
     pub flag_s: bool,
+    pub flag_old_heuristics: bool,
     pub port_substitution: bool,
 }
 impl Simplifier {
@@ -158,8 +163,8 @@ pub struct ConstraintList {
 }
 
 impl ConstraintExporter for ConstraintList {
-    fn r1cs(&self, out: &str) -> Result<(), ()> {
-        r1cs_porting::port_r1cs(self, out)
+    fn r1cs(&self, out: &str, custom_gates: bool) -> Result<(), ()> {
+        r1cs_porting::port_r1cs(self, out, custom_gates)
     }
 
     fn json_constraints(&self, writer: &DebugWriter) -> Result<(), ()> {

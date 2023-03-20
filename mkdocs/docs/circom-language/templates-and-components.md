@@ -213,3 +213,36 @@ template parallel NameTemplate(...){...}
 
 If this tag is used, the resulting C++ file will contain the parallelized code to compute the witness. Parallelization becomes particularly relevant when dealing with large circuits.
 
+Notice that the previous parallelism is declared at template level. Sometimes, it can be useful declare the parallelism for each component. Since version 2.0.8, the tag parallel can be also used at component level, with the parallel tag indicated right before the call to the template.
+
+```text
+component comp = parallel NameTemplate(...){...}
+```
+A real example of use case is the following piece of code from the rollup code:
+```
+component rollupTx[nTx];
+for (i = 0; i < nTx; i++) {
+        rollupTx[i] = parallel RollupTx(nLevels, maxFeeTx);
+}
+```
+
+It is important to highlight again that this parallelism can only be exploited in C++ witness generator.
+ 
+## Custom templates
+
+Since version 2.0.6, the language allows the definition of a new type of templates, custom templates. This new construction works similarly to standard templates: they are declared analogously, just adding the keyword `custom` in its declaration after `template`; and are instantiated in the exact same way. That is, a custom template `Example` is defined and then instantiated as follows:
+
+```text
+pragma circom 2.0.6; // note that custom templates are only allowed since version 2.0.6
+pragma custom_templates;
+
+template custom Example() {
+   // custom template's code
+}
+
+template UsingExample() {
+   component example = Example(); // instantiation of the custom template
+}
+```
+
+However, the way in which their computation is encoded is different from the one for standard templates. Instead of producing r1cs constraints, the usage of each defined custom template will be treated in a later stage by [snarkjs](../index.md#snarkjs) to generate and validate the zk proof, in this case using the PLONK scheme (and using the custom template's definitions as PLONK's custom gates, see [here](../circom-language/custom-templates-snarkjs.md) how). Information about the definition and usages of custom templates will be exported in the `.r1cs` file (see [here](https://github.com/iden3/r1csfile/blob/master/doc/r1cs_bin_format.md) sections 4 and 5). This means that custom templates cannot introduce any constraint inside their body, nor declare any subcomponent.

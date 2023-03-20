@@ -46,7 +46,6 @@ pub fn reduce_compute(mut bucket: ComputeBucket) -> Instruction {
             message_id: bucket.message_id,
             parse_as: ValueType::U32,
             op_aux_no: bucket.op_aux_no,
-            is_parallel: bucket.is_parallel,
             value,
         };
         IntoInstruction::into_instruction(v_bucket)
@@ -82,7 +81,22 @@ pub fn reduce_loop(mut bucket: LoopBucket) -> Instruction {
 }
 
 pub fn reduce_log(mut bucket: LogBucket) -> Instruction {
-    bucket.print = Allocate::allocate(reduce_instruction(*bucket.print));
+    let mut new_args_prints : Vec<LogBucketArg> = Vec::new();
+    for print in bucket.argsprint {
+        match print {
+            LogBucketArg::LogExp(exp)=> {
+                let print_aux = Allocate::allocate(reduce_instruction(*exp));
+                new_args_prints.push(LogBucketArg::LogExp(print_aux));
+
+            },
+            LogBucketArg::LogStr(s) => {
+                new_args_prints.push(LogBucketArg::LogStr(s));
+            },
+        }
+        
+    }
+    
+    bucket.argsprint = new_args_prints;
     IntoInstruction::into_instruction(bucket)
 }
 
@@ -131,9 +145,9 @@ pub fn reduce_address_type(at: AddressType) -> AddressType {
     match at {
         Variable => Variable,
         Signal => Signal,
-        SubcmpSignal { cmp_address, is_parallel, is_output, input_information } => {
+        SubcmpSignal { cmp_address, uniform_parallel_value, is_output, input_information } => {
             let cmp_address = Allocate::allocate(reduce_instruction(*cmp_address));
-            SubcmpSignal { cmp_address, is_parallel, is_output, input_information }
+            SubcmpSignal { cmp_address, uniform_parallel_value, is_output, input_information }
         }
     }
 }

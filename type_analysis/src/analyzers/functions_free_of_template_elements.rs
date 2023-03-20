@@ -27,6 +27,7 @@ fn analyse_statement(
     use Statement::*;
     let file_id = stmt.get_meta().get_file_id();
     match stmt {
+        MultSubstitution { .. } => unreachable!(),
         IfThenElse { cond, if_case, else_case, .. } => {
             analyse_expression(cond, function_names, reports);
             analyse_statement(if_case, function_names, reports);
@@ -101,12 +102,32 @@ fn analyse_statement(
             analyse_expression(lhe, function_names, reports);
             analyse_expression(rhe, function_names, reports);
         }
-        LogCall { arg, .. } | Assert { arg, .. } => {
+        LogCall { args, .. } => {
+            for logarg in args {
+                if let LogArgument::LogExp(arg) = logarg {
+                    analyse_expression(arg, function_names, reports);
+                }
+            }
+        }
+        Assert { arg, .. } => {
             analyse_expression(arg, function_names, reports);
         }
         Return { value, .. } => {
             analyse_expression(value, function_names, reports);
         }
+        UnderscoreSubstitution { meta, op, rhe } => {
+            if op.is_signal_operator() {
+                let mut report = Report::error(
+                    "Function uses template operators".to_string(),
+                    ReportCode::UndefinedFunction,
+                );
+                let location =
+                    file_definition::generate_file_location(meta.get_start(), meta.get_end());
+                report.add_primary(location, file_id, "Template operator found".to_string());
+                reports.push(report);
+            }
+            analyse_expression(rhe, function_names, reports);
+        },
     }
 }
 
@@ -148,6 +169,9 @@ fn analyse_expression(
         PrefixOp { rhe, .. } => {
             analyse_expression(rhe, function_names, reports);
         }
+        ParallelOp{ rhe, ..} =>{
+            analyse_expression(rhe, function_names, reports);
+        }
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             analyse_expression(cond, function_names, reports);
             analyse_expression(if_true, function_names, reports);
@@ -175,5 +199,12 @@ fn analyse_expression(
                 analyse_expression(value, function_names, reports);
             }
         }
+        UniformArray {value, dimension, .. } => {
+            analyse_expression(value, function_names, reports);
+            analyse_expression(dimension, function_names, reports);
+
+
+        }
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }

@@ -10,7 +10,7 @@
 #include "circom.hpp"
 #include "fr.hpp"
 
-#define NMUTEXES 12 //512
+#define NMUTEXES 32 //512
 
 u64 fnv1a(std::string s);
 
@@ -32,9 +32,9 @@ public:
   // parallelism
   std::mutex numThreadMutex;
   std::condition_variable ntcvs;
-  uint numThread;
+  int numThread;
 
-  uint maxThread;
+  int maxThread;
 
   // Functions called by the circuit
   Circom_CalcWit(Circom_Circuit *aCircuit, uint numTh = NMUTEXES);
@@ -42,6 +42,7 @@ public:
 
   // Public functions
   void setInputSignal(u64 h, uint i, FrElement &val);
+  void tryRunCircuit();
   
   u64 getInputSignalSize(u64 h);
 

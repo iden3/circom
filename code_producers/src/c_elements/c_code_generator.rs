@@ -69,6 +69,14 @@ pub fn declare_sub_component_aux() -> CInstruction {
     format!("uint {}", SUBCOMPONENT_AUX)
 }
 
+pub const INDEX_MULTIPLE_EQ: &str = "index_multiple_eq"; // type PFrElements[]
+pub fn declare_index_multiple_eq() -> CInstruction {
+    format!("uint {}", INDEX_MULTIPLE_EQ)
+}
+pub fn index_multiple_eq() -> CInstruction {
+    format!("{}", INDEX_MULTIPLE_EQ)
+}
+
 pub const FUNCTION_DESTINATION: &str = "destination"; // type PFrElements[]
 pub fn declare_dest_pointer() -> CInstruction {
     format!("{}* {}", T_FR_ELEMENT, FUNCTION_DESTINATION)
@@ -205,6 +213,11 @@ pub fn function_table() -> CInstruction {
     format!("{}", FUNCTION_TABLE)
 }
 
+pub const FUNCTION_TABLE_PARALLEL: &str = "_functionTableParallel";
+pub fn function_table_parallel() -> CInstruction {
+    format!("{}", FUNCTION_TABLE_PARALLEL)
+}
+
 pub const SIGNAL_VALUES: &str = "signalValues";
 pub fn declare_signal_values() -> CInstruction {
     format!("FrElement* {} = {}->{}", SIGNAL_VALUES, CIRCOM_CALC_WIT, SIGNAL_VALUES)
@@ -282,6 +295,17 @@ pub fn my_subcomponents() -> CInstruction {
     format!("{}", MY_SUBCOMPONENTS)
 }
 
+pub const MY_SUBCOMPONENTS_PARALLEL: &str = "mySubcomponentsParallel";
+pub fn declare_my_subcomponents_parallel() -> CInstruction {
+    format!(
+        "bool* {} = {}->componentMemory[{}].subcomponentsParallel",
+        MY_SUBCOMPONENTS_PARALLEL, CIRCOM_CALC_WIT, CTX_INDEX
+    )
+}
+pub fn my_subcomponents_parallel() -> CInstruction {
+    format!("{}", MY_SUBCOMPONENTS_PARALLEL)
+}
+
 pub const CIRCUIT_CONSTANTS: &str = "circuitConstants";
 pub fn declare_circuit_constants() -> CInstruction {
     format!("FrElement* {} = {}->{}", CIRCUIT_CONSTANTS, CIRCOM_CALC_WIT, CIRCUIT_CONSTANTS)
@@ -347,6 +371,15 @@ pub fn set_list(elems: Vec<usize>) -> String {
     set_string
 }
 
+pub fn set_list_bool(elems: Vec<bool>) -> String {
+    let mut set_string = "{".to_string();
+    for elem in elems {
+        set_string = format!("{}{},", set_string, elem);
+    }
+    set_string.pop();
+    set_string.push('}');
+    set_string
+}
 
 pub fn add_return() -> String {
     "return;".to_string()
@@ -388,12 +421,11 @@ pub fn merge_code(instructions: Vec<String>) -> String {
     code
 }
 
-pub fn collect_template_headers(instances: &TemplateList) -> Vec<String> {
+pub fn collect_template_headers(instances: &TemplateListParallel) -> Vec<String> {
     let mut template_headers = vec![];
     for instance in instances {
         let params_run = vec![declare_ctx_index(), declare_circom_calc_wit()];
         let params_run = argument_list(params_run);
-        let run_header = format!("void {}_run({});", instance, params_run);
         let params_create = vec![
             declare_signal_offset(), 
             declare_component_offset(), 
@@ -402,9 +434,18 @@ pub fn collect_template_headers(instances: &TemplateList) -> Vec<String> {
             declare_component_father(),
         ];
         let params_create = argument_list(params_create);
-        let create_header = format!("void {}_create({});", instance, params_create);
-        template_headers.push(create_header);
-        template_headers.push(run_header);
+        if instance.is_parallel{
+            let run_header = format!("void {}_run_parallel({});", instance.name, params_run);
+            let create_header = format!("void {}_create_parallel({});", instance.name, params_create);
+            template_headers.push(create_header);
+            template_headers.push(run_header);
+        }
+        if instance.is_not_parallel{
+            let run_header = format!("void {}_run({});", instance.name, params_run);
+            let create_header = format!("void {}_create({});", instance.name, params_create);
+            template_headers.push(create_header);
+            template_headers.push(run_header);
+        }
     }
     template_headers
 }
@@ -617,20 +658,19 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
                                                     //let hml = 256 as u32;
                                                     //dfile.write_all(&hml.to_be_bytes())?;
     dat_file.write_all(&hashmap)?;
-    dat_file.flush()?;
+    //dat_file.flush()?;
     let s = generate_dat_witness_to_signal_list(producer.get_witness_to_signal_list()); // list of bytes u64
                                                                                         //let sl = s.len() as u64; //8 bytes
                                                                                         //dfile.write_all(&sl.to_be_bytes())?;
     dat_file.write_all(&s)?;
-    dat_file.flush()?;
+    //dat_file.flush()?;
     let s = generate_dat_constant_list(producer, producer.get_field_constant_list()); // list of bytes Fr
     dat_file.write_all(&s)?;
-    dat_file.flush()?;
+    //dat_file.flush()?;
     //let ioml = producer.get_io_map().len() as u64;
     //dfile.write_all(&ioml.to_be_bytes())?;
     let iomap = generate_dat_io_signals_info(&producer, producer.get_io_map());
     dat_file.write_all(&iomap)?;
-    dat_file.flush()?;
     /*
         let ml = producer.get_message_list();
         let mll = ml.len() as u64;
@@ -643,18 +683,37 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
             dfile.flush()?;
         }
     */
+    dat_file.flush()?;
     Ok(())
 }
-
-pub fn generate_function_list(_producer: &CProducer, list: &TemplateList) -> String {
-    let mut func_list = "".to_string();
+pub fn generate_function_list(_producer: &CProducer, list: &TemplateListParallel) -> (String, String) {
+    let mut func_list= "".to_string();
+    let mut func_list_parallel= "".to_string();
     if list.len() > 0 {
-        func_list.push_str(&format!("\n{}_run", list[0]));
-        for i in 1..list.len() {
-            func_list.push_str(&format!(",\n{}_run", list[i]));
+        if list[0].is_parallel{
+            func_list_parallel.push_str(&format!("\n{}_run_parallel",list[0].name));
+        }else{
+            func_list_parallel.push_str(&format!("\nNULL"));
         }
+        if list[0].is_not_parallel{
+            func_list.push_str(&format!("\n{}_run",list[0].name));
+        }else{
+            func_list.push_str(&format!("\nNULL"));
+        }
+	    for i in 1..list.len() {
+            if list[i].is_parallel{
+                func_list_parallel.push_str(&format!(",\n{}_run_parallel",list[i].name));
+            }else{
+                func_list_parallel.push_str(&format!(",\nNULL"));
+            }
+            if list[i].is_not_parallel{
+                func_list.push_str(&format!(",\n{}_run",list[i].name));
+            }else{
+                func_list.push_str(&format!(",\nNULL"));
+            }
+	    }
     }
-    func_list
+    (func_list, func_list_parallel)
 }
 
 pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageList) -> Vec<String> {
@@ -675,6 +734,38 @@ pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageLi
     instructions
 }
 
+pub fn generate_function_release_memory_component() -> Vec<String>{
+    let mut instructions = vec![];
+    instructions.push("void release_memory_component(Circom_CalcWit* ctx, uint pos) {{\n".to_string());
+    instructions.push("if (pos != 0){{\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].subcomponents)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].subcomponents;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].subcomponentsParallel)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].subcomponentsParallel;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].outputIsSet)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].outputIsSet;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].mutexes)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].mutexes;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].cvs)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].cvs;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].sbct)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].sbct;\n".to_string());
+    instructions.push("}}\n\n".to_string());
+    instructions.push("}}\n\n".to_string());
+    instructions
+}
+
+pub fn generate_function_release_memory_circuit() -> Vec<String>{ 
+    // deleting each one of the components
+    let mut instructions = vec![];
+    instructions.push("void release_memory(Circom_CalcWit* ctx) {{\n".to_string());
+    instructions.push("for (int i = 0; i < get_number_of_components(); i++) {{\n".to_string());
+    instructions.push("release_memory_component(ctx, i);\n".to_string());
+    instructions.push("}}\n".to_string());
+    instructions.push("}}\n".to_string());
+    instructions
+  }
+
 pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
@@ -683,7 +774,7 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("main.cpp");
+    let file = include_str!("common/main.cpp");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -700,7 +791,7 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("circom.hpp");
+    let file = include_str!("common/circom.hpp");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -709,7 +800,7 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_fr_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -717,7 +808,12 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("fr.hpp");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr.hpp"),
+        "bls12381" => include_str!("bls12381/fr.hpp"),
+        "goldilocks" => include_str!("goldilocks/fr.hpp"),
+        _ => unreachable!(),
+    };
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -734,7 +830,7 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("calcwit.hpp");
+    let file = include_str!("common/calcwit.hpp");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -743,7 +839,7 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_fr_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -751,7 +847,12 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("fr.cpp");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr.cpp"),
+        "bls12381" => include_str!("bls12381/fr.cpp"),
+        "goldilocks" => include_str!("goldilocks/fr.cpp"),
+        _ => unreachable!(),
+    };
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -768,7 +869,7 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("calcwit.cpp");
+    let file = include_str!("common/calcwit.cpp");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -777,7 +878,7 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_fr_asm_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -785,7 +886,12 @@ pub fn generate_fr_asm_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("fr.asm");
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr.asm"),
+        "bls12381" => include_str!("bls12381/fr.asm"),
+        "goldilocks" => include_str!("goldilocks/fr.asm"),
+        _ => unreachable!(),
+    };    
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -801,12 +907,12 @@ pub fn generate_make_file(
 ) -> std::io::Result<()> {
     use std::io::BufWriter;
 
-    const MAKEFILE_TEMPLATE: &str = include_str!("./makefile");
+    let makefile_template: &str = include_str!("common/makefile");
 
     let template = handlebars::Handlebars::new();
     let code = template
         .render_template(
-            MAKEFILE_TEMPLATE,
+            makefile_template,
             &json!({
                 "run_name": run_name,
                 "has_parallelism": producer.has_parallelism,
@@ -837,10 +943,18 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
     let mut run_defs = collect_template_headers(producer.get_template_instance_list());
     code.append(&mut run_defs);
 
+    let (func_list_no_parallel, func_list_parallel) = generate_function_list(producer, producer.get_template_instance_list());
+
     code.push(format!(
         "Circom_TemplateFunction _functionTable[{}] = {{ {} }};",
         producer.get_number_of_template_instances(),
-        generate_function_list(producer, producer.get_template_instance_list())
+        func_list_no_parallel,
+    ));
+
+    code.push(format!(
+        "Circom_TemplateFunction _functionTableParallel[{}] = {{ {} }};",
+        producer.get_number_of_template_instances(),
+        func_list_parallel,
     ));
 
     code.push(format!("uint get_size_of_input_hashmap() {{return {};}}\n", len));
@@ -858,8 +972,8 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
     // code.append(&mut ml_def);
     for l in code {
         cfile.write_all(l.as_bytes())?;
-        cfile.flush()?;
     }
+    cfile.flush()?;
     Ok(())
 }
 

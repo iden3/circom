@@ -233,6 +233,14 @@ fn look_for_type_in_expression(
             function_info,
             rhe,
         ),
+        Expression::ParallelOp { rhe, .. } => look_for_type_in_expression(
+            function_name,
+            environment,
+            explored_functions,
+            function_data,
+            function_info,
+            rhe,
+        ),
         Expression::InlineSwitchOp { if_true, if_false, .. } => {
             let if_true_type = look_for_type_in_expression(
                 function_name,
@@ -273,6 +281,23 @@ fn look_for_type_in_expression(
             &values[0],
         )
         .map(|v| v + 1),
+        Expression::UniformArray { value, .. } => {
+            let value_type = look_for_type_in_expression(
+                function_name,
+                environment,
+                explored_functions,
+                function_data,
+                function_info,
+                value,
+            );
+            if value_type.is_some(){
+                Option::Some(value_type.unwrap() + 1)
+            }
+            else{
+                None
+            }
+            
+        }
         Expression::Call { id, args, .. } => {
             if explored_functions.contains(id) {
                 return Option::None;
@@ -292,5 +317,6 @@ fn look_for_type_in_expression(
             let has_type = start(id, explored_functions, function_info, &params_types);
             has_type
         }
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }

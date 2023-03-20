@@ -33,18 +33,24 @@ impl WriteWasm for FunctionCodeInfo {
         use code_producers::wasm_elements::wasm_code_generator::*;
         //to be revised
         let mut instructions = vec![];
-        let funcdef = format!("(func ${} (type $_t_i32i32)", self.header);
+        let funcdef = format!("(func ${} (type $_t_i32i32ri32)", self.header);
         instructions.push(funcdef);
         instructions.push(format!("(param {} i32)", producer.get_result_address_tag()));
         instructions.push(format!("(param {} i32)", producer.get_result_size_tag()));
+	instructions.push("(result i32)".to_string()); //state 0 = OK; > 0 error
         instructions.push(format!("(local {} i32)", producer.get_cstack_tag()));
         instructions.push(format!("(local {} i32)", producer.get_lvar_tag()));
         instructions.push(format!("(local {} i32)", producer.get_expaux_tag()));
         instructions.push(format!("(local {} i32)", producer.get_temp_tag()));
+        instructions.push(format!("(local {} i32)", producer.get_aux_0_tag()));
+        instructions.push(format!("(local {} i32)", producer.get_aux_1_tag()));
+        instructions.push(format!("(local {} i32)", producer.get_aux_2_tag()));
+        instructions.push(format!("(local {} i32)", producer.get_counter_tag()));
         instructions.push(format!("(local {} i32)", producer.get_store_aux_1_tag()));
         instructions.push(format!("(local {} i32)", producer.get_store_aux_2_tag()));
         instructions.push(format!("(local {} i32)", producer.get_copy_counter_tag()));
         instructions.push(format!("(local {} i32)", producer.get_call_lvar_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
         let local_info_size_u32 = producer.get_local_info_size_u32();
         //set lvar (start of auxiliar memory for vars)
         instructions.push(set_constant("0"));
@@ -76,13 +82,14 @@ impl WriteWasm for FunctionCodeInfo {
             let mut instructions_body = t.produce_wasm(producer);
             instructions.append(&mut instructions_body);
         }
+        instructions.push(set_constant("0"));	
         instructions.push(")".to_string());
         instructions
     }
 }
 
 impl WriteC for FunctionCodeInfo {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, _parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let header = format!("void {}", self.header);
         let params = vec![
@@ -98,7 +105,7 @@ impl WriteC for FunctionCodeInfo {
         body.push(format!("{};", declare_my_template_name_function(&self.name)));
         body.push(format!("u64 {} = {};", my_id(), component_father()));
         for t in &self.body {
-            let (mut instructions_body, _) = t.produce_c(producer);
+            let (mut instructions_body, _) = t.produce_c(producer, Some(false));
             body.append(&mut instructions_body);
         }
         let callable = build_callable(header, params, body);

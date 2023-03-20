@@ -2,13 +2,15 @@ use num_bigint_dig::BigInt;
 use program_structure::ast::{SignalType, Statement};
 use program_structure::program_archive::ProgramArchive;
 use program_structure::program_library::file_definition::FileLibrary;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Range;
 use std::rc::Rc;
 
 pub type VCT = Vec<usize>;
 pub type Length = usize;
 pub type Code = Statement;
+
+pub type TagInfo = BTreeMap<String, Option<BigInt>>;
 
 #[derive(Clone)]
 pub struct Argument {
@@ -58,6 +60,8 @@ pub struct Trigger {
     pub component_name: String,
     pub indexed_with: Vec<usize>,
     pub external_signals: Vec<Signal>,
+    pub has_inputs: bool,
+    pub is_parallel: bool,
 }
 
 #[derive(Clone)]
@@ -77,6 +81,8 @@ pub struct TriggerCluster {
 #[derive(Clone)]
 pub struct TemplateInstance {
     pub is_parallel: bool,
+    pub is_parallel_component: bool,
+    pub is_not_parallel_component: bool,
     pub has_parallel_sub_cmp: bool,
     pub template_name: String,
     pub template_header: String,
@@ -86,6 +92,7 @@ pub struct TemplateInstance {
     pub number_of_outputs: usize,
     pub number_of_intermediates: usize,
     pub signals: Vec<Signal>,
+    pub signals_to_tags: BTreeMap<String, TagInfo>,
     pub components: Vec<Component>,
     pub number_of_components: usize,
     pub triggers: Vec<Trigger>,
@@ -105,12 +112,14 @@ pub struct TemplateConfig {
     pub clusters: Vec<TriggerCluster>,
     pub components: Vec<Component>,
     pub arguments: Vec<Argument>,
+    pub signals_to_tags: BTreeMap<String, TagInfo>,
 }
-
 impl TemplateInstance {
     pub fn new(config: TemplateConfig) -> TemplateInstance {
         TemplateInstance {
             is_parallel: config.is_parallel,
+            is_parallel_component: false,
+            is_not_parallel_component: false,
             has_parallel_sub_cmp: config.has_parallel_sub_cmp,
             code: config.code,
             template_name: config.name,
@@ -125,6 +134,7 @@ impl TemplateInstance {
             components: config.components,
             triggers: config.triggers,
             clusters: config.clusters,
+            signals_to_tags: config.signals_to_tags,
         }
     }
 
@@ -177,6 +187,7 @@ pub struct VCPConfig {
     pub templates: Vec<TemplateInstance>,
     pub templates_in_mixed: Vec<usize>,
     pub program: ProgramArchive,
+    pub prime: String,
 }
 
 #[derive(Clone)]
@@ -189,6 +200,7 @@ pub struct VCP {
     pub templates: Vec<TemplateInstance>,
     pub quick_knowledge: HashMap<String, VCT>,
     pub templates_in_mixed: Vec<usize>,
+    pub prime: String,
 }
 impl VCP {
     pub fn new(config: VCPConfig) -> VCP {
@@ -201,6 +213,7 @@ impl VCP {
             templates_in_mixed: config.templates_in_mixed,
             functions: vec![],
             quick_knowledge: HashMap::new(),
+            prime: config.prime,
         };
         super::merger::run_preprocessing(&mut vcp, config.program);
         vcp

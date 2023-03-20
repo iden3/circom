@@ -1,4 +1,4 @@
-use program_structure::ast::{Access, Expression, Meta, Statement};
+use program_structure::ast::{Access, Expression, Meta, Statement, LogArgument};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::{self, FileID, FileLocation};
@@ -32,9 +32,6 @@ pub fn check_naming_correctness(program_archive: &ProgramArchive) -> Result<(), 
         );
         instances.push(instance);
     }
-    {
-    }
-
     if let Err(mut r) = analyze_main(program_archive) {
         reports.append(&mut r);
     }
@@ -67,7 +64,7 @@ fn analyze_main(program: &ProgramArchive) -> Result<(), Vec<Report>> {
     let mut reports = vec![];
     if let Expression::Call { id, .. } = call {
         if program.contains_template(id) {
-            let inputs  =  program.get_template_data(id).get_inputs();
+            let inputs = program.get_template_data(id).get_inputs();
             for signal in signals {
                 if !inputs.contains_key(signal) {
                     let mut report = Report::error(
@@ -167,8 +164,12 @@ fn analyze_statement(
     environment: &mut Environment,
 ) {
     match stmt {
+        Statement::MultSubstitution { .. } => unreachable!(),
         Statement::Return { value, .. } => {
             analyze_expression(value, file_id, function_info, template_info, reports, environment)
+        }
+        Statement::UnderscoreSubstitution { rhe, .. } => {
+            analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
         }
         Statement::Substitution { meta, var, access, rhe, .. } => {
             analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
@@ -223,8 +224,12 @@ fn analyze_statement(
                 reports.push(report);
             }
         }
-        Statement::LogCall { arg, .. } => {
-            analyze_expression(arg, file_id, function_info, template_info, reports, environment)
+        Statement::LogCall { args, .. } => {
+            for logarg in args {
+                if let LogArgument::LogExp(arg) = logarg {
+                    analyze_expression(arg, file_id, function_info, template_info, reports, environment);
+                }
+            }
         }
         Statement::Assert { arg, .. } => {
             analyze_expression(arg, file_id, function_info, template_info, reports, environment)
@@ -304,6 +309,9 @@ fn analyze_expression(
             analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
         }
         Expression::PrefixOp { rhe, .. } => {
+            analyze_expression(rhe, file_id, function_info, template_info, reports, environment)
+        }
+        Expression::ParallelOp { rhe, .. } => {
             analyze_expression(rhe, file_id, function_info, template_info, reports, environment)
         }
         Expression::InlineSwitchOp { cond, if_true, if_false, .. } => {
@@ -388,6 +396,24 @@ fn analyze_expression(
                 );
             }
         }
+        Expression::UniformArray{ value, dimension, .. } => {
+            analyze_expression(
+                value,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+            analyze_expression(
+                dimension,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+        },
         _ => {}
     }
 }

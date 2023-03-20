@@ -143,6 +143,7 @@ fn statement_invariant_check(stmt: &Statement, environment: &mut Constants) -> R
         }
         While { stmt, .. } => while_invariant_check(stmt, environment),
         Block { stmts, .. } => block_invariant_check(stmts, environment),
+        MultSubstitution { .. } => unreachable!(),
         _ => ReportCollection::new(),
     }
 }
@@ -216,11 +217,14 @@ fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
         Call { args, .. } => call(args, environment),
         InfixOp { lhe, rhe, .. } => infix_op(lhe, rhe, environment),
         PrefixOp { rhe, .. } => prefix_op(rhe, environment),
+        ParallelOp { rhe, .. } => parallel_op(rhe, environment),
         InlineSwitchOp { cond, if_false, if_true, .. } => {
             inline_switch(cond, if_true, if_false, environment)
         }
         Variable { name, .. } => variable(name, environment),
         ArrayInLine { .. } => array_inline(),
+        UniformArray { .. } => uniform_array(),
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
 
@@ -237,6 +241,9 @@ fn call(params: &[Expression], environment: &Constants) -> bool {
     constant
 }
 fn array_inline() -> bool {
+    false
+}
+fn uniform_array() -> bool {
     false
 }
 fn variable(name: &str, environment: &Constants) -> bool {
@@ -262,6 +269,10 @@ fn prefix_op(rhe: &Expression, environment: &Constants) -> bool {
     has_constant_value(rhe, environment)
 }
 
+fn parallel_op(rhe: &Expression, environment: &Constants) -> bool {
+    has_constant_value(rhe, environment)
+}
+
 // Set of functions whose purpose is to expand constants
 fn expand_statement(stmt: &mut Statement, environment: &mut ExpressionHolder) {
     use Statement::*;
@@ -277,9 +288,11 @@ fn expand_statement(stmt: &mut Statement, environment: &mut ExpressionHolder) {
         Declaration { dimensions, .. } => expand_declaration(dimensions, environment),
         Substitution { access, rhe, .. } => expand_substitution(access, rhe, environment),
         ConstraintEquality { lhe, rhe, .. } => expand_constraint_equality(lhe, rhe, environment),
-        LogCall { arg, .. } => expand_log_call(arg, environment),
+        LogCall { args, .. } => expand_log_call(args, environment),
         Assert { arg, .. } => expand_assert(arg, environment),
         Block { stmts, .. } => expand_block(stmts, environment),
+        MultSubstitution { .. } => unreachable!(),
+        UnderscoreSubstitution { rhe, .. } => expand_underscore_substitution(rhe, environment),
     }
 }
 
@@ -350,6 +363,13 @@ fn expand_substitution(
     }
 }
 
+fn expand_underscore_substitution(
+    rhe: &mut Expression,
+    environment: &ExpressionHolder,
+) {
+    *rhe = expand_expression(rhe.clone(), environment);
+}
+
 fn expand_constraint_equality(
     lhe: &mut Expression,
     rhe: &mut Expression,
@@ -359,8 +379,12 @@ fn expand_constraint_equality(
     *rhe = expand_expression(rhe.clone(), environment);
 }
 
-fn expand_log_call(arg: &mut Expression, environment: &ExpressionHolder) {
-    *arg = expand_expression(arg.clone(), environment);
+fn expand_log_call(args: &mut Vec<LogArgument>, environment: &ExpressionHolder) {
+    for arglog in args {
+        if let LogArgument::LogExp(arg) = arglog {
+            *arg = expand_expression(arg.clone(), environment);
+        }
+    }
 }
 
 fn expand_assert(arg: &mut Expression, environment: &ExpressionHolder) {
@@ -380,15 +404,18 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
     match expr {
         Number(meta, value) => expand_number(meta, value),
         ArrayInLine { meta, values } => expand_array(meta, values, environment),
+        UniformArray { meta, value, dimension} => expand_uniform_array(meta, *value, *dimension, environment),
         Call { id, meta, args } => expand_call(id, meta, args, environment),
         InfixOp { meta, lhe, rhe, infix_op } => {
             expand_infix(meta, *lhe, infix_op, *rhe, environment)
         }
         PrefixOp { meta, prefix_op, rhe } => expand_prefix(meta, prefix_op, *rhe, environment),
+        ParallelOp { meta, rhe } => expand_parallel(meta, *rhe, environment),
         InlineSwitchOp { meta, cond, if_true, if_false } => {
             expand_inline_switch_op(meta, *cond, *if_true, *if_false, environment)
         }
         Variable { meta, name, access } => expand_variable(meta, name, access, environment),
+        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
 
@@ -407,6 +434,17 @@ fn expand_array(
         values.push(new_expression);
     }
     build_array_in_line(meta, values)
+}
+
+fn expand_uniform_array(
+    meta: Meta,
+    old_value: Expression,
+    old_dimension: Expression,
+    environment: &ExpressionHolder,
+) -> Expression {
+    let value = expand_expression(old_value, environment);
+    let dimension = expand_expression(old_dimension, environment);
+    build_uniform_array(meta, value, dimension)
 }
 
 fn expand_call(
@@ -443,6 +481,15 @@ fn expand_prefix(
 ) -> Expression {
     let rhe = expand_expression(old_rhe, environment);
     build_prefix(meta, prefix_op, rhe)
+}
+
+fn expand_parallel(
+    meta: Meta,
+    old_rhe: Expression,
+    environment: &ExpressionHolder,
+) -> Expression {
+    let rhe = expand_expression(old_rhe, environment);
+    build_parallel_op(meta, rhe)
 }
 
 fn expand_inline_switch_op(

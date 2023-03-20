@@ -31,7 +31,7 @@ Circom_CalcWit::Circom_CalcWit (Circom_Circuit *aCircuit, uint maxTh) {
     inputSignalAssigned[i] = false;
   }
   signalValues = new FrElement[get_total_signal_no()];
-  Fr_str2element(&signalValues[0], "1");
+  Fr_str2element(&signalValues[0], "1", 10);
   componentMemory = new Circom_Component[get_number_of_components()];
   circuitConstants = circuit ->circuitConstants;
   templateInsId2IOSignalInfo = circuit -> templateInsId2IOSignalInfo;
@@ -67,6 +67,12 @@ uint Circom_CalcWit::getInputSignalHashPosition(u64 h) {
   return pos;
 }
 
+void Circom_CalcWit::tryRunCircuit(){ 
+  if (inputSignalAssignedCounter == 0) {
+    run(this);
+  }
+}
+
 void Circom_CalcWit::setInputSignal(u64 h, uint i,  FrElement & val){
   if (inputSignalAssignedCounter == 0) {
     fprintf(stderr, "No more signals to be assigned\n");
@@ -86,9 +92,7 @@ void Circom_CalcWit::setInputSignal(u64 h, uint i,  FrElement & val){
   signalValues[si] = val;
   inputSignalAssigned[si-get_main_input_signal_start()] = true;
   inputSignalAssignedCounter--;
-  if (inputSignalAssignedCounter == 0) {
-    run(this);
-  }
+  tryRunCircuit();
 }
 
 u64 Circom_CalcWit::getInputSignalSize(u64 h) {

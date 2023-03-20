@@ -14,6 +14,8 @@ impl Statement {
             | Assert { meta, .. }
             | ConstraintEquality { meta, .. }
             | InitializationBlock { meta, .. } => meta,
+            | MultSubstitution { meta, ..} => meta,
+            | UnderscoreSubstitution { meta, .. } => meta,
         }
     }
     pub fn get_mut_meta(&mut self) -> &mut Meta {
@@ -29,6 +31,8 @@ impl Statement {
             | Assert { meta, .. }
             | ConstraintEquality { meta, .. }
             | InitializationBlock { meta, .. } => meta,
+            | MultSubstitution { meta, ..} => meta,
+            | UnderscoreSubstitution { meta, .. } => meta,
         }
     }
 
@@ -75,6 +79,15 @@ impl Statement {
     pub fn is_substitution(&self) -> bool {
         use Statement::Substitution;
         if let Substitution { .. } = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_underscore_substitution(&self) -> bool {
+        use Statement::UnderscoreSubstitution;
+        if let UnderscoreSubstitution { .. } = self {
             true
         } else {
             false
@@ -134,15 +147,24 @@ impl FillMeta for Statement {
             Substitution { meta, access, rhe, .. } => {
                 fill_substitution(meta, access, rhe, file_id, element_id)
             }
+            MultSubstitution { meta, lhe, rhe, .. }
+            => {
+                fill_mult_substitution(meta, lhe, rhe, file_id, element_id);
+            }
             ConstraintEquality { meta, lhe, rhe } => {
                 fill_constraint_equality(meta, lhe, rhe, file_id, element_id)
             }
-            LogCall { meta, arg, .. } => fill_log_call(meta, arg, file_id, element_id),
+            LogCall { meta, args, .. } => fill_log_call(meta, args, file_id, element_id),
             Block { meta, stmts, .. } => fill_block(meta, stmts, file_id, element_id),
             Assert { meta, arg, .. } => fill_assert(meta, arg, file_id, element_id),
+            UnderscoreSubstitution { meta, rhe, .. } => {
+                fill_underscore_substitution(meta, rhe, file_id, element_id);
+            },
+            
         }
     }
 }
+
 
 fn fill_conditional(
     meta: &mut Meta,
@@ -217,6 +239,18 @@ fn fill_substitution(
     }
 }
 
+fn fill_mult_substitution(
+    meta: &mut Meta,
+    lhe: &mut Expression,
+    rhe: &mut Expression,
+    file_id: usize,
+    element_id: &mut usize,
+) {
+    meta.set_file_id(file_id);
+    rhe.fill(file_id, element_id);
+    lhe.fill(file_id,element_id);
+}
+
 fn fill_constraint_equality(
     meta: &mut Meta,
     lhe: &mut Expression,
@@ -229,9 +263,13 @@ fn fill_constraint_equality(
     rhe.fill(file_id, element_id);
 }
 
-fn fill_log_call(meta: &mut Meta, arg: &mut Expression, file_id: usize, element_id: &mut usize) {
+fn fill_log_call(meta: &mut Meta, args: &mut Vec<LogArgument>, file_id: usize, element_id: &mut usize) {
     meta.set_file_id(file_id);
-    arg.fill(file_id, element_id);
+    for arg in args {
+        if let LogArgument::LogExp(e) = arg {
+            e.fill(file_id, element_id);
+        }
+    }
 }
 
 fn fill_block(meta: &mut Meta, stmts: &mut [Statement], file_id: usize, element_id: &mut usize) {
@@ -244,4 +282,10 @@ fn fill_block(meta: &mut Meta, stmts: &mut [Statement], file_id: usize, element_
 fn fill_assert(meta: &mut Meta, arg: &mut Expression, file_id: usize, element_id: &mut usize) {
     meta.set_file_id(file_id);
     arg.fill(file_id, element_id);
+}
+
+fn fill_underscore_substitution(meta: &mut Meta, rhe: &mut Expression, file_id: usize, element_id: &mut usize) {
+    meta.set_file_id(file_id);
+    rhe.fill(file_id, element_id);
+
 }

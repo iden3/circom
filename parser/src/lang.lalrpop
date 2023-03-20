@@ -2,14 +2,21 @@ use num_bigint::BigInt;
 use program_structure::statement_builders::*;
 use program_structure::expression_builders::*;
 use program_structure::ast::*;
-use program_structure::ast_shortcuts::{self,Symbol};
+use program_structure::ast_shortcuts::{self,Symbol,TupleInit};
 use std::str::FromStr;
+use lalrpop_util::ParseError;
+use program_structure::ast::produce_report;
+use program_structure::error_definition::Report;
+use program_structure::error_code::ReportCode;
 
-grammar;
+grammar<'err>(file_id: usize, errors:&'err mut Vec<Report>);
 
-// ====================================================================
-// Body
-// ====================================================================
+CommaSepList<T>:Vec<T> = {
+    <mut e:(<T> ",")*> <t:T> => {
+        e.push(t);
+        e
+    },
+};
 
 // A identifier list is a comma separated list of identifiers
 IdentifierListDef : Vec<String> = {
@@ -17,41 +24,72 @@ IdentifierListDef : Vec<String> = {
         let mut v = v;
         v.push(e);
         v
-    }
+    },
 };
 
-// Pragma is included at the start of the file.
-// Their structure is the following: pragma circom "version of the compiler"
-ParsePragma : Version = { // maybe change to usize instead of BigInt
-    "pragma circom" <version: Version>  ";"
-    => version,
-};
+Semicolon:() = {
+    ";" => (),
+    <s:@L> ! <e:@R> => errors.push(produce_report(ReportCode::MissingSemicolon, s..e, file_id))
+}
 
+// ====================================================================
+// Body
+// ====================================================================
+
+// Pragmas are included at the start of the file,
+// their structure is the following: 
+// 'pragma circom "version of the compiler"' to indicate the version
+// or
+// 'pragma custom_templates' to indicate that we are allowing the definition of custom gates.
+
+ParsePragma:Pragma = {
+    // version
+    <s:@L> "pragma" "circom" <v: Version> Semicolon <e:@R> => Pragma::Version(Meta::new(s,e), file_id, v),
+    "pragma" "circom" <!> Semicolon => match <>.error {
+            ParseError::UnrecognizedToken { ref token, .. } => {
+                errors.push(produce_report(ReportCode::UnrecognizedVersion,token.0..token.2, file_id));
+                Pragma::Unrecognized
+            } 
+            _ => unreachable!(),
+        },
+    // custom templates
+    <s:@L> "pragma" "custom_templates" Semicolon  <e:@R> => Pragma::CustomGates(Meta::new(s,e), file_id),
+    // unrecognized
+    "pragma" <!> Semicolon => match <>.error {
+            ParseError::UnrecognizedToken { ref token, .. } => {
+                errors.push(produce_report(ReportCode::UnrecognizedPragma,token.0..token.2, file_id));
+                Pragma::Unrecognized
+            } 
+            _ => unreachable!(),
+        },
+};
 
 // Includes are added at the start of the file.
-// Their structure is the following: #include "path to the file"
-ParseInclude : String = {
-    "include" <file: STRING>  ";"
-    => file,
+// Their structure is the following:#include "path to the file"
+ParseInclude:String = {
+    "include" <STRING> Semicolon => <>,
+    "include" <!> Semicolon => {
+        match <>.error {
+            ParseError::UnrecognizedToken { ref token, .. } => {
+                errors.push(produce_report(ReportCode::UnrecognizedInclude, token.0..token.2, file_id));
+            } 
+            _ => unreachable!(),
+        }
+        "".to_owned()
+    },
 };
 
 // Parsing a program requires:
-// Parsing the "pragma" instruction, if there is one
-// Parsing "includes" instructions, if there is anyone,
-// Parsing function and template definitions,
+// Parsing pragmas
+// Parsing "includes"
+// Parsing function and template definitions
 // Parsing the declaration of the main component
-pub ParseAst : AST = {
-    <s:@L> <pragma: ParsePragma> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent> <e:@R>
-    => AST::new(Meta::new(s,e), Option::Some(pragma), includes,definitions,Option::Some(main)),
-
-    <s:@L> <includes: ParseInclude*> <definitions: ParseDefinition*> <main: ParseMainComponent> <e:@R>
-    => AST::new(Meta::new(s,e),Option::None, includes,definitions,Option::Some(main)),
-
-    <s:@L> <pragma: ParsePragma> <includes: ParseInclude*> <definitions: ParseDefinition*> <e:@R>
-    => AST::new(Meta::new(s,e), Option::Some(pragma), includes,definitions,Option::None),
-
-    <s:@L> <includes: ParseInclude*> <definitions: ParseDefinition*> <e:@R>
-    => AST::new(Meta::new(s,e), Option::None,includes,definitions,Option::None),
+pub ParseAst:AST = {
+    <s:@L> <pragmas:ParsePragma*> <includes:ParseInclude*> <definitions:ParseDefinition*> <main:ParseMainComponent?> <e:@R>
+    => { let (ast, mut ers) = AST::new(Meta::new(s,e), pragmas, includes, definitions, main);
+        errors.append(&mut ers);
+        ast
+    },
 };
 
 // ====================================================================
@@ -65,7 +103,7 @@ ParsePublicList : Vec<String> = {
 };
 
 pub ParseMainComponent : MainComponent = {
-    <s:@L> "component" "main" <public_list: ParsePublicList?> "=" <init: ParseExpression> ";" <e:@L>
+    <s:@L> "component" "main" <public_list: ParsePublicList?> "=" <init: ParseExpression> Semicolon <e:@R>
     => match public_list {
         None => build_main_component(Vec::new(),init),
         Some(list) => build_main_component(list,init)
@@ -81,12 +119,12 @@ pub ParseDefinition : Definition = {
         Some(a)
         => build_function(Meta::new(s,e),name,a,args..arge,body),
     },
-    <s:@L> "template" <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
+    <s:@L> "template" <custom_gate: "custom"?> <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?> <arge:@R> ")" <body: ParseBlock> <e:@R>
     => match arg_names {
         None
-        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some()),
+        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), custom_gate.is_some()),
         Some(a)
-        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some()),
+        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), custom_gate.is_some()),
     },
 };
 
@@ -97,9 +135,9 @@ pub ParseDefinition : Definition = {
 // VariableDefinitions
 // ====================================================================
 
-ParseElementType : SignalElementType = {
-    "FieldElement" => SignalElementType::FieldElement,
-    "Binary" => SignalElementType::Binary,
+// To generate the list of tags associated to a signal
+ParseTagsList : Vec<String> = {
+    "{" <id: IdentifierListDef> "}" => id,
 };
 
 ParseSignalType: SignalType = {
@@ -108,17 +146,17 @@ ParseSignalType: SignalType = {
 };
 
 SignalHeader : VariableType = {
-    "signal" <element_type: (":" <ParseElementType>)?>  <signal_type: ParseSignalType?>
+    "signal"  <signal_type: ParseSignalType?> <tags_list: ParseTagsList?>
     => {
-        let e = match element_type {
-            None => SignalElementType::FieldElement,
-            Some(t) => t,
-        };
         let s = match signal_type {
             None => SignalType::Intermediate,
             Some(st) => st,
         };
-        VariableType::Signal(s,e)
+        let t = match tags_list {
+            None => Vec::new(),
+            Some(tl) => tl,
+        };
+        VariableType::Signal(s, t)
     }
 };
 
@@ -166,6 +204,18 @@ SignalSimpleSymbol : Symbol = {
 };
 
 
+TupleInitialization : TupleInit = {
+    "<==" <rhe: ParseExpression> => TupleInit {
+        tuple_init : (AssignOp::AssignConstraintSignal,rhe)
+    },
+    "<--" <rhe: ParseExpression> => TupleInit {
+        tuple_init : (AssignOp::AssignSignal,rhe)
+    },
+    "=" <rhe: ParseExpression> => TupleInit {
+        tuple_init : (AssignOp::AssignVar,rhe)
+    },
+}
+
 SomeSymbol : Symbol = {
     ComplexSymbol,
     SimpleSymbol,
@@ -179,6 +229,29 @@ SignalSymbol : Symbol = {
 // A declaration is the definition of a type followed by the initialization
 ParseDeclaration : Statement = {
 
+    <s:@L> "var" "(" <symbols:(<SimpleSymbol> ",")*> <symbol: SimpleSymbol> ")" <init : TupleInitialization?> <e:@R> => {
+        let mut symbols = symbols;
+        let meta = Meta::new(s,e);
+        let xtype = VariableType::Var;
+        symbols.push(symbol);
+        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols,init)
+    },
+
+    <s:@L> <xtype:SignalHeader> "(" <symbols:(<SimpleSymbol> ",")*> <symbol: SimpleSymbol> ")" <init : TupleInitialization?>  <e:@R> => {
+        let mut symbols = symbols;
+        let meta = Meta::new(s,e);
+        symbols.push(symbol);
+        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init)
+    },
+    <s:@L> "component" "(" <symbols:(<SimpleSymbol> ",")*> <symbol: SimpleSymbol> ")" <init : TupleInitialization?>  <e:@R> => {
+        let mut symbols = symbols;
+        let meta = Meta::new(s,e);
+        let xtype = VariableType::Component;
+        symbols.push(symbol);
+        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init)
+    },
+
+
     <s:@L> "var" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
@@ -186,6 +259,7 @@ ParseDeclaration : Statement = {
             symbols.push(symbol);
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
     },
+
     <s:@L> "component" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
@@ -193,6 +267,7 @@ ParseDeclaration : Statement = {
             symbols.push(symbol);
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
     },
+
     <s:@L><xtype: SignalHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol>  <e:@R>
     => {
             let mut symbols = symbols;
@@ -209,17 +284,26 @@ ParseDeclaration : Statement = {
     },
 };
 ParseSubstitution : Statement = {
-    <s:@L> <variable: ParseVariable> <op: ParseAssignOp> <rhe: ParseExpression> <e:@R>
-    => {let (name,access) = variable;
-        build_substitution(Meta::new(s,e),name,access,op,rhe)
+    <s:@L> <variable: ParseExpression> <ops: ParseAssignOp> <rhe: ParseExpression> <e:@R>
+    => {if let Expression::Variable {meta, name, access} = variable {
+        build_substitution(Meta::new(s,e),name,access,ops,rhe)
+    } else{
+        build_mult_substitution(Meta::new(s,e),variable,ops,rhe)
+    }
      },
-    <s:@L> <lhe: ParseExpression> "-->" <variable: ParseVariable> <e:@R>
-     => {let (name,access) = variable;
-        build_substitution(Meta::new(s,e),name,access,AssignOp::AssignSignal,lhe)
+    <s:@L> <lhe: ParseExpression> "-->" <variable: ParseExpression> <e:@R>
+     => {if let Expression::Variable {meta, name, access} = variable {
+            build_substitution(Meta::new(s,e),name,access,AssignOp::AssignSignal,lhe)
+        } else {
+            build_mult_substitution(Meta::new(s,e),variable,AssignOp::AssignSignal,lhe)
+        }
      },
-     <s:@L> <lhe: ParseExpression> "==>" <variable: ParseVariable>  <e:@R>
-     => {let (name,access) = variable;
-         build_substitution(Meta::new(s,e),name,access,AssignOp::AssignConstraintSignal,lhe)
+     <s:@L> <lhe: ParseExpression> "==>" <variable: ParseExpression>  <e:@R>
+     => {if let Expression::Variable {meta, name, access} = variable {
+            build_substitution(Meta::new(s,e),name,access,AssignOp::AssignConstraintSignal,lhe)
+        } else{
+            build_mult_substitution(Meta::new(s,e),variable,AssignOp::AssignConstraintSignal,lhe)
+        }
      },
     <s:@L> <variable: ParseVariable>  "\\=" <rhe: ParseExpression> <e:@R>
     => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::IntDiv,Meta::new(s,e),variable,rhe),
@@ -299,35 +383,45 @@ ParseStatement1 : Statement = {
     ParseStatement2
 };
 ParseStatement2 : Statement = {
-    <s:@L> "for" "(" <init: ParseDeclaration> ";" <cond: ParseExpression> ";" <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
+    <s:@L> "for" "(" <init: ParseDeclaration> Semicolon <cond: ParseExpression> Semicolon <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
     => ast_shortcuts::for_into_while(Meta::new(s,e),init,cond,step,body),
 
-    <s:@L> "for" "(" <init: ParseSubstitution> ";" <cond: ParseExpression> ";" <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
+    <s:@L> "for" "(" <init: ParseSubstitution> Semicolon <cond: ParseExpression> Semicolon <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
     => ast_shortcuts::for_into_while(Meta::new(s,e),init,cond,step,body),
 
     <s:@L>"while" "(" <cond: ParseExpression> ")" <stmt: ParseStatement2> <e:@R>
     => build_while_block(Meta::new(s,e),cond,stmt),
 
-    <s:@L> "return" <value: ParseExpression> ";"<e:@R>
+    <s:@L> "return" <value: ParseExpression> Semicolon <e:@R>
     => build_return(Meta::new(s,e),value),
 
-    <subs: ParseSubstitution> ";"
+    <subs: ParseSubstitution> Semicolon
     => subs,
 
-    <s:@L> <lhe: ParseExpression> "===" <rhe: ParseExpression> ";" <e:@R>
+    <s:@L> <lhe: ParseExpression> "===" <rhe: ParseExpression> Semicolon <e:@R>
     => build_constraint_equality(Meta::new(s,e),lhe,rhe),
 
-    <s:@L> "log" "(" <arg: ParseExpression> ")" ";" <e:@R>
-    => build_log_call(Meta::new(s,e),arg),
+    ParseStatementLog,
 
-    <s:@L> "assert" "(" <arg: ParseExpression> ")" ";" <e:@R>
+    <s:@L> "assert" "(" <arg: ParseExpression> ")" Semicolon <e:@R>
     => build_assert(Meta::new(s,e),arg),
+
+    <s:@L> <lhe: ParseExpression> Semicolon <e:@R>
+    => build_anonymous_component_statement(Meta::new(s,e), lhe),
 
     ParseBlock
 };
 
+ParseStatementLog : Statement = {
+    <s:@L> "log" "(" <args: LogListable> ")" Semicolon <e:@R>
+    => build_log_call(Meta::new(s,e),args),
+
+    <s:@L> "log" "(" ")" Semicolon <e:@R>
+    => build_log_call(Meta::new(s,e),Vec::new()),
+};
+
 ParseStatement3 : Statement = {
-    <dec: ParseDeclaration> ";"
+    <dec: ParseDeclaration> Semicolon
     => dec,
 
     ParseStatement
@@ -367,6 +461,64 @@ Listable: Vec<Expression> = {
     },
 };
 
+ListableWithInputNames  : (Vec<Expression>,Option<Vec<(AssignOp,String)>>) = {
+    <e : (< IDENTIFIER> <ParseAssignOp> < ParseExpression> ",")*>
+    <name: IDENTIFIER> <op : ParseAssignOp> <signal: ParseExpression> => {
+        let (mut operators_names, mut signals) = unzip_3(e);
+        signals.push(signal);
+        match operators_names.len() {
+            0 => (signals, Option::None),
+            _ => { operators_names.push((op,name)); (signals, Option::Some(operators_names))
+            }
+        }
+    }
+};
+
+ListableAnon : (Vec<Expression>,Option<Vec<(AssignOp,String)>>) = {
+    <l : Listable> => {
+        (l, Option::None)
+    },
+    <l : ListableWithInputNames> => l,
+};
+
+ParseString : LogArgument = {
+     <e: STRING>
+    => {
+        build_log_string(e)
+    },
+};
+
+ParseLogExp: LogArgument = {
+    <e : ParseExpression>
+    => {
+        build_log_expression(e)
+    }
+}
+
+ParseLogArgument : LogArgument = {
+    ParseLogExp,
+    ParseString
+};
+
+LogListable: Vec<LogArgument> = {
+    <e:(<ParseLogArgument> ",")*> <tail: ParseLogArgument>
+    => {
+        let mut e = e;
+        e.push(tail);
+        e
+    },
+};
+
+TwoElemsListable: Vec<Expression> = {
+    <head: ParseExpression> "," <head1: ParseExpression> <rest: ("," <ParseExpression>)*>
+    => {
+        let mut rest = rest;
+        let mut new_v = vec![head, head1];
+        new_v.append(&mut rest);
+        new_v
+    },
+};
+
 InfixOpTier<Op,NextTier> : Expression = {
     <s:@L> <lhe:InfixOpTier<Op,NextTier>> <infix_op:Op> <rhe:NextTier> <e: @R>
     => build_infix(Meta::new(s,e),lhe,infix_op,rhe),
@@ -381,11 +533,24 @@ PrefixOpTier<Op,NextTier >: Expression = {
     NextTier
 };
 
-
 pub ParseExpression: Expression = {
+    Expression14,
+    ParseExpression1,
+}
+
+pub ParseExpression1: Expression = {
     Expression13,
     Expression12,
 };
+
+// parallel expr
+Expression14: Expression = {
+    <s:@L> "parallel" <expr: ParseExpression1> <e:@L>
+    => {
+        build_parallel_op(Meta::new(s, e), expr)
+    },
+
+}
 
 // ops: e ? a : i
 Expression13 : Expression  = {
@@ -426,8 +591,20 @@ Expression3 = InfixOpTier<ParseExp,Expression2>;
 // ops: Unary - ! ~
 Expression2 = PrefixOpTier<ParseExpressionPrefixOpcode,Expression1>;
 
-// function call, array inline
+// function call, array inline, anonymous component call
 Expression1: Expression = {
+    <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" "(" <args2: ListableAnon?> ")"  <e:@R>
+    => {let params = match args {
+        None => Vec::new(),
+        Some(a) => a
+    };
+    let (signals, names) = match args2 {
+        None => (Vec::new(),Option::None),
+        Some(a) => a
+    };
+    build_anonymous_component(Meta::new(s,e),id,params,signals,names,false)}
+    ,
+    
     <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R>
     => match args {
         None => build_call(Meta::new(s,e),id,Vec::new()),
@@ -435,7 +612,12 @@ Expression1: Expression = {
     },
 
     <s:@L> "[" <values: Listable> "]" <e:@R>
-    => build_array_in_line(Meta::new(s,e),values),
+    => build_array_in_line(Meta::new(s,e), values),
+
+    <s:@L> "(" <values: TwoElemsListable> ")" <e:@R>
+    => {
+        build_tuple(Meta::new(s,e), values)
+    },
 
     Expression0,
 };
@@ -448,15 +630,26 @@ Expression0: Expression = {
         build_variable(Meta::new(s,e),name,access)
     },
 
+    <s:@L> "_" <e:@L>
+    => build_variable(Meta::new(s,e),"_".to_string(),Vec::new()),
+
     <s:@L> <value:DECNUMBER> <e:@L>
     => build_number(Meta::new(s,e),value),
 
     <s:@L> <value:HEXNUMBER> <e:@L>
     => build_number(Meta::new(s,e),value),
 
-    "(" <Expression12> ")"
-};
+    "(" <ParseExpression> ")",
 
+    <!> => match <>.error {
+        ParseError::UnrecognizedToken { ref token, .. } => {
+            errors.push(produce_report(ReportCode::IllegalExpression, token.0..token.2, file_id));
+            // doesn't matter
+            build_number(Meta::new(0,0),BigInt::from(0))
+        }
+        _ => unreachable!(),
+    }
+};
 
 // ====================================================================
 // Terminals
@@ -536,7 +729,7 @@ HEXNUMBER : BigInt = {
 };
 
 IDENTIFIER : String = {
-    r"[$_]*[a-zA-Z][a-zA-Z$_0-9]*" => String::from(<>)
+    r"[$_]*[a-zA-Z][a-zA-Z$_0-9]*" => String::from(<>),
 };
 
 STRING : String = {

@@ -12,6 +12,8 @@ pub struct TemplateCodeInfo {
     pub header: String,
     pub name: String,
     pub is_parallel: bool,
+    pub is_parallel_component: bool,
+    pub is_not_parallel_component: bool,
     pub has_parallel_sub_cmp: bool,
     pub number_of_inputs: usize,
     pub number_of_outputs: usize, 
@@ -41,7 +43,8 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(format!(" (param {} i32)", producer.get_signal_offset_tag()));
         instructions.push("(result i32)".to_string());
         instructions.push(format!(" (local {} i32)", producer.get_offset_tag())); //here is a local var to be returned
-                                                                                        instructions.push(set_constant(&producer.get_component_free_pos().to_string()));
+        instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
+        instructions.push(set_constant(&producer.get_component_free_pos().to_string()));
         instructions.push(load32(None));
         instructions.push(set_local(producer.get_offset_tag()));
         // set component id
@@ -66,20 +69,16 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(set_constant(&nbytes_component.to_string()));
         instructions.push(add32());
         instructions.push(store32(None));
-        //if has no intput should be run
-        if self.number_of_inputs == 0 {
-            instructions.push(get_local(producer.get_offset_tag()));
-            instructions.push(call(&format!("${}_run", self.header)));
-        }
         //add the position of the component in the tree as result
         instructions.push(get_local(producer.get_offset_tag()));
         instructions.push(")".to_string());
 
         // run function code
 
-        let funcdef2 = format!("(func ${}_run (type $_t_i32)", self.header);
+        let funcdef2 = format!("(func ${}_run (type $_t_i32ri32)", self.header);
         instructions.push(funcdef2);
         instructions.push(format!(" (param {} i32)", producer.get_offset_tag()));
+	instructions.push("(result i32)".to_string()); //state 0 = OK; > 0 error
         instructions.push(format!(" (local {} i32)", producer.get_cstack_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_signal_start_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_sub_cmp_tag()));
@@ -88,6 +87,10 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(format!(" (local {} i32)", producer.get_lvar_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_expaux_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_temp_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_aux_0_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_aux_1_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_aux_2_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_counter_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_store_aux_1_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_store_aux_2_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_copy_counter_tag()));
@@ -95,6 +98,7 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(format!(" (local {} i32)", producer.get_create_loop_sub_cmp_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_create_loop_offset_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_create_loop_counter_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
         let local_info_size_u32 = producer.get_local_info_size_u32(); // in the future we can add some info like pointer to run father or text father
                                                                       //set lvar (start of auxiliar memory for vars)
         instructions.push(set_constant("0"));
@@ -137,16 +141,32 @@ impl WriteWasm for TemplateCodeInfo {
         //free stack
         let mut free_stack_code = free_stack(producer);
         instructions.append(&mut free_stack_code);
+        instructions.push(set_constant("0"));	
         instructions.push(")".to_string());
         instructions
     }
 }
 
 impl WriteC for TemplateCodeInfo {
-    fn produce_c(&self, producer: &CProducer) -> (Vec<String>, String) {
+    fn produce_c(&self, producer: &CProducer, _parallel: Option<bool>) -> (Vec<String>, String) {
+        let mut produced_c = Vec::new();
+        if self.is_parallel || self.is_parallel_component{
+            produced_c.append(&mut self.produce_c_parallel_case(producer, true));
+        }
+        if !self.is_parallel && self.is_not_parallel_component{
+            produced_c.append(&mut self.produce_c_parallel_case(producer, false));
+        } 
+        (produced_c, "".to_string())
+    }
+}
 
+
+impl TemplateCodeInfo {
+    fn produce_c_parallel_case(&self, producer: &CProducer, parallel: bool) -> Vec<String> {
         use c_code_generator::*;
-        let create_header = format!("void {}_create", self.header);
+
+        let create_header = if parallel {format!("void {}_create_parallel", self.header)}
+            else{format!("void {}_create", self.header)} ;
         let mut create_params = vec![];
         create_params.push(declare_signal_offset());
         create_params.push(declare_component_offset());
@@ -191,12 +211,21 @@ impl WriteC for TemplateCodeInfo {
 	        component_offset(),
             COMPONENT_FATHER
         ));
-        create_body.push(format!(
-            "{}->componentMemory[{}].subcomponents = new uint[{}];",
-            CIRCOM_CALC_WIT,
-            component_offset(),
-            &self.number_of_components.to_string()
-        ));
+        if self.number_of_components > 0{
+            create_body.push(format!(
+                "{}->componentMemory[{}].subcomponents = new uint[{}]{{0}};",
+                CIRCOM_CALC_WIT,
+                component_offset(),
+                &self.number_of_components.to_string()
+            ));
+        } else{
+            create_body.push(format!(
+                "{}->componentMemory[{}].subcomponents = new uint[{}];",
+                CIRCOM_CALC_WIT,
+                component_offset(),
+                &self.number_of_components.to_string()
+            ));
+        }
 	if self.has_parallel_sub_cmp {
             create_body.push(format!(
 		"{}->componentMemory[{}].sbct = new std::thread[{}];",
@@ -204,8 +233,15 @@ impl WriteC for TemplateCodeInfo {
 		component_offset(),
 		&self.number_of_components.to_string()
             ));
+
+        create_body.push(format!(
+            "{}->componentMemory[{}].subcomponentsParallel = new bool[{}];",
+            CIRCOM_CALC_WIT,
+            component_offset(),
+            &self.number_of_components.to_string()
+        ));
 	}
-	if self.is_parallel {
+	if parallel {
             create_body.push(format!(
 		"{}->componentMemory[{}].outputIsSet = new bool[{}]();",
 		CIRCOM_CALC_WIT,
@@ -233,7 +269,8 @@ impl WriteC for TemplateCodeInfo {
         }
         let create_fun = build_callable(create_header, create_params, create_body);
 
-        let run_header = format!("void {}_run", self.header);
+        let run_header = if parallel {format!("void {}_run_parallel", self.header)}
+            else{format!("void {}_run", self.header)} ;
         let mut run_params = vec![];
         run_params.push(declare_ctx_index());
         run_params.push(declare_circom_calc_wit());
@@ -245,13 +282,16 @@ impl WriteC for TemplateCodeInfo {
         run_body.push(format!("{};", declare_my_father()));
         run_body.push(format!("{};", declare_my_id()));
         run_body.push(format!("{};", declare_my_subcomponents()));
+        run_body.push(format!("{};", declare_my_subcomponents_parallel()));
         run_body.push(format!("{};", declare_circuit_constants()));
         run_body.push(format!("{};", declare_list_of_template_messages_use()));
         run_body.push(format!("{};", declare_expaux(self.expression_stack_depth)));
         run_body.push(format!("{};", declare_lvar(self.var_stack_depth)));
         run_body.push(format!("{};", declare_sub_component_aux()));
+        run_body.push(format!("{};", declare_index_multiple_eq()));
+        
         for t in &self.body {
-            let (mut instructions_body, _) = t.produce_c(producer);
+            let (mut instructions_body, _) = t.produce_c(producer, Some(parallel));
             run_body.append(&mut instructions_body);
         }
 	// parallelism (join at the end of the function)
@@ -264,19 +304,41 @@ impl WriteC for TemplateCodeInfo {
 	    run_body.push(format!("}}"));
 	    run_body.push(format!("}}"));
 	}
-	if self.is_parallel {
+	if parallel {
 	    // parallelism
-	    run_body.push(format!("ctx->numThreadMutex.lock();"));
+        // set to true all outputs
+        run_body.push(format!("for (uint i = 0; i < {}; i++) {{", &self.number_of_outputs.to_string()));
+        run_body.push(format!("{}->componentMemory[{}].mutexes[i].lock();",CIRCOM_CALC_WIT,CTX_INDEX));
+		run_body.push(format!("{}->componentMemory[{}].outputIsSet[i]=true;",CIRCOM_CALC_WIT,CTX_INDEX));
+	    run_body.push(format!("{}->componentMemory[{}].mutexes[i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX));
+	    run_body.push(format!("{}->componentMemory[{}].cvs[i].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX));	    
+        run_body.push(format!("}}"));
+        //parallelism
+        run_body.push(format!("ctx->numThreadMutex.lock();"));
 	    run_body.push(format!("ctx->numThread--;"));
-	    run_body.push(format!("ctx->numThreadMutex.unlock();"));
-	    run_body.push(format!("ctx->ntcvs.notify_one();"));	     
+        //run_body.push(format!("printf(\"%i \\n\", ctx->numThread);"));
+        run_body.push(format!("ctx->numThreadMutex.unlock();"));
+	    run_body.push(format!("ctx->ntcvs.notify_one();"));
 	}
-        let run_fun = build_callable(run_header, run_params, run_body);
-        (vec![create_fun, run_fun], "".to_string())
-    }
-}
 
-impl TemplateCodeInfo {
+        // to release the memory of its subcomponents
+        run_body.push(format!("for (uint i = 0; i < {}; i++){{", &self.number_of_components.to_string()));
+        run_body.push(format!(
+            "uint index_subc = {}->componentMemory[{}].subcomponents[i];",
+            CIRCOM_CALC_WIT,
+            ctx_index(),
+        ));
+        run_body.push(format!("if (index_subc != 0){};", 
+            build_call(
+                "release_memory_component".to_string(), 
+                vec![CIRCOM_CALC_WIT.to_string(), "index_subc".to_string()]
+            )));
+        
+        run_body.push(format!("}}"));
+        let run_fun = build_callable(run_header, run_params, run_body);
+        vec![create_fun, run_fun]
+    }
+
     pub fn wrap(self) -> TemplateCode {
         TemplateCode::new(self)
     }

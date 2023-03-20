@@ -1,9 +1,11 @@
 pub mod c_code_generator;
+
 pub use crate::components::*;
 
 pub type CInstruction = String;
 pub struct CProducer {
     pub main_header: String,
+    pub main_is_parallel: bool,
     //pub fr_memory_size: usize, // depending of the prime; missing in build.rs
     pub has_parallelism: bool,
     pub number_of_main_outputs: usize,
@@ -16,14 +18,18 @@ pub struct CProducer {
     pub size_32_bit: usize,
     pub size_32_shift: usize,
     pub prime: String,
+    pub prime_str: String,
     pub main_input_list: InputList,
     pub witness_to_signal_list: SignalList,
     pub io_map: TemplateInstanceIOMap,
-    pub template_instance_list: TemplateList,
+    pub template_instance_list: TemplateListParallel,
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
-    version: usize,
+    pub major_version: usize,
+    pub minor_version: usize,
+    pub patch_version: usize,
     name_tag: String,
+    string_table: Vec<String>,
 }
 
 impl Default for CProducer {
@@ -54,10 +60,12 @@ impl Default for CProducer {
         );
         CProducer {
             main_header: "Main_0".to_string(),
+            main_is_parallel: false,
             has_parallelism: false,
             main_signal_offset: 1,
             prime: "21888242871839275222246405745257275088548364400416034343698204186575808495617"
                 .to_string(),
+            prime_str: "bn128".to_string(),
             number_of_main_outputs: 1,
             number_of_main_inputs: 2,
             main_input_list: [("in1".to_string(), 2, 1), ("in2".to_string(), 3, 1)].to_vec(), //[].to_vec(),
@@ -82,20 +90,31 @@ impl Default for CProducer {
             size_32_bit: 8,
             size_32_shift: 5,
             io_map: my_map, //TemplateInstanceIOMap::new(),
-            template_instance_list: [].to_vec(),
-            // fix values
-            version: 2,
+            template_instance_list: Vec::new(),
+            major_version: 0,
+            minor_version: 0,
+            patch_version: 0,
             name_tag: "name".to_string(),
+            string_table: Vec::new(),
         }
     }
 }
 
 impl CProducer {
     pub fn get_version(&self) -> usize {
-        self.version
+        self.major_version
+    }
+    pub fn get_minor_version(&self) -> usize {
+        self.minor_version
+    }
+    pub fn get_patch_version(&self) -> usize {
+        self.patch_version
     }
     pub fn get_main_header(&self) -> &str {
         &self.main_header
+    }
+    pub fn get_main_is_parallel(&self) -> bool {
+        self.main_is_parallel
     }
     pub fn get_has_parallelism(&self) -> bool {
         self.has_parallelism
@@ -130,7 +149,7 @@ impl CProducer {
     pub fn get_io_map(&self) -> &TemplateInstanceIOMap {
         &self.io_map
     }
-    pub fn get_template_instance_list(&self) -> &TemplateList {
+    pub fn get_template_instance_list(&self) -> &TemplateListParallel {
         &self.template_instance_list
     }
     pub fn get_number_of_template_instances(&self) -> usize {
@@ -147,5 +166,13 @@ impl CProducer {
     }
     pub fn get_size_32_bit(&self) -> usize {
         self.size_32_bit
+    }
+
+    pub fn get_string_table(&self) -> &Vec<String> {
+        &self.string_table
+    }
+
+    pub fn set_string_table(&mut self, string_table: Vec<String>) {
+        self.string_table = string_table;
     }
 }
