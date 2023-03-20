@@ -31,7 +31,7 @@ pub fn execute_project(
     let debug = DebugWriter::new(config.json_constraints).unwrap();
     let build_config = BuildConfig {
         no_rounds: 0,
-        flag_json_sub: true, // to always generate the .json with the constraints
+        flag_json_sub: false, // to always generate the .json with the constraints
         flag_s: false,
         flag_f: true, // to always apply --O0
         flag_p: config.flag_p,
@@ -48,9 +48,9 @@ pub fn execute_project(
     if config.sym_flag {
         generate_output_sym(&config.sym, exporter.as_ref())?;
     }
-    if config.json_constraint_flag {
+    //if config.json_constraint_flag { // always generate the .json with the constraints
         generate_json_constraints(&debug, exporter.as_ref())?;
-    }
+    //}
     Result::Ok(vcp)
 }
 
