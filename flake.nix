@@ -14,6 +14,8 @@
           [ cargo2nix.overlays.default
             rust-overlay.overlays.default
           ];
+
+        systems = utils.default-systems ++ ["aarch64-darwin"];
       }
       ({ cargo2nix, pkgs, system, ... }:
          let
