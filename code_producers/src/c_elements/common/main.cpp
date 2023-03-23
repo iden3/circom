@@ -267,12 +267,17 @@ int main (int argc, char *argv[]) {
      std::cerr << "Not all inputs have been set. Only " << get_main_input_signal_no()-ctx->getRemaingInputsToBeSet() << " out of " << get_main_input_signal_no() << std::endl;
      assert(false);
    }
-   
+    std::cout << "{" << std::endl;
      for (uint i = 0; i<get_size_of_witness(); i++){
      FrElement x;
      ctx->getWitness(i, &x);
-     std::cout << i << ": " << Fr_element2str(&x) << std::endl;
+     std::cout << "\""<< i << "\": \"" << Fr_element2str(&x) << "\"";
+     if (i != get_size_of_witness() -1){
+      std::cout << ",";
      }
+      std::cout << std::endl;
+     }
+    std::cout << "}" << std::endl;
    
   
    //auto t_mid = std::chrono::high_resolution_clock::now();

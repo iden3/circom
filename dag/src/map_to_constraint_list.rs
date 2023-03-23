@@ -17,7 +17,7 @@ fn map_tree(
     c_holder: &mut CHolder,
     tree_constraints: &mut TreeConstraints,
     forbidden: &mut HashSet<usize>
-) -> (usize, usize) {
+) -> (usize, usize, usize) {
     let mut no_constraints = 0;
 
     for signal in &tree.signals {
@@ -29,8 +29,10 @@ fn map_tree(
 
     tree_constraints.number_inputs = tree.inputs_length;
     tree_constraints.number_outputs = tree.outputs_length;
-    tree_constraints.are_double_arrow = tree.are_double_arrow.iter().map(|c| c + tree_constraints.initial_constraint).collect();
+    tree_constraints.number_signals = tree.signals.len();
+    tree_constraints.are_double_arrow = tree.are_double_arrow.iter().map(|(c, s)| (c + tree_constraints.initial_constraint, *s)).collect();
     tree_constraints.node_id = tree.node_id;
+    tree_constraints.template_name = tree.template_name.clone();
 
     tree_constraints.no_constraints = tree.constraints.len();
     for constraint in &tree.constraints {
@@ -45,17 +47,20 @@ fn map_tree(
         }
     }
     let mut total_constraints = tree_constraints.no_constraints;
+    let mut total_signals = tree_constraints.number_signals;
 
     for edge in Tree::get_edges(tree) {
         let subtree = Tree::go_to_subtree(tree, edge);
         let mut subtree_constraints = TreeConstraints::default();
         subtree_constraints.initial_constraint = tree_constraints.initial_constraint + total_constraints;
-        let (aux_no_constraints, aux_total_constraints) = map_tree(&subtree, witness, c_holder, &mut subtree_constraints, forbidden);
+        subtree_constraints.initial_signal = tree_constraints.initial_signal + total_signals;
+        let (aux_no_constraints, aux_total_constraints, aux_total_signals) = map_tree(&subtree, witness, c_holder, &mut subtree_constraints, forbidden);
         no_constraints += aux_no_constraints;
         total_constraints += aux_total_constraints;
+        total_signals += aux_total_signals;
         tree_constraints.subcomponents.push_back(subtree_constraints);
     }
-    (no_constraints, total_constraints)
+    (no_constraints, total_constraints, total_signals)
 }
 
 fn produce_encoding(
@@ -135,8 +140,9 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
     let mut forbidden = dag.get_main().unwrap().forbidden_if_main.clone();
     let mut c_holder = CHolder::default();
     let mut tree_constraints = TreeConstraints::default();
+    tree_constraints.initial_signal = 1;
     let mut signal_map = vec![0];
-    let (no_constraints, _) = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut tree_constraints, &mut forbidden);
+    let (no_constraints, _, _) = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut tree_constraints, &mut forbidden);
     let max_signal = Vec::len(&signal_map);
     let name_encoding = produce_encoding(no_constraints, init_id, dag.nodes, dag.adjacency);
     let _dur = now.elapsed().unwrap().as_millis();
@@ -167,9 +173,10 @@ pub fn map_tree_constraints(dag: &DAG) -> TreeConstraints {
 
     let mut c_holder = CHolder::default();
     let mut tree_constraints = TreeConstraints::default();
+    tree_constraints.initial_signal = 1;
     let mut signal_map = vec![0];
     let mut forbidden = dag.get_main().unwrap().forbidden_if_main.clone();
-    let (_no_constraints, _) = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut tree_constraints, &mut forbidden);
+    let (_no_constraints, _, _) = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut tree_constraints, &mut forbidden);
     
     print_tree_constraints(&tree_constraints);
     tree_constraints
@@ -190,7 +197,7 @@ fn print_tree_constraints(tree: &TreeConstraints){
     //     print_tree_constraints(node);
     // }
     std::fs::write(
-        "prueba.json",
+        "circuit_treeconstraints.json",
         serde_json::to_string_pretty(tree).unwrap(),
     );
 }

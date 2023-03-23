@@ -28,17 +28,17 @@ fn start() -> Result<(), ()> {
     type_analysis_user::analyse_project(&mut program_archive)?;
 
     let config = ExecutionConfig {
-        no_rounds: user_input.no_rounds(),
+        no_rounds: 0,
         flag_p: user_input.parallel_simplification_flag(),
-        flag_s: user_input.reduced_simplification_flag(),
-        flag_f: user_input.unsimplified_flag(),
+        flag_s: false,
+        flag_f: true,
         flag_old_heuristics: user_input.flag_old_heuristics(),
         flag_verbose: user_input.flag_verbose(),
         inspect_constraints_flag: user_input.inspect_constraints_flag(),
         r1cs_flag: user_input.r1cs_flag(),
-        json_constraint_flag: user_input.json_constraints_flag(),
+        json_constraint_flag: true,
         json_substitution_flag: user_input.json_substitutions_flag(),
-        sym_flag: user_input.sym_flag(),
+        sym_flag: true,
         sym: user_input.sym_file().to_string(),
         r1cs: user_input.r1cs_file().to_string(),
         json_constraints: user_input.json_constraints_file().to_string(),
@@ -48,7 +48,7 @@ fn start() -> Result<(), ()> {
     let compilation_config = CompilerConfig {
         vcp: circuit,
         debug_output: user_input.print_ir_flag(),
-        c_flag: user_input.c_flag(),
+        c_flag: true,
         wasm_flag: user_input.wasm_flag(),
         wat_flag: user_input.wat_flag(),
 	    js_folder: user_input.js_folder().to_string(),

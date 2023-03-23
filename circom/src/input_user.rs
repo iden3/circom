@@ -52,8 +52,8 @@ impl Input {
         let input = input_processing::get_input(&matches)?;
         let file_name = input.file_stem().unwrap().to_str().unwrap().to_string();
         let output_path = input_processing::get_output_path(&matches)?;
-        let output_c_path = Input::build_folder(&output_path, &file_name, CPP);
-        let output_js_path = Input::build_folder(&output_path, &file_name, JS);
+        let output_c_path = Input::build_folder(&output_path, "circuit", CPP);
+        let output_js_path = Input::build_folder(&output_path, "circuit", JS);
         let o_style = input_processing::get_simplification_style(&matches)?;
         let link_libraries = input_processing::get_link_libraries(&matches);
         Result::Ok(Input {
@@ -65,13 +65,13 @@ impl Input {
 	        out_js_folder: output_js_path.clone(),
 	        out_wasm_name: file_name.clone(),
 	        out_c_folder: output_c_path.clone(),
-	        out_c_run_name: file_name.clone(),
-            out_c_code: Input::build_output(&output_c_path, &file_name, CPP),
-            out_c_dat: Input::build_output(&output_c_path, &file_name, DAT),
-            out_sym: Input::build_output(&output_path, &file_name, SYM),
+	        out_c_run_name: "circuit".to_string(),
+            out_c_code: Input::build_output(&output_c_path, "circuit", CPP),
+            out_c_dat: Input::build_output(&output_c_path, "circuit", DAT),
+            out_sym: Input::build_output(&output_path, "circuit_signals", SYM),
             out_json_constraints: Input::build_output(
                 &output_path,
-                &format!("{}_constraints", file_name),
+                &format!("circuit_constraints"),
                 JSON,
             ),
             wat_flag:input_processing::get_wat(&matches),

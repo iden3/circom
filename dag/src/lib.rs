@@ -27,11 +27,12 @@ pub struct TreeConstraints {
     no_constraints: usize,
     initial_constraint: usize,
     node_id: usize,
+    template_name: String,
     number_inputs: usize,
     number_outputs: usize,
     number_signals: usize,
     initial_signal: usize,
-    are_double_arrow: Vec<usize>,
+    are_double_arrow: Vec<(usize, usize)>, // first number constraint, second number assigned signal
     subcomponents: LinkedList<TreeConstraints>,
 }
 
@@ -41,13 +42,14 @@ pub struct Tree<'a> {
     pub path: String,
     pub offset: usize,
     pub node_id: usize,
+    pub template_name: String,
     pub signals: Vec<usize>,
     pub forbidden: HashSet<usize>,
     pub id_to_name: HashMap<usize, String>,
     pub constraints: Vec<Constraint>,
     pub inputs_length: usize,
     pub outputs_length: usize,
-    pub are_double_arrow: Vec<usize>,
+    pub are_double_arrow: Vec<(usize, usize)>,
 }
 
 impl<'a> Tree<'a> {
@@ -73,6 +75,7 @@ impl<'a> Tree<'a> {
         let inputs_length = root.number_of_inputs();
         let outputs_length = root.number_of_outputs();
         let are_double_arrow = root.are_double_arrow();
+        let template_name = root.template_name();
         Tree { 
             field, 
             dag, 
@@ -86,6 +89,7 @@ impl<'a> Tree<'a> {
             inputs_length,
             outputs_length,
             are_double_arrow,
+            template_name
         }
     }
 
@@ -114,7 +118,8 @@ impl<'a> Tree<'a> {
             .filter(|c| !c.is_empty())
             .map(|c| Constraint::apply_offset(c, offset))
             .collect();
-        let are_double_arrow = node.are_double_arrow.clone();
+        let are_double_arrow = node.are_double_arrow.iter().map(|(c, s)| (*c, s+offset)).collect();
+        let template_name = node.template_name.clone();
         Tree { 
             field, 
             dag, 
@@ -128,6 +133,7 @@ impl<'a> Tree<'a> {
             inputs_length,
             outputs_length,
             are_double_arrow,
+            template_name,
         }
     }
 
@@ -206,7 +212,7 @@ pub struct Node {
     has_parallel_sub_cmp: bool,
     is_custom_gate: bool,
     number_of_subcomponents_indexes: usize,
-    are_double_arrow: Vec<usize>,
+    are_double_arrow: Vec<(usize, usize)>, // first constraint, second signal
 }
 
 impl Node {
@@ -268,9 +274,9 @@ impl Node {
         self.intermediates_length += 1;
     }
 
-    fn add_constraint(&mut self, constraint: Constraint, is_double_arrow: bool) {
-        if is_double_arrow{
-            self.are_double_arrow.push(self.constraints.len());
+    fn add_constraint(&mut self, constraint: Constraint, is_double_arrow: Option<usize>) {
+        if is_double_arrow.is_some(){
+            self.are_double_arrow.push((self.constraints.len(), is_double_arrow.unwrap()));
         }
         self.constraints.push(constraint);
     }
@@ -347,8 +353,12 @@ impl Node {
         self.number_of_subcomponents_indexes
     }
 
-    pub fn are_double_arrow(&self) -> Vec<usize> {
+    pub fn are_double_arrow(&self) -> Vec<(usize, usize)> {
         self.are_double_arrow.clone()
+    }
+
+    pub fn template_name(&self) -> String{
+        self.template_name.clone()
     }
 
 }
@@ -464,7 +474,7 @@ impl DAG {
         }
     }
 
-    pub fn add_constraint(&mut self, constraint: Constraint, is_double_arrow: bool) {
+    pub fn add_constraint(&mut self, constraint: Constraint, is_double_arrow: Option<usize>) {
         if let Option::Some(node) = self.get_mut_main() {
             node.add_constraint(constraint, is_double_arrow);
         }

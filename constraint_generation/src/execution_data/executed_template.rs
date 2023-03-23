@@ -66,7 +66,7 @@ pub struct ExecutedTemplate {
     pub report_name: String,
     pub inputs: SignalCollector,
     pub outputs: SignalCollector,
-    pub constraints: Vec<(Constraint, bool)>,
+    pub constraints: Vec<(Constraint, Option<String>)>,
     pub intermediates: SignalCollector,
     pub ordered_signals: Vec<String>,
     pub components: ComponentCollector,
@@ -178,7 +178,7 @@ impl ExecutedTemplate {
         self.number_of_components += dimensions.iter().fold(1, |p, c| p * (*c));
     }
 
-    pub fn add_constraint(&mut self, constraint: Constraint, is_double_arrow: bool) {
+    pub fn add_constraint(&mut self, constraint: Constraint, is_double_arrow: Option<String>) {
         self.constraints.push((constraint, is_double_arrow));
     }
 
@@ -288,7 +288,13 @@ impl ExecutedTemplate {
         for (c, is_double) in &self.constraints {
             let correspondence = dag.get_main().unwrap().correspondence();
             let cc = Constraint::apply_correspondence(c, correspondence);
-            dag.add_constraint(cc , *is_double);
+            let is_double_new = if is_double.is_some(){
+                let assigned_signal = is_double.as_ref().unwrap();
+                Some(*correspondence.get(assigned_signal).unwrap())
+            } else{
+                None
+            };
+            dag.add_constraint(cc , is_double_new);
         }
         for s in &self.underscored_signals{
             let correspondence = dag.get_main().unwrap().correspondence();

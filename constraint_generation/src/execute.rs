@@ -300,10 +300,10 @@ fn execute_statement(
                                 )?;
                             } else {
                                 let p = runtime.constants.get_p().clone();
-                                let symbol = AExpr::Signal { symbol: full_symbol };
+                                let symbol = AExpr::Signal { symbol: full_symbol.clone() };
                                 let expr = AExpr::sub(&symbol, &value_right, &p);
                                 let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
-                                node.add_constraint(ctr, true);
+                                node.add_constraint(ctr, Some(full_symbol));
                             }
                         } else if let AssignOp::AssignSignal = op {// needs fix, check case arrays
                             //debug_assert!(possible_constraint.is_some());
@@ -389,7 +389,7 @@ fn execute_statement(
                 )
                 .unwrap();
                 if let Option::Some(node) = actual_node {
-                    node.add_constraint(constraint_expression, false);
+                    node.add_constraint(constraint_expression, None);
                 }    
             }
             Option::None
