@@ -1,4 +1,4 @@
-#Signal Tags
+# Signal Tags
 circom 2.1.0 introduces a new feature called __signal tags__. Tags can be defined during the declaration of any signal in a template. The tag list is indicated between brackets right before the signal name.
 
 ```
@@ -100,5 +100,5 @@ template Bits2Num(n) {
 }
 ```
 
-###Tags in signal arrays
+### Tags in signal arrays
 Every signal in an array has exactly the same tag value. Then, the tag is accessed directly from the array name instead of accessing from a particular signal in the array.  Similarly to the previous erroneous example: if a particular position of the array is modified, then the tag value of the whole array cannot be modified at all. 
