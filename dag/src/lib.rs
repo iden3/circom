@@ -24,10 +24,12 @@ pub type FastSubAccess = HashMap<usize, Substitution>;
 #[derive(Default, Deserialize, Serialize)]
 pub struct TreeConstraints {
     //constraints: LinkedList<Constraint>,
+    field: String,
     no_constraints: usize,
     initial_constraint: usize,
     node_id: usize,
     template_name: String,
+    component_name: String,
     number_inputs: usize,
     number_outputs: usize,
     number_signals: usize,

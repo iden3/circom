@@ -33,6 +33,8 @@ fn map_tree(
     tree_constraints.are_double_arrow = tree.are_double_arrow.iter().map(|(c, s)| (c + tree_constraints.initial_constraint, *s)).collect();
     tree_constraints.node_id = tree.node_id;
     tree_constraints.template_name = tree.template_name.clone();
+    tree_constraints.component_name = tree.path.clone();
+    tree_constraints.field = tree.field.to_string();
 
     tree_constraints.no_constraints = tree.constraints.len();
     for constraint in &tree.constraints {
