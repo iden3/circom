@@ -55,6 +55,9 @@ nav:
           - Control Flow: 'circom-language/control-flow.md'
           - Data Types: 'circom-language/data-types.md'
           - Scoping: 'circom-language/scoping.md'
+          - New features circom 2.1: 
+               - Anonymous Components and tuples: 'circom-language/anonymous-components-and-tuples.md'
+               - Tags: 'circom-language/tags.md'
           - Code Quality:
                - Code Assertion: 'circom-language/code-quality/code-assertion.md'
                - Debugging Operations: 'circom-language/code-quality/debugging-operations.md'
