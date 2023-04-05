@@ -7,13 +7,13 @@ build = "build.rs"
 
 [build-dependencies]
 rustc-hex = "2.0.1"
-lalrpop = { version = "0.18.1", features = ["lexer"] }
+lalrpop = { version = "0.19.9", features = ["lexer"] }
 num-bigint-dig = "0.6.0"
 num-traits = "0.2.6"
 
 [dependencies]
 program_structure = {path = "../program_structure"}
-lalrpop-util = "0.18.1"
+lalrpop-util = "0.19.9"
 regex = "1.1.2"
 rustc-hex = "2.0.1"
 num-bigint-dig = "0.6.0"
