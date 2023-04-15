@@ -178,7 +178,7 @@ template A(n){
    signal input a, b, c;
    signal output d;
    d <== a*b+c;
-   a * b === c*c;
+   a * b === c;
 }
 template B(n){
    signal input in[n];
@@ -187,7 +187,7 @@ template B(n){
 component main = B(3);
 ```
 
-In the previous example, we are interesting in adding to the R1CS the constraint  `a * b = c * c`, but we can ignore the output signal `d`. 
+In the previous example, we are interesting in adding to the R1CS the constraint  `a * b = c`, but we can ignore the output signal `d`. 
 
 In case the anonymous component has one more than one output, we can ignore the ones we are not interested. 
 
