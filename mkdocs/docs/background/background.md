@@ -8,7 +8,7 @@ description: >-
 
 ## Zero-knowledge proofs <a id="zero-knowledge-proofs"></a>
 
-Recently, a set of cryptographic primitives called **zero-knowledge proofs** \(ZKPs\) agitated the world of public blockchains and distributed ledgers. ZKPs came up first as a **solution to privacy** issues but they have lately also stood up as a perfect **solution to scalability** issues. As a result, these cryptographic proofs have become very attractive tools to the blockchain community, and the most efficient algorithms have already been deployed and integrated in several applications.
+Recently, a set of cryptographic primitives called **zero-knowledge proofs** (ZKPs) agitated the world of public blockchains and distributed ledgers. ZKPs came up first as a **solution to privacy** issues but they have lately also stood up as a perfect **solution to scalability** issues. As a result, these cryptographic proofs have become very attractive tools to the blockchain community, and the most efficient algorithms have already been deployed and integrated in several applications.
 
 A zero-knowledge proof is a protocol that enables one party, called the **prover**, to convince another, the **verifier**, that a statement is true without revealing any information beyond the veracity of the statement. For example, a prover can create proofs for statements like the following:
 
@@ -17,9 +17,9 @@ A zero-knowledge proof is a protocol that enables one party, called the **prover
 * _"I know the preimage of this hash value"_ : in this case, the proof would show that the prover knows the preimage but it would not reveal any information about the value of that preimage.
 * _"This is the hash of a blockchain block that does not produce negative balances"_ : in this case, the proof would not reveal any information about the amount, origin or destination of the transactions included in the block.
 
-**Non-interactive zero-knowledge proofs** \(NIZK\) are a particular type of zero-knowledge proofs in which the prover can generate the proof without interaction with the verifier. NIZK protocols are very suitable for Ethereum blockchain applications, because they **allow a smart contract to act as a verifier**. This way, anyone can generate a proof and send it as part of a transaction to the smart contract, which can perform some action depending on whether the proof is valid or not.
+**Non-interactive zero-knowledge proofs** (NIZK) proofs are a particular type of zero-knowledge proofs in which the prover can generate the proof without interaction with the verifier. NIZK protocols are very suitable for Ethereum blockchain applications, because they **allow a smart contract to act as a verifier**. This way, anyone can generate a proof and send it as part of a transaction to the smart contract, which can perform some action depending on whether the proof is valid or not.
 
-In this context, the most preferable NIZK are **zk-SNARK** proofs \(Zero-knowledge Succinct Non Interactive ARgument of Knowledge\), a set of non-interactive zero-knowledge protocols that have **succinct proof size** and **sublinear verification time**. The importance of these protocols is double: on the one hand, they help improve privacy guarantees, but on the other, their small proof size has been used in scalability solutions.
+In this context, the most preferable NIZK proofs are **zk-SNARK** proofs (Zero-knowledge Succinct Non Interactive ARgument of Knowledge), a set of non-interactive zero-knowledge protocols that have **succinct proof size** and **sublinear verification time**. The importance of these protocols is double: on the one hand, they help improve privacy guarantees, but on the other, their small proof size has been used in scalability solutions.
 
 ## Arithmetic circuits <a id="arithmetic-circuits"></a>
 
@@ -44,6 +44,13 @@ To generate and validate zk-SNARK proofs in **Ethereum**, we need to work with `
 ```text
 p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 ```
+👉 This prime `p` is the order of the scalar field of the BN254 curve (also known as the ALT_BN128 curve) as defined in [EIP 196](https://eips.ethereum.org/EIPS/eip-196). 
+
+👉 Circom 2.0.6 introduces two new prime numbers to work with, namely the order of the scalar field of the [BLS12-381](https://electriccoin.co/blog/new-snark-curve/)
+```text
+52435875175126190479447740508185965837690552500527637822603658699938581184513
+```
+and the goldilocks prime `18446744069414584321`, originally used in [Plonky2](https://github.com/mir-protocol/plonky2).
 
 In the figure below, we have defined an `F_7`-arithmetic circuit that performs the operation: `out = a*b + c`. The circuit has 5 signals: the signals `a`, `b` and `c` are input signals, `d` is an intermediate signal and the`out` signal is the output of the circuit.
 
@@ -59,7 +66,7 @@ If we have an arithmetic circuit with signals `s_1,...,s_n`, then we define a **
 
 `(a_1*s_1 + ... + a_n*s_n) * (b_1*s_1 + ... + b_n*s_n) + (c_1*s_1 + ... + c_n*s_n) = 0`
 
-Note that constraint **must be quadratic, linear or constant equations**, and sometimes, by doing small modifications \(like a change of variable or gathering two constraints\), it is possible to reduce the number of constraints or variables. In general, circuits will have several constraints \(typically, one per multiplicative gate\). The set of constraints describing the circuit is called **rank-1 constraint system** \(R1CS\):
+Note that constraint **must be quadratic, linear or constant equations**, and sometimes, by doing small modifications (like a change of variable or gathering two constraints), it is possible to reduce the number of constraints or variables. In general, circuits will have several constraints (typically, one per multiplicative gate). The set of constraints describing the circuit is called **rank-1 constraint system** (R1CS):
 
 `(a_11*s_1 + ... + a_1n*s_n)*(b_11*s_1 + ... + b_1n*s_n) + (c_11*s_1 + ... + c_1n*s_n) = 0 `
 
@@ -102,5 +109,5 @@ An assignment of the signals is called a **witness**. For example, `{a = 2, b = 
 
 ## Summary <a id="summary"></a>
 
-​**In summary, zk-SNARK proofs are an specific type of zero-knowledge proofs that allow you to prove that you know a set of signals \(witness\) that match all the constraints of a circuit without revealing any of the signals except the public inputs and the outputs.**
+​**In summary, zk-SNARK proofs are an specific type of zero-knowledge proofs that allow you to prove that you know a set of signals (witness) that match all the constraints of a circuit without revealing any of the signals except the public inputs and the outputs.**
 
