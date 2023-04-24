@@ -142,7 +142,7 @@ template MultiAND(n) {
         out <== and.out;
     } else {
         and = AND();
-    var n1 = n\2;
+        var n1 = n\2;
         var n2 = n-n\2;
         ands[0] = MultiAND(n1);
         ands[1] = MultiAND(n2);
