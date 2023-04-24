@@ -291,7 +291,8 @@ fn expand_statement(stmt: &mut Statement, environment: &mut ExpressionHolder) {
         LogCall { args, .. } => expand_log_call(args, environment),
         Assert { arg, .. } => expand_assert(arg, environment),
         Block { stmts, .. } => expand_block(stmts, environment),
-        MultSubstitution { .. } => unreachable!()
+        MultSubstitution { .. } => unreachable!(),
+        UnderscoreSubstitution { rhe, .. } => expand_underscore_substitution(rhe, environment),
     }
 }
 
@@ -360,6 +361,13 @@ fn expand_substitution(
             *e = expand_expression(e.clone(), environment);
         }
     }
+}
+
+fn expand_underscore_substitution(
+    rhe: &mut Expression,
+    environment: &ExpressionHolder,
+) {
+    *rhe = expand_expression(rhe.clone(), environment);
 }
 
 fn expand_constraint_equality(

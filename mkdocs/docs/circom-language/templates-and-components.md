@@ -59,56 +59,6 @@ template wrong (N) {
 component main {public [a]} = wrong(1);
 ```
 
-Regarding the signals defined in the template that will be part of the component, the following compiler messages will be generated if we use the option `--inspect` to compile the code:
-
-- If a signal is not used in any constraint, a warning message will be generated. Moreover, if it is an input signal x then the compiler would suggest adding a constraint of the form x \* 0 === 0;
-
-```text
-pragma circom 2.0.0;
-
-template A(N){
-   signal input in;
-   signal intermediate;
-   signal output out;
-   intermediate <== 1;
-   out <== intermediate;
-}
-
-component main {public [in]} = A(1);
-```
-During the compilation of this code, we obtain the next warning message: _"In template "A\(1\)".             Unconstrained signal. "in" = Maybe use: in\*0 === 0"_
-
-- If an intermediary signal is used only in one constraint, a hint message will be generated.
-
-
-```text
-pragma circom 2.0.0;
-
-template A(N){
-   signal input in;
-   signal inter;
-   inter <== 1;
-   signal output out;
-   out <== in;
-}
-component main {public [in]} = A(1);
-```
-
-During the compilation of this code, we obtain the next warning message: "_In template "A\(1\)". One constraint intermediate: "inter" = Maybe use: inter\*0 === 0".
-
--  If there is no output signal a warning message will be generated. 
-
-
-```text
-pragma circom 2.0.0;
-
-template A(N){
-   signal input in;
-}
-component main {public [in]} = A(1);
-```
-
-During the compilation of this code, we obtain the next warning message: _"There is no output signal."_.
 
 ## Components
 
@@ -192,7 +142,7 @@ template MultiAND(n) {
         out <== and.out;
     } else {
         and = AND();
-    var n1 = n\2;
+        var n1 = n\2;
         var n2 = n-n\2;
         ands[0] = MultiAND(n1);
         ands[1] = MultiAND(n2);

@@ -213,7 +213,8 @@ mod input_processing {
         if route.is_file() {
             Result::Ok(route)
         } else {
-            Result::Err(eprintln!("{}", Colour::Red.paint("invalid input file")))
+            let route = if route.to_str().is_some() { ": ".to_owned() + route.to_str().unwrap()} else { "".to_owned() };
+            Result::Err(eprintln!("{}", Colour::Red.paint("Input file does not exist".to_owned() + &route)))
         }
     }
 

@@ -1,6 +1,6 @@
 [package]
 name = "constraint_writers"
-version = "2.0.9"
+version = "2.1.5"
 authors = ["Costa Group UCM","iden3"]
 edition = "2018"
 

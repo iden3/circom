@@ -33,15 +33,25 @@ pub struct BuildConfig {
     pub prime: String,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct FlagsExecution{
+    pub verbose: bool,
+    pub inspect: bool,
+}
+
 pub type ConstraintWriter = Box<dyn ConstraintExporter>;
 type BuildResponse = Result<(ConstraintWriter, VCP), ()>;
 pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildResponse {
     let files = program.file_library.clone();
-    let (exe, warnings) = instantiation(&program, config.flag_verbose, &config.prime).map_err(|r| {
+    let flags = FlagsExecution{
+        verbose: config.flag_verbose,
+        inspect: config.inspect_constraints,
+    };
+    let (exe, warnings) = instantiation(&program, flags, &config.prime).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
     Report::print_reports(&warnings, &files);
-    let (mut dag, mut vcp, warnings) = export(exe, program, config.flag_verbose).map_err(|r| {
+    let (mut dag, mut vcp, warnings) = export(exe, program, flags).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
     if config.inspect_constraints {
@@ -57,8 +67,8 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
 }
 
 type InstantiationResponse = Result<(ExecutedProgram, ReportCollection), ReportCollection>;
-fn instantiation(program: &ProgramArchive, flag_verbose: bool, prime: &String) -> InstantiationResponse {
-    let execution_result = execute::constraint_execution(&program, flag_verbose, prime);
+fn instantiation(program: &ProgramArchive, flags: FlagsExecution, prime: &String) -> InstantiationResponse {
+    let execution_result = execute::constraint_execution(&program, flags, prime);
     match execution_result {
         Ok((program_exe, warnings)) => {
             let no_nodes = program_exe.number_of_nodes();
@@ -71,8 +81,8 @@ fn instantiation(program: &ProgramArchive, flag_verbose: bool, prime: &String) -
     }
 }
 
-fn export(exe: ExecutedProgram, program: ProgramArchive, flag_verbose: bool) -> ExportResult {
-    let exported = exe.export(program, flag_verbose);
+fn export(exe: ExecutedProgram, program: ProgramArchive, flags: FlagsExecution) -> ExportResult {
+    let exported = exe.export(program, flags);
     exported
 }
 
