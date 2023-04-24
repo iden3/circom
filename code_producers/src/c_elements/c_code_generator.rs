@@ -658,20 +658,19 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
                                                     //let hml = 256 as u32;
                                                     //dfile.write_all(&hml.to_be_bytes())?;
     dat_file.write_all(&hashmap)?;
-    dat_file.flush()?;
+    //dat_file.flush()?;
     let s = generate_dat_witness_to_signal_list(producer.get_witness_to_signal_list()); // list of bytes u64
                                                                                         //let sl = s.len() as u64; //8 bytes
                                                                                         //dfile.write_all(&sl.to_be_bytes())?;
     dat_file.write_all(&s)?;
-    dat_file.flush()?;
+    //dat_file.flush()?;
     let s = generate_dat_constant_list(producer, producer.get_field_constant_list()); // list of bytes Fr
     dat_file.write_all(&s)?;
-    dat_file.flush()?;
+    //dat_file.flush()?;
     //let ioml = producer.get_io_map().len() as u64;
     //dfile.write_all(&ioml.to_be_bytes())?;
     let iomap = generate_dat_io_signals_info(&producer, producer.get_io_map());
     dat_file.write_all(&iomap)?;
-    dat_file.flush()?;
     /*
         let ml = producer.get_message_list();
         let mll = ml.len() as u64;
@@ -684,6 +683,7 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
             dfile.flush()?;
         }
     */
+    dat_file.flush()?;
     Ok(())
 }
 pub fn generate_function_list(_producer: &CProducer, list: &TemplateListParallel) -> (String, String) {
@@ -738,12 +738,18 @@ pub fn generate_function_release_memory_component() -> Vec<String>{
     let mut instructions = vec![];
     instructions.push("void release_memory_component(Circom_CalcWit* ctx, uint pos) {{\n".to_string());
     instructions.push("if (pos != 0){{\n".to_string());
-    instructions.push("delete ctx->componentMemory[pos].subcomponents;\n".to_string());
-    instructions.push("delete ctx->componentMemory[pos].subcomponentsParallel;\n".to_string());
-    instructions.push("delete ctx->componentMemory[pos].outputIsSet;\n".to_string());
-    instructions.push("delete ctx->componentMemory[pos].mutexes;\n".to_string());
-    instructions.push("delete ctx->componentMemory[pos].cvs;\n".to_string());
-    instructions.push("delete ctx->componentMemory[pos].sbct;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].subcomponents)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].subcomponents;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].subcomponentsParallel)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].subcomponentsParallel;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].outputIsSet)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].outputIsSet;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].mutexes)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].mutexes;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].cvs)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].cvs;\n".to_string());
+    instructions.push("if(ctx->componentMemory[pos].sbct)".to_string());
+    instructions.push("delete []ctx->componentMemory[pos].sbct;\n".to_string());
     instructions.push("}}\n\n".to_string());
     instructions.push("}}\n\n".to_string());
     instructions
@@ -966,8 +972,8 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
     // code.append(&mut ml_def);
     for l in code {
         cfile.write_all(l.as_bytes())?;
-        cfile.flush()?;
     }
+    cfile.flush()?;
     Ok(())
 }
 

@@ -1,4 +1,4 @@
-#Signal Tags
+# Signal Tags
 circom 2.1.0 introduces a new feature called __signal tags__. Tags can be defined during the declaration of any signal in a template. The tag list is indicated between brackets right before the signal name.
 
 ```
@@ -34,6 +34,22 @@ The input array `in` is declared with the tag `binary`. This tag means that each
 Then, whenever the previous template is instantiated, the compiler checks if the array  `a` assigned to the input array has the tag binary, since `in` has the tag `binary` in its declaration. If it does not, an error is reported. Notice that the compiler also checks if both arrays have the same size. 
 
 It is important to highlight that the compiler does never make any check about the validity of the tags. It is the programmer's responsability to include the constraints and executable code to guarantee that the inteded meaning of each signal is always true.
+
+When doing a substitution from a tagged signal to another signal, the tags are always inherited by it (even if it is not declared with it). For instance,
+
+```
+template A() {
+    signal input {binary} in;
+    signal intermediate;
+    signal {binary} out;
+    intermediate <== in;
+    out <== intermediate;
+}
+```
+
+In this example, the intermediate signal inherits the binary tag from in even though it is not declared as binary. Finally, out also receives the tag as expected, since the input is binary.
+
+
 
 Let us consider another well-known template that the programmer can use to guarantee that the output signal is always binary. 
 
@@ -84,5 +100,5 @@ template Bits2Num(n) {
 }
 ```
 
-###Tags in signal arrays
+### Tags in signal arrays
 Every signal in an array has exactly the same tag value. Then, the tag is accessed directly from the array name instead of accessing from a particular signal in the array.  Similarly to the previous erroneous example: if a particular position of the array is modified, then the tag value of the whole array cannot be modified at all. 

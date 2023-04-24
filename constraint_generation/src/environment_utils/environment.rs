@@ -7,6 +7,8 @@ use super::slice_types::{
     TagInfo
 };
 use super::{ArithmeticExpression, CircomEnvironment, CircomEnvironmentError};
+use program_structure::memory_slice::MemoryError;
+use crate::ast::Meta;
 
 pub type ExecutionEnvironmentError = CircomEnvironmentError;
 pub type ExecutionEnvironment = CircomEnvironment<ComponentSlice, (TagInfo, SignalSlice), (TagInfo, AExpressionSlice)>;
@@ -53,4 +55,17 @@ pub fn environment_shortcut_add_variable(
 ) {
     let slice = AExpressionSlice::new_with_route(dimensions, &ArithmeticExpression::default());
     environment.add_variable(variable_name, (TagInfo::new(), slice));
+}
+
+pub fn environment_check_all_components_assigned(environment: &ExecutionEnvironment)-> Result<(), (MemoryError, Meta)>{
+    use program_structure::memory_slice::MemorySlice;
+    for (name, slice) in environment.get_components_ref(){
+        for i in 0..MemorySlice::get_number_of_cells(slice){
+            let component = MemorySlice::get_reference_to_single_value_by_index_or_break(slice, i);
+            if component.is_preinitialized() && component.has_unassigned_inputs(){
+                return Result::Err((MemoryError::MissingInputs(name.clone()), component.meta.as_ref().unwrap().clone()));
+            } 
+        }
+    }
+    Result::Ok(())
 }

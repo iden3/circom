@@ -1,4 +1,5 @@
 use super::analysis::Analysis;
+use crate::FlagsExecution;
 use super::executed_template::{ExecutedTemplate, PreExecutedTemplate};
 use super::type_definitions::*;
 use compiler::hir::very_concrete_program::{Stats, VCPConfig, VCP};
@@ -100,7 +101,7 @@ impl ExecutedProgram {
         node_index
     }
 
-    pub fn export(mut self, mut program: ProgramArchive, flag_verbose: bool) -> ExportResult {
+    pub fn export(mut self, mut program: ProgramArchive, flags: FlagsExecution) -> ExportResult {
         use super::executed_template::templates_in_mixed_arrays;
         fn merge_mixed(org: Vec<bool>, new: Vec<bool>) -> Vec<bool> {
             let mut result = Vec::with_capacity(org.len());
@@ -132,12 +133,15 @@ impl ExecutedProgram {
         }
 
         temp_instances[dag.main_id()].is_not_parallel_component = true;
-        let mut w = dag.constraint_analysis()?;
-        warnings.append(&mut w);
+        dag.clean_constraints();
+        if flags.inspect{
+            let mut w = dag.constraint_analysis()?;
+            warnings.append(&mut w);
+        }
 
         let dag_stats = produce_dags_stats(&dag);
-        crate::compute_constants::manage_functions(&mut program, flag_verbose, &self.prime)?;
-        crate::compute_constants::compute_vct(&mut temp_instances, &program, flag_verbose, &self.prime)?;
+        crate::compute_constants::manage_functions(&mut program, flags, &self.prime)?;
+        crate::compute_constants::compute_vct(&mut temp_instances, &program, flags, &self.prime)?;
         let mut mixed = vec![];
         let mut index = 0;
         for in_mixed in mixed_instances {

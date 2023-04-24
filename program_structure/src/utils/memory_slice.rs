@@ -1,17 +1,31 @@
 use num_bigint_dig::BigInt;
 use std::fmt::{Display, Formatter};
+
+pub enum TypeInvalidAccess{
+    MissingInputs(String),
+    MissingInputTags(String),
+    NoInitializedComponent,
+    NoInitializedSignal
+}
+
+pub enum TypeAssignmentError{
+    MultipleAssignments,
+    AssignmentOutput
+}
+
 pub enum MemoryError {
     OutOfBoundsError,
-    AssignmentError,
-    InvalidAccess,
+    AssignmentError(TypeAssignmentError),
+    InvalidAccess(TypeInvalidAccess),
     UnknownSizeDimension,
-    MismatchedDimensions,
-    MismatchedDimensionsWeak,
-    AssignmentMissingTags,
+    MismatchedDimensions(usize, usize),
+    MismatchedDimensionsWeak(usize, usize),
+    AssignmentMissingTags(String),
     AssignmentTagAfterInit,
     AssignmentTagTwice,
     AssignmentTagInput,
     TagValueNotInitializedAccess,
+    MissingInputs(String)
 }
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;
@@ -98,14 +112,14 @@ impl<C: Clone> MemorySlice<C> {
 
         while i < new_values.route.len() {
             if new_values.route[i] < memory_slice.route[initial_index_new + i] {
-                if is_strict{ // case variables: we allow the assignment of smaller arrays
-                    return Result::Err(MemoryError::MismatchedDimensions);
-                } else{ // case signals: we do not allow 
-                    return Result::Err(MemoryError::MismatchedDimensionsWeak);
+                if is_strict{ // case signals: we do not allow 
+                    return Result::Err(MemoryError::MismatchedDimensions(new_values.route[i], memory_slice.route[initial_index_new + i]));
+                } else{ // case variables: we allow the assignment of smaller arrays
+                    return Result::Err(MemoryError::MismatchedDimensionsWeak(new_values.route[i], memory_slice.route[initial_index_new + i]));
                 }
             }
             if new_values.route[i] > memory_slice.route[initial_index_new + i] {
-                return Result::Err(MemoryError::MismatchedDimensions);
+                return Result::Err(MemoryError::MismatchedDimensions(new_values.route[i], memory_slice.route[initial_index_new + i]));
             }
             i += 1;
         }
@@ -194,7 +208,7 @@ impl<C: Clone> MemorySlice<C> {
                 }
                 Result::Ok(())
             },
-            Result::Err(MemoryError::MismatchedDimensionsWeak) => {
+            Result::Err(MemoryError::MismatchedDimensionsWeak(dim_1, dim_2)) => {
                 let mut cell = MemorySlice::get_initial_cell(memory_slice, access)?;
                 // if MemorySlice::get_number_of_cells(new_values)
                 //     > (MemorySlice::get_number_of_cells(memory_slice) - cell)
@@ -205,7 +219,7 @@ impl<C: Clone> MemorySlice<C> {
                     memory_slice.values[cell] = value.clone();
                     cell += 1;
                 }
-                Result::Err(MemoryError::MismatchedDimensionsWeak)
+                Result::Err(MemoryError::MismatchedDimensionsWeak(dim_1, dim_2))
             },
             Result::Err(error) => return Err(error),
         }
@@ -275,6 +289,15 @@ impl<C: Clone> MemorySlice<C> {
             return Result::Err(MemoryError::OutOfBoundsError);
         }
         Result::Ok(&memory_slice.values[index])
+    }
+    pub fn get_reference_to_single_value_by_index_or_break<'a>(
+        memory_slice: &'a MemorySlice<C>,
+        index: usize,
+    ) -> &'a C {
+        if index > MemorySlice::get_number_of_cells(memory_slice) {
+            unreachable!("The index is too big for the slice");
+        }
+        &memory_slice.values[index]
     }
     pub fn get_mut_reference_to_single_value<'a>(
         memory_slice: &'a mut MemorySlice<C>,
