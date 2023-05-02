@@ -1,7 +1,8 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, LLVMIRProducer};
+use code_producers::llvm_elements::instructions::create_load;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -47,23 +48,24 @@ impl ToString for LoadBucket {
 }
 
 impl WriteLLVMIR for LoadBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         // Generate the code of the location and use the last value as the reference
-        let ir = self.src.produce_llvm_ir(producer, llvm.clone());
+        let ir = self.src.produce_llvm_ir(producer);
         let index = match ir {
             None => panic!("We need to produce some kind of instruction!"),
             Some(inst) => inst.into_int_value()
         };
         let gep = match &self.address_type {
-            AddressType::Variable => llvm.borrow().get_variable(self.message_id, index).into_pointer_value(),
-            AddressType::Signal => llvm.borrow().get_signal(self.message_id, index),
+            AddressType::Variable => todo!(), //llvm.borrow().get_variable(self.message_id, index).into_pointer_value(),
+            AddressType::Signal => todo!(), //llvm.borrow().get_signal(self.message_id, index),
             AddressType::SubcmpSignal { cmp_address, ..  } => {
-                let addr = cmp_address.produce_llvm_ir(producer, llvm.clone()).expect("The address of a subcomponent must yield a value!");
-                let sub_cmp = Some(llvm.borrow().get_subcomponent(self.message_id, addr.into_int_value()).into_pointer_value());
-                llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "subcmp.signal").into_pointer_value()
+                let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
+                //TODO: let sub_cmp = Some(llvm.borrow().get_subcomponent(self.message_id, addr.into_int_value()).into_pointer_value());
+                //llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "subcmp.signal").into_pointer_value()
+                todo!()
             }
         };
-        let load = llvm.borrow().create_load(gep, "load");
+        let load = create_load(producer, gep);
         Some(load)
     }
 }

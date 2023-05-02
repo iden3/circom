@@ -1,7 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, LLVMIRProducer};
 use code_producers::wasm_elements::*;
 
 
@@ -65,7 +65,7 @@ impl ToString for LogBucket {
 }
 
 impl WriteLLVMIR for LogBucket {
-    fn produce_llvm_ir<'a>(&self, _producer: &'a LLVMProducer, _llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         todo!()
     }
 }

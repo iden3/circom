@@ -1,8 +1,10 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, to_type_enum, to_enum, LLVMIRProducer};
+use code_producers::llvm_elements::instructions::{create_alloca, create_call, create_store};
 use code_producers::llvm_elements::llvm_code_generator::build_fn_name;
+use code_producers::llvm_elements::types::i32_type;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -66,14 +68,14 @@ impl ToString for CreateCmpBucket {
 }
 
 impl WriteLLVMIR for CreateCmpBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         let build_fn_name = build_fn_name(self.symbol.clone());
-        let id = self.sub_cmp_id.produce_llvm_ir(producer, llvm.clone()).expect("The id of a subcomponent must yield a value!");
-        let call = llvm.borrow().create_call(build_fn_name.as_str(), &[]);
-        let counter = llvm.borrow().create_alloca(llvm.borrow().to_type_enum(llvm.borrow().i32_type()), "subcmp.counter").into_pointer_value();
+        let id = self.sub_cmp_id.produce_llvm_ir(producer).expect("The id of a subcomponent must yield a value!");
+        let call = create_call(producer,build_fn_name.as_str(), &[]);
+        let counter = create_alloca(producer, to_type_enum(i32_type(producer)), "subcmp.counter").into_pointer_value();
         // TODO: It needs to be initialized to the number of signals in the component!
-        llvm.borrow().create_store(counter, llvm.borrow().to_enum(llvm.borrow().zero()));
-        llvm.borrow_mut().add_subcomponent(self.message_id, id.into_int_value(), call.into_pointer_value(), counter);
+        create_store(producer, counter, to_enum(producer.zero()));
+        //TODO: llvm.borrow_mut().add_subcomponent(self.message_id, id.into_int_value(), call.into_pointer_value(), counter);
         Some(call)
     }
 }

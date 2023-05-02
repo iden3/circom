@@ -1,7 +1,9 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, any_value_wraps_basic_value, any_value_to_basic, to_enum, LLVMIRProducer};
+use code_producers::llvm_elements::functions::create_bb;
+use code_producers::llvm_elements::instructions::{create_conditional_branch, create_phi};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -54,62 +56,63 @@ impl ToString for BranchBucket {
 }
 
 impl WriteLLVMIR for BranchBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         // Necessary basic blocks
-        let then_bb = llvm.borrow().create_bb_in_current_function("if.then");
-        let else_bb = llvm.borrow().create_bb_in_current_function("if.else");
-        let merge_bb = llvm.borrow().create_bb_in_current_function("if.merge");
+        let current_function = producer.current_function();
+        let then_bb = create_bb(producer, current_function, "if.then");
+        let else_bb = create_bb(producer, current_function, "if.else");
+        let merge_bb = create_bb(producer, current_function, "if.merge");
         // Check of the condition
-        let cond_code = self.cond.produce_llvm_ir(producer, llvm.clone())
+        let cond_code = self.cond.produce_llvm_ir(producer)
             .expect("Cond instruction must produce a value!");
-        let _ = llvm.borrow().create_conditional_branch(cond_code.into_int_value(), then_bb, else_bb);
+        create_conditional_branch(producer, cond_code.into_int_value(), then_bb, else_bb);
         // Then branch
-        llvm.borrow().set_current_bb(then_bb);
+        producer.set_current_bb(then_bb);
         let mut then_last_inst = None;
         for inst in &self.if_branch {
-            then_last_inst = inst.produce_llvm_ir(producer, llvm.clone());
+            then_last_inst = inst.produce_llvm_ir(producer);
             if let Some(inst) = then_last_inst {
-                if !llvm.borrow().any_value_wraps_basic_value(inst) {
+                if !any_value_wraps_basic_value(inst) {
                     then_last_inst = None
                 }
             }
         }
         // Else branch
-        llvm.borrow().set_current_bb(else_bb);
+        producer.set_current_bb(else_bb);
         let mut else_last_inst = None;
         for inst in &self.else_branch {
-            else_last_inst = inst.produce_llvm_ir(producer, llvm.clone());
+            else_last_inst = inst.produce_llvm_ir(producer);
             if let Some(inst) = else_last_inst {
-                if !llvm.borrow().any_value_wraps_basic_value(inst) {
+                if !any_value_wraps_basic_value(inst) {
                     else_last_inst = None
                 }
             }
         }
         // Merge results
-        llvm.borrow().set_current_bb(merge_bb);
+        producer.set_current_bb(merge_bb);
         match (then_last_inst, else_last_inst) {
             (None, None) => {
                 None
             }
             (Some(then), None) => {
-                let phi = llvm.borrow().create_phi(then.get_type(), "if.merge.phi");
-                let then = llvm.borrow().any_value_to_basic(then);
+                let phi = create_phi(producer,then.get_type(), "if.merge.phi");
+                let then = any_value_to_basic(then);
                 phi.add_incoming_as_enum(&[(then, then_bb)]);
-                Some(llvm.borrow().to_enum(phi))
+                Some(to_enum(phi))
             }
             (None, Some(else_)) => {
-                let phi = llvm.borrow().create_phi(else_.get_type(), "if.merge.phi");
-                let else_ = llvm.borrow().any_value_to_basic(else_);
+                let phi = create_phi(producer, else_.get_type(), "if.merge.phi");
+                let else_ = any_value_to_basic(else_);
                 phi.add_incoming_as_enum(&[(else_, else_bb)]);
-                Some(llvm.borrow().to_enum(phi))
+                Some(to_enum(phi))
             }
             (Some(then), Some(else_)) => {
                 assert_eq!(then.get_type(), else_.get_type(), "Types of the two branches of if statement must be of the same type!");
-                let phi = llvm.borrow().create_phi(then.get_type(), "if.merge.phi");
-                let then = llvm.borrow().any_value_to_basic(then);
-                let else_ = llvm.borrow().any_value_to_basic(else_);
+                let phi = create_phi(producer,then.get_type(), "if.merge.phi");
+                let then = any_value_to_basic(then);
+                let else_ = any_value_to_basic(else_);
                 phi.add_incoming_as_enum(&[(then, then_bb), (else_, else_bb)]);
-                Some(llvm.borrow().to_enum(phi))
+                Some(to_enum(phi))
             }
         }
     }

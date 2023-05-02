@@ -1,5 +1,6 @@
 use code_producers::c_elements::CProducer;
-use code_producers::llvm_elements::{LLVMAdapter, LLVMInstruction, LLVMProducer};
+use code_producers::llvm_elements::{LLVMAdapter, LLVMInstruction, LLVMContext, new_constraint, to_basic_metadata_enum, LLVMIRProducer};
+use code_producers::llvm_elements::instructions::{create_call, create_load, get_instruction_arg};
 use code_producers::llvm_elements::llvm_code_generator::{CONSTRAINT_VALUE_FN_NAME, CONSTRAINT_VALUES_FN_NAME};
 use code_producers::wasm_elements::WASMProducer;
 use crate::intermediate_representation::{Instruction, InstructionPointer};
@@ -52,12 +53,12 @@ impl ToString for ConstraintBucket {
 }
 
 impl WriteLLVMIR for ConstraintBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         // TODO: Create the constraint call
         let prev = match self {
             ConstraintBucket::Substitution(i) => i,
             ConstraintBucket::Equality(i) => i
-        }.produce_llvm_ir(producer, llvm.clone()).expect("A constrained instruction MUST produce a value!");
+        }.produce_llvm_ir(producer).expect("A constrained instruction MUST produce a value!");
 
         const STORE_SRC_IDX: u32 = 1;
         const STORE_DST_IDX: u32 = 0;
@@ -65,22 +66,22 @@ impl WriteLLVMIR for ConstraintBucket {
 
         match self {
             ConstraintBucket::Substitution(_) => {
-                let lhs = llvm.borrow().get_arg(prev.into_instruction_value(), STORE_DST_IDX);
-                let rhs_ptr = llvm.borrow().get_arg(prev.into_instruction_value(), STORE_SRC_IDX);
-                let rhs = llvm.borrow().create_load(rhs_ptr.into_pointer_value(), "load");
-                let constr = llvm.borrow_mut().new_constraint();
-                let call = llvm.borrow().create_call(CONSTRAINT_VALUES_FN_NAME, &[
-                    llvm.borrow().to_basic_metadata_enum(lhs),
-                    llvm.borrow().to_basic_metadata_enum(rhs),
-                    llvm.borrow().to_basic_metadata_enum(constr)]);
+                let lhs = get_instruction_arg(prev.into_instruction_value(), STORE_DST_IDX);
+                let rhs_ptr = get_instruction_arg(prev.into_instruction_value(), STORE_SRC_IDX);
+                let rhs = create_load(producer,rhs_ptr.into_pointer_value());
+                let constr = new_constraint(producer);
+                let call = create_call(producer,CONSTRAINT_VALUES_FN_NAME, &[
+                    to_basic_metadata_enum(lhs),
+                    to_basic_metadata_enum(rhs),
+                    to_basic_metadata_enum(constr)]);
                 Some(call)
             }
             ConstraintBucket::Equality(_) => {
-                let bool = llvm.borrow().get_arg(prev.into_instruction_value(), ASSERT_IDX);
-                let constr = llvm.borrow_mut().new_constraint();
-                let call = llvm.borrow().create_call(CONSTRAINT_VALUE_FN_NAME, &[
-                    llvm.borrow().to_basic_metadata_enum(bool),
-                    llvm.borrow().to_basic_metadata_enum(constr)]);
+                let bool = get_instruction_arg(prev.into_instruction_value(), ASSERT_IDX);
+                let constr = new_constraint(producer);
+                let call = create_call(producer, CONSTRAINT_VALUE_FN_NAME, &[
+                    to_basic_metadata_enum(bool),
+                    to_basic_metadata_enum(constr)]);
                 Some(call)
             }
         }

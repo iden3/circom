@@ -1,7 +1,9 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, to_enum, to_basic_metadata_enum, LLVMIRProducer};
+use code_producers::llvm_elements::functions::create_bb;
+use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_load, create_load_with_name, create_store, create_sub_with_name};
 use code_producers::llvm_elements::llvm_code_generator::run_fn_name;
 use code_producers::wasm_elements::*;
 
@@ -52,33 +54,35 @@ impl ToString for StoreBucket {
 }
 
 impl WriteLLVMIR for StoreBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         // A store instruction has a source instruction that states the origin of the value that is going to be stored
-        let location =  self.dest.produce_llvm_ir(producer, llvm.clone());
+        let location =  self.dest.produce_llvm_ir(producer);
         let index = match location {
             None => panic!("We need to produce some kind of instruction!"),
             Some(inst) => inst.into_int_value()
         };
-        let mut sub_cmp = None;
-        let mut sub_cmp_counter = None;
+        //let mut sub_cmp = None;
+        //let mut sub_cmp_counter = None;
+        println!("{}", self.to_string());
         let gep = match &self.dest_address_type {
-            AddressType::Variable => llvm.borrow().get_variable(self.message_id, index).into_pointer_value(),
-            AddressType::Signal => llvm.borrow().get_signal(self.message_id, index),
+            AddressType::Variable => todo!(), //llvm.borrow().get_variable(self.message_id, index).into_pointer_value(),
+            AddressType::Signal => todo!(), //llvm.borrow().get_signal(self.message_id, index),
             AddressType::SubcmpSignal { cmp_address, .. } => {
-                let addr = cmp_address.produce_llvm_ir(producer, llvm.clone()).expect("The address of a subcomponent must yield a value!");
-                sub_cmp = Some(llvm.borrow().get_subcomponent(self.message_id, addr.into_int_value()).into_pointer_value());
-                sub_cmp_counter = Some(llvm.borrow().get_subcomponent_counter(self.message_id, addr.into_int_value()).into_pointer_value());
-                llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "subcmp.signal").into_pointer_value()
+                let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
+                //sub_cmp = Some(llvm.borrow().get_subcomponent(self.message_id, addr.into_int_value()).into_pointer_value());
+                //sub_cmp_counter = Some(llvm.borrow().get_subcomponent_counter(self.message_id, addr.into_int_value()).into_pointer_value());
+                //llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "subcmp.signal").into_pointer_value()
+                todo!()
             }
         };
-        let source = llvm.borrow().to_enum(self.src.produce_llvm_ir(producer, llvm.clone()).unwrap());
-        let store = llvm.borrow().create_store(gep, source);
+       /* let source = to_enum(self.src.produce_llvm_ir(producer).unwrap());
+        let store = create_store(producer,gep, source);
         match (&self.dest_address_type, sub_cmp_counter) {
             (AddressType::SubcmpSignal { .. }, None) => panic!("How come we have a subcomponent and not the counter?"),
             (AddressType::SubcmpSignal { .. }, Some(counter)) => {
-                let value = llvm.borrow().create_load(counter, "load.subcmp.counter");
-                let new_value = llvm.borrow().create_sub(value.into_int_value(), llvm.borrow().create_literal_u32(1), "decrement.counter");
-                llvm.borrow().create_store(counter, new_value);
+                let value = create_load_with_name(producer,counter, "load.subcmp.counter");
+                let new_value = create_sub_with_name(producer, value.into_int_value(), create_literal_u32(producer,1), "decrement.counter");
+                create_store(producer, counter, new_value);
             },
             _ => {}
         }
@@ -93,37 +97,30 @@ impl WriteLLVMIR for StoreBucket {
                     match status {
                         StatusInput::Last => {
                             let run_fn = run_fn_name(sub_cmp_name.expect("Could not get the name of the subcomponent"));
-                            let arg = llvm
-                                .borrow()
-                                .to_basic_metadata_enum(
-                                    llvm
-                                        .borrow()
-                                        .to_enum(
+                            let arg = to_basic_metadata_enum(
+                                    to_enum(
                                             sub_cmp
                                                 .expect("Attempting to call a run function with a null ptr!")));
-                            llvm.borrow().create_call(run_fn.as_str(), &[arg]);
+                            create_call(producer, run_fn.as_str(), &[arg]);
                         },
                         StatusInput::Unknown => {
                             let sub_cmp_name = sub_cmp_name.expect("Could not get the name of the subcomponent");
                             let run_fn = run_fn_name(sub_cmp_name.clone());
-                            let run_bb = llvm.borrow().create_bb_in_current_function(format!("maybe_run.{}", sub_cmp_name).as_str());
-                            let continue_bb = llvm.borrow().create_bb_in_current_function("continue.store");
+                            let current_function = producer.current_function();
+                            let run_bb = create_bb(producer, current_function, format!("maybe_run.{}", sub_cmp_name).as_str());
+                            let continue_bb = create_bb(producer, current_function,"continue.store");
                             // Here we need to get the counter and check if its 0
                             // If its is then call the run function because it means that all signals have been assigned
-                            let value = llvm.borrow().create_load(sub_cmp_counter.unwrap(), "load.subcmp.counter");
-                            llvm.borrow().create_conditional_branch(value.into_int_value(), run_bb, continue_bb);
-                            llvm.borrow().set_current_bb(run_bb);
-                            let arg = llvm
-                                .borrow()
-                                .to_basic_metadata_enum(
-                                    llvm
-                                        .borrow()
-                                        .to_enum(
+                            let value = create_load_with_name(producer, sub_cmp_counter.unwrap(), "load.subcmp.counter");
+                            create_conditional_branch(producer, value.into_int_value(), run_bb, continue_bb);
+                            producer.set_current_bb(run_bb);
+                            let arg = to_basic_metadata_enum(
+                                    to_enum(
                                             sub_cmp
                                                 .expect("Attempting to call a run function with a null ptr!")));
-                            llvm.borrow().create_call(run_fn.as_str(), &[arg]);
-                            llvm.borrow().create_br(continue_bb);
-                            llvm.borrow().set_current_bb(continue_bb);
+                            create_call(producer, run_fn.as_str(), &[arg]);
+                            create_br(producer,continue_bb);
+                            producer.set_current_bb(continue_bb);
                         },
                         _ => {}
                     }
@@ -132,7 +129,7 @@ impl WriteLLVMIR for StoreBucket {
             },
             _ => {}
         }
-        Some(store)
+        Some(store)*/
     }
 }
 

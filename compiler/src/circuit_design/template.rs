@@ -1,8 +1,12 @@
 use crate::intermediate_representation::{InstructionList};
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, LLVMIRProducer};
+use code_producers::llvm_elements::functions::{create_bb, create_function};
+use code_producers::llvm_elements::instructions::{create_alloca, create_br, create_return, create_return_void};
 use code_producers::llvm_elements::llvm_code_generator::{build_fn_name, run_fn_name};
+use code_producers::llvm_elements::template::{create_template_struct, TemplateLLVMIRProducer};
+use code_producers::llvm_elements::types::void_type;
 use code_producers::wasm_elements::*;
 
 pub type TemplateID = usize;
@@ -39,17 +43,17 @@ impl ToString for TemplateCodeInfo {
 
 
 impl WriteLLVMIR for TemplateCodeInfo {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
-        let void = llvm.borrow().void_type();
-        let template_struct = llvm.borrow().create_template_struct(self.number_of_inputs + self.number_of_outputs);
+    fn produce_llvm_ir<'ctx, 'prod>(&self, producer: &'prod dyn LLVMIRProducer<'ctx>) -> Option<LLVMInstruction<'ctx>> {
+        let void = void_type(producer);
+        let template_struct = create_template_struct(producer, self.number_of_inputs + self.number_of_outputs);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Build function
-        let build_function = llvm.borrow().create_function(build_fn_name(self.header.clone()).as_str(), template_struct.fn_type(&[], false));
-        let main = llvm.borrow().create_bb(build_function, "main");
-        llvm.borrow().set_current_bb(main);
-        let alloca = llvm.borrow().create_alloca(template_struct.get_element_type(), "");
-        let _ = llvm.borrow().create_return(alloca.into_pointer_value());
+        let build_function = create_function(producer, build_fn_name(self.header.clone()).as_str(), template_struct.fn_type(&[], false));
+        let main = create_bb(producer,build_function, "main");
+        producer.set_current_bb(main);
+        let alloca = create_alloca(producer, template_struct.get_element_type(), "");
+        create_return(producer, alloca.into_pointer_value());
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Run function
@@ -57,36 +61,41 @@ impl WriteLLVMIR for TemplateCodeInfo {
         // Run function prelude
 
         // TODO: Parameters of the run function that correspond to the arguments of the template
-        let run_function = llvm.borrow().create_function(
+        let run_function = create_function(
+            producer,
             run_fn_name(self.header.clone()).as_str(),
             void.fn_type(&[template_struct.into()], false)
         );
-        llvm.borrow_mut().set_current_function(run_function);
-        let prelude = llvm.borrow().create_bb(run_function, "prelude");
-        llvm.borrow().set_current_bb(prelude);
-        llvm.borrow_mut().create_stack(self.id, self.var_stack_depth);
-        llvm.borrow_mut().create_signal_geps(self.id, self.number_of_inputs + self.number_of_outputs);
+        //llvm.borrow_mut().set_current_function(run_function);
+        let prelude = create_bb(producer, run_function, "prelude");
+        producer.set_current_bb(prelude);
+        let template_producer = TemplateLLVMIRProducer::new(
+            producer,
+            self.var_stack_depth,
+            self.number_of_components,
+            run_function
+        );
+        //llvm.borrow_mut().create_stack(self.id, self.var_stack_depth);
+        //TODO: llvm.borrow_mut().create_signal_geps(self.id, self.number_of_inputs + self.number_of_outputs);
 
         // Run function body
         for t in &self.body {
-            let bb = llvm.borrow().create_bb(run_function, t.label_name(run_function.count_basic_blocks()).as_str());
-            llvm.borrow().create_br(bb);
-            llvm.borrow().set_current_bb(bb);
-            t.produce_llvm_ir(producer, llvm.clone());
+            println!("{}", t.to_string());
+            let bb = create_bb(&template_producer, run_function, t.label_name(run_function.count_basic_blocks()).as_str());
+            create_br(&template_producer, bb);
+            template_producer.set_current_bb(bb);
+            t.produce_llvm_ir(&template_producer);
         }
 
         // Run function prologue
 
-        let prologue = llvm.borrow().create_bb(run_function, "prologue");
-        llvm.borrow().create_br(prologue);
-        llvm.borrow().set_current_bb(prologue);
+        let prologue = create_bb(producer, run_function, "prologue");
+        create_br(producer, prologue);
+        producer.set_current_bb(prologue);
 
-        let ret = llvm.borrow().create_return_void();
-
+        let ret = create_return_void(producer);
         Some(ret)
     }
-
-
 }
 
 impl WriteWasm for TemplateCodeInfo {

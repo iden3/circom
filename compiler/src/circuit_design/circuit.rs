@@ -7,7 +7,8 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use code_producers::llvm_elements::*;
 use std::io::Write;
-use code_producers::llvm_elements::llvm_code_generator::{load_fr, load_stdlib};
+use code_producers::llvm_elements::fr::load_fr;
+use code_producers::llvm_elements::llvm_code_generator::load_stdlib;
 
 pub struct CompilationFlags {
     pub main_inputs_log: bool,
@@ -17,7 +18,7 @@ pub struct CompilationFlags {
 pub struct Circuit {
     pub wasm_producer: WASMProducer,
     pub c_producer: CProducer,
-    pub llvm_producer: LLVMProducer,
+    pub llvm_data: LLVMCircuitData,
     pub templates: Vec<TemplateCode>,
     pub functions: Vec<FunctionCode>,
 }
@@ -27,7 +28,7 @@ impl Default for Circuit {
         Circuit {
             c_producer: CProducer::default(),
             wasm_producer: WASMProducer::default(),
-            llvm_producer: LLVMProducer::default(),
+            llvm_data: LLVMCircuitData::default(),
             templates: Vec::new(),
             functions: Vec::new(),
         }
@@ -35,15 +36,12 @@ impl Default for Circuit {
 }
 
 impl WriteLLVMIR for Circuit {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         // Code for prelude
 
-        // Code for definitions
-        llvm.borrow_mut().create_consts(&producer.field_tracking);
-
         // Code for standard library?
-        load_fr(producer, llvm.clone());
-        load_stdlib(producer, llvm.clone());
+        load_fr(producer);
+        load_stdlib(producer);
 
         // Code for the functions
         for _f in &self.functions {
@@ -53,8 +51,9 @@ impl WriteLLVMIR for Circuit {
 
         // Code for the templates
         for t in &self.templates {
+            println!("Generating code for {}", t.header);
             // code.append(&mut t.produce_llvm_ir(producer));
-            t.produce_llvm_ir(producer, llvm.clone());
+            t.produce_llvm_ir(producer);
         }
 
         // Code for prologue
@@ -495,6 +494,6 @@ impl Circuit {
         self.write_wasm(writer, &self.wasm_producer)
     }
     pub fn produce_llvm_ir(&mut self, _llvm_folder: &str, llvm_path: &str) -> Result<(), ()> {
-        self.write_llvm_ir(llvm_path, &self.llvm_producer)
+        self.write_llvm_ir(llvm_path, &self.llvm_data)
     }
 }
