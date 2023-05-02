@@ -1,36 +1,104 @@
-pub mod llvm_code_generator;
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::rc::Rc;
+
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
-use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue};
-use inkwell::context::{Context};
-use inkwell::IntPredicate::{EQ, NE, SLT};
+use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
+use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, IntType, PointerType, StringRadix};
+use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue, PointerValue};
 use inkwell::values::FunctionValue;
-use inkwell::types::{AnyType, AnyTypeEnum, FunctionType, IntType, PointerType, StringRadix, VoidType};
+
+use template::TemplateCtx;
+
+use crate::llvm_elements::types::bool_type;
+pub use inkwell::types::AnyType;
+pub use inkwell::values::AnyValue;
+
+pub mod llvm_code_generator;
+pub mod template;
+pub mod types;
+pub mod functions;
+pub mod instructions;
+pub mod fr;
+pub mod values;
 
 pub type LLVMInstruction<'a> = AnyValueEnum<'a>;
 
-pub struct LLVMProducer {
-    pub context: Box<Context>,
+pub trait LLVMIRProducer<'a> {
+    fn llvm(&self) -> &LLVM<'a>;
+    fn context(&self) -> ContextRef<'a>;
+    fn set_current_bb(&self, bb: BasicBlock<'a>);
+    fn template_ctx(&self) -> &TemplateCtx<'a>;
+    fn current_function(&self) -> FunctionValue<'a>;
+    fn builder(&self) -> &Builder<'a>;
+    fn constant_fields(&self) -> &Vec<String>;
+}
+
+#[derive(Default)]
+pub struct LLVMCircuitData {
     pub field_tracking: Vec<String>,
 }
 
-impl Default for LLVMProducer {
-    fn default() -> Self {
-        let context = Box::new(Context::create());
-        LLVMProducer {
+pub struct TopLevelLLVMIRProducer<'a> {
+    pub context: &'a Context,
+    current_module: LLVM<'a>,
+    pub field_tracking: Vec<String>
+}
+
+impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {
+    fn llvm(&self) -> &LLVM<'a> {
+        &self.current_module
+    }
+
+    fn context(&self) -> ContextRef<'a> {
+        self.current_module.module.get_context()
+    }
+
+    fn set_current_bb(&self, bb: BasicBlock<'a>) {
+        self.llvm().builder.position_at_end(bb);
+    }
+
+    fn template_ctx(&self) -> &TemplateCtx<'a> {
+        panic!("The top level llvm producer does not hold a template context!");
+    }
+
+    fn current_function(&self) -> FunctionValue<'a> {
+        panic!("The top level llvm producer does not have a current function");
+    }
+
+    fn builder(&self) -> &Builder<'a> {
+        &self.llvm().builder
+    }
+
+    fn constant_fields(&self) -> &Vec<String> {
+        &self.field_tracking
+    }
+}
+
+impl<'a> TopLevelLLVMIRProducer<'a> {
+    pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
+        self.current_module.write_to_file(path)
+    }
+}
+
+pub fn create_context() -> Context {
+    Context::create()
+}
+
+impl<'a> TopLevelLLVMIRProducer<'a> {
+    pub fn new(context: &'a Context, name: &str, field_tracking: Vec<String>) -> Self {
+        TopLevelLLVMIRProducer {
             context,
-            field_tracking: vec![],
+            current_module: LLVM::from_context(context, name),
+            field_tracking
         }
     }
 }
 
-pub type LLVMAdapter<'a> = Rc<RefCell<LLVM<'a>>>;
+pub type LLVMAdapter<'a> = &'a Rc<RefCell<LLVM<'a>>>;
 pub type BigIntType<'a> = IntType<'a>; // i256
 
 pub struct LLVM<'a> {
@@ -43,7 +111,54 @@ pub struct LLVM<'a> {
     template_subcomponents: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
     constraint_count: u64,
     current_function: Option<FunctionValue<'a>>,
-    subcmp_counters: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>
+    subcmp_counters: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
+    template_ctx: Option<TemplateCtx<'a>>,
+}
+
+pub fn new_constraint<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
+    let v = producer.llvm().module.add_global(bool_type(producer), None, "constraint");
+    v.as_any_value_enum()
+}
+
+#[inline]
+pub fn any_value_wraps_basic_value(v: AnyValueEnum) -> bool {
+    match BasicValueEnum::try_from(v) {
+        Ok(_) => true,
+        Err(_) => false
+    }
+}
+
+#[inline]
+pub fn any_value_to_basic(v: AnyValueEnum) -> BasicValueEnum {
+    BasicValueEnum::try_from(v).expect("Attempted to convert a non basic value!")
+}
+
+#[inline]
+pub fn to_enum<'a, T: AnyValue<'a>>(v: T) -> AnyValueEnum<'a> {
+    v.as_any_value_enum()
+}
+
+#[inline]
+pub fn to_basic_enum<'a, T: AnyValue<'a>>(v: T) -> BasicValueEnum<'a> {
+    any_value_to_basic(to_enum(v))
+}
+
+#[inline]
+pub fn to_basic_metadata_enum(value: AnyValueEnum) -> BasicMetadataValueEnum {
+    match BasicMetadataValueEnum::try_from(value) {
+        Ok(v) => v,
+        Err(_) => panic!("Attempted to convert a value that does not support BasicMetadataValueEnum")
+    }
+}
+
+#[inline]
+pub fn to_type_enum<'a, T: AnyType<'a>>(ty: T) -> AnyTypeEnum<'a> {
+    ty.as_any_type_enum()
+}
+
+#[inline]
+pub fn to_basic_type_enum<'a, T: BasicType<'a>>(ty: T) -> BasicTypeEnum<'a> {
+    ty.as_basic_type_enum()
 }
 
 impl<'a> LLVM<'a> {
@@ -58,7 +173,8 @@ impl<'a> LLVM<'a> {
             template_subcomponents: HashMap::new(),
             constraint_count: 0,
             current_function: None,
-            subcmp_counters: HashMap::new()
+            subcmp_counters: HashMap::new(),
+            template_ctx: None,
         }
     }
 
@@ -71,29 +187,12 @@ impl<'a> LLVM<'a> {
         self.module.print_to_file(path).map_err(|_| {})
     }
 
-    pub fn bool_type(&self) -> IntType<'a> {
-        self.module.get_context().bool_type()
-    }
-    pub fn void_type(&self) -> VoidType<'a> {
-        self.module.get_context().void_type()
-    }
-    pub fn i32_type(&self) -> IntType<'a> {
-        self.module.get_context().i32_type()
-    }
     pub fn bigint_type(&self) -> BigIntType<'a> {
         self.module.get_context().custom_width_int_type(256)
     }
 
-    pub fn create_function(&self, name: &str, ty: FunctionType<'a>) -> FunctionValue<'a> {
-        self.module.add_function(name, ty, None)
-    }
-
     pub fn set_current_function(&mut self, func: FunctionValue<'a>) {
         self.current_function = Some(func);
-    }
-
-    pub fn create_bb(&self, func: FunctionValue<'a>, name: &str) -> BasicBlock<'a> {
-       self.module.get_context().append_basic_block(func, name)
     }
 
     pub fn create_bb_in_current_function(&self, name: &str) -> BasicBlock<'a> {
@@ -104,21 +203,16 @@ impl<'a> LLVM<'a> {
         self.builder.position_at_end(bb);
     }
 
-    pub fn create_literal_u32(&self, val: u64) -> IntValue<'a> {
-        self.module.get_context().i32_type().const_int(val, false)
-    }
-
     pub fn zero(&self) -> IntValue<'a> {
         self.module.get_context().i32_type().const_zero()
     }
 
     pub fn create_template_struct(&self, n_signals: usize) -> PointerType<'a> {
         self.bigint_type().array_type(n_signals as u32).ptr_type(Default::default())
-
     }
 
     pub fn create_signal_geps(&mut self, id: usize, _n_signals: usize) {
-        let signal_ptrs= HashMap::new();
+        let signal_ptrs = HashMap::new();
         self.template_signals.insert(id, signal_ptrs);
     }
 
@@ -126,7 +220,7 @@ impl<'a> LLVM<'a> {
         match self.template_signals.get(&id).unwrap().get(&idx) {
             None => {
                 let template_arg = self.get_template_arg().unwrap();
-                let zero = self.create_literal_u32(0);
+                let zero = self.zero();
                 let gep = self.create_gep(template_arg, &[zero, idx], "signal.gep.0");
                 let ptr = gep.into_pointer_value();
                 ptr
@@ -135,8 +229,12 @@ impl<'a> LLVM<'a> {
         }
     }
 
-    pub fn get_variable(&self, id: usize, idx: IntValue<'a>) -> AnyValueEnum<'a> {
-        self.template_variables.get(&id).unwrap().get(&idx).unwrap().as_any_value_enum()
+    pub fn get_variable(&self, _id: usize, idx: IntValue<'a>) -> AnyValueEnum<'a> {
+        self.template_ctx.as_ref()
+            .expect("Could not find template context")
+            .stack.get(&idx)
+            .expect(format!("Could not get variable {} from template context", idx).as_str())
+            .as_any_value_enum()
     }
 
     fn template_arg_id(&self) -> u32 {
@@ -158,125 +256,6 @@ impl<'a> LLVM<'a> {
         unsafe { self.builder.build_gep(ptr, indices, name) }.as_instruction().unwrap().as_any_value_enum()
     }
 
-    pub fn create_load(&self, ptr: PointerValue<'a>, name: &str) -> AnyValueEnum<'a> {
-        self.builder.build_load(ptr, name).as_any_value_enum()
-    }
-
-    pub fn create_return_void(&self) -> AnyValueEnum<'a> {
-        self.builder.build_return(None).as_any_value_enum()
-    }
-
-    pub fn create_return<V: BasicValue<'a>>(&self, val: V) -> AnyValueEnum<'a> {
-        self.builder.build_return(Some(&val)).as_any_value_enum()
-    }
-
-    pub fn create_return_from_any_value(&self, val: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
-        match val {
-            AnyValueEnum::ArrayValue(x) => self.create_return(x),
-            AnyValueEnum::IntValue(x) => self.create_return(x),
-            AnyValueEnum::FloatValue(x) => self.create_return(x),
-            AnyValueEnum::PointerValue(x) => self.create_return(x),
-            AnyValueEnum::StructValue(x) => self.create_return(x),
-            AnyValueEnum::VectorValue(x) => self.create_return(x),
-            _ => panic!("Cannot create a return from a non basic value!")
-        }
-    }
-
-    pub fn create_br(&self, bb: BasicBlock<'a>) -> AnyValueEnum<'a> {
-        self.builder.build_unconditional_branch(bb).as_any_value_enum()
-    }
-
-    pub fn create_alloca(&self, ty: AnyTypeEnum<'a>, name: &str) -> AnyValueEnum<'a> {
-        match ty {
-            AnyTypeEnum::ArrayType(ty) => self.builder.build_alloca(ty, name),
-            AnyTypeEnum::FloatType(ty) => self.builder.build_alloca(ty, name),
-            AnyTypeEnum::IntType(ty) => self.builder.build_alloca(ty, name),
-            AnyTypeEnum::PointerType(ty) => self.builder.build_alloca(ty, name),
-            AnyTypeEnum::StructType(ty) => self.builder.build_alloca(ty, name),
-            AnyTypeEnum::VectorType(ty) => self.builder.build_alloca(ty, name),
-            AnyTypeEnum::FunctionType(_) => panic!("We cannot allocate a function type!"),
-            AnyTypeEnum::VoidType(_) => panic!("We cannot allocate a void type!")
-        }.as_any_value_enum()
-    }
-
-    pub fn create_store(&self, ptr: PointerValue<'a>, value: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
-        match value {
-            AnyValueEnum::ArrayValue(v) => self.builder.build_store(ptr, v),
-            AnyValueEnum::IntValue(v) => self.builder.build_store(ptr, v),
-            AnyValueEnum::FloatValue(v)  => self.builder.build_store(ptr, v),
-            AnyValueEnum::PointerValue(v) => self.builder.build_store(ptr, v),
-            AnyValueEnum::StructValue(v) => self.builder.build_store(ptr, v),
-            AnyValueEnum::VectorValue(v) => self.builder.build_store(ptr, v),
-            _ => panic!("We cannot create a store from a non basic value! There is a bug somewhere.")
-        }.as_any_value_enum()
-    }
-
-    pub fn create_eq<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
-        self.builder.build_int_compare(EQ, lhs, rhs, name).as_any_value_enum()
-    }
-
-    pub fn create_neq<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
-        self.builder.build_int_compare(NE, lhs, rhs, name).as_any_value_enum()
-    }
-
-    pub fn create_ls<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
-        self.builder.build_int_compare(SLT, lhs, rhs, name).as_any_value_enum()
-    }
-
-    pub fn create_add<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
-        self.builder.build_int_add(lhs, rhs, name).as_any_value_enum()
-    }
-
-    pub fn create_sub<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
-        self.builder.build_int_sub(lhs, rhs, name).as_any_value_enum()
-    }
-
-    pub fn create_mul<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
-        self.builder.build_int_mul(lhs, rhs, name).as_any_value_enum()
-    }
-
-    pub fn create_div<T: IntMathValue<'a>>(&self, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
-        self.builder.build_int_signed_div(lhs, rhs, name).as_any_value_enum()
-    }
-
-    pub fn create_neg<T: IntMathValue<'a>>(&self, v: T, name: &str) -> AnyValueEnum<'a> {
-        self.builder.build_int_neg(v, name).as_any_value_enum()
-    }
-
-    pub fn create_conditional_branch(&self, comparison: IntValue<'a>, then_block: BasicBlock<'a>, else_block: BasicBlock< 'a>) -> AnyValueEnum<'a> {
-        self.builder.build_conditional_branch(comparison, then_block, else_block).as_any_value_enum()
-    }
-
-    pub fn create_phi(&self, ty: AnyTypeEnum<'a>, name: &str) -> PhiValue<'a> {
-        match ty {
-            AnyTypeEnum::ArrayType(ty) => self.builder.build_phi(ty, name),
-            AnyTypeEnum::FloatType(ty) => self.builder.build_phi(ty, name),
-            AnyTypeEnum::IntType(ty) => self.builder.build_phi(ty, name),
-            AnyTypeEnum::PointerType(ty) => self.builder.build_phi(ty, name),
-            AnyTypeEnum::StructType(ty) => self.builder.build_phi(ty, name),
-            AnyTypeEnum::VectorType(ty) => self.builder.build_phi(ty, name),
-            _ => panic!("Cannot create a phi node with anything other than a basic type! {}", ty)
-        }
-
-    }
-
-    pub fn create_phi_with_incoming(&self, ty: AnyTypeEnum<'a>, incoming: &[(BasicValueEnum<'a>, BasicBlock<'a>)], name: &str) -> PhiValue<'a> {
-        let phi = self.create_phi(ty, name);
-        // Hack to add the incoming to the phi value
-        phi.add_incoming_as_enum(incoming);
-        phi
-    }
-
-    pub fn any_value_wraps_basic_value(&self, v: AnyValueEnum<'a>) -> bool {
-        match BasicValueEnum::try_from(v) {
-            Ok(_) => true,
-            Err(_) => false
-        }
-    }
-
-    pub fn any_value_to_basic(&self, v: AnyValueEnum<'a>) -> BasicValueEnum<'a> {
-        BasicValueEnum::try_from(v).expect("Attempted to convert a non basic value!")
-    }
 
     pub fn unwrap_any_value(&self, v: &'a AnyValueEnum<'a>) -> &'a dyn AnyValue<'a> {
         match v {
@@ -316,31 +295,6 @@ impl<'a> LLVM<'a> {
         }
     }
 
-    pub fn create_call(&self, name: &str, arguments: &[BasicMetadataValueEnum<'a>]) -> AnyValueEnum<'a> {
-        let f = self.module.get_function(name).expect(format!("Cannot find function {}", name).as_str());
-        self.builder.build_call(f, arguments, format!("call.{}", name).as_str()).as_any_value_enum()
-    }
-
-    pub fn new_constraint(&mut self) -> AnyValueEnum<'a> {
-        let v = self.module.add_global(self.bool_type(), None, format!("constraint.{}", self.constraint_count).as_str());
-        self.constraint_count += 1;
-        v.as_any_value_enum()
-    }
-
-    pub fn to_enum<T: AnyValue<'a>>(&self, v: T) -> AnyValueEnum<'a> {
-        v.as_any_value_enum()
-    }
-
-    pub fn to_type_enum<T: AnyType<'a>>(&self, ty: T) -> AnyTypeEnum<'a> {
-        ty.as_any_type_enum()
-    }
-
-    pub fn get_const(&self, value: usize) -> AnyValueEnum<'a> {
-        let arr = self.constant_fields.expect("Access to constant before initialization!").get_initializer().unwrap().into_array_value();
-        let mut idx = vec![value as u32];
-        let gep = arr.const_extract_value(&mut idx);
-        gep.as_any_value_enum()
-    }
 
     pub fn create_consts(&mut self, fields: &Vec<String>) -> AnyValueEnum<'a> {
         let bigint_ty = self.bigint_type();
@@ -354,23 +308,6 @@ impl<'a> LLVM<'a> {
         global.as_any_value_enum()
     }
 
-    pub fn create_stack(&mut self, id: usize, depth: usize) {
-        let mut var_ptrs= HashMap::new();
-        let bigint_ty = self.bigint_type();
-        for i in 0..depth {
-            let idx = self.create_literal_u32(i as u64);
-            let alloca = self.create_alloca(bigint_ty.as_any_type_enum(), format!("var{}", i).as_str());
-            var_ptrs.insert(idx, alloca.into_pointer_value());
-        }
-        self.template_variables.insert(id, var_ptrs);
-    }
-
-    pub fn to_basic_metadata_enum(&self, value: AnyValueEnum<'a>) -> BasicMetadataValueEnum<'a> {
-        match BasicMetadataValueEnum::try_from(value) {
-            Ok(v) => v,
-            Err(_) => panic!("Attempted to convert a value that does not support BasicMetadataValueEnum")
-        }
-    }
 
     pub fn add_subcomponent(&mut self, id: usize, cmp_id: IntValue<'a>, ptr: PointerValue<'a>, counter: PointerValue<'a>) {
         if !self.template_subcomponents.contains_key(&id) {
@@ -401,14 +338,5 @@ impl<'a> LLVM<'a> {
             .get(&cmp_id)
             .expect("Access to subcomponent before initialization!")
             .as_any_value_enum()
-    }
-
-    pub fn get_arg(&self, inst: InstructionValue<'a>, idx: u32) -> AnyValueEnum<'a> {
-        let r = inst.get_operand(idx).unwrap();
-        if r.is_left() {
-            r.unwrap_left().as_any_value_enum()
-        } else {
-            r.unwrap_right().get_last_instruction().unwrap().as_any_value_enum()
-        }
     }
 }

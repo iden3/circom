@@ -1,7 +1,9 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, LLVMIRProducer};
+use code_producers::llvm_elements::functions::create_bb;
+use code_producers::llvm_elements::instructions::{create_br, create_conditional_branch};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -47,30 +49,32 @@ impl ToString for LoopBucket {
 }
 
 impl WriteLLVMIR for LoopBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
-        let cond_bb = llvm.borrow().create_bb_in_current_function("loop.cond.0");
-        let body_bb = llvm.borrow().create_bb_in_current_function("loop.body.0");
-        let end_bb = llvm.borrow().create_bb_in_current_function("loop.end.0");
-        let _ = llvm.borrow().create_br(cond_bb);
-        llvm.borrow().set_current_bb(cond_bb);
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
+        let current_function = producer.current_function();
+        let cond_bb = create_bb(producer, current_function, "loop.cond.0");
+        let body_bb = create_bb(producer, current_function, "loop.body.0");
+        let end_bb = create_bb(producer, current_function, "loop.end.0");
+        create_br(producer, cond_bb);
+        producer.set_current_bb(cond_bb);
         // Cond logic
-        let cond_res = self.continue_condition.produce_llvm_ir(producer, llvm.clone());
+        let cond_res = self.continue_condition.produce_llvm_ir(producer);
         // XXX: Assumption: If the value is 0 the we go to the end block
-        let cond = llvm.borrow().create_conditional_branch(
+        let cond = create_conditional_branch(
+            producer,
             cond_res.expect("Conditional check expression must produce a value").into_int_value(),
             body_bb,
             end_bb
         );
 
-        llvm.borrow().set_current_bb(body_bb);
+        producer.set_current_bb(body_bb);
         // Body logic
         for stmt in &self.body {
-            let _ = stmt.produce_llvm_ir(producer, llvm.clone());
+            stmt.produce_llvm_ir(producer);
         }
-        llvm.borrow().create_br(cond_bb);
-        llvm.borrow().set_current_bb(end_bb);
+        create_br(producer, cond_bb);
+        producer.set_current_bb(end_bb);
 
-        // What do I return as the result of this code?
+        // Returns the condition code
         Some(cond)
     }
 }

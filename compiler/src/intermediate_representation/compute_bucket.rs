@@ -1,8 +1,9 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
-use code_producers::llvm_elements::llvm_code_generator::{FR_ADD_FN_NAME, FR_DIV_FN_NAME, FR_EQ_FN_NAME, FR_LS_FN_NAME, FR_MUL_FN_NAME, FR_NEG_FN_NAME, FR_NEQ_FN_NAME};
+use code_producers::llvm_elements::{LLVMInstruction, to_basic_metadata_enum, to_enum, LLVMIRProducer};
+use code_producers::llvm_elements::fr::{FR_ADD_FN_NAME, FR_DIV_FN_NAME, FR_EQ_FN_NAME, FR_LS_FN_NAME, FR_MUL_FN_NAME, FR_NEG_FN_NAME, FR_NEQ_FN_NAME};
+use code_producers::llvm_elements::instructions::{create_add_with_name, create_call, create_mul_with_name};
 use code_producers::wasm_elements::*;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -137,27 +138,27 @@ impl ToString for ComputeBucket {
 }
 
 impl WriteLLVMIR for ComputeBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         let mut stack = vec![];
         for i in &self.stack {
-            let inst = i.produce_llvm_ir(producer, llvm.clone());
+            let inst = i.produce_llvm_ir(producer);
             // Do not use as argument instructions that do not generate an instruction
             if let Some(inst) = inst {
                 stack.push(inst);
             }
         }
         let args: Vec<_> = stack.into_iter().map(|i| {
-            llvm.borrow().to_basic_metadata_enum(i)
+            to_basic_metadata_enum(i)
         }).collect();
         let i = match &self.op {
             OperatorType::Mul => {
-                llvm.borrow().create_call(FR_MUL_FN_NAME, &args)
+                create_call(producer,FR_MUL_FN_NAME, &args)
             }
             OperatorType::Div => {
-                llvm.borrow().create_call(FR_DIV_FN_NAME, &args)
+                create_call(producer,FR_DIV_FN_NAME, &args)
             }
             OperatorType::Add => {
-                llvm.borrow().create_call(FR_ADD_FN_NAME, &args)
+                create_call(producer,FR_ADD_FN_NAME, &args)
             }
             OperatorType::Sub => {todo!()}
             OperatorType::Pow => {todo!()}
@@ -168,14 +169,14 @@ impl WriteLLVMIR for ComputeBucket {
             OperatorType::LesserEq => {todo!()}
             OperatorType::GreaterEq => {todo!()}
             OperatorType::Lesser => {
-                llvm.borrow().create_call(FR_LS_FN_NAME, &args)
+                create_call(producer,FR_LS_FN_NAME, &args)
             }
             OperatorType::Greater => {todo!()}
             OperatorType::Eq(_) => {
-                llvm.borrow().create_call(FR_EQ_FN_NAME, &args)
+                create_call(producer,FR_EQ_FN_NAME, &args)
             }
             OperatorType::NotEq => {
-                llvm.borrow().create_call(FR_NEQ_FN_NAME, &args)
+                create_call(producer,FR_NEQ_FN_NAME, &args)
             }
             OperatorType::BoolOr => {todo!()}
             OperatorType::BoolAnd => {todo!()}
@@ -183,22 +184,22 @@ impl WriteLLVMIR for ComputeBucket {
             OperatorType::BitAnd => {todo!()}
             OperatorType::BitXor => {todo!()}
             OperatorType::PrefixSub => {
-                llvm.borrow().create_call(FR_NEG_FN_NAME, &args)
+                create_call(producer,FR_NEG_FN_NAME, &args)
             }
             OperatorType::BoolNot => {todo!()}
             OperatorType::Complement => {todo!()}
             OperatorType::ToAddress => {
-                llvm.borrow().to_enum(args[0])
+                to_enum(args[0])
             }
             OperatorType::MulAddress => {
                 let lhs = args[0].into_int_value();
                 let rhs = args[1].into_int_value();
-                llvm.borrow().create_mul(lhs, rhs, "mul_addr")
+                create_mul_with_name(producer, lhs, rhs, "mul_addr")
             }
             OperatorType::AddAddress => {
                 let lhs = args[0].into_int_value();
                 let rhs = args[1].into_int_value();
-                llvm.borrow().create_add(lhs, rhs, "add_addr")
+                create_add_with_name(producer, lhs, rhs, "add_addr")
             }
         };
         Some(i)

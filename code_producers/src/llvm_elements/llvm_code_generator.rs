@@ -1,123 +1,6 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use crate::llvm_elements::{LLVMProducer, LLVM, LLVMAdapter};
+// TODO: Rename this module to something more appropriate
 
-pub fn create_llvm<'a>(producer: &'a LLVMProducer, name: &str) -> LLVMAdapter<'a> {
-    Rc::new(RefCell::new(LLVM::from_context(&producer.context, name)))
-}
-
-pub const FR_ADD_FN_NAME: &str = "fr_add";
-pub const FR_MUL_FN_NAME: &str = "fr_mul";
-pub const FR_EQ_FN_NAME: &str = "fr_eq";
-pub const FR_LS_FN_NAME: &str = "fr_ls";
-pub const FR_NEQ_FN_NAME: &str = "fr_neq";
-pub const FR_DIV_FN_NAME: &str = "fr_div";
-pub const FR_NEG_FN_NAME: &str = "fr_neg";
-
-mod fr {
-    use crate::llvm_elements::{LLVMAdapter, LLVMProducer};
-    use crate::llvm_elements::llvm_code_generator::{FR_ADD_FN_NAME, FR_DIV_FN_NAME, FR_EQ_FN_NAME, FR_LS_FN_NAME, FR_MUL_FN_NAME, FR_NEG_FN_NAME, FR_NEQ_FN_NAME};
-
-    pub fn add_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let bigint_ty = llvm.borrow().bigint_type();
-        let args = &[bigint_ty.into(), bigint_ty.into()];
-        let func = llvm.borrow().create_function(FR_ADD_FN_NAME, bigint_ty.fn_type(args, false));
-        let main = llvm.borrow().create_bb(func, FR_ADD_FN_NAME);
-        llvm.borrow().set_current_bb(main);
-
-        let lhs = func.get_nth_param(0).unwrap();
-        let rhs = func.get_nth_param(1).unwrap();
-        let add = llvm.borrow().create_add(lhs.into_int_value(), rhs.into_int_value(), "");
-        let _ = llvm.borrow().create_return(add.into_int_value());
-    }
-
-    pub fn mul_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let bigint_ty = llvm.borrow().bigint_type();
-        let args = &[bigint_ty.into(), bigint_ty.into()];
-        let func = llvm.borrow().create_function(FR_MUL_FN_NAME, bigint_ty.fn_type(args, false));
-        let main = llvm.borrow().create_bb(func, FR_MUL_FN_NAME);
-        llvm.borrow().set_current_bb(main);
-
-        let lhs = func.get_nth_param(0).unwrap();
-        let rhs = func.get_nth_param(1).unwrap();
-        let mul = llvm.borrow().create_mul(lhs.into_int_value(), rhs.into_int_value(), "");
-        let _ = llvm.borrow().create_return(mul.into_int_value());
-    }
-
-    pub fn div_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let bigint_ty = llvm.borrow().bigint_type();
-        let args = &[bigint_ty.into(), bigint_ty.into()];
-        let func = llvm.borrow().create_function(FR_DIV_FN_NAME, bigint_ty.fn_type(args, false));
-        let main = llvm.borrow().create_bb(func, FR_DIV_FN_NAME);
-        llvm.borrow().set_current_bb(main);
-
-        let lhs = func.get_nth_param(0).unwrap();
-        let rhs = func.get_nth_param(1).unwrap();
-        let mul = llvm.borrow().create_mul(lhs.into_int_value(), rhs.into_int_value(), "");
-        let _ = llvm.borrow().create_return(mul.into_int_value());
-    }
-
-    pub fn eq_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let bigint_ty = llvm.borrow().bigint_type();
-        let args = &[bigint_ty.into(), bigint_ty.into()];
-        let func = llvm.borrow().create_function(FR_EQ_FN_NAME, llvm.borrow().bool_type().fn_type(args, false));
-        let main = llvm.borrow().create_bb(func, FR_EQ_FN_NAME);
-        llvm.borrow().set_current_bb(main);
-
-        let lhs = func.get_nth_param(0).unwrap();
-        let rhs = func.get_nth_param(1).unwrap();
-        let eq = llvm.borrow().create_eq(lhs.into_int_value(), rhs.into_int_value(), "");
-        let _ = llvm.borrow().create_return(eq.into_int_value());
-    }
-
-    pub fn neq_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let bigint_ty = llvm.borrow().bigint_type();
-        let args = &[bigint_ty.into(), bigint_ty.into()];
-        let func = llvm.borrow().create_function(FR_NEQ_FN_NAME, llvm.borrow().bool_type().fn_type(args, false));
-        let main = llvm.borrow().create_bb(func, FR_NEQ_FN_NAME);
-        llvm.borrow().set_current_bb(main);
-
-        let lhs = func.get_nth_param(0).unwrap();
-        let rhs = func.get_nth_param(1).unwrap();
-        let eq = llvm.borrow().create_neq(lhs.into_int_value(), rhs.into_int_value(), "");
-        let _ = llvm.borrow().create_return(eq.into_int_value());
-    }
-
-    pub fn ls_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let bigint_ty = llvm.borrow().bigint_type();
-        let args = &[bigint_ty.into(), bigint_ty.into()];
-        let func = llvm.borrow().create_function(FR_LS_FN_NAME, llvm.borrow().bool_type().fn_type(args, false));
-        let main = llvm.borrow().create_bb(func, FR_LS_FN_NAME);
-        llvm.borrow().set_current_bb(main);
-
-        let lhs = func.get_nth_param(0).unwrap();
-        let rhs = func.get_nth_param(1).unwrap();
-        let ls = llvm.borrow().create_ls(lhs.into_int_value(), rhs.into_int_value(), "");
-        let _ = llvm.borrow().create_return(ls.into_int_value());
-    }
-
-    pub fn neg_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let bigint_ty = llvm.borrow().bigint_type();
-        let args = &[bigint_ty.into()];
-        let func = llvm.borrow().create_function(FR_NEG_FN_NAME, llvm.borrow().bool_type().fn_type(args, false));
-        let main = llvm.borrow().create_bb(func, FR_NEG_FN_NAME);
-        llvm.borrow().set_current_bb(main);
-
-        let v = func.get_nth_param(0).unwrap();
-        let neg = llvm.borrow().create_neg(v.into_int_value(), "");
-        let _ = llvm.borrow().create_return(neg.into_int_value());
-    }
-}
-
-pub fn load_fr<'a>(producer: &'a LLVMProducer, module: LLVMAdapter<'a>) {
-    fr::add_fn(producer, module.clone());
-    fr::mul_fn(producer, module.clone());
-    fr::eq_fn(producer, module.clone());
-    fr::ls_fn(producer, module.clone());
-    fr::neq_fn(producer, module.clone());
-    fr::div_fn(producer, module.clone());
-    fr::neg_fn(producer, module.clone());
-}
+use crate::llvm_elements::LLVMIRProducer;
 
 pub const CONSTRAINT_VALUES_FN_NAME: &str = "__constraint_values";
 pub const CONSTRAINT_VALUE_FN_NAME: &str = "__constraint_value";
@@ -125,65 +8,77 @@ pub const ASSERT_FN_NAME: &str = "__assert";
 
 mod stdlib {
     use inkwell::values::AnyValue;
-    use crate::llvm_elements::{LLVMAdapter, LLVMProducer};
-    use crate::llvm_elements::llvm_code_generator::{ASSERT_FN_NAME, CONSTRAINT_VALUE_FN_NAME, CONSTRAINT_VALUES_FN_NAME};
 
-    pub fn constraint_values_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let bigint_ty = llvm.borrow().bigint_type();
-        let args = &[bigint_ty.into(), bigint_ty.into(), llvm.borrow().bool_type().ptr_type(Default::default()).into()];
-        let void_ty = llvm.borrow().void_type();
-        let func = llvm.borrow().create_function(CONSTRAINT_VALUES_FN_NAME, void_ty.fn_type(args, false));
-        let main = llvm.borrow().create_bb(func, "main");
-        llvm.borrow().set_current_bb(main);
+    use crate::llvm_elements::functions::{create_bb, create_function};
+    use crate::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_eq, create_return_void, create_store};
+    use crate::llvm_elements::llvm_code_generator::{ASSERT_FN_NAME, CONSTRAINT_VALUE_FN_NAME, CONSTRAINT_VALUES_FN_NAME};
+    use crate::llvm_elements::LLVMIRProducer;
+    use crate::llvm_elements::types::{bigint_type, bool_type, void_type};
+
+    pub fn constraint_values_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+        let bigint_ty = bigint_type(producer);
+        let args = &[
+            bigint_ty.into(),
+            bigint_ty.into(),
+            bool_type(producer).ptr_type(Default::default()).into()
+        ];
+        let void_ty = void_type(producer);
+        let func = create_function(producer, CONSTRAINT_VALUES_FN_NAME, void_ty.fn_type(args, false));
+        let main = create_bb(producer, func, "main");
+        producer.set_current_bb(main);
 
         let lhs = func.get_nth_param(0).unwrap();
         let rhs = func.get_nth_param(1).unwrap();
         let constr = func.get_nth_param(2).unwrap();
 
-        let cmp = llvm.borrow().create_eq(lhs.into_int_value(), rhs.into_int_value(), "");
-        let _ = llvm.borrow().create_store(constr.into_pointer_value(), cmp);
-        let _ = llvm.borrow().create_return_void();
+        let cmp = create_eq(producer, lhs.into_int_value(), rhs.into_int_value());
+        create_store(producer, constr.into_pointer_value(), cmp);
+        create_return_void(producer);
     }
 
-    pub fn constraint_value_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let args = &[llvm.borrow().bool_type().into(), llvm.borrow().bool_type().ptr_type(Default::default()).into()];
-        let void_ty = llvm.borrow().void_type();
-        let func = llvm.borrow().create_function(CONSTRAINT_VALUE_FN_NAME, void_ty.fn_type(args, false));
-        let main = llvm.borrow().create_bb(func, "main");
-        llvm.borrow().set_current_bb(main);
+    pub fn constraint_value_fn<'a, 'b>(producer: &dyn LLVMIRProducer<'a>) {
+        let args = &[bool_type(producer).into(), bool_type(producer).ptr_type(Default::default()).into()];
+        let void_ty = void_type(producer);
+        let func = create_function(producer, CONSTRAINT_VALUE_FN_NAME, void_ty.fn_type(args, false));
+        let main = create_bb(producer, func, "main");
+        producer.set_current_bb(main);
 
         let bool = func.get_nth_param(0).unwrap();
         let constr = func.get_nth_param(1).unwrap();
 
-        let _ = llvm.borrow().create_store(constr.into_pointer_value(), bool.as_any_value_enum());
-        let _ = llvm.borrow().create_return_void();
+        create_store(producer, constr.into_pointer_value(), bool.as_any_value_enum());
+        create_return_void(producer);
     }
 
-    pub fn assert_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let func = llvm.borrow().create_function(ASSERT_FN_NAME, llvm.borrow().void_type().fn_type(&[llvm.borrow().bool_type().into()], false));
-        let main = llvm.borrow().create_bb(func, "main");
-        let if_false = llvm.borrow().create_bb(func, "if.assert.fails");
-        let end = llvm.borrow().create_bb(func, "end");
+    pub fn assert_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+        let func = create_function(
+            producer,
+            ASSERT_FN_NAME,
+            void_type(producer).fn_type(&[bool_type(producer).into()], false),
+        );
+        let main = create_bb(producer, func, "main");
+        let if_false = create_bb(producer, func, "if.assert.fails");
+        let end = create_bb(producer, func, "end");
         let bool = func.get_nth_param(0).unwrap();
-        llvm.borrow().set_current_bb(main);
-        let _ = llvm.borrow().create_conditional_branch(bool.into_int_value(), end, if_false);
-        llvm.borrow().set_current_bb(if_false);
-        let _ = llvm.borrow().create_call("__abort", &[]);
-        let _ = llvm.borrow().create_br(end);
-        llvm.borrow().set_current_bb(end);
-        let _ = llvm.borrow().create_return_void();
+        producer.set_current_bb(main);
+        create_conditional_branch(producer, bool.into_int_value(), end, if_false);
+        producer.set_current_bb(if_false);
+        create_call(producer, "__abort", &[]);
+        create_br(producer, end);
+        producer.set_current_bb(end);
+        create_return_void(producer);
     }
 
-    pub fn abort_declared_fn<'a>(_producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) {
-        let _ = llvm.borrow().create_function("__abort", llvm.borrow().void_type().fn_type(&[], false));
+    pub fn abort_declared_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+        create_function(producer, "__abort", void_type(producer).fn_type(&[], false));
     }
 }
 
-pub fn load_stdlib<'a>(producer: &'a LLVMProducer, module: LLVMAdapter<'a>) {
-    stdlib::constraint_values_fn(producer, module.clone());
-    stdlib::constraint_value_fn(producer, module.clone());
-    stdlib::abort_declared_fn(producer, module.clone());
-    stdlib::assert_fn(producer, module.clone());
+pub fn load_stdlib<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    stdlib::constraint_values_fn(producer);
+    stdlib::constraint_value_fn(producer);
+    stdlib::abort_declared_fn(producer);
+    stdlib::assert_fn(producer);
 }
 
 pub fn run_fn_name(name: String) -> String {

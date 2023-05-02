@@ -17,7 +17,7 @@ pub use super::constraint_bucket::{ConstraintBucket};
 
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, LLVMIRProducer};
 use code_producers::wasm_elements::*;
 
 pub trait IntoInstruction {
@@ -132,21 +132,21 @@ impl WriteWasm for Instruction {
 }
 
 impl WriteLLVMIR for Instruction {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         use Instruction::*;
         match self {
-            Value(v) => v.produce_llvm_ir(producer, llvm),
-            Load(v) => v.produce_llvm_ir(producer, llvm),
-            Store(v) => v.produce_llvm_ir(producer, llvm),
-            Compute(v) => v.produce_llvm_ir(producer, llvm),
-            Call(v) => v.produce_llvm_ir(producer, llvm),
-            Branch(v) => v.produce_llvm_ir(producer, llvm),
-            Return(v) => v.produce_llvm_ir(producer, llvm),
-            Loop(v) => v.produce_llvm_ir(producer, llvm),
-            Assert(v) => v.produce_llvm_ir(producer, llvm),
-            CreateCmp(v) => v.produce_llvm_ir(producer, llvm),
-            Log(v) => v.produce_llvm_ir(producer, llvm),
-            Constraint(v) => v.produce_llvm_ir(producer, llvm)
+            Value(v) => v.produce_llvm_ir(producer),
+            Load(v) => v.produce_llvm_ir(producer),
+            Store(v) => v.produce_llvm_ir(producer),
+            Compute(v) => v.produce_llvm_ir(producer),
+            Call(v) => v.produce_llvm_ir(producer),
+            Branch(v) => v.produce_llvm_ir(producer),
+            Return(v) => v.produce_llvm_ir(producer),
+            Loop(v) => v.produce_llvm_ir(producer),
+            Assert(v) => v.produce_llvm_ir(producer),
+            CreateCmp(v) => v.produce_llvm_ir(producer),
+            Log(v) => v.produce_llvm_ir(producer),
+            Constraint(v) => v.produce_llvm_ir(producer)
         }
     }
 }

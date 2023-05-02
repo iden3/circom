@@ -1,7 +1,8 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMProducer, LLVMAdapter};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, LLVMIRProducer};
+use code_producers::llvm_elements::instructions::create_return_from_any_value;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -43,10 +44,10 @@ impl ToString for ReturnBucket {
 }
 
 impl WriteLLVMIR for ReturnBucket {
-    fn produce_llvm_ir<'a>(&self, producer: &'a LLVMProducer, llvm: LLVMAdapter<'a>) -> Option<LLVMInstruction<'a>> {
-        let ret_value = self.value.produce_llvm_ir(producer, llvm.clone())
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
+        let ret_value = self.value.produce_llvm_ir(producer)
             .expect("Return instruction must produce a value to return");
-        Some(llvm.borrow().create_return_from_any_value(ret_value))
+        Some(create_return_from_any_value(producer, ret_value))
     }
 }
 
