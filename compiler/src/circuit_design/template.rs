@@ -1,12 +1,12 @@
 use crate::intermediate_representation::{InstructionList};
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMIRProducer, any_value_to_basic, to_basic_enum, to_type_enum, to_basic_type_enum, AnyType, AnyValue};
 use code_producers::llvm_elements::functions::{create_bb, create_function};
-use code_producers::llvm_elements::instructions::{create_alloca, create_br, create_return, create_return_void};
+use code_producers::llvm_elements::instructions::{create_alloca, create_br, create_gep, create_return, create_return_void, create_store};
 use code_producers::llvm_elements::llvm_code_generator::{build_fn_name, run_fn_name};
 use code_producers::llvm_elements::template::{create_template_struct, TemplateLLVMIRProducer};
-use code_producers::llvm_elements::types::void_type;
+use code_producers::llvm_elements::types::{i32_type, void_type};
 use code_producers::wasm_elements::*;
 
 pub type TemplateID = usize;
@@ -52,21 +52,32 @@ impl WriteLLVMIR for TemplateCodeInfo {
         let build_function = create_function(producer, build_fn_name(self.header.clone()).as_str(), template_struct.fn_type(&[], false));
         let main = create_bb(producer,build_function, "main");
         producer.set_current_bb(main);
-        let alloca = create_alloca(producer, template_struct.get_element_type(), "");
-        create_return(producer, alloca.into_pointer_value());
+        // Set the type of the component memory: signals array + signals counter
+        let component_memory = producer.context().struct_type(&[
+            to_basic_type_enum(template_struct),
+            to_basic_type_enum(i32_type(producer))
+        ], false);
+        // Allocate memory for the component
+        let alloca = create_alloca(producer, component_memory.as_any_type_enum(), "").into_pointer_value();
+        // Get the counter as a pointer
+        let counter_ptr = create_gep(producer, alloca, &[producer.zero(), producer.create_literal_u32(1)]).into_pointer_value();
+        // Create a literal value of the initial value of the counter
+        let initial_counter_value = producer.create_literal_u32(self.number_of_inputs as u64);
+        // Write that value in the counter
+        create_store(producer, counter_ptr, initial_counter_value.as_any_value_enum());
+        // Return that memory
+        create_return(producer, alloca);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Run function
 
         // Run function prelude
-
         // TODO: Parameters of the run function that correspond to the arguments of the template
         let run_function = create_function(
             producer,
             run_fn_name(self.header.clone()).as_str(),
             void.fn_type(&[template_struct.into()], false)
         );
-        //llvm.borrow_mut().set_current_function(run_function);
         let prelude = create_bb(producer, run_function, "prelude");
         producer.set_current_bb(prelude);
         let template_producer = TemplateLLVMIRProducer::new(
@@ -74,10 +85,9 @@ impl WriteLLVMIR for TemplateCodeInfo {
             self.var_stack_depth,
             self.number_of_components,
             run_function,
-            template_struct
+            template_struct,
+            0
         );
-        //llvm.borrow_mut().create_stack(self.id, self.var_stack_depth);
-        //TODO: llvm.borrow_mut().create_signal_geps(self.id, self.number_of_inputs + self.number_of_outputs);
 
         // Run function body
         for t in &self.body {
@@ -89,7 +99,6 @@ impl WriteLLVMIR for TemplateCodeInfo {
         }
 
         // Run function prologue
-
         let prologue = create_bb(producer, run_function, "prologue");
         create_br(producer, prologue);
         producer.set_current_bb(prologue);

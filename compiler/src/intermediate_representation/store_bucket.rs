@@ -3,7 +3,7 @@ use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, to_enum, to_basic_metadata_enum, LLVMIRProducer};
 use code_producers::llvm_elements::functions::create_bb;
-use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_load, create_load_with_name, create_store, create_sub_with_name};
+use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_gep, create_load, create_load_with_name, create_store, create_sub_with_name};
 use code_producers::llvm_elements::llvm_code_generator::run_fn_name;
 use code_producers::wasm_elements::*;
 
@@ -56,80 +56,68 @@ impl ToString for StoreBucket {
 impl WriteLLVMIR for StoreBucket {
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         // A store instruction has a source instruction that states the origin of the value that is going to be stored
-        let location =  self.dest.produce_llvm_ir(producer);
-        let index = match location {
-            None => panic!("We need to produce some kind of instruction!"),
-            Some(inst) => inst.into_int_value()
-        };
-        //let mut sub_cmp = None;
-        //let mut sub_cmp_counter = None;
-        println!("{}", self.to_string());
+        let index =  self.dest.produce_llvm_ir(producer).expect("We need to produce some kind of instruction!").into_int_value();
+        // From the index of the source extract the actual type of destination
         let gep = match &self.dest_address_type {
-            AddressType::Variable => todo!(), //llvm.borrow().get_variable(self.message_id, index).into_pointer_value(),
-            AddressType::Signal => todo!(), //llvm.borrow().get_signal(self.message_id, index),
+            AddressType::Variable => producer.template_ctx().get_variable(index),
+            AddressType::Signal => producer.template_ctx().get_signal(producer, index),
             AddressType::SubcmpSignal { cmp_address, .. } => {
                 let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
-                //sub_cmp = Some(llvm.borrow().get_subcomponent(self.message_id, addr.into_int_value()).into_pointer_value());
-                //sub_cmp_counter = Some(llvm.borrow().get_subcomponent_counter(self.message_id, addr.into_int_value()).into_pointer_value());
-                //llvm.borrow().create_gep(sub_cmp.unwrap(), &[llvm.borrow().zero(), index], "subcmp.signal").into_pointer_value()
-                todo!()
+                let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
+                create_gep(producer, subcmp, &[producer.zero(), index])
             }
-        };
-       /* let source = to_enum(self.src.produce_llvm_ir(producer).unwrap());
+        }.into_pointer_value();
+        // Extract the source and store the result in the destination
+        let source = to_enum(self.src.produce_llvm_ir(producer).unwrap());
         let store = create_store(producer,gep, source);
-        match (&self.dest_address_type, sub_cmp_counter) {
-            (AddressType::SubcmpSignal { .. }, None) => panic!("How come we have a subcomponent and not the counter?"),
-            (AddressType::SubcmpSignal { .. }, Some(counter)) => {
-                let value = create_load_with_name(producer,counter, "load.subcmp.counter");
-                let new_value = create_sub_with_name(producer, value.into_int_value(), create_literal_u32(producer,1), "decrement.counter");
-                create_store(producer, counter, new_value);
-            },
-            _ => {}
+
+        // If we have a subcomponent storage decrement the counter
+        if let AddressType::SubcmpSignal { cmp_address, .. } = &self.dest_address_type {
+            let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
+            let counter = producer.template_ctx().load_subcmp_counter(producer, addr);
+            let value = create_load_with_name(producer,counter, "load.subcmp.counter");
+            let new_value = create_sub_with_name(producer, value.into_int_value(), producer.create_literal_u32(1), "decrement.counter");
+            create_store(producer, counter, new_value);
         }
+
         let sub_cmp_name = match &self.dest {
             LocationRule::Indexed { template_header, .. } => template_header.clone(),
             _ => None
         };
         // If the input information is unknown add a check that checks the counter and if its zero call the subcomponent
-        match &self.dest_address_type {
-            AddressType::SubcmpSignal { input_information, .. } => match input_information {
-                InputInformation::Input { status } => {
-                    match status {
-                        StatusInput::Last => {
-                            let run_fn = run_fn_name(sub_cmp_name.expect("Could not get the name of the subcomponent"));
-                            let arg = to_basic_metadata_enum(
-                                    to_enum(
-                                            sub_cmp
-                                                .expect("Attempting to call a run function with a null ptr!")));
-                            create_call(producer, run_fn.as_str(), &[arg]);
-                        },
-                        StatusInput::Unknown => {
-                            let sub_cmp_name = sub_cmp_name.expect("Could not get the name of the subcomponent");
-                            let run_fn = run_fn_name(sub_cmp_name.clone());
-                            let current_function = producer.current_function();
-                            let run_bb = create_bb(producer, current_function, format!("maybe_run.{}", sub_cmp_name).as_str());
-                            let continue_bb = create_bb(producer, current_function,"continue.store");
-                            // Here we need to get the counter and check if its 0
-                            // If its is then call the run function because it means that all signals have been assigned
-                            let value = create_load_with_name(producer, sub_cmp_counter.unwrap(), "load.subcmp.counter");
-                            create_conditional_branch(producer, value.into_int_value(), run_bb, continue_bb);
-                            producer.set_current_bb(run_bb);
-                            let arg = to_basic_metadata_enum(
-                                    to_enum(
-                                            sub_cmp
-                                                .expect("Attempting to call a run function with a null ptr!")));
-                            create_call(producer, run_fn.as_str(), &[arg]);
-                            create_br(producer,continue_bb);
-                            producer.set_current_bb(continue_bb);
-                        },
-                        _ => {}
+        // If its last just call run directly
+        if let AddressType::SubcmpSignal { input_information, cmp_address, .. } = &self.dest_address_type {
+            if let InputInformation::Input { status } = input_information {
+                match status {
+                    StatusInput::Last => {
+                        let run_fn = run_fn_name(sub_cmp_name.expect("Could not get the name of the subcomponent"));
+                        // If we reach this point gep is the address of the subcomponent so we ca just reuse it
+                        let arg = to_basic_metadata_enum(to_enum(gep));
+                        create_call(producer, run_fn.as_str(), &[arg]);
                     }
+                    StatusInput::Unknown => {
+                        let sub_cmp_name = sub_cmp_name.expect("Could not get the name of the subcomponent");
+                        let run_fn = run_fn_name(sub_cmp_name.clone());
+                        let current_function = producer.current_function();
+                        let run_bb = create_bb(producer, current_function, format!("maybe_run.{}", sub_cmp_name).as_str());
+                        let continue_bb = create_bb(producer, current_function,"continue.store");
+                        // Here we need to get the counter and check if its 0
+                        // If its is then call the run function because it means that all signals have been assigned
+                        let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
+                        let counter = producer.template_ctx().load_subcmp_counter(producer, addr);
+                        let value = create_load_with_name(producer, counter, "load.subcmp.counter");
+                        create_conditional_branch(producer, value.into_int_value(), run_bb, continue_bb);
+                        producer.set_current_bb(run_bb);
+                        let arg = to_basic_metadata_enum(to_enum(gep));
+                        create_call(producer, run_fn.as_str(), &[arg]);
+                        create_br(producer,continue_bb);
+                        producer.set_current_bb(continue_bb);
+                    }
+                    _ => {}
                 }
-                _ => {}
-            },
-            _ => {}
+            }
         }
-        Some(store)*/
+        Some(store)
     }
 }
 

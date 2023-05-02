@@ -7,14 +7,16 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
-use inkwell::types::{AnyType, AnyTypeEnum, IntType, PointerType, StringRadix};
-use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue, PointerValue};
+use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, IntType, PointerType, StringRadix};
+use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue, PointerValue};
 use inkwell::values::FunctionValue;
 
 use template::TemplateCtx;
 
 use crate::llvm_elements::types::bool_type;
 use crate::llvm_elements::values::ValueProducer;
+pub use inkwell::types::AnyType;
+pub use inkwell::values::AnyValue;
 
 pub mod llvm_code_generator;
 pub mod template;
@@ -123,6 +125,7 @@ pub fn new_constraint<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a>
     v.as_any_value_enum()
 }
 
+#[inline]
 pub fn any_value_wraps_basic_value(v: AnyValueEnum) -> bool {
     match BasicValueEnum::try_from(v) {
         Ok(_) => true,
@@ -130,14 +133,22 @@ pub fn any_value_wraps_basic_value(v: AnyValueEnum) -> bool {
     }
 }
 
+#[inline]
 pub fn any_value_to_basic(v: AnyValueEnum) -> BasicValueEnum {
     BasicValueEnum::try_from(v).expect("Attempted to convert a non basic value!")
 }
 
+#[inline]
 pub fn to_enum<'a, T: AnyValue<'a>>(v: T) -> AnyValueEnum<'a> {
     v.as_any_value_enum()
 }
 
+#[inline]
+pub fn to_basic_enum<'a, T: AnyValue<'a>>(v: T) -> BasicValueEnum<'a> {
+    any_value_to_basic(to_enum(v))
+}
+
+#[inline]
 pub fn to_basic_metadata_enum(value: AnyValueEnum) -> BasicMetadataValueEnum {
     match BasicMetadataValueEnum::try_from(value) {
         Ok(v) => v,
@@ -145,10 +156,15 @@ pub fn to_basic_metadata_enum(value: AnyValueEnum) -> BasicMetadataValueEnum {
     }
 }
 
+#[inline]
 pub fn to_type_enum<'a, T: AnyType<'a>>(ty: T) -> AnyTypeEnum<'a> {
     ty.as_any_type_enum()
 }
 
+#[inline]
+pub fn to_basic_type_enum<'a, T: BasicType<'a>>(ty: T) -> BasicTypeEnum<'a> {
+    ty.as_basic_type_enum()
+}
 
 impl<'a> LLVM<'a> {
     pub fn from_context(context: &'a Context, name: &str) -> Self {

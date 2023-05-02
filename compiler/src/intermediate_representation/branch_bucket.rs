@@ -1,7 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, any_value_wraps_basic_value, any_value_to_basic, to_enum, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, any_value_wraps_basic_value, any_value_to_basic, to_enum, LLVMIRProducer};
 use code_producers::llvm_elements::functions::create_bb;
 use code_producers::llvm_elements::instructions::{create_conditional_branch, create_phi};
 use code_producers::wasm_elements::*;

@@ -1,9 +1,9 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, to_type_enum, to_enum, LLVMIRProducer};
-use code_producers::llvm_elements::instructions::{create_alloca, create_call, create_store};
-use code_producers::llvm_elements::llvm_code_generator::build_fn_name;
+use code_producers::llvm_elements::{LLVMInstruction, to_type_enum, to_enum, LLVMIRProducer, to_basic_metadata_enum};
+use code_producers::llvm_elements::instructions::{create_add, create_alloca, create_call, create_store};
+use code_producers::llvm_elements::llvm_code_generator::{build_fn_name, run_fn_name};
 use code_producers::llvm_elements::types::i32_type;
 use code_producers::wasm_elements::*;
 
@@ -69,14 +69,21 @@ impl ToString for CreateCmpBucket {
 
 impl WriteLLVMIR for CreateCmpBucket {
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
-        let build_fn_name = build_fn_name(self.symbol.clone());
-        let id = self.sub_cmp_id.produce_llvm_ir(producer).expect("The id of a subcomponent must yield a value!");
-        let call = create_call(producer,build_fn_name.as_str(), &[]);
-        let counter = create_alloca(producer, to_type_enum(i32_type(producer)), "subcmp.counter").into_pointer_value();
-        // TODO: It needs to be initialized to the number of signals in the component!
-        create_store(producer, counter, to_enum(producer.zero()));
-        //TODO: llvm.borrow_mut().add_subcomponent(self.message_id, id.into_int_value(), call.into_pointer_value(), counter);
-        Some(call)
+        let id = self.sub_cmp_id.produce_llvm_ir(producer).expect("sub_cmp_id must produce a value!");
+        let ctx = producer.template_ctx();
+
+        for cmp_n in 0..self.number_of_cmp {
+            let add = create_add(producer, id.into_int_value(), producer.create_literal_u32(cmp_n as u64));
+            let sub_cmp_addr = ctx.load_subcmp_addr(producer, add);
+            let build_call = create_call(producer, build_fn_name(self.symbol.clone()).as_str(), &[]);
+            create_store(producer, sub_cmp_addr, build_call);
+            // If it has 0 inputs run directly
+            if !self.has_inputs {
+                let sub_cmp = to_basic_metadata_enum(to_enum(sub_cmp_addr));
+                create_call(producer, run_fn_name(self.symbol.clone()).as_str(), &[sub_cmp]);
+            }
+        }
+        None // We don't return a Value from this bucket
     }
 }
 

@@ -69,12 +69,12 @@ impl WriteLLVMIR for LoopBucket {
         producer.set_current_bb(body_bb);
         // Body logic
         for stmt in &self.body {
-            let _ = stmt.produce_llvm_ir(producer);
+            stmt.produce_llvm_ir(producer);
         }
         create_br(producer, cond_bb);
         producer.set_current_bb(end_bb);
 
-        // What do I return as the result of this code?
+        // Returns the condition code
         Some(cond)
     }
 }

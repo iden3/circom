@@ -154,6 +154,14 @@ pub fn create_load<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>)
     create_load_with_name(producer, ptr, "")
 }
 
+pub fn create_gep_with_name<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>, indices: &[IntValue<'a>], name: &str) -> AnyValueEnum<'a> {
+    unsafe { producer.llvm().builder.build_gep(ptr, indices, name) }.as_instruction().unwrap().as_any_value_enum()
+}
+
+pub fn create_gep<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>, indices: &[IntValue<'a>]) -> AnyValueEnum<'a> {
+    create_gep_with_name(producer, ptr, indices, "")
+}
+
 pub fn get_instruction_arg(inst: InstructionValue, idx: u32) -> AnyValueEnum {
     let r = inst.get_operand(idx).unwrap();
     if r.is_left() {
