@@ -5,6 +5,7 @@ use code_producers::llvm_elements::{LLVMInstruction, to_type_enum, to_enum, LLVM
 use code_producers::llvm_elements::instructions::{create_add, create_alloca, create_call, create_store};
 use code_producers::llvm_elements::llvm_code_generator::{build_fn_name, run_fn_name};
 use code_producers::llvm_elements::types::i32_type;
+use code_producers::llvm_elements::values::create_literal_u32;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -73,7 +74,7 @@ impl WriteLLVMIR for CreateCmpBucket {
         let ctx = producer.template_ctx();
 
         for cmp_n in 0..self.number_of_cmp {
-            let add = create_add(producer, id.into_int_value(), producer.create_literal_u32(cmp_n as u64));
+            let add = create_add(producer, id.into_int_value(), create_literal_u32(producer, cmp_n as u64));
             let sub_cmp_addr = ctx.load_subcmp_addr(producer, add);
             let build_call = create_call(producer, build_fn_name(self.symbol.clone()).as_str(), &[]);
             create_store(producer, sub_cmp_addr, build_call);

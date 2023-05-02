@@ -1,4 +1,4 @@
-use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, LLVMIRProducer};
 use crate::translating_traits::WriteLLVMIR;
 use super::ir_interface::*;
 

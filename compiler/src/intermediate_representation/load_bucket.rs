@@ -1,8 +1,9 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMAdapter, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, LLVMIRProducer};
 use code_producers::llvm_elements::instructions::{create_gep, create_load};
+use code_producers::llvm_elements::values::zero;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -57,7 +58,7 @@ impl WriteLLVMIR for LoadBucket {
             AddressType::SubcmpSignal { cmp_address, ..  } => {
                 let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
                 let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
-                create_gep(producer, subcmp, &[producer.zero(), index])
+                create_gep(producer, subcmp, &[index])
             }
         };
         let load = create_load(producer, gep.into_pointer_value());

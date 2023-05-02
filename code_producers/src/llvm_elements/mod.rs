@@ -14,7 +14,6 @@ use inkwell::values::FunctionValue;
 use template::TemplateCtx;
 
 use crate::llvm_elements::types::bool_type;
-use crate::llvm_elements::values::ValueProducer;
 pub use inkwell::types::AnyType;
 pub use inkwell::values::AnyValue;
 
@@ -28,16 +27,14 @@ pub mod values;
 
 pub type LLVMInstruction<'a> = AnyValueEnum<'a>;
 
-pub trait LLVMIRProducer<'a>: LLVMContext<'a> + ValueProducer<'a> {}
-
-pub trait LLVMContext<'a> {
+pub trait LLVMIRProducer<'a> {
     fn llvm(&self) -> &LLVM<'a>;
     fn context(&self) -> ContextRef<'a>;
     fn set_current_bb(&self, bb: BasicBlock<'a>);
     fn template_ctx(&self) -> &TemplateCtx<'a>;
     fn current_function(&self) -> FunctionValue<'a>;
     fn builder(&self) -> &Builder<'a>;
-    fn constant_fields(&self) -> Option<GlobalValue<'a>>;
+    fn constant_fields(&self) -> &Vec<String>;
 }
 
 #[derive(Default)]
@@ -48,9 +45,10 @@ pub struct LLVMCircuitData {
 pub struct TopLevelLLVMIRProducer<'a> {
     pub context: &'a Context,
     current_module: LLVM<'a>,
+    pub field_tracking: Vec<String>
 }
 
-impl<'a> LLVMContext<'a> for TopLevelLLVMIRProducer<'a> {
+impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {
     fn llvm(&self) -> &LLVM<'a> {
         &self.current_module
     }
@@ -75,14 +73,10 @@ impl<'a> LLVMContext<'a> for TopLevelLLVMIRProducer<'a> {
         &self.llvm().builder
     }
 
-    fn constant_fields(&self) -> Option<GlobalValue<'a>> {
-        self.llvm().constant_fields
+    fn constant_fields(&self) -> &Vec<String> {
+        &self.field_tracking
     }
 }
-
-impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {}
-
-impl<'a> ValueProducer<'a> for TopLevelLLVMIRProducer<'a> {}
 
 impl<'a> TopLevelLLVMIRProducer<'a> {
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
@@ -95,10 +89,11 @@ pub fn create_context() -> Context {
 }
 
 impl<'a> TopLevelLLVMIRProducer<'a> {
-    pub fn new(context: &'a Context, name: &str) -> Self {
+    pub fn new(context: &'a Context, name: &str, field_tracking: Vec<String>) -> Self {
         TopLevelLLVMIRProducer {
             context,
             current_module: LLVM::from_context(context, name),
+            field_tracking
         }
     }
 }

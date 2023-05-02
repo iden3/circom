@@ -6,17 +6,17 @@ use inkwell::context::ContextRef;
 use inkwell::types::{AnyType, BasicType, PointerType};
 use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue, GlobalValue, IntValue, PointerValue};
 
-use crate::llvm_elements::{LLVM, LLVMContext, LLVMIRProducer};
+use crate::llvm_elements::{LLVM, LLVMIRProducer};
 use crate::llvm_elements::instructions::{create_alloca, create_gep};
 use crate::llvm_elements::types::{bigint_type, i32_type, subcomponent_type};
-use crate::llvm_elements::values::ValueProducer;
+use crate::llvm_elements::values::{create_literal_u32, zero};
 
 pub struct TemplateLLVMIRProducer<'ctx: 'prod, 'prod> {
     parent: &'prod dyn LLVMIRProducer<'ctx>,
     template_ctx: TemplateCtx<'ctx>,
 }
 
-impl<'a, 'b> LLVMContext<'a> for TemplateLLVMIRProducer<'a, 'b> {
+impl<'a, 'b> LLVMIRProducer<'a> for TemplateLLVMIRProducer<'a, 'b> {
     fn llvm(&self) -> &LLVM<'a> {
         self.parent.llvm()
     }
@@ -41,14 +41,10 @@ impl<'a, 'b> LLVMContext<'a> for TemplateLLVMIRProducer<'a, 'b> {
         self.parent.builder()
     }
 
-    fn constant_fields(&self) -> Option<GlobalValue<'a>> {
+    fn constant_fields(&self) -> &Vec<String> {
         self.parent.constant_fields()
     }
 }
-
-impl<'a, 'b> ValueProducer<'a> for TemplateLLVMIRProducer<'a, 'b> {}
-
-impl<'a, 'b> LLVMIRProducer<'a> for TemplateLLVMIRProducer<'a, 'b> {}
 
 impl<'a, 'b> TemplateLLVMIRProducer<'a, 'b> {
     pub fn new(parent: &'b dyn LLVMIRProducer<'a>, stack_depth: usize, number_subcmps: usize, current_function: FunctionValue<'a>, template_type: PointerType<'a>, signals_arg_offset: usize) -> Self {
@@ -90,7 +86,7 @@ fn setup_stack<'a>(producer: &dyn LLVMIRProducer<'a>, stack_depth: usize) -> Has
     // TODO: Might need to change this to an array depending on how array variables are handled
     let bigint_ty = bigint_type(producer);
     for i in 0..stack_depth {
-        let idx = producer.create_literal_u32(i as u64);
+        let idx = create_literal_u32(producer, i as u64);
         let alloca = create_alloca(producer, bigint_ty.as_any_type_enum(), format!("var{}", i).as_str());
         stack.insert(idx, alloca.into_pointer_value());
     }
@@ -110,12 +106,12 @@ impl<'a> TemplateCtx<'a> {
 
     /// Creates the necessary code to load a subcomponent given the expression used as id
     pub fn load_subcmp_addr(&self, producer: &dyn LLVMIRProducer<'a>, id: AnyValueEnum<'a>) -> PointerValue<'a> {
-        create_gep(producer, self.subcmps, &[producer.zero(), id.into_int_value(), producer.zero()]).into_pointer_value()
+        create_gep(producer, self.subcmps, &[zero(producer), id.into_int_value(), zero(producer)]).into_pointer_value()
     }
 
     /// Creates the necessary code to load a subcomponent counter given the expression used as id
     pub fn load_subcmp_counter(&self, producer: &dyn LLVMIRProducer<'a>, id: AnyValueEnum<'a>) -> PointerValue<'a> {
-        create_gep(producer, self.subcmps, &[producer.zero(), id.into_int_value(), producer.create_literal_u32(1)]).into_pointer_value()
+        create_gep(producer, self.subcmps, &[zero(producer), id.into_int_value(), create_literal_u32(producer, 1)]).into_pointer_value()
     }
 
     /// Returns a reference to the local variable associated to the index
@@ -126,7 +122,7 @@ impl<'a> TemplateCtx<'a> {
     /// Returns a pointer to the signal associated to the index
     pub fn get_signal(&self, producer: &dyn LLVMIRProducer<'a>, index: IntValue<'a>) -> AnyValueEnum<'a> {
         let signals = self.current_function.get_nth_param(self.signals_arg_offset as u32).unwrap();
-        create_gep(producer, signals.into_pointer_value(), &[producer.zero(), index])
+        create_gep(producer, signals.into_pointer_value(), &[zero(producer), index])
     }
 }
 

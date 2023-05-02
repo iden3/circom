@@ -1,12 +1,13 @@
 use crate::intermediate_representation::{InstructionList};
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMContext, LLVMIRProducer, any_value_to_basic, to_basic_enum, to_type_enum, to_basic_type_enum, AnyType, AnyValue};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer, any_value_to_basic, to_basic_enum, to_type_enum, to_basic_type_enum, AnyType, AnyValue};
 use code_producers::llvm_elements::functions::{create_bb, create_function};
 use code_producers::llvm_elements::instructions::{create_alloca, create_br, create_gep, create_return, create_return_void, create_store};
 use code_producers::llvm_elements::llvm_code_generator::{build_fn_name, run_fn_name};
 use code_producers::llvm_elements::template::{create_template_struct, TemplateLLVMIRProducer};
 use code_producers::llvm_elements::types::{i32_type, void_type};
+use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
 
 pub type TemplateID = usize;
@@ -49,20 +50,21 @@ impl WriteLLVMIR for TemplateCodeInfo {
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Build function
-        let build_function = create_function(producer, build_fn_name(self.header.clone()).as_str(), template_struct.fn_type(&[], false));
-        let main = create_bb(producer,build_function, "main");
-        producer.set_current_bb(main);
         // Set the type of the component memory: signals array + signals counter
         let component_memory = producer.context().struct_type(&[
             to_basic_type_enum(template_struct),
             to_basic_type_enum(i32_type(producer))
         ], false);
+        let build_function = create_function(producer, build_fn_name(self.header.clone()).as_str(), component_memory.fn_type(&[], false));
+        let main = create_bb(producer,build_function, "main");
+        producer.set_current_bb(main);
+
         // Allocate memory for the component
         let alloca = create_alloca(producer, component_memory.as_any_type_enum(), "").into_pointer_value();
         // Get the counter as a pointer
-        let counter_ptr = create_gep(producer, alloca, &[producer.zero(), producer.create_literal_u32(1)]).into_pointer_value();
+        let counter_ptr = create_gep(producer, alloca, &[zero(producer), create_literal_u32(producer, 1)]).into_pointer_value();
         // Create a literal value of the initial value of the counter
-        let initial_counter_value = producer.create_literal_u32(self.number_of_inputs as u64);
+        let initial_counter_value = create_literal_u32(producer, self.number_of_inputs as u64);
         // Write that value in the counter
         create_store(producer, counter_ptr, initial_counter_value.as_any_value_enum());
         // Return that memory

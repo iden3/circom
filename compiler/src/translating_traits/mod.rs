@@ -34,7 +34,7 @@ pub trait WriteLLVMIR {
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>>;
     fn write_llvm_ir(&self, llvm_path: &str, data: &LLVMCircuitData) -> Result<(), ()> {
         let context = Box::new(create_context());
-        let top_level = TopLevelLLVMIRProducer::new(&context,llvm_path);
+        let top_level = TopLevelLLVMIRProducer::new(&context,llvm_path, data.field_tracking.clone());
         self.produce_llvm_ir(&top_level);
         top_level.write_to_file(llvm_path)
     }

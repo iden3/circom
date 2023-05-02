@@ -39,6 +39,7 @@ impl WriteLLVMIR for Circuit {
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         // Code for prelude
 
+
         // Code for standard library?
         load_fr(producer);
         load_stdlib(producer);
