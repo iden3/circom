@@ -73,7 +73,8 @@ impl WriteLLVMIR for TemplateCodeInfo {
             producer,
             self.var_stack_depth,
             self.number_of_components,
-            run_function
+            run_function,
+            template_struct
         );
         //llvm.borrow_mut().create_stack(self.id, self.var_stack_depth);
         //TODO: llvm.borrow_mut().create_signal_geps(self.id, self.number_of_inputs + self.number_of_outputs);

@@ -2,81 +2,82 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::IntPredicate::{EQ, NE, SLT};
 use inkwell::types::AnyTypeEnum;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue};
+
 use crate::llvm_elements::LLVMIRProducer;
 
-pub fn create_add_with_name<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_add_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_add(lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_add<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+pub fn create_add<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
     create_add_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_sub_with_name<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_sub_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_sub(lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_sub<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+pub fn create_sub<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
     create_sub_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_mul_with_name<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_mul_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_mul(lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_mul<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+pub fn create_mul<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
     create_mul_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_div_with_name<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_div_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_unsigned_div(lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_div<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+pub fn create_div<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
     create_div_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_return<'a, V: BasicValue<'a>>(producer: & dyn LLVMIRProducer<'a>, val: V) -> AnyValueEnum<'a> {
+pub fn create_return<'a, V: BasicValue<'a>>(producer: &dyn LLVMIRProducer<'a>, val: V) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_return(Some(&val)).as_any_value_enum()
 }
 
-pub fn create_eq_with_name<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_eq_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_compare(EQ, lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_eq<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+pub fn create_eq<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
     create_eq_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_neq_with_name<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_neq_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_compare(NE, lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_neq<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+pub fn create_neq<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
     create_neq_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_ls_with_name<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_ls_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_compare(SLT, lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_ls<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+pub fn create_ls<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
     create_ls_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_neg_with_name<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, v: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_neg_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, v: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_neg(v, name).as_any_value_enum()
 }
 
-pub fn create_neg<'a, T: IntMathValue<'a>>(producer: & dyn LLVMIRProducer<'a>, v: T) -> AnyValueEnum<'a> {
+pub fn create_neg<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, v: T) -> AnyValueEnum<'a> {
     create_neg_with_name(producer, v, "")
 }
 
-pub fn create_store<'a>(producer: & dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>, value: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
+pub fn create_store<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>, value: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
     match value {
         AnyValueEnum::ArrayValue(v) => producer.llvm().builder.build_store(ptr, v),
         AnyValueEnum::IntValue(v) => producer.llvm().builder.build_store(ptr, v),
-        AnyValueEnum::FloatValue(v)  => producer.llvm().builder.build_store(ptr, v),
+        AnyValueEnum::FloatValue(v) => producer.llvm().builder.build_store(ptr, v),
         AnyValueEnum::PointerValue(v) => producer.llvm().builder.build_store(ptr, v),
         AnyValueEnum::StructValue(v) => producer.llvm().builder.build_store(ptr, v),
         AnyValueEnum::VectorValue(v) => producer.llvm().builder.build_store(ptr, v),
@@ -84,24 +85,24 @@ pub fn create_store<'a>(producer: & dyn LLVMIRProducer<'a>, ptr: PointerValue<'a
     }.as_any_value_enum()
 }
 
-pub fn create_return_void<'a>(producer: & dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
+pub fn create_return_void<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_return(None).as_any_value_enum()
 }
 
-pub fn create_br<'a>(producer: & dyn LLVMIRProducer<'a>, bb: BasicBlock<'a>) -> AnyValueEnum<'a> {
+pub fn create_br<'a>(producer: &dyn LLVMIRProducer<'a>, bb: BasicBlock<'a>) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_unconditional_branch(bb).as_any_value_enum()
 }
 
-pub fn create_call<'a>(producer: & dyn LLVMIRProducer<'a>, name: &str, arguments: &[BasicMetadataValueEnum<'a>]) -> AnyValueEnum<'a> {
+pub fn create_call<'a>(producer: &dyn LLVMIRProducer<'a>, name: &str, arguments: &[BasicMetadataValueEnum<'a>]) -> AnyValueEnum<'a> {
     let f = producer.llvm().module.get_function(name).expect(format!("Cannot find function {}", name).as_str());
     producer.llvm().builder.build_call(f, arguments, format!("call.{}", name).as_str()).as_any_value_enum()
 }
 
-pub fn create_conditional_branch<'a>(producer: & dyn LLVMIRProducer<'a>, comparison: IntValue<'a>, then_block: BasicBlock<'a>, else_block: BasicBlock< 'a>) -> AnyValueEnum<'a> {
+pub fn create_conditional_branch<'a>(producer: &dyn LLVMIRProducer<'a>, comparison: IntValue<'a>, then_block: BasicBlock<'a>, else_block: BasicBlock<'a>) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_conditional_branch(comparison, then_block, else_block).as_any_value_enum()
 }
 
-pub fn create_return_from_any_value<'a>(producer: & dyn LLVMIRProducer<'a>, val: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
+pub fn create_return_from_any_value<'a>(producer: &dyn LLVMIRProducer<'a>, val: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
     match val {
         AnyValueEnum::ArrayValue(x) => create_return(producer, x),
         AnyValueEnum::IntValue(x) => create_return(producer, x),
@@ -113,7 +114,7 @@ pub fn create_return_from_any_value<'a>(producer: & dyn LLVMIRProducer<'a>, val:
     }
 }
 
-pub fn create_alloca<'a>(producer: & dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, name: &str) -> AnyValueEnum<'a> {
+pub fn create_alloca<'a>(producer: &dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, name: &str) -> AnyValueEnum<'a> {
     match ty {
         AnyTypeEnum::ArrayType(ty) => producer.llvm().builder.build_alloca(ty, name),
         AnyTypeEnum::FloatType(ty) => producer.llvm().builder.build_alloca(ty, name),
@@ -126,7 +127,7 @@ pub fn create_alloca<'a>(producer: & dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>
     }.as_any_value_enum()
 }
 
-pub fn create_phi<'a>(producer: & dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, name: &str) -> PhiValue<'a> {
+pub fn create_phi<'a>(producer: &dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, name: &str) -> PhiValue<'a> {
     match ty {
         AnyTypeEnum::ArrayType(ty) => producer.builder().build_phi(ty, name),
         AnyTypeEnum::FloatType(ty) => producer.builder().build_phi(ty, name),
@@ -138,18 +139,18 @@ pub fn create_phi<'a>(producer: & dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, n
     }
 }
 
-pub fn create_phi_with_incoming<'a>(producer: & dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, incoming: &[(BasicValueEnum<'a>, BasicBlock<'a>)], name: &str) -> PhiValue<'a> {
+pub fn create_phi_with_incoming<'a>(producer: &dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, incoming: &[(BasicValueEnum<'a>, BasicBlock<'a>)], name: &str) -> PhiValue<'a> {
     let phi = create_phi(producer, ty, name);
     // Hack to add the incoming to the phi value
     phi.add_incoming_as_enum(incoming);
     phi
 }
 
-pub fn create_load_with_name<'a>(producer: & dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>, name: &str) -> AnyValueEnum<'a> {
+pub fn create_load_with_name<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>, name: &str) -> AnyValueEnum<'a> {
     producer.builder().build_load(ptr, name).as_any_value_enum()
 }
 
-pub fn create_load<'a>(producer: & dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>) -> AnyValueEnum<'a> {
+pub fn create_load<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>) -> AnyValueEnum<'a> {
     create_load_with_name(producer, ptr, "")
 }
 

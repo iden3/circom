@@ -1,23 +1,21 @@
 // TODO: Rename this module to something more appropriate
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use crate::llvm_elements::{LLVM, LLVMAdapter, LLVMContext, LLVMIRProducer};
+use crate::llvm_elements::LLVMIRProducer;
 
 pub const CONSTRAINT_VALUES_FN_NAME: &str = "__constraint_values";
 pub const CONSTRAINT_VALUE_FN_NAME: &str = "__constraint_value";
 pub const ASSERT_FN_NAME: &str = "__assert";
 
 mod stdlib {
-    use std::rc::Rc;
     use inkwell::values::AnyValue;
-    use crate::llvm_elements::{LLVMAdapter, LLVMContext, LLVMIRProducer};
+
     use crate::llvm_elements::functions::{create_bb, create_function};
     use crate::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_eq, create_return_void, create_store};
     use crate::llvm_elements::llvm_code_generator::{ASSERT_FN_NAME, CONSTRAINT_VALUE_FN_NAME, CONSTRAINT_VALUES_FN_NAME};
+    use crate::llvm_elements::LLVMIRProducer;
     use crate::llvm_elements::types::{bigint_type, bool_type, void_type};
 
-    pub fn constraint_values_fn<'a>(producer: & dyn LLVMIRProducer<'a>) {
+    pub fn constraint_values_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
         let bigint_ty = bigint_type(producer);
         let args = &[
             bigint_ty.into(),
@@ -38,7 +36,7 @@ mod stdlib {
         create_return_void(producer);
     }
 
-    pub fn constraint_value_fn<'a, 'b>(producer: & dyn LLVMIRProducer<'a>) {
+    pub fn constraint_value_fn<'a, 'b>(producer: &dyn LLVMIRProducer<'a>) {
         let args = &[bool_type(producer).into(), bool_type(producer).ptr_type(Default::default()).into()];
         let void_ty = void_type(producer);
         let func = create_function(producer, CONSTRAINT_VALUE_FN_NAME, void_ty.fn_type(args, false));
@@ -52,11 +50,11 @@ mod stdlib {
         create_return_void(producer);
     }
 
-    pub fn assert_fn<'a>(producer: & dyn LLVMIRProducer<'a>) {
+    pub fn assert_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
         let func = create_function(
             producer,
             ASSERT_FN_NAME,
-            void_type(producer).fn_type(&[bool_type(producer).into()], false)
+            void_type(producer).fn_type(&[bool_type(producer).into()], false),
         );
         let main = create_bb(producer, func, "main");
         let if_false = create_bb(producer, func, "if.assert.fails");
@@ -71,12 +69,12 @@ mod stdlib {
         create_return_void(producer);
     }
 
-    pub fn abort_declared_fn<'a>(producer: & dyn LLVMIRProducer<'a>) {
+    pub fn abort_declared_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
         create_function(producer, "__abort", void_type(producer).fn_type(&[], false));
     }
 }
 
-pub fn load_stdlib<'a>(producer: & dyn LLVMIRProducer<'a>) {
+pub fn load_stdlib<'a>(producer: &dyn LLVMIRProducer<'a>) {
     stdlib::constraint_values_fn(producer);
     stdlib::constraint_value_fn(producer);
     stdlib::abort_declared_fn(producer);

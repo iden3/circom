@@ -1,3 +1,21 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::rc::Rc;
+
+use inkwell::basic_block::BasicBlock;
+use inkwell::builder::Builder;
+use inkwell::context::{Context, ContextRef};
+use inkwell::module::Module;
+use inkwell::types::{AnyType, AnyTypeEnum, IntType, PointerType, StringRadix};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue, PointerValue};
+use inkwell::values::FunctionValue;
+
+use template::TemplateCtx;
+
+use crate::llvm_elements::types::bool_type;
+use crate::llvm_elements::values::ValueProducer;
+
 pub mod llvm_code_generator;
 pub mod template;
 pub mod types;
@@ -6,24 +24,8 @@ pub mod instructions;
 pub mod fr;
 pub mod values;
 
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::rc::Rc;
-use inkwell::basic_block::BasicBlock;
-use inkwell::builder::Builder;
-use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue};
-use inkwell::context::{Context, ContextRef};
-use inkwell::IntPredicate::{EQ, NE, SLT};
-use inkwell::module::Module;
-use inkwell::values::FunctionValue;
-use inkwell::types::{AnyType, AnyTypeEnum, ArrayType, FunctionType, IntType, PointerType, StringRadix, VoidType};
-use template::TemplateCtx;
-use crate::llvm_elements::template::TemplateLLVMIRProducer;
-use crate::llvm_elements::types::bool_type;
-use crate::llvm_elements::values::ValueProducer;
-
 pub type LLVMInstruction<'a> = AnyValueEnum<'a>;
+
 pub trait LLVMIRProducer<'a>: LLVMContext<'a> + ValueProducer<'a> {}
 
 pub trait LLVMContext<'a> {
@@ -43,7 +45,7 @@ pub struct LLVMCircuitData {
 
 pub struct TopLevelLLVMIRProducer<'a> {
     pub context: &'a Context,
-    current_module: LLVM<'a>
+    current_module: LLVM<'a>,
 }
 
 impl<'a> LLVMContext<'a> for TopLevelLLVMIRProducer<'a> {
@@ -77,6 +79,7 @@ impl<'a> LLVMContext<'a> for TopLevelLLVMIRProducer<'a> {
 }
 
 impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {}
+
 impl<'a> ValueProducer<'a> for TopLevelLLVMIRProducer<'a> {}
 
 impl<'a> TopLevelLLVMIRProducer<'a> {
@@ -93,7 +96,7 @@ impl<'a> TopLevelLLVMIRProducer<'a> {
     pub fn new(context: &'a Context, name: &str) -> Self {
         TopLevelLLVMIRProducer {
             context,
-            current_module: LLVM::from_context(context, name)
+            current_module: LLVM::from_context(context, name),
         }
     }
 }
@@ -112,7 +115,7 @@ pub struct LLVM<'a> {
     constraint_count: u64,
     current_function: Option<FunctionValue<'a>>,
     subcmp_counters: HashMap<usize, HashMap<IntValue<'a>, PointerValue<'a>>>,
-    template_ctx: Option<TemplateCtx<'a>>
+    template_ctx: Option<TemplateCtx<'a>>,
 }
 
 pub fn new_constraint<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
@@ -147,7 +150,6 @@ pub fn to_type_enum<'a, T: AnyType<'a>>(ty: T) -> AnyTypeEnum<'a> {
 }
 
 
-
 impl<'a> LLVM<'a> {
     pub fn from_context(context: &'a Context, name: &str) -> Self {
         LLVM {
@@ -161,7 +163,7 @@ impl<'a> LLVM<'a> {
             constraint_count: 0,
             current_function: None,
             subcmp_counters: HashMap::new(),
-            template_ctx: None
+            template_ctx: None,
         }
     }
 
@@ -199,7 +201,7 @@ impl<'a> LLVM<'a> {
     }
 
     pub fn create_signal_geps(&mut self, id: usize, _n_signals: usize) {
-        let signal_ptrs= HashMap::new();
+        let signal_ptrs = HashMap::new();
         self.template_signals.insert(id, signal_ptrs);
     }
 
@@ -244,23 +246,6 @@ impl<'a> LLVM<'a> {
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     pub fn unwrap_any_value(&self, v: &'a AnyValueEnum<'a>) -> &'a dyn AnyValue<'a> {
         match v {
             AnyValueEnum::ArrayValue(x) => x,
@@ -300,13 +285,6 @@ impl<'a> LLVM<'a> {
     }
 
 
-
-
-
-
-
-
-
     pub fn create_consts(&mut self, fields: &Vec<String>) -> AnyValueEnum<'a> {
         let bigint_ty = self.bigint_type();
         let vals: Vec<_> = fields.into_iter().map(|f| {
@@ -318,7 +296,6 @@ impl<'a> LLVM<'a> {
         self.constant_fields = Some(global);
         global.as_any_value_enum()
     }
-
 
 
     pub fn add_subcomponent(&mut self, id: usize, cmp_id: IntValue<'a>, ptr: PointerValue<'a>, counter: PointerValue<'a>) {
@@ -351,6 +328,4 @@ impl<'a> LLVM<'a> {
             .expect("Access to subcomponent before initialization!")
             .as_any_value_enum()
     }
-
-
 }
