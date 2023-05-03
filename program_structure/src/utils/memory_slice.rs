@@ -373,7 +373,7 @@ mod tests {
         let mut slice = U32Slice::new_with_route(&route, &0);
         let new_row = U32Slice::new_with_route(&[4], &4);
 
-        let res = U32Slice::insert_values(&mut slice, &[2], &new_row);
+        let res = U32Slice::insert_values(&mut slice, &[2], &new_row, true);
         if let Result::Ok(_) = res {
             for c in 0..4 {
                 let memory_result = U32Slice::get_reference_to_single_value(&slice, &[2, c]);
