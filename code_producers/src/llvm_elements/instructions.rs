@@ -1,5 +1,5 @@
 use inkwell::basic_block::BasicBlock;
-use inkwell::IntPredicate::{EQ, NE, SLT, SGT};
+use inkwell::IntPredicate::{EQ, NE, SLT, SGT, SLE, SGE};
 use inkwell::types::AnyTypeEnum;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue};
 
@@ -71,6 +71,22 @@ pub fn create_gt_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProduce
 
 pub fn create_gt<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
     create_gt_with_name(producer, lhs, rhs, "")
+}
+
+pub fn create_lte_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+    producer.llvm().builder.build_int_compare(SLE, lhs, rhs, name).as_any_value_enum()
+}
+
+pub fn create_lte<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_lte_with_name(producer, lhs, rhs, "")
+}
+
+pub fn create_gte_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+    producer.llvm().builder.build_int_compare(SGE, lhs, rhs, name).as_any_value_enum()
+}
+
+pub fn create_gte<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_gte_with_name(producer, lhs, rhs, "")
 }
 
 pub fn create_neg_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, v: T, name: &str) -> AnyValueEnum<'a> {

@@ -1,7 +1,7 @@
 use crate::llvm_elements::LLVMIRProducer;
 use crate::llvm_elements::functions::create_bb;
 use crate::llvm_elements::functions::create_function;
-use crate::llvm_elements::instructions::{create_add, create_sub, create_div, create_eq, create_neq, create_ls, create_gt, create_mul, create_neg, create_return};
+use crate::llvm_elements::instructions::{create_add, create_sub, create_div, create_eq, create_neq, create_ls, create_gt, create_lte, create_gte, create_mul, create_neg, create_return};
 use crate::llvm_elements::types::bigint_type;
 
 pub const FR_ADD_FN_NAME: &str = "fr_add";
@@ -11,6 +11,8 @@ pub const FR_EQ_FN_NAME: &str = "fr_eq";
 pub const FR_NEQ_FN_NAME: &str = "fr_neq";
 pub const FR_LS_FN_NAME: &str = "fr_ls";
 pub const FR_GT_FN_NAME: &str = "fr_gt";
+pub const FR_LTE_FN_NAME: &str = "fr_lte";
+pub const FR_GTE_FN_NAME: &str = "fr_gte";
 pub const FR_DIV_FN_NAME: &str = "fr_div";
 pub const FR_NEG_FN_NAME: &str = "fr_neg";
 
@@ -93,12 +95,23 @@ pub fn gt_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     create_return(producer, gt.into_int_value());
 }
 
+pub fn lte_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op!(FR_LTE_FN_NAME, producer);
+    let lte = create_lte(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, lte.into_int_value());
+}
+
+pub fn gte_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op!(FR_GTE_FN_NAME, producer);
+    let gte = create_gte(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, gte.into_int_value());
+}
+
 pub fn neg_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     let arg = fr_unary_op!(FR_NEG_FN_NAME, producer);
     let neg = create_neg(producer, arg.into_int_value());
     create_return(producer, neg.into_int_value());
 }
-
 
 pub fn load_fr<'a>(producer: &dyn LLVMIRProducer<'a>) {
     add_fn(producer);
@@ -108,6 +121,8 @@ pub fn load_fr<'a>(producer: &dyn LLVMIRProducer<'a>) {
     neq_fn(producer);
     ls_fn(producer);
     gt_fn(producer);
+    lte_fn(producer);
+    gte_fn(producer);
     div_fn(producer);
     neg_fn(producer);
 }
