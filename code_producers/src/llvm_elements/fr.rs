@@ -1,15 +1,16 @@
 use crate::llvm_elements::LLVMIRProducer;
 use crate::llvm_elements::functions::create_bb;
 use crate::llvm_elements::functions::create_function;
-use crate::llvm_elements::instructions::{create_add, create_sub, create_div, create_eq, create_ls, create_mul, create_neg, create_neq, create_return};
+use crate::llvm_elements::instructions::{create_add, create_sub, create_div, create_eq, create_neq, create_ls, create_gt, create_mul, create_neg, create_return};
 use crate::llvm_elements::types::bigint_type;
 
 pub const FR_ADD_FN_NAME: &str = "fr_add";
 pub const FR_SUB_FN_NAME: &str = "fr_sub";
 pub const FR_MUL_FN_NAME: &str = "fr_mul";
 pub const FR_EQ_FN_NAME: &str = "fr_eq";
-pub const FR_LS_FN_NAME: &str = "fr_ls";
 pub const FR_NEQ_FN_NAME: &str = "fr_neq";
+pub const FR_LS_FN_NAME: &str = "fr_ls";
+pub const FR_GT_FN_NAME: &str = "fr_gt";
 pub const FR_DIV_FN_NAME: &str = "fr_div";
 pub const FR_NEG_FN_NAME: &str = "fr_neg";
 
@@ -86,6 +87,12 @@ pub fn ls_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     create_return(producer, ls.into_int_value());
 }
 
+pub fn gt_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op!(FR_GT_FN_NAME, producer);
+    let gt = create_gt(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, gt.into_int_value());
+}
+
 pub fn neg_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     let arg = fr_unary_op!(FR_NEG_FN_NAME, producer);
     let neg = create_neg(producer, arg.into_int_value());
@@ -98,8 +105,9 @@ pub fn load_fr<'a>(producer: &dyn LLVMIRProducer<'a>) {
     sub_fn(producer);
     mul_fn(producer);
     eq_fn(producer);
-    ls_fn(producer);
     neq_fn(producer);
+    ls_fn(producer);
+    gt_fn(producer);
     div_fn(producer);
     neg_fn(producer);
 }

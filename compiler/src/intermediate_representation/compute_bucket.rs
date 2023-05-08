@@ -2,7 +2,7 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, to_basic_metadata_enum, to_enum, LLVMIRProducer};
-use code_producers::llvm_elements::fr::{FR_ADD_FN_NAME, FR_SUB_FN_NAME, FR_DIV_FN_NAME, FR_EQ_FN_NAME, FR_LS_FN_NAME, FR_MUL_FN_NAME, FR_NEG_FN_NAME, FR_NEQ_FN_NAME};
+use code_producers::llvm_elements::fr::{FR_ADD_FN_NAME, FR_SUB_FN_NAME, FR_DIV_FN_NAME, FR_EQ_FN_NAME, FR_NEQ_FN_NAME, FR_LS_FN_NAME, FR_GT_FN_NAME, FR_MUL_FN_NAME, FR_NEG_FN_NAME};
 use code_producers::llvm_elements::instructions::{create_add_with_name, create_call, create_mul_with_name};
 use code_producers::wasm_elements::*;
 
@@ -173,7 +173,9 @@ impl WriteLLVMIR for ComputeBucket {
             OperatorType::Lesser => {
                 create_call(producer,FR_LS_FN_NAME, &args)
             }
-            OperatorType::Greater => {todo!()}
+            OperatorType::Greater => {
+                create_call(producer,FR_GT_FN_NAME, &args)
+            }
             OperatorType::Eq(_) => {
                 create_call(producer,FR_EQ_FN_NAME, &args)
             }
