@@ -57,12 +57,12 @@ pub fn create_neq<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lh
     create_neq_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_ls_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_lt_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_compare(SLT, lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_ls<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
-    create_ls_with_name(producer, lhs, rhs, "")
+pub fn create_lt<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_lt_with_name(producer, lhs, rhs, "")
 }
 
 pub fn create_gt_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
@@ -73,20 +73,20 @@ pub fn create_gt<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs
     create_gt_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_lte_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_le_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_compare(SLE, lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_lte<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
-    create_lte_with_name(producer, lhs, rhs, "")
+pub fn create_le<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_le_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_gte_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+pub fn create_ge_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_compare(SGE, lhs, rhs, name).as_any_value_enum()
 }
 
-pub fn create_gte<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
-    create_gte_with_name(producer, lhs, rhs, "")
+pub fn create_ge<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_ge_with_name(producer, lhs, rhs, "")
 }
 
 pub fn create_neg_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, v: T, name: &str) -> AnyValueEnum<'a> {

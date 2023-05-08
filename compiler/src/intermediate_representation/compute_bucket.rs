@@ -2,7 +2,7 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, to_basic_metadata_enum, to_enum, LLVMIRProducer};
-use code_producers::llvm_elements::fr::{FR_ADD_FN_NAME, FR_SUB_FN_NAME, FR_DIV_FN_NAME, FR_EQ_FN_NAME, FR_NEQ_FN_NAME, FR_LS_FN_NAME, FR_GT_FN_NAME, FR_LTE_FN_NAME, FR_GTE_FN_NAME, FR_MUL_FN_NAME, FR_NEG_FN_NAME};
+use code_producers::llvm_elements::fr::{FR_ADD_FN_NAME, FR_SUB_FN_NAME, FR_DIV_FN_NAME, FR_EQ_FN_NAME, FR_NEQ_FN_NAME, FR_LT_FN_NAME, FR_GT_FN_NAME, FR_LE_FN_NAME, FR_GE_FN_NAME, FR_MUL_FN_NAME, FR_NEG_FN_NAME};
 use code_producers::llvm_elements::instructions::{create_add_with_name, create_call, create_mul_with_name};
 use code_producers::wasm_elements::*;
 
@@ -169,13 +169,13 @@ impl WriteLLVMIR for ComputeBucket {
             OperatorType::ShiftL => {todo!()}
             OperatorType::ShiftR => {todo!()}
             OperatorType::LesserEq => {
-                create_call(producer,FR_LTE_FN_NAME, &args)
+                create_call(producer,FR_LE_FN_NAME, &args)
             }
             OperatorType::GreaterEq => {
-                create_call(producer,FR_GTE_FN_NAME, &args)
+                create_call(producer,FR_GE_FN_NAME, &args)
             }
             OperatorType::Lesser => {
-                create_call(producer,FR_LS_FN_NAME, &args)
+                create_call(producer,FR_LT_FN_NAME, &args)
             }
             OperatorType::Greater => {
                 create_call(producer,FR_GT_FN_NAME, &args)
