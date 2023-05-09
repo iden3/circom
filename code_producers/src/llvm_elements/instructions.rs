@@ -110,6 +110,30 @@ pub fn create_shr<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lh
     create_shr_with_name(producer, lhs, rhs, "")
 }
 
+pub fn create_bit_and_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+    producer.llvm().builder.build_and(lhs, rhs, name).as_any_value_enum()
+}
+
+pub fn create_bit_and<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_bit_and_with_name(producer, lhs, rhs, "")
+}
+
+pub fn create_bit_or_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+    producer.llvm().builder.build_or(lhs, rhs, name).as_any_value_enum()
+}
+
+pub fn create_bit_or<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_bit_or_with_name(producer, lhs, rhs, "")
+}
+
+pub fn create_bit_xor_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+    producer.llvm().builder.build_xor(lhs, rhs, name).as_any_value_enum()
+}
+
+pub fn create_bit_xor<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_bit_xor_with_name(producer, lhs, rhs, "")
+}
+
 pub fn create_store<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>, value: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
     match value {
         AnyValueEnum::ArrayValue(v) => producer.llvm().builder.build_store(ptr, v),

@@ -5,6 +5,7 @@ use crate::llvm_elements::instructions::{
     create_add, create_sub, create_mul, create_div, 
     create_eq, create_neq, create_lt, create_gt, create_le, create_ge, 
     create_neg, create_shl, create_shr,
+    create_bit_and, create_bit_or, create_bit_xor,
     create_return
 };
 use crate::llvm_elements::types::bigint_type;
@@ -22,6 +23,9 @@ pub const FR_GE_FN_NAME: &str = "fr_ge";
 pub const FR_NEG_FN_NAME: &str = "fr_neg";
 pub const FR_SHL_FN_NAME: &str = "fr_shl";
 pub const FR_SHR_FN_NAME: &str = "fr_shr";
+pub const FR_BITAND_FN_NAME: &str = "fr_bit_and";
+pub const FR_BITOR_FN_NAME: &str = "fr_bit_or";
+pub const FR_BITXOR_FN_NAME: &str = "fr_bit_xor";
 
 macro_rules! fr_binary_op {
         ($name: expr, $producer: expr) => (
@@ -132,6 +136,24 @@ pub fn shr_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     create_return(producer, res.into_int_value());
 }
 
+pub fn bit_and_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op!(FR_BITAND_FN_NAME, producer);
+    let res = create_bit_and(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, res.into_int_value());
+}
+
+pub fn bit_or_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op!(FR_BITOR_FN_NAME, producer);
+    let res = create_bit_or(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, res.into_int_value());
+}
+
+pub fn bit_xor_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op!(FR_BITXOR_FN_NAME, producer);
+    let res = create_bit_xor(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, res.into_int_value());
+}
+
 pub fn load_fr<'a>(producer: &dyn LLVMIRProducer<'a>) {
     add_fn(producer);
     sub_fn(producer);
@@ -146,4 +168,7 @@ pub fn load_fr<'a>(producer: &dyn LLVMIRProducer<'a>) {
     neg_fn(producer);
     shl_fn(producer);
     shr_fn(producer);
+    bit_and_fn(producer);
+    bit_or_fn(producer);
+    bit_xor_fn(producer);
 }
