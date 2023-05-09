@@ -1642,6 +1642,7 @@ pub fn generate_witness_calculator_js_file(js_folder: &PathBuf) -> std::io::Resu
 
 #[cfg(test)]
 mod tests {
+    use std::env::temp_dir;
     use super::*;
     use std::io::{BufRead, BufReader, BufWriter, Write};
     use std::path::Path;
@@ -1651,19 +1652,19 @@ mod tests {
         WASMProducer::default()
     }
 
-    fn create_writer() -> BufWriter<File> {
-        if !Path::new(LOCATION).is_dir() {
-            std::fs::create_dir(LOCATION).unwrap();
+    fn create_writer(location: &str) -> BufWriter<File> {
+        if !Path::new(location).is_dir() {
+            std::fs::create_dir(location).unwrap();
         }
-        let path = format!("{}/code.wat", LOCATION);
+        let path = format!("{}/code.wat", location);
         let file = File::create(path).unwrap();
         BufWriter::new(file)
     }
 
-    fn get_instructions_from_file(name: &str) -> Vec<WasmInstruction> {
+    fn get_instructions_from_file(location: &str, name: &str) -> Vec<WasmInstruction> {
         //return content of LOCATION/name.wat
         let mut instructions = vec![];
-        let path = format!("{}/{}.wat", LOCATION, name);
+        let path = format!("{}/{}.wat", location, name);
         if Path::new(&path).exists() {
             let file = File::open(path).unwrap();
             let reader = BufReader::new(file);
@@ -1691,10 +1692,13 @@ mod tests {
         writer.flush().unwrap();
     }
 
+    #[cfg(not(feature = "ci-ignore"))]
     #[test]
     fn produce_code() {
+        let tmp = temp_dir();
+        let location = tmp.to_str().unwrap();
         let producer = create_producer();
-        let mut writer = create_writer();
+        let mut writer = create_writer(location);
         // For every block of code that you want to write in code.wat the following two lines.
         // In the first line the code you want tow write is produced. Then, to write that code the
         // test function "write_block" is called.
@@ -1705,7 +1709,7 @@ mod tests {
         code_aux = generate_memory_def_list(&producer);
         code.append(&mut code_aux);
 
-        code_aux = get_instructions_from_file("fr-types");
+        code_aux = get_instructions_from_file(location, "fr-types");
         code.append(&mut code_aux);
 
         code_aux = generate_types_list();
@@ -1713,7 +1717,7 @@ mod tests {
         code_aux = generate_exports_list();
         code.append(&mut code_aux);
 
-        code_aux = get_instructions_from_file("fr-code");
+        code_aux = get_instructions_from_file(location, "fr-code");
         code.append(&mut code_aux);
 
         code_aux = desp_io_subcomponent_generator(&producer);
@@ -1774,7 +1778,7 @@ mod tests {
         //code_aux = main_sample_generator(&producer);
         //code.append(&mut code_aux);
 
-        code_aux = get_instructions_from_file("fr-data");
+        code_aux = get_instructions_from_file(location, "fr-data");
         code.append(&mut code_aux);
 
         code_aux = generate_data_list(&producer);

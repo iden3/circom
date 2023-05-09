@@ -973,27 +973,31 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
 
 #[cfg(test)]
 mod tests {
+    use std::env::temp_dir;
     //    use std::io::{BufWriter,BufReader,BufRead};
     use std::path::Path;
     //    use std::fs::File;
     use super::*;
-    const LOCATION: &'static str = "../target/code_generator_test";
+    //const LOCATION: &'static str = format!("{}/code_generator_test", env!("CARGO_TARGET_TMPDIR").unwrap()).as_str();
 
     fn create_producer() -> CProducer {
         CProducer::default()
     }
 
+    #[cfg(not(feature = "ci-ignore"))]
     #[test]
     fn produce_dat() {
-        if !Path::new(LOCATION).is_dir() {
-            std::fs::create_dir(LOCATION).unwrap();
+        let tmp = temp_dir();
+        let location = tmp.to_str().unwrap();
+        if !Path::new(location).is_dir() {
+            std::fs::create_dir(location).unwrap();
         }
-        let path = format!("{}/code", LOCATION);
+        let path = format!("{}/code", location);
         let producer = create_producer();
         let mut dat_file = File::create(path + ".dat").unwrap();
         let _rd = generate_dat_file(&mut dat_file, &producer);
         assert!(true);
-        let pathc = format!("{}/code", LOCATION);
+        let pathc = format!("{}/code", location);
         let _rc = generate_c_file(pathc, &producer);
         assert!(true);
     }
