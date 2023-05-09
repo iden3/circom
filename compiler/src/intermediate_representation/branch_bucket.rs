@@ -3,7 +3,7 @@ use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, any_value_wraps_basic_value, any_value_to_basic, to_enum, LLVMIRProducer};
 use code_producers::llvm_elements::functions::create_bb;
-use code_producers::llvm_elements::instructions::{create_conditional_branch, create_phi};
+use code_producers::llvm_elements::instructions::{create_br, create_conditional_branch, create_phi};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -77,6 +77,7 @@ impl WriteLLVMIR for BranchBucket {
                 }
             }
         }
+        create_br(producer, merge_bb);
         // Else branch
         producer.set_current_bb(else_bb);
         let mut else_last_inst = None;
@@ -88,6 +89,7 @@ impl WriteLLVMIR for BranchBucket {
                 }
             }
         }
+        create_br(producer, merge_bb);
         // Merge results
         producer.set_current_bb(merge_bb);
         match (then_last_inst, else_last_inst) {
