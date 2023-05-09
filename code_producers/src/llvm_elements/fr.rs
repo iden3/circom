@@ -31,11 +31,26 @@ pub const FR_LAND_FN_NAME: &str = "fr_logic_and";
 pub const FR_LOR_FN_NAME: &str = "fr_logic_or";
 pub const FR_LNOT_FN_NAME: &str = "fr_logic_not";
 
+
+macro_rules! fr_unary_op {
+    ($name: expr, $producer: expr, $valTy: expr) => (
+        {
+            let args = &[$valTy.into()];
+            let func = create_function($producer, $name, $valTy.fn_type(args, false));
+            let main = create_bb($producer, func, $name);
+            $producer.set_current_bb(main);
+
+            let lhs = func.get_nth_param(0).unwrap();
+            lhs
+        }
+    )
+}
+
 macro_rules! fr_binary_op {
-        ($name: expr, $producer: expr, $valTy: expr) => (
+        ($name: expr, $producer: expr, $argTy: expr, $retTy: expr) => (
             {
-                let args = &[$valTy.into(), $valTy.into()];
-                let func = create_function($producer, $name, $valTy.fn_type(args, false));
+                let args = &[$argTy.into(), $argTy.into()];
+                let func = create_function($producer, $name, $retTy.fn_type(args, false));
                 let main = create_bb($producer, func, $name);
                 $producer.set_current_bb(main);
 
@@ -46,76 +61,88 @@ macro_rules! fr_binary_op {
         )
     }
 
-macro_rules! fr_unary_op {
-        ($name: expr, $producer: expr, $valTy: expr) => (
+macro_rules! fr_binary_op_bigint {
+        ($name: expr, $producer: expr) => (
             {
-                let args = &[$valTy.into()];
-                let func = create_function($producer, $name, $valTy.fn_type(args, false));
-                let main = create_bb($producer, func, $name);
-                $producer.set_current_bb(main);
+                let ty = bigint_type($producer);
+                fr_binary_op!($name, $producer, ty, ty)
+            }
+        )
+    }
 
-                let lhs = func.get_nth_param(0).unwrap();
-                lhs
+macro_rules! fr_binary_op_bool {
+        ($name: expr, $producer: expr) => (
+            {
+                let ty = bool_type($producer);
+                fr_binary_op!($name, $producer, ty, ty)
+            }
+        )
+    }
+
+macro_rules! fr_binary_op_bigint_to_bool {
+        ($name: expr, $producer: expr) => (
+            {
+                fr_binary_op!($name, $producer, bigint_type($producer), bool_type($producer))
             }
         )
     }
 
 pub fn add_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_ADD_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_ADD_FN_NAME, producer);
     let add = create_add(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, add.into_int_value());
 }
 
 pub fn sub_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_SUB_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_SUB_FN_NAME, producer);
     let add = create_sub(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, add.into_int_value());
 }
 
 pub fn mul_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_MUL_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_MUL_FN_NAME, producer);
     let add = create_mul(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, add.into_int_value());
 }
 
 pub fn div_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_DIV_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_DIV_FN_NAME, producer);
     let div = create_div(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, div.into_int_value());
 }
 
 pub fn eq_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_EQ_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint_to_bool!(FR_EQ_FN_NAME, producer);
     let eq = create_eq(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, eq.into_int_value());
 }
 
 pub fn neq_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_NEQ_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint_to_bool!(FR_NEQ_FN_NAME, producer);
     let neq = create_neq(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, neq.into_int_value());
 }
 
 pub fn lt_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_LT_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint_to_bool!(FR_LT_FN_NAME, producer);
     let res = create_lt(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
 
 pub fn gt_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_GT_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint_to_bool!(FR_GT_FN_NAME, producer);
     let res = create_gt(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
 
 pub fn le_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_LE_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint_to_bool!(FR_LE_FN_NAME, producer);
     let res = create_le(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
 
 pub fn ge_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_GE_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint_to_bool!(FR_GE_FN_NAME, producer);
     let res = create_ge(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
@@ -127,43 +154,43 @@ pub fn neg_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
 }
 
 pub fn shl_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_SHL_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_SHL_FN_NAME, producer);
     let res = create_shl(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
 
 pub fn shr_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_SHR_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_SHR_FN_NAME, producer);
     let res = create_shr(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
 
 pub fn bit_and_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_BITAND_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_BITAND_FN_NAME, producer);
     let res = create_bit_and(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
 
 pub fn bit_or_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_BITOR_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_BITOR_FN_NAME, producer);
     let res = create_bit_or(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
 
 pub fn bit_xor_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_BITXOR_FN_NAME, producer, bigint_type(producer));
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_BITXOR_FN_NAME, producer);
     let res = create_bit_xor(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
 
 pub fn logic_and_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_LAND_FN_NAME, producer, bool_type(producer));
+    let (lhs, rhs) = fr_binary_op_bool!(FR_LAND_FN_NAME, producer);
     let res = create_logic_and(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
 
 pub fn logic_or_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-    let (lhs, rhs) = fr_binary_op!(FR_LOR_FN_NAME, producer, bool_type(producer));
+    let (lhs, rhs) = fr_binary_op_bool!(FR_LOR_FN_NAME, producer);
     let res = create_logic_or(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, res.into_int_value());
 }
