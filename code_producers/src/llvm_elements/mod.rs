@@ -45,7 +45,7 @@ pub struct LLVMCircuitData {
 pub struct TopLevelLLVMIRProducer<'a> {
     pub context: &'a Context,
     current_module: LLVM<'a>,
-    pub field_tracking: Vec<String>
+    pub field_tracking: Vec<String>,
 }
 
 impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {
@@ -90,11 +90,7 @@ pub fn create_context() -> Context {
 
 impl<'a> TopLevelLLVMIRProducer<'a> {
     pub fn new(context: &'a Context, name: &str, field_tracking: Vec<String>) -> Self {
-        TopLevelLLVMIRProducer {
-            context,
-            current_module: LLVM::from_context(context, name),
-            field_tracking
-        }
+        TopLevelLLVMIRProducer { context, current_module: LLVM::from_context(context, name), field_tracking }
     }
 }
 
@@ -124,7 +120,7 @@ pub fn new_constraint<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a>
 pub fn any_value_wraps_basic_value(v: AnyValueEnum) -> bool {
     match BasicValueEnum::try_from(v) {
         Ok(_) => true,
-        Err(_) => false
+        Err(_) => false,
     }
 }
 
@@ -147,7 +143,7 @@ pub fn to_basic_enum<'a, T: AnyValue<'a>>(v: T) -> BasicValueEnum<'a> {
 pub fn to_basic_metadata_enum(value: AnyValueEnum) -> BasicMetadataValueEnum {
     match BasicMetadataValueEnum::try_from(value) {
         Ok(v) => v,
-        Err(_) => panic!("Attempted to convert a value that does not support BasicMetadataValueEnum")
+        Err(_) => panic!("Attempted to convert a value that does not support BasicMetadataValueEnum"),
     }
 }
 
@@ -225,14 +221,16 @@ impl<'a> LLVM<'a> {
                 let ptr = gep.into_pointer_value();
                 ptr
             }
-            Some(ptr) => *ptr
+            Some(ptr) => *ptr,
         }
     }
 
     pub fn get_variable(&self, _id: usize, idx: IntValue<'a>) -> AnyValueEnum<'a> {
-        self.template_ctx.as_ref()
+        self.template_ctx
+            .as_ref()
             .expect("Could not find template context")
-            .stack.get(&idx)
+            .stack
+            .get(&idx)
             .expect(format!("Could not get variable {} from template context", idx).as_str())
             .as_any_value_enum()
     }
@@ -256,7 +254,6 @@ impl<'a> LLVM<'a> {
         unsafe { self.builder.build_gep(ptr, indices, name) }.as_instruction().unwrap().as_any_value_enum()
     }
 
-
     pub fn unwrap_any_value(&self, v: &'a AnyValueEnum<'a>) -> &'a dyn AnyValue<'a> {
         match v {
             AnyValueEnum::ArrayValue(x) => x,
@@ -268,7 +265,7 @@ impl<'a> LLVM<'a> {
             AnyValueEnum::StructValue(x) => x,
             AnyValueEnum::VectorValue(x) => x,
             AnyValueEnum::InstructionValue(x) => x,
-            AnyValueEnum::MetadataValue(x) => x
+            AnyValueEnum::MetadataValue(x) => x,
         }
     }
 
@@ -280,7 +277,7 @@ impl<'a> LLVM<'a> {
             AnyValueEnum::PointerValue(x) => x,
             AnyValueEnum::StructValue(x) => x,
             AnyValueEnum::VectorValue(x) => x,
-            _ => panic!("Attempted to convert a non basic value!")
+            _ => panic!("Attempted to convert a non basic value!"),
         }
     }
 
@@ -291,23 +288,19 @@ impl<'a> LLVM<'a> {
             BasicValueEnum::FloatValue(x) => x,
             BasicValueEnum::PointerValue(x) => x,
             BasicValueEnum::StructValue(x) => x,
-            BasicValueEnum::VectorValue(x) => x
+            BasicValueEnum::VectorValue(x) => x,
         }
     }
 
-
     pub fn create_consts(&mut self, fields: &Vec<String>) -> AnyValueEnum<'a> {
         let bigint_ty = self.bigint_type();
-        let vals: Vec<_> = fields.into_iter().map(|f| {
-            bigint_ty.const_int_from_string(f.as_str(), StringRadix::Decimal).unwrap()
-        }).collect();
+        let vals: Vec<_> = fields.into_iter().map(|f| bigint_ty.const_int_from_string(f.as_str(), StringRadix::Decimal).unwrap()).collect();
         let values_arr = bigint_ty.const_array(&vals);
         let global = self.module.add_global(values_arr.get_type(), None, "constant_fields");
         global.set_initializer(&values_arr);
         self.constant_fields = Some(global);
         global.as_any_value_enum()
     }
-
 
     pub fn add_subcomponent(&mut self, id: usize, cmp_id: IntValue<'a>, ptr: PointerValue<'a>, counter: PointerValue<'a>) {
         if !self.template_subcomponents.contains_key(&id) {

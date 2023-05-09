@@ -17,11 +17,7 @@ mod stdlib {
 
     pub fn constraint_values_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
         let bigint_ty = bigint_type(producer);
-        let args = &[
-            bigint_ty.into(),
-            bigint_ty.into(),
-            bool_type(producer).ptr_type(Default::default()).into()
-        ];
+        let args = &[bigint_ty.into(), bigint_ty.into(), bool_type(producer).ptr_type(Default::default()).into()];
         let void_ty = void_type(producer);
         let func = create_function(producer, CONSTRAINT_VALUES_FN_NAME, void_ty.fn_type(args, false));
         let main = create_bb(producer, func, "main");
@@ -51,11 +47,7 @@ mod stdlib {
     }
 
     pub fn assert_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
-        let func = create_function(
-            producer,
-            ASSERT_FN_NAME,
-            void_type(producer).fn_type(&[bool_type(producer).into()], false),
-        );
+        let func = create_function(producer, ASSERT_FN_NAME, void_type(producer).fn_type(&[bool_type(producer).into()], false));
         let main = create_bb(producer, func, "main");
         let if_false = create_bb(producer, func, "if.assert.fails");
         let end = create_bb(producer, func, "end");
@@ -88,4 +80,3 @@ pub fn run_fn_name(name: String) -> String {
 pub fn build_fn_name(name: String) -> String {
     format!("{}_build", name)
 }
-

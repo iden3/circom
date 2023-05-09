@@ -47,17 +47,13 @@ impl<'a, 'b> LLVMIRProducer<'a> for TemplateLLVMIRProducer<'a, 'b> {
 }
 
 impl<'a, 'b> TemplateLLVMIRProducer<'a, 'b> {
-    pub fn new(parent: &'b dyn LLVMIRProducer<'a>, stack_depth: usize, number_subcmps: usize, current_function: FunctionValue<'a>, template_type: PointerType<'a>, signals_arg_offset: usize) -> Self {
+    pub fn new(
+        parent: &'b dyn LLVMIRProducer<'a>, stack_depth: usize, number_subcmps: usize, current_function: FunctionValue<'a>,
+        template_type: PointerType<'a>, signals_arg_offset: usize,
+    ) -> Self {
         TemplateLLVMIRProducer {
             parent,
-            template_ctx: TemplateCtx::new(
-                parent,
-                stack_depth,
-                number_subcmps,
-                current_function,
-                template_type,
-                signals_arg_offset
-            ),
+            template_ctx: TemplateCtx::new(parent, stack_depth, number_subcmps, current_function, template_type, signals_arg_offset),
         }
     }
 }
@@ -67,7 +63,7 @@ pub struct TemplateCtx<'a> {
     subcmps: PointerValue<'a>,
     pub current_function: FunctionValue<'a>,
     pub template_type: PointerType<'a>,
-    pub signals_arg_offset: usize
+    pub signals_arg_offset: usize,
 }
 
 #[inline]
@@ -94,13 +90,16 @@ fn setup_stack<'a>(producer: &dyn LLVMIRProducer<'a>, stack_depth: usize) -> Has
 }
 
 impl<'a> TemplateCtx<'a> {
-    pub fn new(producer: &dyn LLVMIRProducer<'a>, stack_depth: usize, number_subcmps: usize, current_function: FunctionValue<'a>, template_type: PointerType<'a>, signals_arg_offset: usize) -> Self {
+    pub fn new(
+        producer: &dyn LLVMIRProducer<'a>, stack_depth: usize, number_subcmps: usize, current_function: FunctionValue<'a>,
+        template_type: PointerType<'a>, signals_arg_offset: usize,
+    ) -> Self {
         TemplateCtx {
             stack: setup_stack(producer, stack_depth),
             subcmps: setup_subcmps(producer, number_subcmps),
             current_function,
             template_type,
-            signals_arg_offset
+            signals_arg_offset,
         }
     }
 
