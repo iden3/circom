@@ -37,10 +37,6 @@ pub fn create_div<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lh
     create_div_with_name(producer, lhs, rhs, "")
 }
 
-pub fn create_return<'a, V: BasicValue<'a>>(producer: &dyn LLVMIRProducer<'a>, val: V) -> AnyValueEnum<'a> {
-    producer.llvm().builder.build_return(Some(&val)).as_any_value_enum()
-}
-
 pub fn create_eq_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_compare(EQ, lhs, rhs, name).as_any_value_enum()
 }
@@ -97,6 +93,23 @@ pub fn create_neg<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, v:
     create_neg_with_name(producer, v, "")
 }
 
+pub fn create_shl_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+    producer.llvm().builder.build_left_shift(lhs, rhs, name).as_any_value_enum()
+}
+
+pub fn create_shl<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_shl_with_name(producer, lhs, rhs, "")
+}
+
+pub fn create_shr_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+    // Use sign_extend=true because values are signed.
+    producer.llvm().builder.build_right_shift(lhs, rhs, true, name).as_any_value_enum()
+}
+
+pub fn create_shr<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_shr_with_name(producer, lhs, rhs, "")
+}
+
 pub fn create_store<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>, value: AnyValueEnum<'a>) -> AnyValueEnum<'a> {
     match value {
         AnyValueEnum::ArrayValue(v) => producer.llvm().builder.build_store(ptr, v),
@@ -111,6 +124,10 @@ pub fn create_store<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>
 
 pub fn create_return_void<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_return(None).as_any_value_enum()
+}
+
+pub fn create_return<'a, V: BasicValue<'a>>(producer: &dyn LLVMIRProducer<'a>, val: V) -> AnyValueEnum<'a> {
+    producer.llvm().builder.build_return(Some(&val)).as_any_value_enum()
 }
 
 pub fn create_br<'a>(producer: &dyn LLVMIRProducer<'a>, bb: BasicBlock<'a>) -> AnyValueEnum<'a> {

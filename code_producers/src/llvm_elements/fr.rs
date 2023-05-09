@@ -1,20 +1,27 @@
 use crate::llvm_elements::LLVMIRProducer;
 use crate::llvm_elements::functions::create_bb;
 use crate::llvm_elements::functions::create_function;
-use crate::llvm_elements::instructions::{create_add, create_sub, create_div, create_eq, create_neq, create_lt, create_gt, create_le, create_ge, create_mul, create_neg, create_return};
+use crate::llvm_elements::instructions::{
+    create_add, create_sub, create_mul, create_div, 
+    create_eq, create_neq, create_lt, create_gt, create_le, create_ge, 
+    create_neg, create_shl, create_shr,
+    create_return
+};
 use crate::llvm_elements::types::bigint_type;
 
 pub const FR_ADD_FN_NAME: &str = "fr_add";
 pub const FR_SUB_FN_NAME: &str = "fr_sub";
 pub const FR_MUL_FN_NAME: &str = "fr_mul";
+pub const FR_DIV_FN_NAME: &str = "fr_div";
 pub const FR_EQ_FN_NAME: &str = "fr_eq";
 pub const FR_NEQ_FN_NAME: &str = "fr_neq";
 pub const FR_LT_FN_NAME: &str = "fr_lt";
 pub const FR_GT_FN_NAME: &str = "fr_gt";
 pub const FR_LE_FN_NAME: &str = "fr_le";
 pub const FR_GE_FN_NAME: &str = "fr_ge";
-pub const FR_DIV_FN_NAME: &str = "fr_div";
 pub const FR_NEG_FN_NAME: &str = "fr_neg";
+pub const FR_SHL_FN_NAME: &str = "fr_shl";
+pub const FR_SHR_FN_NAME: &str = "fr_shr";
 
 macro_rules! fr_binary_op {
         ($name: expr, $producer: expr) => (
@@ -113,16 +120,30 @@ pub fn neg_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     create_return(producer, neg.into_int_value());
 }
 
+pub fn shl_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op!(FR_SHL_FN_NAME, producer);
+    let res = create_shl(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, res.into_int_value());
+}
+
+pub fn shr_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op!(FR_SHR_FN_NAME, producer);
+    let res = create_shr(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, res.into_int_value());
+}
+
 pub fn load_fr<'a>(producer: &dyn LLVMIRProducer<'a>) {
     add_fn(producer);
     sub_fn(producer);
     mul_fn(producer);
+    div_fn(producer);
     eq_fn(producer);
     neq_fn(producer);
     lt_fn(producer);
     gt_fn(producer);
     le_fn(producer);
     ge_fn(producer);
-    div_fn(producer);
     neg_fn(producer);
+    shl_fn(producer);
+    shr_fn(producer);
 }
