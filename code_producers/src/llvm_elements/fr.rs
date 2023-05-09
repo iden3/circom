@@ -27,6 +27,7 @@ pub const FR_SHR_FN_NAME: &str = "fr_shr";
 pub const FR_BITAND_FN_NAME: &str = "fr_bit_and";
 pub const FR_BITOR_FN_NAME: &str = "fr_bit_or";
 pub const FR_BITXOR_FN_NAME: &str = "fr_bit_xor";
+pub const FR_BITFLIP_FN_NAME: &str = "fr_bit_flip";
 pub const FR_LAND_FN_NAME: &str = "fr_logic_and";
 pub const FR_LOR_FN_NAME: &str = "fr_logic_or";
 pub const FR_LNOT_FN_NAME: &str = "fr_logic_not";
@@ -183,6 +184,14 @@ pub fn bit_xor_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     create_return(producer, res.into_int_value());
 }
 
+pub fn bit_flip_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let ty = bigint_type(producer);
+    let arg = fr_unary_op!(FR_BITFLIP_FN_NAME, producer, ty);
+    // ~x <=> xor(x, 0xFF...)
+    let res = create_bit_xor(producer, arg.into_int_value(), ty.const_all_ones());
+    create_return(producer, res.into_int_value());
+}
+
 pub fn logic_and_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     let (lhs, rhs) = fr_binary_op_bool!(FR_LAND_FN_NAME, producer);
     let res = create_logic_and(producer, lhs.into_int_value(), rhs.into_int_value());
@@ -218,6 +227,7 @@ pub fn load_fr<'a>(producer: &dyn LLVMIRProducer<'a>) {
     bit_and_fn(producer);
     bit_or_fn(producer);
     bit_xor_fn(producer);
+    bit_flip_fn(producer);
     logic_and_fn(producer);
     logic_or_fn(producer);
     logic_not_fn(producer);

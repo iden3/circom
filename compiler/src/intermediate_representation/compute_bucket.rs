@@ -6,7 +6,7 @@ use code_producers::llvm_elements::fr::{
     FR_ADD_FN_NAME, FR_SUB_FN_NAME, FR_MUL_FN_NAME, FR_DIV_FN_NAME,
     FR_EQ_FN_NAME, FR_NEQ_FN_NAME, FR_LT_FN_NAME, FR_GT_FN_NAME, FR_LE_FN_NAME, FR_GE_FN_NAME,
     FR_NEG_FN_NAME, FR_SHL_FN_NAME, FR_SHR_FN_NAME,
-    FR_BITAND_FN_NAME, FR_BITOR_FN_NAME, FR_BITXOR_FN_NAME,
+    FR_BITAND_FN_NAME, FR_BITOR_FN_NAME, FR_BITXOR_FN_NAME, FR_BITFLIP_FN_NAME,
     FR_LAND_FN_NAME, FR_LOR_FN_NAME, FR_LNOT_FN_NAME
 };
 use code_producers::llvm_elements::instructions::{create_add_with_name, create_call, create_mul_with_name};
@@ -217,7 +217,9 @@ impl WriteLLVMIR for ComputeBucket {
             OperatorType::BoolNot => {
                 create_call(producer, FR_LNOT_FN_NAME, &args)
             }
-            OperatorType::Complement => {todo!()}
+            OperatorType::Complement => {
+                create_call(producer, FR_BITFLIP_FN_NAME, &args)
+            }
             OperatorType::ToAddress => {
                 to_enum(args[0])
             }
