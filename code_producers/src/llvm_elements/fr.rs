@@ -2,8 +2,12 @@ use crate::llvm_elements::LLVMIRProducer;
 use crate::llvm_elements::functions::create_bb;
 use crate::llvm_elements::functions::create_function;
 use crate::llvm_elements::instructions::{
-    create_add, create_sub, create_mul, create_div, create_eq, create_neq, create_lt, create_gt, create_le, create_ge, create_neg, create_shl,
-    create_shr, create_bit_and, create_bit_or, create_bit_xor, create_logic_and, create_logic_or, create_logic_not, create_return,
+    create_add, create_sub, create_mul, create_div, 
+    create_eq, create_neq, create_lt, create_gt, create_le, create_ge, 
+    create_neg, create_shl, create_shr,
+    create_bit_and, create_bit_or, create_bit_xor,
+    create_logic_and, create_logic_or, create_logic_not,
+    create_return
 };
 use crate::llvm_elements::types::{bigint_type, bool_type};
 
@@ -27,50 +31,61 @@ pub const FR_LAND_FN_NAME: &str = "fr_logic_and";
 pub const FR_LOR_FN_NAME: &str = "fr_logic_or";
 pub const FR_LNOT_FN_NAME: &str = "fr_logic_not";
 
-macro_rules! fr_unary_op {
-    ($name: expr, $producer: expr, $valTy: expr) => {{
-        let args = &[$valTy.into()];
-        let func = create_function($producer, $name, $valTy.fn_type(args, false));
-        let main = create_bb($producer, func, $name);
-        $producer.set_current_bb(main);
 
-        let lhs = func.get_nth_param(0).unwrap();
-        lhs
-    }};
+macro_rules! fr_unary_op {
+    ($name: expr, $producer: expr, $valTy: expr) => (
+        {
+            let args = &[$valTy.into()];
+            let func = create_function($producer, $name, $valTy.fn_type(args, false));
+            let main = create_bb($producer, func, $name);
+            $producer.set_current_bb(main);
+
+            let lhs = func.get_nth_param(0).unwrap();
+            lhs
+        }
+    )
 }
 
 macro_rules! fr_binary_op {
-    ($name: expr, $producer: expr, $argTy: expr, $retTy: expr) => {{
-        let args = &[$argTy.into(), $argTy.into()];
-        let func = create_function($producer, $name, $retTy.fn_type(args, false));
-        let main = create_bb($producer, func, $name);
-        $producer.set_current_bb(main);
+        ($name: expr, $producer: expr, $argTy: expr, $retTy: expr) => (
+            {
+                let args = &[$argTy.into(), $argTy.into()];
+                let func = create_function($producer, $name, $retTy.fn_type(args, false));
+                let main = create_bb($producer, func, $name);
+                $producer.set_current_bb(main);
 
-        let lhs = func.get_nth_param(0).unwrap();
-        let rhs = func.get_nth_param(1).unwrap();
-        (lhs, rhs)
-    }};
-}
+                let lhs = func.get_nth_param(0).unwrap();
+                let rhs = func.get_nth_param(1).unwrap();
+                (lhs, rhs)
+            }
+        )
+    }
 
 macro_rules! fr_binary_op_bigint {
-    ($name: expr, $producer: expr) => {{
-        let ty = bigint_type($producer);
-        fr_binary_op!($name, $producer, ty, ty)
-    }};
-}
+        ($name: expr, $producer: expr) => (
+            {
+                let ty = bigint_type($producer);
+                fr_binary_op!($name, $producer, ty, ty)
+            }
+        )
+    }
 
 macro_rules! fr_binary_op_bool {
-    ($name: expr, $producer: expr) => {{
-        let ty = bool_type($producer);
-        fr_binary_op!($name, $producer, ty, ty)
-    }};
-}
+        ($name: expr, $producer: expr) => (
+            {
+                let ty = bool_type($producer);
+                fr_binary_op!($name, $producer, ty, ty)
+            }
+        )
+    }
 
 macro_rules! fr_binary_op_bigint_to_bool {
-    ($name: expr, $producer: expr) => {{
-        fr_binary_op!($name, $producer, bigint_type($producer), bool_type($producer))
-    }};
-}
+        ($name: expr, $producer: expr) => (
+            {
+                fr_binary_op!($name, $producer, bigint_type($producer), bool_type($producer))
+            }
+        )
+    }
 
 pub fn add_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     let (lhs, rhs) = fr_binary_op_bigint!(FR_ADD_FN_NAME, producer);

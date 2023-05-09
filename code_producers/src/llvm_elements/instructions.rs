@@ -1,9 +1,7 @@
 use inkwell::basic_block::BasicBlock;
 use inkwell::IntPredicate::{EQ, NE, SLT, SGT, SLE, SGE};
 use inkwell::types::AnyTypeEnum;
-use inkwell::values::{
-    AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue,
-};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue};
 
 use crate::llvm_elements::LLVMIRProducer;
 
@@ -168,9 +166,8 @@ pub fn create_store<'a>(producer: &dyn LLVMIRProducer<'a>, ptr: PointerValue<'a>
         AnyValueEnum::PointerValue(v) => producer.llvm().builder.build_store(ptr, v),
         AnyValueEnum::StructValue(v) => producer.llvm().builder.build_store(ptr, v),
         AnyValueEnum::VectorValue(v) => producer.llvm().builder.build_store(ptr, v),
-        _ => panic!("We cannot create a store from a non basic value! There is a bug somewhere."),
-    }
-    .as_any_value_enum()
+        _ => panic!("We cannot create a store from a non basic value! There is a bug somewhere.")
+    }.as_any_value_enum()
 }
 
 pub fn create_return_void<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
@@ -190,9 +187,7 @@ pub fn create_call<'a>(producer: &dyn LLVMIRProducer<'a>, name: &str, arguments:
     producer.llvm().builder.build_call(f, arguments, format!("call.{}", name).as_str()).as_any_value_enum()
 }
 
-pub fn create_conditional_branch<'a>(
-    producer: &dyn LLVMIRProducer<'a>, comparison: IntValue<'a>, then_block: BasicBlock<'a>, else_block: BasicBlock<'a>,
-) -> AnyValueEnum<'a> {
+pub fn create_conditional_branch<'a>(producer: &dyn LLVMIRProducer<'a>, comparison: IntValue<'a>, then_block: BasicBlock<'a>, else_block: BasicBlock<'a>) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_conditional_branch(comparison, then_block, else_block).as_any_value_enum()
 }
 
@@ -204,7 +199,7 @@ pub fn create_return_from_any_value<'a>(producer: &dyn LLVMIRProducer<'a>, val: 
         AnyValueEnum::PointerValue(x) => create_return(producer, x),
         AnyValueEnum::StructValue(x) => create_return(producer, x),
         AnyValueEnum::VectorValue(x) => create_return(producer, x),
-        _ => panic!("Cannot create a return from a non basic value!"),
+        _ => panic!("Cannot create a return from a non basic value!")
     }
 }
 
@@ -217,9 +212,8 @@ pub fn create_alloca<'a>(producer: &dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>,
         AnyTypeEnum::StructType(ty) => producer.llvm().builder.build_alloca(ty, name),
         AnyTypeEnum::VectorType(ty) => producer.llvm().builder.build_alloca(ty, name),
         AnyTypeEnum::FunctionType(_) => panic!("We cannot allocate a function type!"),
-        AnyTypeEnum::VoidType(_) => panic!("We cannot allocate a void type!"),
-    }
-    .as_any_value_enum()
+        AnyTypeEnum::VoidType(_) => panic!("We cannot allocate a void type!")
+    }.as_any_value_enum()
 }
 
 pub fn create_phi<'a>(producer: &dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, name: &str) -> PhiValue<'a> {
@@ -230,13 +224,11 @@ pub fn create_phi<'a>(producer: &dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, na
         AnyTypeEnum::PointerType(ty) => producer.builder().build_phi(ty, name),
         AnyTypeEnum::StructType(ty) => producer.builder().build_phi(ty, name),
         AnyTypeEnum::VectorType(ty) => producer.builder().build_phi(ty, name),
-        _ => panic!("Cannot create a phi node with anything other than a basic type! {}", ty),
+        _ => panic!("Cannot create a phi node with anything other than a basic type! {}", ty)
     }
 }
 
-pub fn create_phi_with_incoming<'a>(
-    producer: &dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, incoming: &[(BasicValueEnum<'a>, BasicBlock<'a>)], name: &str,
-) -> PhiValue<'a> {
+pub fn create_phi_with_incoming<'a>(producer: &dyn LLVMIRProducer<'a>, ty: AnyTypeEnum<'a>, incoming: &[(BasicValueEnum<'a>, BasicBlock<'a>)], name: &str) -> PhiValue<'a> {
     let phi = create_phi(producer, ty, name);
     // Hack to add the incoming to the phi value
     phi.add_incoming_as_enum(incoming);
