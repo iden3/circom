@@ -184,6 +184,8 @@ impl<'a> LLVM<'a> {
 
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
         // self.module.print_to_stderr();
+        let res = self.module.verify();
+        println!("Verification result: {:#?}", res);
         self.module.print_to_file(path).map_err(|_| {})
     }
 
