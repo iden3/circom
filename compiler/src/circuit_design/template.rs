@@ -55,7 +55,7 @@ impl WriteLLVMIR for TemplateCodeInfo {
             to_basic_type_enum(template_struct),
             to_basic_type_enum(i32_type(producer))
         ], false);
-        let build_function = create_function(producer, build_fn_name(self.header.clone()).as_str(), component_memory.fn_type(&[], false));
+        let build_function = create_function(producer, build_fn_name(self.header.clone()).as_str(), component_memory.ptr_type(Default::default()).fn_type(&[], false));
         let main = create_bb(producer,build_function, "main");
         producer.set_current_bb(main);
 
