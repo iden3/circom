@@ -37,6 +37,14 @@ pub fn create_div<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lh
     create_div_with_name(producer, lhs, rhs, "")
 }
 
+pub fn create_mod_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
+    producer.llvm().builder.build_int_unsigned_rem(lhs, rhs, name).as_any_value_enum()
+}
+
+pub fn create_mod<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
+    create_mod_with_name(producer, lhs, rhs, "")
+}
+
 pub fn create_eq_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
     producer.llvm().builder.build_int_compare(EQ, lhs, rhs, name).as_any_value_enum()
 }

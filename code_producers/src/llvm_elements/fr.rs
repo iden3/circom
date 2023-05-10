@@ -2,7 +2,7 @@ use crate::llvm_elements::LLVMIRProducer;
 use crate::llvm_elements::functions::create_bb;
 use crate::llvm_elements::functions::create_function;
 use crate::llvm_elements::instructions::{
-    create_add, create_sub, create_mul, create_div, 
+    create_add, create_sub, create_mul, create_div, create_mod,
     create_eq, create_neq, create_lt, create_gt, create_le, create_ge, 
     create_neg, create_shl, create_shr,
     create_bit_and, create_bit_or, create_bit_xor,
@@ -15,6 +15,7 @@ pub const FR_ADD_FN_NAME: &str = "fr_add";
 pub const FR_SUB_FN_NAME: &str = "fr_sub";
 pub const FR_MUL_FN_NAME: &str = "fr_mul";
 pub const FR_DIV_FN_NAME: &str = "fr_div";
+pub const FR_MOD_FN_NAME: &str = "fr_mod";
 pub const FR_EQ_FN_NAME: &str = "fr_eq";
 pub const FR_NEQ_FN_NAME: &str = "fr_neq";
 pub const FR_LT_FN_NAME: &str = "fr_lt";
@@ -109,6 +110,12 @@ pub fn mul_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
 pub fn div_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     let (lhs, rhs) = fr_binary_op_bigint!(FR_DIV_FN_NAME, producer);
     let div = create_div(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, div.into_int_value());
+}
+
+pub fn mod_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_MOD_FN_NAME, producer);
+    let div = create_mod(producer, lhs.into_int_value(), rhs.into_int_value());
     create_return(producer, div.into_int_value());
 }
 
@@ -215,6 +222,7 @@ pub fn load_fr<'a>(producer: &dyn LLVMIRProducer<'a>) {
     sub_fn(producer);
     mul_fn(producer);
     div_fn(producer);
+    mod_fn(producer);
     eq_fn(producer);
     neq_fn(producer);
     lt_fn(producer);
