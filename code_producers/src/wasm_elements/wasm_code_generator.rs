@@ -1552,6 +1552,9 @@ pub fn fr_types(prime: &String) -> Vec<WasmInstruction> {
         "bn128" => include_str!("bn128/fr-types.wat"),
         "bls12381" => include_str!("bls12381/fr-types.wat"),
         "goldilocks" => include_str!("goldilocks/fr-types.wat"),
+        "grumpkin" => include_str!("grumpkin/fr-types.wat"),
+        "pallas" => include_str!("pallas/fr-types.wat"),
+        "vesta" => include_str!("vesta/fr-types.wat"),
         _ => unreachable!(),
     };    
     for line in file.lines() {
@@ -1566,6 +1569,9 @@ pub fn fr_data(prime: &String) -> Vec<WasmInstruction> {
         "bn128" => include_str!("bn128/fr-data.wat"),
         "bls12381" => include_str!("bls12381/fr-data.wat"),
         "goldilocks" => include_str!("goldilocks/fr-data.wat"),
+        "grumpkin" => include_str!("grumpkin/fr-data.wat"),
+        "pallas" => include_str!("pallas/fr-data.wat"),
+        "vesta" => include_str!("vesta/fr-data.wat"),
         _ => unreachable!(),
     };    
     for line in file.lines() {
@@ -1579,6 +1585,9 @@ pub fn fr_code(prime: &String) -> Vec<WasmInstruction> {
         "bn128" => include_str!("bn128/fr-code.wat"),
         "bls12381" => include_str!("bls12381/fr-code.wat"),
         "goldilocks" => include_str!("goldilocks/fr-code.wat"),
+        "grumpkin" => include_str!("grumpkin/fr-code.wat"),
+        "pallas" => include_str!("pallas/fr-code.wat"),
+        "vesta" => include_str!("vesta/fr-code.wat"),
         _ => unreachable!(),
     };    
     for line in file.lines() {
