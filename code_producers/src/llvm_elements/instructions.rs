@@ -30,7 +30,7 @@ pub fn create_mul<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lh
 }
 
 pub fn create_div_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
-    producer.llvm().builder.build_int_unsigned_div(lhs, rhs, name).as_any_value_enum()
+    producer.llvm().builder.build_int_signed_div(lhs, rhs, name).as_any_value_enum()
 }
 
 pub fn create_div<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
@@ -38,7 +38,7 @@ pub fn create_div<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lh
 }
 
 pub fn create_mod_with_name<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T, name: &str) -> AnyValueEnum<'a> {
-    producer.llvm().builder.build_int_unsigned_rem(lhs, rhs, name).as_any_value_enum()
+    producer.llvm().builder.build_int_signed_rem(lhs, rhs, name).as_any_value_enum()
 }
 
 pub fn create_mod<'a, T: IntMathValue<'a>>(producer: &dyn LLVMIRProducer<'a>, lhs: T, rhs: T) -> AnyValueEnum<'a> {
