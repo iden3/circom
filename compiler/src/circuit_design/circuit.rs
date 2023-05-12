@@ -45,9 +45,8 @@ impl WriteLLVMIR for Circuit {
         load_stdlib(producer);
 
         // Code for the functions
-        for _f in &self.functions {
-            // code.append(&mut f.produce_llvm_ir(producer));
-
+        for f in &self.functions {
+            f.produce_llvm_ir(producer);
         }
 
         // Code for the templates

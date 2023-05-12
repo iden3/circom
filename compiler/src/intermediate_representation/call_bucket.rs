@@ -1,7 +1,8 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer, to_basic_metadata_enum};
+use code_producers::llvm_elements::instructions::create_call;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -64,8 +65,11 @@ impl ToString for CallBucket {
 }
 
 impl WriteLLVMIR for CallBucket {
-    fn produce_llvm_ir<'a, 'b>(&self, _producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
-        todo!()
+    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
+        let args = self.arguments.iter().map(|i|
+            to_basic_metadata_enum(i.produce_llvm_ir(producer).expect("Call arguments must produce a value!"))
+        ).collect::<Vec<_>>();
+        Some(create_call(producer, self.symbol.as_str(), args.as_slice()))
     }
 }
 
