@@ -2,7 +2,9 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer, to_basic_metadata_enum};
-use code_producers::llvm_elements::instructions::create_call;
+use code_producers::llvm_elements::instructions::{create_alloca, create_call, create_gep, create_store};
+use code_producers::llvm_elements::types::bigint_type;
+use code_producers::llvm_elements::values::create_literal_u32;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -65,11 +67,25 @@ impl ToString for CallBucket {
 }
 
 impl WriteLLVMIR for CallBucket {
+    /// Since calls use the same internal IR than templates they expect the same memory layout
+    /// Any signal is copied previously to an arena and the function uses that arena
+    /// as a set of local variables.
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
-        let args = self.arguments.iter().map(|i|
-            to_basic_metadata_enum(i.produce_llvm_ir(producer).expect("Call arguments must produce a value!"))
-        ).collect::<Vec<_>>();
-        Some(create_call(producer, self.symbol.as_str(), args.as_slice()))
+        // Create array with arena_size size
+        let bigint_arr = bigint_type(producer).array_type(self.arena_size as u32);
+        let arena = create_alloca(producer, bigint_arr.into(), format!("{}_arena", self.symbol).as_str());
+
+        // Copy arguments into elements of the arena by indexing order (arg 0 -> arena 0, arg 1 -> arena 1, etc)
+        for (id, arg) in self.arguments.iter().map(|i|
+            i.produce_llvm_ir(producer).expect("Call arguments must produce a value!")
+        ).enumerate() {
+            let i = create_literal_u32(producer, id as u64);
+            let ptr = create_gep(producer, arena.into_pointer_value(), &[i]);
+            create_store(producer, ptr.into_pointer_value(), arg);
+        }
+
+        // Call function passing the array as argument
+        Some(create_call(producer, self.symbol.as_str(), &[to_basic_metadata_enum(arena)]))
     }
 }
 

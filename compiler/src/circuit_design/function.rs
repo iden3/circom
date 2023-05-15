@@ -3,10 +3,10 @@ use crate::hir::very_concrete_program::Param;
 use crate::intermediate_representation::InstructionList;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
-use code_producers::llvm_elements::functions::{create_bb, create_function};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer, to_basic_metadata_enum, to_basic_type_enum};
+use code_producers::llvm_elements::functions::{create_bb, create_function, FunctionLLVMIRProducer};
 use code_producers::llvm_elements::instructions::create_br;
-use code_producers::llvm_elements::types::void_type;
+use code_producers::llvm_elements::types::{bigint_type, void_type};
 use code_producers::wasm_elements::*;
 //use std::io::Write;
 
@@ -35,17 +35,20 @@ impl ToString for FunctionCodeInfo {
 impl WriteLLVMIR for FunctionCodeInfo {
     fn produce_llvm_ir<'ctx, 'prod>(&self, producer: &'prod dyn LLVMIRProducer<'ctx>) -> Option<LLVMInstruction<'ctx>> {
         let void = void_type(producer);
-        let function = create_function(producer, self.header.as_str(), void.fn_type(&[], false));
+        let arena_ty = bigint_type(producer).ptr_type(Default::default());
+        let function = create_function(producer, self.header.as_str(), void.fn_type(&[arena_ty.into()], false));
         let main = create_bb(producer, function, self.header.as_str());
         producer.set_current_bb(main);
+
+        let function_producer = FunctionLLVMIRProducer::new(producer, function);
 
         let mut last = None;
         for t in &self.body {
             println!("{}", t.to_string());
-            let bb = create_bb(producer, function, t.label_name(function.count_basic_blocks()).as_str());
-            create_br(producer, bb);
-            producer.set_current_bb(bb);
-            last = t.produce_llvm_ir(producer);
+            let bb = create_bb(&function_producer, function, t.label_name(function.count_basic_blocks()).as_str());
+            create_br(&function_producer, bb);
+            function_producer.set_current_bb(bb);
+            last = t.produce_llvm_ir(&function_producer);
         }
 
         last
