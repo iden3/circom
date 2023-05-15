@@ -183,10 +183,12 @@ impl<'a> LLVM<'a> {
     }
 
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
-        // self.module.print_to_stderr();
-        let res = self.module.verify();
-        println!("Verification result: {:#?}", res);
-        self.module.print_to_file(path).map_err(|_| {})
+        self.module.verify().map_err(|llvm_err| {
+            eprintln!("{}: {}", Colour::Red.paint("LLVM Module verification failed"), llvm_err);
+        })?;
+        self.module.print_to_file(path).map_err(|llvm_err| {
+            eprintln!("{}: {}", Colour::Red.paint("Writing LLVM Module failed"), llvm_err);
+        })
     }
 
     pub fn bigint_type(&self) -> BigIntType<'a> {
