@@ -11,10 +11,13 @@ use crate::llvm_elements::instructions::{
 };
 use crate::llvm_elements::types::{bigint_type, bool_type};
 
+use super::instructions::create_inv;
+
 pub const FR_ADD_FN_NAME: &str = "fr_add";
 pub const FR_SUB_FN_NAME: &str = "fr_sub";
 pub const FR_MUL_FN_NAME: &str = "fr_mul";
 pub const FR_DIV_FN_NAME: &str = "fr_div";
+pub const FR_INTDIV_FN_NAME: &str = "fr_intdiv";
 pub const FR_MOD_FN_NAME: &str = "fr_mod";
 pub const FR_EQ_FN_NAME: &str = "fr_eq";
 pub const FR_NEQ_FN_NAME: &str = "fr_neq";
@@ -107,12 +110,22 @@ pub fn mul_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     create_return(producer, add.into_int_value());
 }
 
+// Multiplication by the inverse
 pub fn div_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     let (lhs, rhs) = fr_binary_op_bigint!(FR_DIV_FN_NAME, producer);
-    let div = create_div(producer, lhs.into_int_value(), rhs.into_int_value());
-    create_return(producer, div.into_int_value());
+    let inv = create_inv(producer, rhs.into_int_value());
+    let res = create_mul(producer, lhs.into_int_value(), inv.into_int_value());
+    create_return(producer, res.into_int_value());
 }
 
+// Quotient of the integer division
+pub fn intdiv_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
+    let (lhs, rhs) = fr_binary_op_bigint!(FR_INTDIV_FN_NAME, producer);
+    let res = create_div(producer, lhs.into_int_value(), rhs.into_int_value());
+    create_return(producer, res.into_int_value());
+}
+
+// Remainder of the integer division
 pub fn mod_fn<'a>(producer: &dyn LLVMIRProducer<'a>) {
     let (lhs, rhs) = fr_binary_op_bigint!(FR_MOD_FN_NAME, producer);
     let div = create_mod(producer, lhs.into_int_value(), rhs.into_int_value());
@@ -222,6 +235,7 @@ pub fn load_fr<'a>(producer: &dyn LLVMIRProducer<'a>) {
     sub_fn(producer);
     mul_fn(producer);
     div_fn(producer);
+    intdiv_fn(producer);
     mod_fn(producer);
     eq_fn(producer);
     neq_fn(producer);
