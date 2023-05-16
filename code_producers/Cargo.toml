@@ -13,4 +13,4 @@ lz_fnv = "0.1.2"
 num-bigint-dig = "0.6.0"
 serde_json = "1.0.68"
 inkwell = { git = "https://github.com/Veridise/inkwell", branch = "master", features = ["llvm13-0"] }
-
+ansi_term = "0.12.1"

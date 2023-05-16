@@ -214,6 +214,7 @@ dependencies = [
 name = "code_producers"
 version = "2.1.3"
 dependencies = [
+ "ansi_term",
  "handlebars",
  "inkwell",
  "lz_fnv",

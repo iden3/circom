@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::rc::Rc;
+use ansi_term::Colour;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
