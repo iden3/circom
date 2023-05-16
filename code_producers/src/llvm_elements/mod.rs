@@ -195,7 +195,7 @@ impl<'a> LLVM<'a> {
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
         // Run module verification
         self.module.verify().map_err(|llvm_err| {
-            eprintln!("{}: {}", Colour::Red.paint("LLVM Module verification failed"), llvm_err);
+            eprintln!("{}: {}", Colour::Red.paint("LLVM Module verification failed"), llvm_err.to_string());
         })?;
         // Verify that bitcode can be written, parsed, and re-verified
         {
@@ -206,20 +206,20 @@ impl<'a> LLVM<'a> {
                     eprintln!(
                         "{}: {}",
                         Colour::Red.paint("Parsing LLVM bitcode from verification buffer failed"),
-                        llvm_err
+                        llvm_err.to_string()
                     );
                 })?;
             new_module.verify().map_err(|llvm_err| {
                 eprintln!(
                     "{}: {}",
                     Colour::Red.paint("LLVM bitcode verification failed"),
-                    llvm_err
+                    llvm_err.to_string()
                 );
             })?;
         }
         // Write the output to file
         self.module.print_to_file(path).map_err(|llvm_err| {
-            eprintln!("{}: {}", Colour::Red.paint("Writing LLVM Module failed"), llvm_err);
+            eprintln!("{}: {}", Colour::Red.paint("Writing LLVM Module failed"), llvm_err.to_string());
         })
     }
 
