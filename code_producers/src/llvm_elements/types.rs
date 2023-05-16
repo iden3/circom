@@ -33,6 +33,3 @@ pub fn void_type<'a>(producer: &dyn LLVMIRProducer<'a>) -> VoidType<'a> {
 pub fn i32_type<'a>(producer: &dyn LLVMIRProducer<'a>) -> IntType<'a> {
     producer.context().i32_type()
 }
-
-
-
