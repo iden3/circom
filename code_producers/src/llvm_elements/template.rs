@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::ContextRef;
 use inkwell::types::{AnyType, BasicType, PointerType};
-use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue, GlobalValue, IntValue, PointerValue};
+use inkwell::values::{AnyValueEnum, FunctionValue, IntValue, PointerValue};
 
-use crate::llvm_elements::{LLVM, LLVMIRProducer};
+use crate::llvm_elements::{BodyCtx, LLVM, LLVMIRProducer};
 use crate::llvm_elements::instructions::{create_alloca, create_gep};
 use crate::llvm_elements::types::{bigint_type, i32_type, subcomponent_type};
 use crate::llvm_elements::values::{create_literal_u32, zero};
@@ -30,6 +28,10 @@ impl<'a, 'b> LLVMIRProducer<'a> for TemplateLLVMIRProducer<'a, 'b> {
     }
 
     fn template_ctx(&self) -> &TemplateCtx<'a> {
+        &self.template_ctx
+    }
+
+    fn body_ctx(&self) -> &dyn BodyCtx<'a> {
         &self.template_ctx
     }
 
@@ -63,7 +65,7 @@ impl<'a, 'b> TemplateLLVMIRProducer<'a, 'b> {
 }
 
 pub struct TemplateCtx<'a> {
-    pub stack: HashMap<IntValue<'a>, PointerValue<'a>>,
+    pub stack: PointerValue<'a>,
     subcmps: PointerValue<'a>,
     pub current_function: FunctionValue<'a>,
     pub template_type: PointerType<'a>,
@@ -81,16 +83,9 @@ fn setup_subcmps<'a>(producer: &dyn LLVMIRProducer<'a>, number_subcmps: usize) -
 }
 
 #[inline]
-fn setup_stack<'a>(producer: &dyn LLVMIRProducer<'a>, stack_depth: usize) -> HashMap<IntValue<'a>, PointerValue<'a>> {
-    let mut stack = HashMap::new();
-    // TODO: Might need to change this to an array depending on how array variables are handled
+fn setup_stack<'a>(producer: &dyn LLVMIRProducer<'a>, stack_depth: usize) -> PointerValue<'a> {
     let bigint_ty = bigint_type(producer);
-    for i in 0..stack_depth {
-        let idx = create_literal_u32(producer, i as u64);
-        let alloca = create_alloca(producer, bigint_ty.as_any_type_enum(), format!("var{}", i).as_str());
-        stack.insert(idx, alloca.into_pointer_value());
-    }
-    stack
+    create_alloca(producer, bigint_ty.array_type(stack_depth as u32).into(), "lvars").into_pointer_value()
 }
 
 impl<'a> TemplateCtx<'a> {
@@ -114,15 +109,19 @@ impl<'a> TemplateCtx<'a> {
         create_gep(producer, self.subcmps, &[zero(producer), id.into_int_value(), create_literal_u32(producer, 1)]).into_pointer_value()
     }
 
-    /// Returns a reference to the local variable associated to the index
-    pub fn get_variable(&self, index: IntValue<'a>) -> AnyValueEnum<'a> {
-        self.stack.get(&index).unwrap().as_any_value_enum()
-    }
+
 
     /// Returns a pointer to the signal associated to the index
     pub fn get_signal(&self, producer: &dyn LLVMIRProducer<'a>, index: IntValue<'a>) -> AnyValueEnum<'a> {
         let signals = self.current_function.get_nth_param(self.signals_arg_offset as u32).unwrap();
         create_gep(producer, signals.into_pointer_value(), &[zero(producer), index])
+    }
+}
+
+impl<'a> BodyCtx<'a> for TemplateCtx<'a> {
+    /// Returns a reference to the local variable associated to the index
+    fn get_variable(&self, producer: &dyn LLVMIRProducer<'a>, index: IntValue<'a>) -> AnyValueEnum<'a> {
+        create_gep(producer, self.stack, &[index])
     }
 }
 

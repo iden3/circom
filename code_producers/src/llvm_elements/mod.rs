@@ -27,11 +27,16 @@ pub mod values;
 
 pub type LLVMInstruction<'a> = AnyValueEnum<'a>;
 
+pub trait BodyCtx<'a> {
+    fn get_variable(&self, producer: &dyn LLVMIRProducer<'a>, index: IntValue<'a>) -> AnyValueEnum<'a>;
+}
+
 pub trait LLVMIRProducer<'a> {
     fn llvm(&self) -> &LLVM<'a>;
     fn context(&self) -> ContextRef<'a>;
     fn set_current_bb(&self, bb: BasicBlock<'a>);
     fn template_ctx(&self) -> &TemplateCtx<'a>;
+    fn body_ctx(&self) -> &dyn BodyCtx<'a>;
     fn current_function(&self) -> FunctionValue<'a>;
     fn builder(&self) -> &Builder<'a>;
     fn constant_fields(&self) -> &Vec<String>;
@@ -63,6 +68,10 @@ impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {
 
     fn template_ctx(&self) -> &TemplateCtx<'a> {
         panic!("The top level llvm producer does not hold a template context!");
+    }
+
+    fn body_ctx(&self) -> &dyn BodyCtx<'a> {
+        panic!("The top level llvm producer does not hold a body context!");
     }
 
     fn current_function(&self) -> FunctionValue<'a> {
@@ -231,14 +240,6 @@ impl<'a> LLVM<'a> {
             }
             Some(ptr) => *ptr
         }
-    }
-
-    pub fn get_variable(&self, _id: usize, idx: IntValue<'a>) -> AnyValueEnum<'a> {
-        self.template_ctx.as_ref()
-            .expect("Could not find template context")
-            .stack.get(&idx)
-            .expect(format!("Could not get variable {} from template context", idx).as_str())
-            .as_any_value_enum()
     }
 
     fn template_arg_id(&self) -> u32 {

@@ -1,5 +1,5 @@
 use inkwell::types::StringRadix;
-use inkwell::values::{AggregateValue, AnyValue, AnyValueEnum, IntValue};
+use inkwell::values::{AnyValue, AnyValueEnum, IntValue};
 
 use crate::llvm_elements::{LLVMIRProducer};
 use crate::llvm_elements::types::bigint_type;

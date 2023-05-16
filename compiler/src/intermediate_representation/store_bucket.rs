@@ -60,7 +60,7 @@ impl WriteLLVMIR for StoreBucket {
         let index =  self.dest.produce_llvm_ir(producer).expect("We need to produce some kind of instruction!").into_int_value();
         // From the index of the source extract the actual type of destination
         let gep = match &self.dest_address_type {
-            AddressType::Variable => producer.template_ctx().get_variable(index),
+            AddressType::Variable => producer.body_ctx().get_variable(producer, index),
             AddressType::Signal => producer.template_ctx().get_signal(producer, index),
             AddressType::SubcmpSignal { cmp_address, .. } => {
                 let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
