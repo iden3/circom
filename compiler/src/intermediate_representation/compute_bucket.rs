@@ -2,7 +2,13 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, to_basic_metadata_enum, to_enum, LLVMIRProducer};
-use code_producers::llvm_elements::fr::{FR_ADD_FN_NAME, FR_DIV_FN_NAME, FR_EQ_FN_NAME, FR_LS_FN_NAME, FR_MUL_FN_NAME, FR_NEG_FN_NAME, FR_NEQ_FN_NAME};
+use code_producers::llvm_elements::fr::{
+    FR_ADD_FN_NAME, FR_SUB_FN_NAME, FR_MUL_FN_NAME, FR_DIV_FN_NAME, FR_INTDIV_FN_NAME, FR_MOD_FN_NAME, FR_POW_FN_NAME,
+    FR_EQ_FN_NAME, FR_NEQ_FN_NAME, FR_LT_FN_NAME, FR_GT_FN_NAME, FR_LE_FN_NAME, FR_GE_FN_NAME,
+    FR_NEG_FN_NAME, FR_SHL_FN_NAME, FR_SHR_FN_NAME,
+    FR_BITAND_FN_NAME, FR_BITOR_FN_NAME, FR_BITXOR_FN_NAME, FR_BITFLIP_FN_NAME,
+    FR_LAND_FN_NAME, FR_LOR_FN_NAME, FR_LNOT_FN_NAME
+};
 use code_producers::llvm_elements::instructions::{create_add_with_name, create_call, create_mul_with_name};
 use code_producers::wasm_elements::*;
 
@@ -160,34 +166,66 @@ impl WriteLLVMIR for ComputeBucket {
             OperatorType::Add => {
                 create_call(producer,FR_ADD_FN_NAME, &args)
             }
-            OperatorType::Sub => {todo!()}
-            OperatorType::Pow => {todo!()}
-            OperatorType::IntDiv => {todo!()}
-            OperatorType::Mod => {todo!()}
-            OperatorType::ShiftL => {todo!()}
-            OperatorType::ShiftR => {todo!()}
-            OperatorType::LesserEq => {todo!()}
-            OperatorType::GreaterEq => {todo!()}
-            OperatorType::Lesser => {
-                create_call(producer,FR_LS_FN_NAME, &args)
+            OperatorType::Sub => {
+                create_call(producer,FR_SUB_FN_NAME, &args)
             }
-            OperatorType::Greater => {todo!()}
+            OperatorType::Pow => {
+                create_call(producer,FR_POW_FN_NAME, &args)
+            }
+            OperatorType::IntDiv => {
+                create_call(producer,FR_INTDIV_FN_NAME, &args)
+            }
+            OperatorType::Mod => {
+                create_call(producer,FR_MOD_FN_NAME, &args)
+            }
+            OperatorType::ShiftL => {
+                create_call(producer,FR_SHL_FN_NAME, &args)
+            }
+            OperatorType::ShiftR => {
+                create_call(producer,FR_SHR_FN_NAME, &args)
+            }
+            OperatorType::LesserEq => {
+                create_call(producer,FR_LE_FN_NAME, &args)
+            }
+            OperatorType::GreaterEq => {
+                create_call(producer,FR_GE_FN_NAME, &args)
+            }
+            OperatorType::Lesser => {
+                create_call(producer,FR_LT_FN_NAME, &args)
+            }
+            OperatorType::Greater => {
+                create_call(producer,FR_GT_FN_NAME, &args)
+            }
             OperatorType::Eq(_) => {
                 create_call(producer,FR_EQ_FN_NAME, &args)
             }
             OperatorType::NotEq => {
                 create_call(producer,FR_NEQ_FN_NAME, &args)
             }
-            OperatorType::BoolOr => {todo!()}
-            OperatorType::BoolAnd => {todo!()}
-            OperatorType::BitOr => {todo!()}
-            OperatorType::BitAnd => {todo!()}
-            OperatorType::BitXor => {todo!()}
+            OperatorType::BitOr => {
+                create_call(producer,FR_BITOR_FN_NAME, &args)
+            }
+            OperatorType::BitAnd => {
+                create_call(producer,FR_BITAND_FN_NAME, &args)
+            }
+            OperatorType::BitXor => {
+                create_call(producer,FR_BITXOR_FN_NAME, &args)
+            }
             OperatorType::PrefixSub => {
                 create_call(producer,FR_NEG_FN_NAME, &args)
             }
-            OperatorType::BoolNot => {todo!()}
-            OperatorType::Complement => {todo!()}
+            OperatorType::BoolOr => {
+                create_call(producer, FR_LOR_FN_NAME, &args)
+            }
+            OperatorType::BoolAnd => {
+                create_call(producer, FR_LAND_FN_NAME, &args)
+            }
+            OperatorType::BoolNot => {
+                create_call(producer, FR_LNOT_FN_NAME, &args)
+            }
+            OperatorType::Complement => {
+                create_call(producer, FR_BITFLIP_FN_NAME, &args)
+            }
             OperatorType::ToAddress => {
                 to_enum(args[0])
             }
