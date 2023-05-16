@@ -193,11 +193,33 @@ impl<'a> LLVM<'a> {
     }
 
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
+        // Run module verification
         self.module.verify().map_err(|llvm_err| {
             eprintln!("{}: {}", Colour::Red.paint("LLVM Module verification failed"), llvm_err.to_string());
             eprintln!("Generated LLVM:");
             self.module.print_to_stderr();
         })?;
+        // Verify that bitcode can be written, parsed, and re-verified
+        {
+            let buff = self.module.write_bitcode_to_memory();
+            let context = Context::create();
+            let new_module =
+                Module::parse_bitcode_from_buffer(&buff, &context).map_err(|llvm_err| {
+                    eprintln!(
+                        "{}: {}",
+                        Colour::Red.paint("Parsing LLVM bitcode from verification buffer failed"),
+                        llvm_err.to_string()
+                    );
+                })?;
+            new_module.verify().map_err(|llvm_err| {
+                eprintln!(
+                    "{}: {}",
+                    Colour::Red.paint("LLVM bitcode verification failed"),
+                    llvm_err.to_string()
+                );
+            })?;
+        }
+        // Write the output to file
         self.module.print_to_file(path).map_err(|llvm_err| {
             eprintln!("{}: {}", Colour::Red.paint("Writing LLVM Module failed"), llvm_err.to_string());
         })
