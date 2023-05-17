@@ -121,7 +121,7 @@ impl<'a> TemplateCtx<'a> {
 impl<'a> BodyCtx<'a> for TemplateCtx<'a> {
     /// Returns a reference to the local variable associated to the index
     fn get_variable(&self, producer: &dyn LLVMIRProducer<'a>, index: IntValue<'a>) -> AnyValueEnum<'a> {
-        create_gep(producer, self.stack, &[index])
+        create_gep(producer, self.stack, &[zero(producer), index])
     }
 }
 
