@@ -9,7 +9,10 @@ use inkwell::builder::Builder;
 use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
 use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, IntType, PointerType, StringRadix};
-use inkwell::values::{AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue, PointerValue};
+use inkwell::values::{
+    AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue,
+    PointerValue,
+};
 use inkwell::values::FunctionValue;
 
 use template::TemplateCtx;
@@ -29,7 +32,11 @@ pub mod values;
 pub type LLVMInstruction<'a> = AnyValueEnum<'a>;
 
 pub trait BodyCtx<'a> {
-    fn get_variable(&self, producer: &dyn LLVMIRProducer<'a>, index: IntValue<'a>) -> AnyValueEnum<'a>;
+    fn get_variable(
+        &self,
+        producer: &dyn LLVMIRProducer<'a>,
+        index: IntValue<'a>,
+    ) -> AnyValueEnum<'a>;
 }
 
 pub trait LLVMIRProducer<'a> {
@@ -51,7 +58,7 @@ pub struct LLVMCircuitData {
 pub struct TopLevelLLVMIRProducer<'a> {
     pub context: &'a Context,
     current_module: LLVM<'a>,
-    pub field_tracking: Vec<String>
+    pub field_tracking: Vec<String>,
 }
 
 impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {
@@ -103,7 +110,7 @@ impl<'a> TopLevelLLVMIRProducer<'a> {
         TopLevelLLVMIRProducer {
             context,
             current_module: LLVM::from_context(context, name),
-            field_tracking
+            field_tracking,
         }
     }
 }
@@ -134,7 +141,7 @@ pub fn new_constraint<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a>
 pub fn any_value_wraps_basic_value(v: AnyValueEnum) -> bool {
     match BasicValueEnum::try_from(v) {
         Ok(_) => true,
-        Err(_) => false
+        Err(_) => false,
     }
 }
 
@@ -157,7 +164,9 @@ pub fn to_basic_enum<'a, T: AnyValue<'a>>(v: T) -> BasicValueEnum<'a> {
 pub fn to_basic_metadata_enum(value: AnyValueEnum) -> BasicMetadataValueEnum {
     match BasicMetadataValueEnum::try_from(value) {
         Ok(v) => v,
-        Err(_) => panic!("Attempted to convert a value that does not support BasicMetadataValueEnum")
+        Err(_) => {
+            panic!("Attempted to convert a value that does not support BasicMetadataValueEnum")
+        }
     }
 }
 
@@ -189,7 +198,9 @@ impl<'a> LLVM<'a> {
     }
 
     pub fn merge_module(&self, other: Module<'a>) {
-        self.module.link_in_module(other).expect(format!("Cannot merge with {}", self.module.get_name().to_str().unwrap()).as_str());
+        self.module.link_in_module(other).expect(
+            format!("Cannot merge with {}", self.module.get_name().to_str().unwrap()).as_str(),
+        );
     }
 
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
@@ -263,7 +274,7 @@ impl<'a> LLVM<'a> {
                 let ptr = gep.into_pointer_value();
                 ptr
             }
-            Some(ptr) => *ptr
+            Some(ptr) => *ptr,
         }
     }
 
@@ -282,10 +293,17 @@ impl<'a> LLVM<'a> {
         None
     }
 
-    pub fn create_gep(&self, ptr: PointerValue<'a>, indices: &[IntValue<'a>], name: &str) -> AnyValueEnum<'a> {
-        unsafe { self.builder.build_gep(ptr, indices, name) }.as_instruction().unwrap().as_any_value_enum()
+    pub fn create_gep(
+        &self,
+        ptr: PointerValue<'a>,
+        indices: &[IntValue<'a>],
+        name: &str,
+    ) -> AnyValueEnum<'a> {
+        unsafe { self.builder.build_gep(ptr, indices, name) }
+            .as_instruction()
+            .unwrap()
+            .as_any_value_enum()
     }
-
 
     pub fn unwrap_any_value(&self, v: &'a AnyValueEnum<'a>) -> &'a dyn AnyValue<'a> {
         match v {
@@ -298,7 +316,7 @@ impl<'a> LLVM<'a> {
             AnyValueEnum::StructValue(x) => x,
             AnyValueEnum::VectorValue(x) => x,
             AnyValueEnum::InstructionValue(x) => x,
-            AnyValueEnum::MetadataValue(x) => x
+            AnyValueEnum::MetadataValue(x) => x,
         }
     }
 
@@ -310,7 +328,7 @@ impl<'a> LLVM<'a> {
             AnyValueEnum::PointerValue(x) => x,
             AnyValueEnum::StructValue(x) => x,
             AnyValueEnum::VectorValue(x) => x,
-            _ => panic!("Attempted to convert a non basic value!")
+            _ => panic!("Attempted to convert a non basic value!"),
         }
     }
 
@@ -321,16 +339,16 @@ impl<'a> LLVM<'a> {
             BasicValueEnum::FloatValue(x) => x,
             BasicValueEnum::PointerValue(x) => x,
             BasicValueEnum::StructValue(x) => x,
-            BasicValueEnum::VectorValue(x) => x
+            BasicValueEnum::VectorValue(x) => x,
         }
     }
 
-
     pub fn create_consts(&mut self, fields: &Vec<String>) -> AnyValueEnum<'a> {
         let bigint_ty = self.bigint_type();
-        let vals: Vec<_> = fields.into_iter().map(|f| {
-            bigint_ty.const_int_from_string(f.as_str(), StringRadix::Decimal).unwrap()
-        }).collect();
+        let vals: Vec<_> = fields
+            .into_iter()
+            .map(|f| bigint_ty.const_int_from_string(f.as_str(), StringRadix::Decimal).unwrap())
+            .collect();
         let values_arr = bigint_ty.const_array(&vals);
         let global = self.module.add_global(values_arr.get_type(), None, "constant_fields");
         global.set_initializer(&values_arr);
@@ -338,8 +356,13 @@ impl<'a> LLVM<'a> {
         global.as_any_value_enum()
     }
 
-
-    pub fn add_subcomponent(&mut self, id: usize, cmp_id: IntValue<'a>, ptr: PointerValue<'a>, counter: PointerValue<'a>) {
+    pub fn add_subcomponent(
+        &mut self,
+        id: usize,
+        cmp_id: IntValue<'a>,
+        ptr: PointerValue<'a>,
+        counter: PointerValue<'a>,
+    ) {
         if !self.template_subcomponents.contains_key(&id) {
             self.template_subcomponents.insert(id, HashMap::new());
         }

@@ -8,26 +8,37 @@ use crate::llvm_elements::{BodyCtx, LLVM, LLVMIRProducer};
 use crate::llvm_elements::instructions::create_gep;
 use crate::llvm_elements::template::TemplateCtx;
 
-pub fn create_function<'a>(producer: &dyn LLVMIRProducer<'a>, name: &str, ty: FunctionType<'a>) -> FunctionValue<'a> {
+pub fn create_function<'a>(
+    producer: &dyn LLVMIRProducer<'a>,
+    name: &str,
+    ty: FunctionType<'a>,
+) -> FunctionValue<'a> {
     producer.llvm().module.add_function(name, ty, None)
 }
 
-pub fn create_bb<'a>(producer: &dyn LLVMIRProducer<'a>, func: FunctionValue<'a>, name: &str) -> BasicBlock<'a> {
+pub fn create_bb<'a>(
+    producer: &dyn LLVMIRProducer<'a>,
+    func: FunctionValue<'a>,
+    name: &str,
+) -> BasicBlock<'a> {
     producer.context().append_basic_block(func, name)
 }
 
 pub struct FunctionLLVMIRProducer<'ctx: 'prod, 'prod> {
     parent: &'prod dyn LLVMIRProducer<'ctx>,
     function_ctx: FunctionCtx<'ctx>,
-    current_function: FunctionValue<'ctx>
+    current_function: FunctionValue<'ctx>,
 }
 
 impl<'ctx, 'prod> FunctionLLVMIRProducer<'ctx, 'prod> {
-    pub fn new(producer: &'prod dyn LLVMIRProducer<'ctx>, current_function: FunctionValue<'ctx>) -> Self {
+    pub fn new(
+        producer: &'prod dyn LLVMIRProducer<'ctx>,
+        current_function: FunctionValue<'ctx>,
+    ) -> Self {
         FunctionLLVMIRProducer {
             parent: producer,
             function_ctx: FunctionCtx::new(current_function),
-            current_function
+            current_function,
         }
     }
 }
@@ -73,13 +84,20 @@ pub struct FunctionCtx<'a> {
 impl<'a> FunctionCtx<'a> {
     pub fn new(current_function: FunctionValue<'a>) -> Self {
         FunctionCtx {
-            arena: current_function.get_nth_param(0).expect("Function needs at least one argument for the arena!").into_pointer_value()
+            arena: current_function
+                .get_nth_param(0)
+                .expect("Function needs at least one argument for the arena!")
+                .into_pointer_value(),
         }
     }
 }
 
 impl<'a> BodyCtx<'a> for FunctionCtx<'a> {
-    fn get_variable(&self, producer: &dyn LLVMIRProducer<'a>, index: IntValue<'a>) -> AnyValueEnum<'a> {
+    fn get_variable(
+        &self,
+        producer: &dyn LLVMIRProducer<'a>,
+        index: IntValue<'a>,
+    ) -> AnyValueEnum<'a> {
         create_gep(producer, self.arena, &[index])
     }
 }
