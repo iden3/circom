@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use super::function::{FunctionCode, FunctionCodeInfo};
 use super::template::{TemplateCode, TemplateCodeInfo};
 use super::types::*;
@@ -8,7 +9,9 @@ use code_producers::wasm_elements::*;
 use code_producers::llvm_elements::*;
 use std::io::Write;
 use code_producers::llvm_elements::fr::load_fr;
+use code_producers::llvm_elements::functions::{create_function, FunctionLLVMIRProducer};
 use code_producers::llvm_elements::llvm_code_generator::load_stdlib;
+use code_producers::llvm_elements::types::{bigint_type, void_type};
 
 pub struct CompilationFlags {
     pub main_inputs_log: bool,
@@ -44,9 +47,19 @@ impl WriteLLVMIR for Circuit {
         load_fr(producer);
         load_stdlib(producer);
 
+        // Declare all the functions
+        let mut funcs = HashMap::new();
+        for f in &self.functions {
+            let name = f.header.as_str();
+            let arena_ty = bigint_type(producer).ptr_type(Default::default());
+            let function = create_function(producer, name, bigint_type(producer).fn_type(&[arena_ty.into()], false));
+            funcs.insert(name, function);
+        }
+
         // Code for the functions
         for f in &self.functions {
-            f.produce_llvm_ir(producer);
+            let function_producer = FunctionLLVMIRProducer::new(producer, funcs[f.header.as_str()]);
+            f.produce_llvm_ir(&function_producer);
         }
 
         // Code for the templates

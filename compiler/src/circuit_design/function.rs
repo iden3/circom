@@ -34,21 +34,17 @@ impl ToString for FunctionCodeInfo {
 
 impl WriteLLVMIR for FunctionCodeInfo {
     fn produce_llvm_ir<'ctx, 'prod>(&self, producer: &'prod dyn LLVMIRProducer<'ctx>) -> Option<LLVMInstruction<'ctx>> {
-        let void = void_type(producer);
-        let arena_ty = bigint_type(producer).ptr_type(Default::default());
-        let function = create_function(producer, self.header.as_str(), void.fn_type(&[arena_ty.into()], false));
+        let function = producer.current_function();
         let main = create_bb(producer, function, self.header.as_str());
         producer.set_current_bb(main);
-
-        let function_producer = FunctionLLVMIRProducer::new(producer, function);
 
         let mut last = None;
         for t in &self.body {
             println!("{}", t.to_string());
-            let bb = create_bb(&function_producer, function, t.label_name(function.count_basic_blocks()).as_str());
-            create_br(&function_producer, bb);
-            function_producer.set_current_bb(bb);
-            last = t.produce_llvm_ir(&function_producer);
+            let bb = create_bb(producer, function, t.label_name(function.count_basic_blocks()).as_str());
+            create_br(producer, bb);
+            producer.set_current_bb(bb);
+            last = t.produce_llvm_ir(producer);
         }
 
         last

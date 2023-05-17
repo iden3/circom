@@ -1,10 +1,7 @@
 use inkwell::basic_block::BasicBlock;
 use inkwell::IntPredicate::{EQ, NE, SLT, SGT, SLE, SGE};
-use inkwell::types::AnyTypeEnum;
-use inkwell::values::{
-    AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue,
-    InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue,
-};
+use inkwell::types::{AnyTypeEnum, BasicType, PointerType};
+use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue};
 use crate::llvm_elements::{LLVMIRProducer, to_basic_enum, to_type_enum};
 use crate::llvm_elements::fr::{FR_MUL_FN_NAME, FR_LT_FN_NAME};
 use crate::llvm_elements::functions::create_bb;
@@ -654,4 +651,21 @@ pub fn get_instruction_arg(inst: InstructionValue, idx: u32) -> AnyValueEnum {
     } else {
         r.unwrap_right().get_last_instruction().unwrap().as_any_value_enum()
     }
+}
+
+pub fn pointer_cast_with_name<'a>(
+    producer: &dyn LLVMIRProducer<'a>,
+    from: PointerValue<'a>,
+    to: PointerType<'a>,
+    name: &str
+) -> PointerValue<'a> {
+    producer.builder().build_pointer_cast(from, to, name)
+}
+
+pub fn pointer_cast<'a>(
+    producer: &dyn LLVMIRProducer<'a>,
+    from: PointerValue<'a>,
+    to: PointerType<'a>,
+) -> PointerValue<'a> {
+    producer.builder().build_pointer_cast(from, to, "")
 }
