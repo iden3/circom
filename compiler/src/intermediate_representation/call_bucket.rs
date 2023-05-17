@@ -2,9 +2,9 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer, to_basic_metadata_enum};
-use code_producers::llvm_elements::instructions::{create_alloca, create_call, create_gep, create_store};
+use code_producers::llvm_elements::instructions::{create_alloca, create_call, create_gep, create_load, create_store, pointer_cast};
 use code_producers::llvm_elements::types::bigint_type;
-use code_producers::llvm_elements::values::create_literal_u32;
+use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -80,12 +80,13 @@ impl WriteLLVMIR for CallBucket {
             i.produce_llvm_ir(producer).expect("Call arguments must produce a value!")
         ).enumerate() {
             let i = create_literal_u32(producer, id as u64);
-            let ptr = create_gep(producer, arena.into_pointer_value(), &[i]);
+            let ptr = create_gep(producer, arena.into_pointer_value(), &[zero(producer), i]);
             create_store(producer, ptr.into_pointer_value(), arg);
         }
 
+        let arena = pointer_cast(producer, arena.into_pointer_value(), bigint_type(producer).ptr_type(Default::default()));
         // Call function passing the array as argument
-        Some(create_call(producer, self.symbol.as_str(), &[to_basic_metadata_enum(arena)]))
+        Some(create_call(producer, self.symbol.as_str(), &[to_basic_metadata_enum(arena.into())]))
     }
 }
 
