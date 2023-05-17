@@ -158,7 +158,7 @@ impl<'a> BodyCtx<'a> for TemplateCtx<'a> {
         producer: &dyn LLVMIRProducer<'a>,
         index: IntValue<'a>,
     ) -> AnyValueEnum<'a> {
-        create_gep(producer, self.stack, &[index])
+        create_gep(producer, self.stack, &[zero(producer), index])
     }
 }
 
