@@ -3,7 +3,7 @@ use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, to_enum, to_basic_metadata_enum, LLVMIRProducer};
 use code_producers::llvm_elements::functions::create_bb;
-use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_gep, create_load, create_load_with_name, create_store, create_sub_with_name};
+use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_eq, create_gep, create_load, create_load_with_name, create_store, create_sub_with_name};
 use code_producers::llvm_elements::llvm_code_generator::run_fn_name;
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
@@ -107,7 +107,8 @@ impl WriteLLVMIR for StoreBucket {
                         let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
                         let counter = producer.template_ctx().load_subcmp_counter(producer, addr);
                         let value = create_load_with_name(producer, counter, "load.subcmp.counter");
-                        create_conditional_branch(producer, value.into_int_value(), run_bb, continue_bb);
+                        let eq0 = create_eq(producer, value.into_int_value(), zero(producer));
+                        create_conditional_branch(producer, eq0.into_int_value(), run_bb, continue_bb);
                         producer.set_current_bb(run_bb);
                         let arg = to_basic_metadata_enum(to_enum(gep));
                         create_call(producer, run_fn.as_str(), &[arg]);
