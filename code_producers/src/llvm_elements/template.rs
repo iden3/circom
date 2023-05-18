@@ -2,7 +2,7 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::ContextRef;
 use inkwell::types::{AnyType, BasicType, PointerType};
-use inkwell::values::{AnyValueEnum, FunctionValue, IntValue, PointerValue};
+use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, FunctionValue, IntValue, PointerValue};
 
 use crate::llvm_elements::{BodyCtx, LLVM, LLVMIRProducer};
 use crate::llvm_elements::instructions::{create_alloca, create_gep};
@@ -46,6 +46,10 @@ impl<'a, 'b> LLVMIRProducer<'a> for TemplateLLVMIRProducer<'a, 'b> {
     fn constant_fields(&self) -> &Vec<String> {
         self.parent.constant_fields()
     }
+
+    fn get_template_mem_arg(&self, run_fn: FunctionValue<'a>) -> ArrayValue<'a> {
+        run_fn.get_nth_param(self.template_ctx.signals_arg_offset as u32).unwrap().into_array_value()
+    }
 }
 
 impl<'a, 'b> TemplateLLVMIRProducer<'a, 'b> {
@@ -81,8 +85,8 @@ pub struct TemplateCtx<'a> {
 
 #[inline]
 fn setup_subcmps<'a>(producer: &dyn LLVMIRProducer<'a>, number_subcmps: usize) -> PointerValue<'a> {
-    // [{void*, int} x number_subcmps]
-    let signals_ptr = subcomponent_type(producer).ptr_type(Default::default());
+    // [{i256*, int} x number_subcmps]
+    let signals_ptr = bigint_type(producer).ptr_type(Default::default());
     let counter_ty = i32_type(producer);
     let subcmp_ty = producer
         .context()
@@ -116,6 +120,16 @@ impl<'a> TemplateCtx<'a> {
         }
     }
 
+    /// Returns the memory address of the subcomponent
+    pub fn load_subcmp(
+        &self,
+        producer: &dyn LLVMIRProducer<'a>,
+        id: AnyValueEnum<'a>
+    ) -> PointerValue<'a> {
+        create_gep(producer, self.subcmps, &[zero(producer), id.into_int_value()])
+            .into_pointer_value()
+    }
+
     /// Creates the necessary code to load a subcomponent given the expression used as id
     pub fn load_subcmp_addr(
         &self,
@@ -146,7 +160,9 @@ impl<'a> TemplateCtx<'a> {
         producer: &dyn LLVMIRProducer<'a>,
         index: IntValue<'a>,
     ) -> AnyValueEnum<'a> {
+        index.print_to_stderr();
         let signals = self.current_function.get_nth_param(self.signals_arg_offset as u32).unwrap();
+        println!("{}", signals.print_to_string().to_string());
         create_gep(producer, signals.into_pointer_value(), &[zero(producer), index])
     }
 }

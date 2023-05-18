@@ -2,7 +2,7 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::ContextRef;
 use inkwell::types::FunctionType;
-use inkwell::values::{AnyValueEnum, FunctionValue, IntValue, PointerValue};
+use inkwell::values::{AnyValueEnum, ArrayValue, FunctionValue, IntValue, PointerValue};
 
 use crate::llvm_elements::{BodyCtx, LLVM, LLVMIRProducer};
 use crate::llvm_elements::instructions::create_gep;
@@ -74,6 +74,10 @@ impl<'ctx, 'prod> LLVMIRProducer<'ctx> for FunctionLLVMIRProducer<'ctx, 'prod> {
 
     fn constant_fields(&self) -> &Vec<String> {
         self.parent.constant_fields()
+    }
+
+    fn get_template_mem_arg(&self, _run_fn: FunctionValue<'ctx>) -> ArrayValue<'ctx> {
+        panic!("The function llvm producer can't extract the template argument of a run function!");
     }
 }
 

@@ -3,10 +3,10 @@ use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer, any_value_to_basic, to_basic_enum, to_type_enum, to_basic_type_enum, AnyType, AnyValue};
 use code_producers::llvm_elements::functions::{create_bb, create_function};
-use code_producers::llvm_elements::instructions::{create_alloca, create_br, create_gep, create_return, create_return_void, create_store};
+use code_producers::llvm_elements::instructions::{create_alloca, create_br, create_gep, create_load, create_return, create_return_void, create_store, pointer_cast};
 use code_producers::llvm_elements::llvm_code_generator::{build_fn_name, run_fn_name};
 use code_producers::llvm_elements::template::{create_template_struct, TemplateLLVMIRProducer};
-use code_producers::llvm_elements::types::{i32_type, void_type};
+use code_producers::llvm_elements::types::{bigint_type, i32_type, void_type};
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
 
@@ -46,35 +46,40 @@ impl ToString for TemplateCodeInfo {
 impl WriteLLVMIR for TemplateCodeInfo {
     fn produce_llvm_ir<'ctx, 'prod>(&self, producer: &'prod dyn LLVMIRProducer<'ctx>) -> Option<LLVMInstruction<'ctx>> {
         let void = void_type(producer);
-        let template_struct = create_template_struct(producer, self.number_of_inputs + self.number_of_outputs);
+        let n_signals = self.number_of_inputs + self.number_of_outputs;
+        let template_struct = create_template_struct(producer, n_signals);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Build function
+        let bigint_ptr = bigint_type(producer).ptr_type(Default::default());
         // Set the type of the component memory: signals array + signals counter
         let component_memory = producer.context().struct_type(&[
-            to_basic_type_enum(template_struct),
+            to_basic_type_enum(bigint_ptr),
             to_basic_type_enum(i32_type(producer))
         ], false);
-        let build_function = create_function(producer, build_fn_name(self.header.clone()).as_str(), component_memory.ptr_type(Default::default()).fn_type(&[], false));
+        let build_function = create_function(producer, build_fn_name(self.header.clone()).as_str(), void_type(producer).fn_type(&[component_memory.ptr_type(Default::default()).into()], false));
         let main = create_bb(producer,build_function, "main");
         producer.set_current_bb(main);
 
+        let cmp_mem = build_function.get_nth_param(0).unwrap();
         // Allocate memory for the component
-        let alloca = create_alloca(producer, component_memory.as_any_type_enum(), "").into_pointer_value();
+        let alloca = pointer_cast(producer, create_alloca(producer, bigint_type(producer).array_type(n_signals as u32).as_any_type_enum(), "").into_pointer_value(),bigint_ptr);
         // Get the counter as a pointer
-        let counter_ptr = create_gep(producer, alloca, &[zero(producer), create_literal_u32(producer, 1)]).into_pointer_value();
+        let counter_ptr = create_gep(producer, cmp_mem.into_pointer_value(), &[zero(producer), create_literal_u32(producer, 1)]).into_pointer_value();
         // Create a literal value of the initial value of the counter
         let initial_counter_value = create_literal_u32(producer, self.number_of_inputs as u64);
         // Write that value in the counter
         create_store(producer, counter_ptr, initial_counter_value.as_any_value_enum());
+        let signals_mem = create_gep(producer, cmp_mem.into_pointer_value(), &[zero(producer), zero(producer)]).into_pointer_value();
+        //let signals = create_load(producer, alloca);
+        create_store(producer, signals_mem, alloca.into());
         // Return that memory
-        create_return(producer, alloca);
+        create_return_void(producer);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Run function
 
         // Run function prelude
-        // TODO: Parameters of the run function that correspond to the arguments of the template
         let run_function = create_function(
             producer,
             run_fn_name(self.header.clone()).as_str(),

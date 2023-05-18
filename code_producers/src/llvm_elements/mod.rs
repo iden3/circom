@@ -9,10 +9,7 @@ use inkwell::builder::Builder;
 use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
 use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, IntType, PointerType, StringRadix};
-use inkwell::values::{
-    AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue,
-    PointerValue,
-};
+use inkwell::values::{AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue, PointerValue};
 use inkwell::values::FunctionValue;
 
 use template::TemplateCtx;
@@ -48,6 +45,7 @@ pub trait LLVMIRProducer<'a> {
     fn current_function(&self) -> FunctionValue<'a>;
     fn builder(&self) -> &Builder<'a>;
     fn constant_fields(&self) -> &Vec<String>;
+    fn get_template_mem_arg(&self, run_fn: FunctionValue<'a>) -> ArrayValue<'a>;
 }
 
 #[derive(Default)]
@@ -92,6 +90,10 @@ impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {
 
     fn constant_fields(&self) -> &Vec<String> {
         &self.field_tracking
+    }
+
+    fn get_template_mem_arg(&self, _run_fn: FunctionValue<'a>) -> ArrayValue<'a> {
+        panic!("The top level llvm producer can't extract the template argument of a run function!");
     }
 }
 
