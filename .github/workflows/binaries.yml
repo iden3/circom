@@ -6,6 +6,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CROSS_VERSION: 0.2.5
 
 jobs:
   build-and-publish:
@@ -15,26 +16,57 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            cross: true
             artifact_name: circom
+            target: x86_64-unknown-linux-musl
             asset_name: circom-linux-amd64
+          - os: ubuntu-latest
+            cross: true
+            artifact_name: circom
+            target: aarch64-unknown-linux-musl
+            asset_name: circom-linux-arm64
           - os: windows-latest
+            cross: false
             artifact_name: circom.exe
+            target: x86_64-pc-windows-msvc
             asset_name: circom-windows-amd64.exe
           - os: macos-latest
+            cross: false
             artifact_name: circom
+            target: x86_64-apple-darwin
             asset_name: circom-macos-amd64
+          - os: macos-latest
+            cross: false
+            artifact_name: circom
+            target: aarch64-apple-darwin
+            asset_name: circom-macos-arm64
 
     steps:
       - name: Checkout project
         uses: actions/checkout@v2
 
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Install cross
+        if: matrix.cross == true
+        uses: supplypike/setup-bin@v3
+        with:
+          uri: "https://github.com/cross-rs/cross/releases/download/v${{ env.CROSS_VERSION }}/cross-x86_64-unknown-linux-musl.tar.gz"
+          name: "cross"
+          version: "${{ env.CROSS_VERSION }}"
+
       - name: Build
-        run: cargo build --verbose --release
+        if: matrix.cross == true
+        run: cross build --verbose --release --target ${{ matrix.target }}
+
+      - name: Build
+        if: matrix.cross == false
+        run: cargo build --verbose --release --target ${{ matrix.target }}
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
-          file: target/release/${{ matrix.artifact_name }}
+          file: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ matrix.asset_name }}
