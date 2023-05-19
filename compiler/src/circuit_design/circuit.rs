@@ -10,7 +10,7 @@ use code_producers::llvm_elements::*;
 use std::io::Write;
 use code_producers::llvm_elements::fr::load_fr;
 use code_producers::llvm_elements::functions::{create_function, FunctionLLVMIRProducer};
-use code_producers::llvm_elements::llvm_code_generator::load_stdlib;
+use code_producers::llvm_elements::stdlib::load_stdlib;
 use code_producers::llvm_elements::types::{bigint_type};
 
 pub struct CompilationFlags {

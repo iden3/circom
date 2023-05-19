@@ -19,7 +19,7 @@ pub use inkwell::types::AnyType;
 pub use inkwell::values::AnyValue;
 use crate::llvm_elements::instructions::create_alloca;
 
-pub mod llvm_code_generator;
+pub mod stdlib;
 pub mod template;
 pub mod types;
 pub mod functions;

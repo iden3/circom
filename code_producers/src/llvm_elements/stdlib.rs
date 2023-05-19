@@ -14,7 +14,7 @@ mod stdlib {
         create_br, create_call, create_conditional_branch, create_eq, create_return_void,
         create_store,
     };
-    use crate::llvm_elements::llvm_code_generator::{
+    use crate::llvm_elements::stdlib::{
         ASSERT_FN_NAME, CONSTRAINT_VALUE_FN_NAME, CONSTRAINT_VALUES_FN_NAME,
     };
     use crate::llvm_elements::LLVMIRProducer;
