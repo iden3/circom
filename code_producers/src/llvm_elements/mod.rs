@@ -17,6 +17,7 @@ use template::TemplateCtx;
 use crate::llvm_elements::types::bool_type;
 pub use inkwell::types::AnyType;
 pub use inkwell::values::AnyValue;
+use crate::llvm_elements::instructions::create_alloca;
 
 pub mod llvm_code_generator;
 pub mod template;
@@ -135,8 +136,8 @@ pub struct LLVM<'a> {
 }
 
 pub fn new_constraint<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
-    let v = producer.llvm().module.add_global(bool_type(producer), None, "constraint");
-    v.as_any_value_enum()
+    // TODO: Add metadata node that marks the pointer as a constraint
+    create_alloca(producer, bool_type(producer).into(), "constraint")
 }
 
 #[inline]

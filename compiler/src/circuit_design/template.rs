@@ -1,6 +1,7 @@
 use crate::intermediate_representation::{InstructionList};
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
+use std::default::Default;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer, any_value_to_basic, to_basic_enum, to_type_enum, to_basic_type_enum, AnyType, AnyValue};
 use code_producers::llvm_elements::functions::{create_bb, create_function};
 use code_producers::llvm_elements::instructions::{create_alloca, create_br, create_gep, create_load, create_return, create_return_void, create_store, pointer_cast};
@@ -51,10 +52,10 @@ impl WriteLLVMIR for TemplateCodeInfo {
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
         // Build function
-        let bigint_ptr = bigint_type(producer).ptr_type(Default::default());
+        let bigint_ptr = bigint_type(producer).array_type(0);
         // Set the type of the component memory: signals array + signals counter
         let component_memory = producer.context().struct_type(&[
-            to_basic_type_enum(bigint_ptr),
+            to_basic_type_enum(bigint_ptr.ptr_type(Default::default())),
             to_basic_type_enum(i32_type(producer))
         ], false);
         let build_function = create_function(producer, build_fn_name(self.header.clone()).as_str(), void_type(producer).fn_type(&[component_memory.ptr_type(Default::default()).into()], false));
@@ -63,7 +64,7 @@ impl WriteLLVMIR for TemplateCodeInfo {
 
         let cmp_mem = build_function.get_nth_param(0).unwrap();
         // Allocate memory for the component
-        let alloca = pointer_cast(producer, create_alloca(producer, bigint_type(producer).array_type(n_signals as u32).as_any_type_enum(), "").into_pointer_value(),bigint_ptr);
+        let alloca = create_alloca(producer, bigint_type(producer).array_type(n_signals as u32).as_any_type_enum(), "").into_pointer_value();
         // Get the counter as a pointer
         let counter_ptr = create_gep(producer, cmp_mem.into_pointer_value(), &[zero(producer), create_literal_u32(producer, 1)]).into_pointer_value();
         // Create a literal value of the initial value of the counter
@@ -72,7 +73,8 @@ impl WriteLLVMIR for TemplateCodeInfo {
         create_store(producer, counter_ptr, initial_counter_value.as_any_value_enum());
         let signals_mem = create_gep(producer, cmp_mem.into_pointer_value(), &[zero(producer), zero(producer)]).into_pointer_value();
         //let signals = create_load(producer, alloca);
-        create_store(producer, signals_mem, alloca.into());
+        let ptr = pointer_cast(producer, alloca, bigint_ptr.ptr_type(Default::default()));
+        create_store(producer, signals_mem, ptr.into());
         // Return that memory
         create_return_void(producer);
 
@@ -83,7 +85,7 @@ impl WriteLLVMIR for TemplateCodeInfo {
         let run_function = create_function(
             producer,
             run_fn_name(self.header.clone()).as_str(),
-            void.fn_type(&[template_struct.into()], false)
+            void.fn_type(&[bigint_type(producer).array_type(0).ptr_type(Default::default()).into()], false)
         );
         let prelude = create_bb(producer, run_function, "prelude");
         producer.set_current_bb(prelude);

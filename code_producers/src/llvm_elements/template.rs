@@ -5,9 +5,10 @@ use inkwell::types::{AnyType, BasicType, PointerType};
 use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, FunctionValue, IntValue, PointerValue};
 
 use crate::llvm_elements::{BodyCtx, LLVM, LLVMIRProducer};
-use crate::llvm_elements::instructions::{create_alloca, create_gep};
+use crate::llvm_elements::instructions::{create_alloca, create_gep, create_load, pointer_cast};
 use crate::llvm_elements::types::{bigint_type, i32_type, subcomponent_type};
 use crate::llvm_elements::values::{create_literal_u32, zero};
+use std::default::Default;
 
 pub struct TemplateLLVMIRProducer<'ctx: 'prod, 'prod> {
     parent: &'prod dyn LLVMIRProducer<'ctx>,
@@ -85,8 +86,8 @@ pub struct TemplateCtx<'a> {
 
 #[inline]
 fn setup_subcmps<'a>(producer: &dyn LLVMIRProducer<'a>, number_subcmps: usize) -> PointerValue<'a> {
-    // [{i256*, int} x number_subcmps]
-    let signals_ptr = bigint_type(producer).ptr_type(Default::default());
+    // [{ [ 0 x i256 ]*, int} x number_subcmps]
+    let signals_ptr = bigint_type(producer).array_type(0).ptr_type(Default::default());
     let counter_ty = i32_type(producer);
     let subcmp_ty = producer
         .context()
@@ -136,8 +137,9 @@ impl<'a> TemplateCtx<'a> {
         producer: &dyn LLVMIRProducer<'a>,
         id: AnyValueEnum<'a>,
     ) -> PointerValue<'a> {
-        create_gep(producer, self.subcmps, &[zero(producer), id.into_int_value(), zero(producer)])
-            .into_pointer_value()
+        let signals = create_gep(producer, self.subcmps, &[zero(producer), id.into_int_value(), zero(producer)])
+            .into_pointer_value();
+        create_load(producer, signals).into_pointer_value()
     }
 
     /// Creates the necessary code to load a subcomponent counter given the expression used as id
@@ -160,9 +162,8 @@ impl<'a> TemplateCtx<'a> {
         producer: &dyn LLVMIRProducer<'a>,
         index: IntValue<'a>,
     ) -> AnyValueEnum<'a> {
-        index.print_to_stderr();
         let signals = self.current_function.get_nth_param(self.signals_arg_offset as u32).unwrap();
-        println!("{}", signals.print_to_string().to_string());
+        println!("{} {}", index.print_to_string().to_string(), signals.print_to_string().to_string());
         create_gep(producer, signals.into_pointer_value(), &[zero(producer), index])
     }
 }

@@ -59,7 +59,7 @@ impl WriteLLVMIR for LoadBucket {
             AddressType::SubcmpSignal { cmp_address, ..  } => {
                 let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
                 let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
-                create_gep(producer, subcmp, &[index])
+                create_gep(producer, subcmp, &[zero(producer), index])
             }
         };
         let load = create_load(producer, gep.into_pointer_value());
