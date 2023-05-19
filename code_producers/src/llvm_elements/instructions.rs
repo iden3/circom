@@ -518,16 +518,23 @@ pub fn create_br<'a>(producer: &dyn LLVMIRProducer<'a>, bb: BasicBlock<'a>) -> A
     producer.llvm().builder.build_unconditional_branch(bb).as_any_value_enum()
 }
 
+pub fn find_function<'a>(
+    producer: &dyn LLVMIRProducer<'a>,
+    name: &str,
+) -> FunctionValue<'a> {
+    producer
+        .llvm()
+        .module
+        .get_function(name)
+        .expect(format!("Cannot find function {}", name).as_str())
+}
+
 pub fn create_call<'a>(
     producer: &dyn LLVMIRProducer<'a>,
     name: &str,
     arguments: &[BasicMetadataValueEnum<'a>],
 ) -> AnyValueEnum<'a> {
-    let f = producer
-        .llvm()
-        .module
-        .get_function(name)
-        .expect(format!("Cannot find function {}", name).as_str());
+    let f = find_function(producer, name);
     producer
         .llvm()
         .builder

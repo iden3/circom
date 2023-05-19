@@ -9,10 +9,7 @@ use inkwell::builder::Builder;
 use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
 use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, IntType, PointerType, StringRadix};
-use inkwell::values::{
-    AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue,
-    PointerValue,
-};
+use inkwell::values::{AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue, PointerValue};
 use inkwell::values::FunctionValue;
 
 use template::TemplateCtx;
@@ -20,6 +17,7 @@ use template::TemplateCtx;
 use crate::llvm_elements::types::bool_type;
 pub use inkwell::types::AnyType;
 pub use inkwell::values::AnyValue;
+use crate::llvm_elements::instructions::create_alloca;
 
 pub mod llvm_code_generator;
 pub mod template;
@@ -48,6 +46,7 @@ pub trait LLVMIRProducer<'a> {
     fn current_function(&self) -> FunctionValue<'a>;
     fn builder(&self) -> &Builder<'a>;
     fn constant_fields(&self) -> &Vec<String>;
+    fn get_template_mem_arg(&self, run_fn: FunctionValue<'a>) -> ArrayValue<'a>;
 }
 
 #[derive(Default)]
@@ -93,6 +92,10 @@ impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {
     fn constant_fields(&self) -> &Vec<String> {
         &self.field_tracking
     }
+
+    fn get_template_mem_arg(&self, _run_fn: FunctionValue<'a>) -> ArrayValue<'a> {
+        panic!("The top level llvm producer can't extract the template argument of a run function!");
+    }
 }
 
 impl<'a> TopLevelLLVMIRProducer<'a> {
@@ -133,8 +136,12 @@ pub struct LLVM<'a> {
 }
 
 pub fn new_constraint<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
-    let v = producer.llvm().module.add_global(bool_type(producer), None, "constraint");
-    v.as_any_value_enum()
+    let alloca = create_alloca(producer, bool_type(producer).into(), "constraint");
+    let s = producer.context().metadata_string("constraint");
+    let kind = producer.context().get_kind_id("constraint");
+    let node = producer.context().metadata_node(&[s.into()]);
+    alloca.into_pointer_value().as_instruction().unwrap().set_metadata(node, kind).expect("Could not setup metadata marker for constraint value");
+    alloca
 }
 
 #[inline]

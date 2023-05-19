@@ -75,9 +75,8 @@ impl WriteLLVMIR for CreateCmpBucket {
 
         for cmp_n in 0..self.number_of_cmp {
             let add = create_add(producer, id.into_int_value(), create_literal_u32(producer, cmp_n as u64));
-            let sub_cmp_addr = ctx.load_subcmp_addr(producer, add);
-            let build_call = create_call(producer, build_fn_name(self.symbol.clone()).as_str(), &[]);
-            create_store(producer, sub_cmp_addr, build_call);
+            let sub_cmp_addr = ctx.load_subcmp(producer, add);
+            create_call(producer, build_fn_name(self.symbol.clone()).as_str(), &[sub_cmp_addr.into()]);
             // If it has 0 inputs run directly
             if !self.has_inputs {
                 let sub_cmp = to_basic_metadata_enum(to_enum(sub_cmp_addr));

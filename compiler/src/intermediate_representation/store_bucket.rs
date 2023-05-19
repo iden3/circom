@@ -1,9 +1,9 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, to_enum, to_basic_metadata_enum, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, to_enum, to_basic_metadata_enum, LLVMIRProducer, AnyValue};
 use code_producers::llvm_elements::functions::create_bb;
-use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_eq, create_gep, create_load, create_load_with_name, create_store, create_sub_with_name};
+use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_eq_with_name, create_gep, create_load, create_load_with_name, create_store, create_sub_with_name, find_function, pointer_cast};
 use code_producers::llvm_elements::llvm_code_generator::run_fn_name;
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
@@ -65,7 +65,7 @@ impl WriteLLVMIR for StoreBucket {
             AddressType::SubcmpSignal { cmp_address, .. } => {
                 let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
                 let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
-                create_gep(producer, subcmp, &[index])
+                create_gep(producer, subcmp, &[zero(producer), index])
             }
         }.into_pointer_value();
         // Extract the source and store the result in the destination
@@ -93,8 +93,9 @@ impl WriteLLVMIR for StoreBucket {
                     StatusInput::Last => {
                         let run_fn = run_fn_name(sub_cmp_name.expect("Could not get the name of the subcomponent"));
                         // If we reach this point gep is the address of the subcomponent so we ca just reuse it
-                        let arg = to_basic_metadata_enum(to_enum(gep));
-                        create_call(producer, run_fn.as_str(), &[arg]);
+                        let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
+                        let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
+                        create_call(producer, run_fn.as_str(), &[subcmp.into()]);
                     }
                     StatusInput::Unknown => {
                         let sub_cmp_name = sub_cmp_name.expect("Could not get the name of the subcomponent");
@@ -107,11 +108,14 @@ impl WriteLLVMIR for StoreBucket {
                         let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
                         let counter = producer.template_ctx().load_subcmp_counter(producer, addr);
                         let value = create_load_with_name(producer, counter, "load.subcmp.counter");
-                        let eq0 = create_eq(producer, value.into_int_value(), zero(producer));
-                        create_conditional_branch(producer, eq0.into_int_value(), run_bb, continue_bb);
+                        let is_zero = create_eq_with_name(producer, zero(producer), value.into_int_value(), "subcmp.counter.isZero");
+                        create_conditional_branch(producer, is_zero.into_int_value(), run_bb, continue_bb);
                         producer.set_current_bb(run_bb);
-                        let arg = to_basic_metadata_enum(to_enum(gep));
-                        create_call(producer, run_fn.as_str(), &[arg]);
+
+                        let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
+                        let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
+
+                        create_call(producer, run_fn.as_str(), &[subcmp.into()]);
                         create_br(producer,continue_bb);
                         producer.set_current_bb(continue_bb);
                     }

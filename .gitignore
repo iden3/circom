@@ -11,3 +11,5 @@ type_analysis/target/
 .vscode/
 .DS_Store
 ir_log
+.venv
+report.csv
