@@ -136,8 +136,12 @@ pub struct LLVM<'a> {
 }
 
 pub fn new_constraint<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
-    // TODO: Add metadata node that marks the pointer as a constraint
-    create_alloca(producer, bool_type(producer).into(), "constraint")
+    let alloca = create_alloca(producer, bool_type(producer).into(), "constraint");
+    let s = producer.context().metadata_string("constraint");
+    let kind = producer.context().get_kind_id("constraint");
+    let node = producer.context().metadata_node(&[s.into()]);
+    alloca.into_pointer_value().as_instruction().unwrap().set_metadata(node, kind).expect("Could not setup metadata marker for constraint value");
+    alloca
 }
 
 #[inline]
