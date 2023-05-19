@@ -88,11 +88,3 @@ pub fn load_stdlib<'a>(producer: &dyn LLVMIRProducer<'a>) {
     stdlib::abort_declared_fn(producer);
     stdlib::assert_fn(producer);
 }
-
-pub fn run_fn_name(name: String) -> String {
-    format!("{}_run", name)
-}
-
-pub fn build_fn_name(name: String) -> String {
-    format!("{}_build", name)
-}

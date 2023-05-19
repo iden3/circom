@@ -221,3 +221,11 @@ impl<'a> LLVM<'a> {
         })
     }
 }
+
+pub fn run_fn_name(name: String) -> String {
+    format!("{}_run", name)
+}
+
+pub fn build_fn_name(name: String) -> String {
+    format!("{}_build", name)
+}

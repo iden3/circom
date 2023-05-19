@@ -2,7 +2,7 @@ use std::fs::File;
 use compiler::hir::very_concrete_program::VCP;
 use compiler::intermediate_representation::translate::TemplateDB;
 use program_structure::ast::SignalType;
-use code_producers::llvm_elements::llvm_code_generator::run_fn_name;
+use code_producers::llvm_elements::run_fn_name;
 use serde::Serialize;
 
 
