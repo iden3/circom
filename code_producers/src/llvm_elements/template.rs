@@ -5,8 +5,8 @@ use inkwell::types::{AnyType, BasicType, PointerType};
 use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, FunctionValue, IntValue, PointerValue};
 
 use crate::llvm_elements::{BodyCtx, LLVM, LLVMIRProducer};
-use crate::llvm_elements::instructions::{create_alloca, create_gep, create_load, pointer_cast};
-use crate::llvm_elements::types::{bigint_type, i32_type, subcomponent_type};
+use crate::llvm_elements::instructions::{create_alloca, create_gep, create_load};
+use crate::llvm_elements::types::{bigint_type, i32_type};
 use crate::llvm_elements::values::{create_literal_u32, zero};
 use std::default::Default;
 

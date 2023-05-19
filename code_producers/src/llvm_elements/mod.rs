@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+
 use std::convert::TryFrom;
 use std::rc::Rc;
 use ansi_term::Colour;
@@ -8,8 +8,8 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
-use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, IntType, PointerType, StringRadix};
-use inkwell::values::{AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, IntValue, PointerValue};
+use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, IntType};
+use inkwell::values::{AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValueEnum, IntValue};
 use inkwell::values::FunctionValue;
 
 use template::TemplateCtx;

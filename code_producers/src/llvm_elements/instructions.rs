@@ -1,8 +1,8 @@
 use inkwell::basic_block::BasicBlock;
 use inkwell::IntPredicate::{EQ, NE, SLT, SGT, SLE, SGE};
-use inkwell::types::{AnyTypeEnum, BasicType, PointerType};
-use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, InstructionOpcode, InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue};
-use crate::llvm_elements::{LLVMIRProducer, to_basic_enum, to_type_enum};
+use inkwell::types::{AnyTypeEnum, PointerType};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, InstructionOpcode, InstructionValue, IntMathValue, IntValue, PhiValue, PointerValue};
+use crate::llvm_elements::{LLVMIRProducer};
 use crate::llvm_elements::fr::{FR_MUL_FN_NAME, FR_LT_FN_NAME};
 use crate::llvm_elements::functions::create_bb;
 use crate::llvm_elements::types::{bigint_type, i32_type};
@@ -22,7 +22,7 @@ pub fn create_pow_with_name<'a, T: IntMathValue<'a> + Copy>(
     in_func: FunctionValue<'a>,
     lhs: T,
     rhs: T,
-    name: &str,
+    _name: &str,
 ) -> AnyValueEnum<'a> {
     let bldr = &producer.llvm().builder;
     let ty = bigint_type(producer);
@@ -77,7 +77,7 @@ pub fn create_pow_with_name<'a, T: IntMathValue<'a> + Copy>(
             bldr.build_load(ptr_abv, "").into_int_value(),
         );
         // XXX: Assumption: If the value is 0 the we go to the end block
-        let cond =
+        let _cond =
             create_conditional_branch(producer, res_cond.into_int_value(), bb_lp_body, bb_lp_end);
 
         //// Loop body block
