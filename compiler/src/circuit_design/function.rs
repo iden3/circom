@@ -3,10 +3,10 @@ use crate::hir::very_concrete_program::Param;
 use crate::intermediate_representation::InstructionList;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer, to_basic_metadata_enum, to_basic_type_enum};
-use code_producers::llvm_elements::functions::{create_bb, create_function, FunctionLLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
+use code_producers::llvm_elements::functions::{create_bb};
 use code_producers::llvm_elements::instructions::create_br;
-use code_producers::llvm_elements::types::{bigint_type, void_type};
+
 use code_producers::wasm_elements::*;
 //use std::io::Write;
 

@@ -2,7 +2,7 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer, to_basic_metadata_enum};
-use code_producers::llvm_elements::instructions::{create_alloca, create_call, create_gep, create_load, create_store, pointer_cast};
+use code_producers::llvm_elements::instructions::{create_alloca, create_call, create_gep, create_store, pointer_cast};
 use code_producers::llvm_elements::types::bigint_type;
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;

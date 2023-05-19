@@ -1,9 +1,9 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, to_enum, to_basic_metadata_enum, LLVMIRProducer, AnyValue};
+use code_producers::llvm_elements::{LLVMInstruction, to_enum, LLVMIRProducer};
 use code_producers::llvm_elements::functions::create_bb;
-use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_eq_with_name, create_gep, create_load, create_load_with_name, create_store, create_sub_with_name, find_function, pointer_cast};
+use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_eq_with_name, create_gep, create_load_with_name, create_store, create_sub_with_name};
 use code_producers::llvm_elements::llvm_code_generator::run_fn_name;
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;

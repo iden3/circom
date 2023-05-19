@@ -1,7 +1,7 @@
-use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
-use code_producers::llvm_elements::instructions::create_gep;
-use code_producers::llvm_elements::values::zero;
-use crate::translating_traits::WriteLLVMIR;
+
+
+
+
 use super::ir_interface::*;
 
 #[derive(Clone, Debug)]

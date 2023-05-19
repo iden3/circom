@@ -1,5 +1,5 @@
 use code_producers::c_elements::CProducer;
-use code_producers::llvm_elements::{LLVMAdapter, LLVMInstruction, new_constraint, to_basic_metadata_enum, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, new_constraint, to_basic_metadata_enum, LLVMIRProducer};
 use code_producers::llvm_elements::instructions::{create_call, create_load, get_instruction_arg};
 use code_producers::llvm_elements::llvm_code_generator::{CONSTRAINT_VALUE_FN_NAME, CONSTRAINT_VALUES_FN_NAME};
 use code_producers::wasm_elements::WASMProducer;

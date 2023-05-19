@@ -2,7 +2,7 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use code_producers::llvm_elements::*;
 use std::io::Write;
-use std::task::Context;
+
 
 pub trait WriteC {
     /*

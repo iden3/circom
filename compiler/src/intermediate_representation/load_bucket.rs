@@ -1,7 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::llvm_elements::instructions::{create_gep, create_load};
 use code_producers::llvm_elements::values::zero;
 use code_producers::wasm_elements::*;

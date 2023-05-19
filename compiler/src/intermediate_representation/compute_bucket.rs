@@ -1,7 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, to_basic_metadata_enum, to_enum, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, to_basic_metadata_enum, LLVMIRProducer};
 use code_producers::llvm_elements::fr::{
     FR_ADD_FN_NAME, FR_SUB_FN_NAME, FR_MUL_FN_NAME, FR_DIV_FN_NAME, FR_INTDIV_FN_NAME, FR_MOD_FN_NAME, FR_POW_FN_NAME,
     FR_EQ_FN_NAME, FR_NEQ_FN_NAME, FR_LT_FN_NAME, FR_GT_FN_NAME, FR_LE_FN_NAME, FR_GE_FN_NAME,

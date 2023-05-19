@@ -1,7 +1,7 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, LLVMAdapter, to_enum, LLVMIRProducer};
+use code_producers::llvm_elements::{LLVMInstruction, to_enum, LLVMIRProducer};
 use code_producers::llvm_elements::values::{create_literal_u32, get_const};
 use code_producers::wasm_elements::*;
 
