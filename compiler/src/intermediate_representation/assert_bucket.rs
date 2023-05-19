@@ -4,6 +4,7 @@ use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::llvm_elements::instructions::create_call;
 use code_producers::llvm_elements::stdlib::ASSERT_FN_NAME;
+use code_producers::llvm_elements::types::bool_type;
 use code_producers::wasm_elements::*;
 
 #[derive(Clone)]
@@ -45,8 +46,14 @@ impl ToString for AssertBucket {
 
 impl WriteLLVMIR for AssertBucket {
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
-        let bool = self.evaluate.produce_llvm_ir(producer).expect("An assert bucket needs a value to assert!");
-        Some(create_call(producer, ASSERT_FN_NAME, &[bool.into_int_value().into()]))
+        let bool = self.evaluate.produce_llvm_ir(producer)
+            .expect("An assert bucket needs a value to assert!").into_int_value();
+        let bool = if bool.get_type().get_bit_width() > 1 {
+            bool.const_truncate(bool_type(producer))
+        } else {
+            bool
+        };
+        Some(create_call(producer, ASSERT_FN_NAME, &[bool.into()]))
     }
 }
 
