@@ -275,6 +275,8 @@ impl TemplateCodeInfo {
         run_params.push(declare_ctx_index());
         run_params.push(declare_circom_calc_wit());
         let mut run_body = vec![];
+        run_body.push("clock_t t;".to_string());
+        run_body.push("t = clock();;".to_string());        
         run_body.push(format!("{};", declare_signal_values()));
         run_body.push(format!("{};", declare_my_signal_start()));
         run_body.push(format!("{};", declare_my_template_name()));
@@ -316,7 +318,10 @@ impl TemplateCodeInfo {
         //parallelism
         run_body.push(format!("ctx->numThreadMutex.lock();"));
 	    run_body.push(format!("ctx->numThread--;"));
-        //run_body.push(format!("printf(\"%i \\n\", ctx->numThread);"));
+        run_body.push(format!("printf(\"Thread finished executing template {} \\n\");", self.header));
+        run_body.push("t = clock() - t;".to_string());
+        run_body.push("double time_taken = ((double)t)/CLOCKS_PER_SEC;".to_string());
+        run_body.push("printf(\"The template took %f seconds to execute\\n\", time_taken);".to_string());
         run_body.push(format!("ctx->numThreadMutex.unlock();"));
 	    run_body.push(format!("ctx->ntcvs.notify_one();"));
 	}
