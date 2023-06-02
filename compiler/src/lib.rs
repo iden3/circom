@@ -9,3 +9,4 @@ extern crate core;
 pub mod compiler_interface;
 pub mod hir;
 mod translating_traits;
+pub mod bucket_passes;

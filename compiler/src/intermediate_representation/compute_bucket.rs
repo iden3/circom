@@ -11,6 +11,7 @@ use code_producers::llvm_elements::fr::{
 };
 use code_producers::llvm_elements::instructions::{create_add_with_name, create_call, create_mul_with_name};
 use code_producers::wasm_elements::*;
+use program_structure::ast::Expression;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum OperatorType {
@@ -98,6 +99,7 @@ impl ToString for OperatorType {
 
 #[derive(Clone)]
 pub struct ComputeBucket {
+    pub expr: Expression,
     pub line: usize,
     pub message_id: usize,
     pub op: OperatorType,

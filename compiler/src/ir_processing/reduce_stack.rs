@@ -1,3 +1,6 @@
+use num_bigint::BigInt;
+use program_structure::ast::Expression;
+use crate::intermediate_representation::either::EitherExprOrStmt;
 use crate::intermediate_representation::ir_interface::*;
 
 pub fn reduce_list(list: InstructionList) -> InstructionList {
@@ -58,6 +61,10 @@ pub fn reduce_compute(mut bucket: ComputeBucket) -> Instruction {
             parse_as: ValueType::U32,
             op_aux_no: bucket.op_aux_no,
             value,
+            ast_node: EitherExprOrStmt::Expr(Expression::Number(
+                bucket.expr.get_meta().clone(),
+                BigInt::from(value)
+            ))
         };
         IntoInstruction::into_instruction(v_bucket)
     } else {

@@ -7,9 +7,11 @@ use code_producers::llvm_elements::instructions::{create_br, create_call, create
 use code_producers::llvm_elements::run_fn_name;
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
+use program_structure::ast::Statement;
 
 #[derive(Clone)]
 pub struct StoreBucket {
+    pub stmt: Statement,
     pub line: usize,
     pub message_id: usize,
     pub context: InstrContext,

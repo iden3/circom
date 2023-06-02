@@ -16,4 +16,6 @@ mod constraint_bucket;
 
 pub mod ir_interface;
 pub mod translate;
+pub mod either;
+
 pub use ir_interface::{Instruction, InstructionList, InstructionPointer};
