@@ -5,9 +5,11 @@ use code_producers::llvm_elements::{LLVMInstruction, any_value_wraps_basic_value
 use code_producers::llvm_elements::functions::create_bb;
 use code_producers::llvm_elements::instructions::{create_br, create_conditional_branch, create_phi};
 use code_producers::wasm_elements::*;
+use program_structure::ast::Statement;
 
 #[derive(Clone)]
 pub struct BranchBucket {
+    pub stmt: Statement,
     pub line: usize,
     pub message_id: usize,
     pub cond: InstructionPointer,

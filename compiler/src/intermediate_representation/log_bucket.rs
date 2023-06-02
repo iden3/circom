@@ -3,6 +3,7 @@ use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::wasm_elements::*;
+use program_structure::ast::Statement;
 
 
 #[derive(Clone)]
@@ -22,6 +23,7 @@ impl LogBucketArg{
 
 #[derive(Clone)]
 pub struct LogBucket {
+    pub stmt: Statement,
     pub line: usize,
     pub message_id: usize,
     pub argsprint: Vec<LogBucketArg>,

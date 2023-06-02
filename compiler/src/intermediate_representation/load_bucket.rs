@@ -5,9 +5,11 @@ use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::llvm_elements::instructions::{create_gep, create_load};
 use code_producers::llvm_elements::values::zero;
 use code_producers::wasm_elements::*;
+use program_structure::ast::{Expression, Statement};
 
 #[derive(Clone)]
 pub struct LoadBucket {
+    pub expr: Expression,
     pub line: usize,
     pub message_id: usize,
     pub address_type: AddressType,
