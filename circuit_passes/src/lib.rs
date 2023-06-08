@@ -2,6 +2,7 @@ extern crate core;
 
 mod loop_unroll;
 mod bucket_interpreter;
+mod simplification;
 
 use crate::loop_unroll::LoopUnrollPass;
 use compiler::circuit_design::function::{FunctionCode, FunctionCodeInfo};

@@ -67,6 +67,7 @@ impl WriteLLVMIR for StoreBucket {
             AddressType::SubcmpSignal { cmp_address, .. } => {
                 let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
                 let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
+                assert!(index.is_constant_int());
                 create_gep(producer, subcmp, &[zero(producer), index])
             }
         }.into_pointer_value();
