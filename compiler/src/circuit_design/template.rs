@@ -13,7 +13,7 @@ use code_producers::wasm_elements::*;
 pub type TemplateID = usize;
 pub type TemplateCode = Box<TemplateCodeInfo>;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TemplateCodeInfo {
     pub id: TemplateID,
     pub header: String,

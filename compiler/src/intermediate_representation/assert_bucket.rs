@@ -8,7 +8,7 @@ use code_producers::llvm_elements::types::bool_type;
 use code_producers::wasm_elements::*;
 use program_structure::ast::Statement;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AssertBucket {
     pub stmt: Statement,
     pub line: usize,

@@ -7,7 +7,7 @@ use code_producers::llvm_elements::values::create_literal_u32;
 use code_producers::wasm_elements::*;
 use program_structure::ast::Statement;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CreateCmpBucket {
     //pub stmt: Statement, I dont think we need one here
     pub line: usize,

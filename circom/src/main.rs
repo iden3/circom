@@ -48,7 +48,7 @@ fn start() -> Result<(), ()> {
         summary_flag: user_input.summary_flag(),
         llvm_folder: user_input.llvm_folder().to_string()
     };
-    let circuit = execution_user::execute_project(program_archive, config)?;
+    let circuit = execution_user::execute_project(program_archive.clone(), config)?;
     let compilation_config = CompilerConfig {
         vcp: circuit,
         debug_output: user_input.print_ir_flag(),
@@ -69,6 +69,6 @@ fn start() -> Result<(), ()> {
         wasm_file: user_input.wasm_file().to_string(),
         produce_input_log: user_input.main_inputs_flag(),
     };
-    compilation_user::compile(compilation_config)?;
+    compilation_user::compile(compilation_config, program_archive, &user_input.prime())?;
     Result::Ok(())
 }

@@ -6,7 +6,7 @@ use code_producers::wasm_elements::*;
 use program_structure::ast::Statement;
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum LogBucketArg {
     LogExp(InstructionPointer),
     LogStr(usize)
@@ -21,7 +21,7 @@ impl LogBucketArg{
 }
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LogBucket {
     pub stmt: Statement,
     pub line: usize,

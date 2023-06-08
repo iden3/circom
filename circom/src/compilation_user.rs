@@ -1,10 +1,11 @@
 use ansi_term::Colour;
-use compiler::bucket_passes::{IdentityPass, PassManager};
+use circuit_passes::PassManager;
 use compiler::compiler_interface;
 use compiler::compiler_interface::{Config, VCP};
 use program_structure::error_definition::Report;
 use program_structure::error_code::ReportCode;
 use program_structure::file_definition::FileLibrary;
+use program_structure::program_archive::ProgramArchive;
 use crate::VERSION;
 
 
@@ -29,17 +30,12 @@ pub struct CompilerConfig {
     pub vcp: VCP,
 }
 
-pub fn compile(config: CompilerConfig) -> Result<(), ()> {
+pub fn compile(config: CompilerConfig, program_archive: ProgramArchive, prime: &String) -> Result<(), ()> {
     let mut circuit = compiler_interface::run_compiler(
         config.vcp,
         Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
         VERSION
     )?;
-
-    let mut pm = PassManager::new();
-    circuit = pm
-        .schedule_identity_pass()
-        .run_on_circuit(circuit);
 
     if config.c_flag {
         compiler_interface::write_c(&circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
@@ -65,6 +61,12 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
     }
 
     if config.llvm_flag {
+        // Only run this passes if we are going to generate LLVM code
+        let mut pm = PassManager::new();
+        circuit = pm
+            .schedule_loop_unroll_pass(program_archive, prime)
+            .run_on_circuit(circuit);
+
         compiler_interface::write_llvm_ir(&mut circuit, &config.llvm_folder, &config.llvm_file, config.clean_llvm)?;
         println!(
           "{} {}",

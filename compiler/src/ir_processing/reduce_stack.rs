@@ -25,7 +25,8 @@ pub fn reduce_instruction(instr: Instruction) -> Instruction {
         Loop(b) => reduce_loop(b),
         CreateCmp(b) => reduce_crt_cmp(b),
         Compute(b) => reduce_compute(b),
-        Constraint(b) => reduce_constraint(b)
+        Constraint(b) => reduce_constraint(b),
+        UnrolledLoop(b) => unreachable!(),
     }
 }
 

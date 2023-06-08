@@ -9,7 +9,7 @@ use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
 use program_structure::ast::Statement;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StoreBucket {
     pub stmt: Statement,
     pub line: usize,

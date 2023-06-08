@@ -1,6 +1,6 @@
 use program_structure::ast::{Expression, Statement};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum EitherExprOrStmt {
     Expr(Expression),
     Stmt(Statement)

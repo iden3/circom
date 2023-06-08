@@ -1,4 +1,4 @@
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ValueType {
     BigInt,
     U32,
@@ -14,7 +14,7 @@ impl ToString for ValueType {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct InstrContext {
     pub size: usize,
 }

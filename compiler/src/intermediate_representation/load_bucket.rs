@@ -7,7 +7,7 @@ use code_producers::llvm_elements::values::zero;
 use code_producers::wasm_elements::*;
 use program_structure::ast::{Expression, Statement};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LoadBucket {
     pub expr: Expression,
     pub line: usize,

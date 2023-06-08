@@ -6,7 +6,7 @@ use code_producers::llvm_elements::instructions::create_return_from_any_value;
 use code_producers::wasm_elements::*;
 use program_structure::ast::Statement;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ReturnBucket {
     pub stmt: Statement,
     pub line: usize,

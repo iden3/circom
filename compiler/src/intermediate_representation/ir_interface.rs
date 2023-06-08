@@ -14,6 +14,7 @@ pub use super::log_bucket::LogBucketArg;
 pub use super::types::{InstrContext, ValueType};
 pub use super::value_bucket::ValueBucket;
 pub use super::constraint_bucket::{ConstraintBucket};
+pub use super::unrolled_loop_bucket::UnrolledLoopBucket;
 
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
@@ -40,7 +41,7 @@ pub trait CheckCompute {
 pub type InstructionList = Vec<InstructionPointer>;
 pub type InstructionPointer = Box<Instruction>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Instruction {
     Value(ValueBucket),
     Load(LoadBucket),
@@ -53,7 +54,8 @@ pub enum Instruction {
     Log(LogBucket),
     Loop(LoopBucket),
     CreateCmp(CreateCmpBucket),
-    Constraint(ConstraintBucket)
+    Constraint(ConstraintBucket),
+    UnrolledLoop(UnrolledLoopBucket)
 }
 
 impl Allocate for Instruction {
@@ -77,7 +79,8 @@ impl ObtainMeta for Instruction {
             Assert(v) => v.get_line(),
             CreateCmp(v) => v.get_line(),
             Log(v) => v.get_line(),
-            Constraint(v) => v.get_line()
+            Constraint(v) => v.get_line(),
+            UnrolledLoop(v) => v.get_line()
         }
     }
 
@@ -95,7 +98,8 @@ impl ObtainMeta for Instruction {
             Assert(v) => v.get_message_id(),
             CreateCmp(v) => v.get_message_id(),
             Log(v) => v.get_message_id(),
-            Constraint(v) => v.get_message_id()
+            Constraint(v) => v.get_message_id(),
+            UnrolledLoop(v) => v.get_message_id()
         }
     }
 }
@@ -127,7 +131,8 @@ impl WriteWasm for Instruction {
             Assert(v) => v.produce_wasm(producer),
             CreateCmp(v) => v.produce_wasm(producer),
             Log(v) => v.produce_wasm(producer),
-            Constraint(v) => v.produce_wasm(producer)
+            Constraint(v) => v.produce_wasm(producer),
+            UnrolledLoop(v) => unreachable!()
         }
     }
 }
@@ -147,7 +152,8 @@ impl WriteLLVMIR for Instruction {
             Assert(v) => v.produce_llvm_ir(producer),
             CreateCmp(v) => v.produce_llvm_ir(producer),
             Log(v) => v.produce_llvm_ir(producer),
-            Constraint(v) => v.produce_llvm_ir(producer)
+            Constraint(v) => v.produce_llvm_ir(producer),
+            UnrolledLoop(v) => v.produce_llvm_ir(producer)
         }
     }
 }
@@ -168,7 +174,8 @@ impl WriteC for Instruction {
             Assert(v) => v.produce_c(producer, parallel),
             CreateCmp(v) => v.produce_c(producer, parallel),
             Log(v) => v.produce_c(producer, parallel),
-            Constraint(v) => v.produce_c(producer, parallel)
+            Constraint(v) => v.produce_c(producer, parallel),
+            UnrolledLoop(v) => unreachable!()
         }
     }
 }
@@ -188,7 +195,8 @@ impl ToString for Instruction {
             Assert(v) => v.to_string(),
             CreateCmp(v) => v.to_string(),
             Log(v) => v.to_string(),
-            Constraint(v) => v.to_string()
+            Constraint(v) => v.to_string(),
+            UnrolledLoop(v) => v.to_string()
         }
     }
 }
@@ -212,7 +220,8 @@ impl Instruction {
             Constraint(v) => match v {
                 ConstraintBucket::Substitution(i) => i,
                 ConstraintBucket::Equality(i) => i
-            }.label_name(idx)
+            }.label_name(idx),
+            UnrolledLoop(_) => format!("unrolled_loop{}", idx)
         }
     }
 
@@ -232,7 +241,8 @@ impl Instruction {
             Instruction::Constraint(b) => match b {
                 ConstraintBucket::Substitution(i) => i,
                 ConstraintBucket::Equality(i) => i
-            }.get_statement().clone()
+            }.get_statement().clone(),
+            Instruction::UnrolledLoop(UnrolledLoopBucket { original_loop, .. }) => original_loop.get_statement().clone()
         }
     }
 
@@ -252,7 +262,8 @@ impl Instruction {
             Instruction::Constraint(b) => match b {
                 ConstraintBucket::Substitution(i) => i,
                 ConstraintBucket::Equality(i) => i
-            }.get_expression().clone()
+            }.get_expression().clone(),
+            Instruction::UnrolledLoop(UnrolledLoopBucket { original_loop, .. }) => original_loop.get_expression().clone()
         }
     }
 }

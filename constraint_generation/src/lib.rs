@@ -3,7 +3,7 @@ extern crate num_traits;
 
 mod compute_constants;
 mod environment_utils;
-mod execute;
+pub mod execute;
 mod execution_data;
 
 use ansi_term::Colour;

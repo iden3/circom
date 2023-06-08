@@ -7,7 +7,7 @@ use code_producers::wasm_elements::*;
 use program_structure::ast::Statement;
 use crate::intermediate_representation::either::EitherExprOrStmt;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ValueBucket {
     pub ast_node: EitherExprOrStmt,
     pub line: usize,
