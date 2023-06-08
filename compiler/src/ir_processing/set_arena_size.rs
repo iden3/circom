@@ -28,7 +28,8 @@ pub fn visit_instruction(
         CreateCmp(b) => visit_create_cmp(b, function_to_arena_size),
         Log(b) => visit_log(b, function_to_arena_size),
         Constraint(b) => visit_constraint(b, function_to_arena_size),
-        UnrolledLoop(_) => unreachable!()
+        UnrolledLoop(_) => unreachable!(),
+        Nop(_) => unreachable!()
     }
 }
 

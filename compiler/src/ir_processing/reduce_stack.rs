@@ -27,6 +27,7 @@ pub fn reduce_instruction(instr: Instruction) -> Instruction {
         Compute(b) => reduce_compute(b),
         Constraint(b) => reduce_constraint(b),
         UnrolledLoop(b) => unreachable!(),
+        Nop(b) => IntoInstruction::into_instruction(b)
     }
 }
 

@@ -9,7 +9,7 @@ use std::rc::Rc;
 use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::intermediate_representation::{Instruction, InstructionPointer};
-use compiler::intermediate_representation::ir_interface::{AddressType, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket, LoopBucket, OperatorType, ReturnBucket, StatusInput, StoreBucket, ValueBucket, ValueType};
+use compiler::intermediate_representation::ir_interface::{AddressType, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, OperatorType, ReturnBucket, StatusInput, StoreBucket, UnrolledLoopBucket, ValueBucket, ValueType};
 use compiler::num_bigint::BigInt;
 use compiler::num_traits::{One, ToPrimitive, Zero};
 use env::Env;
@@ -278,6 +278,18 @@ impl BucketInterpreter {
         last
     }
 
+    pub fn execute_unrolled_loop_bucket(&self, bucket: &UnrolledLoopBucket) -> Option<Value> {
+        let mut last = None;
+        for iteration in &bucket.body {
+            last = self.execute_instructions(iteration);
+        }
+        return last;
+    }
+
+    pub fn execute_nop_bucket(&self, _bucket: &NopBucket) -> Option<Value> {
+        None
+    }
+
     pub fn execute_instruction(&self, inst: &InstructionPointer) -> Option<Value> {
         match inst.as_ref() {
             Instruction::Value(b) => self.execute_value_bucket(b),
@@ -292,7 +304,8 @@ impl BucketInterpreter {
             Instruction::Loop(b) => self.execute_loop_bucket(b),
             Instruction::CreateCmp(b) => self.execute_create_cmp_bucket(b),
             Instruction::Constraint(b) => self.execute_constraint_bucket(b),
-            Instruction::UnrolledLoop(b) => todo!()
+            Instruction::UnrolledLoop(b) => self.execute_unrolled_loop_bucket(b),
+            Instruction::Nop(b) => self.execute_nop_bucket(b)
         }
     }
 

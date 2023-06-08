@@ -24,7 +24,8 @@ pub fn build_instruction(instruction: &mut Instruction, fresh: usize) -> usize {
         CreateCmp(b) => build_create_cmp(b, fresh),
         Log(b) => build_log(b, fresh),
         Constraint(b) => build_constraint(b, fresh),
-        UnrolledLoop(_) => unreachable!()
+        UnrolledLoop(_) => unreachable!(),
+        Nop(_) => unreachable!()
     }
 }
 

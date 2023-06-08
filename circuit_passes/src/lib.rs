@@ -8,7 +8,7 @@ use compiler::circuit_design::function::{FunctionCode, FunctionCodeInfo};
 use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{Instruction, InstructionList};
-use compiler::intermediate_representation::ir_interface::{AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LogBucket, LoopBucket, ReturnBucket, StoreBucket, UnrolledLoopBucket, ValueBucket};
+use compiler::intermediate_representation::ir_interface::{AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, UnrolledLoopBucket, ValueBucket};
 use compiler::intermediate_representation::InstructionPointer;
 use compiler::intermediate_representation::ir_interface::Allocate;
 use constraint_generation::execute::RuntimeInformation;
@@ -100,6 +100,7 @@ pub trait CircuitTransformationPass {
             CreateCmp(b) => self.pre_hook_create_cmp_bucket(b),
             Constraint(b) => self.pre_hook_constraint_bucket(b),
             UnrolledLoop(b) => self.pre_hook_unrolled_loop_bucket(b),
+            Nop(b) => self.pre_hook_nop_bucket(b)
         }
     }
     
@@ -120,6 +121,7 @@ pub trait CircuitTransformationPass {
             CreateCmp(b) => self.run_on_create_cmp_bucket(b),
             Constraint(b) => self.run_on_constraint_bucket(b),
             UnrolledLoop(b) => self.run_on_unrolled_loop_bucket(b),
+            Nop(b) => self.run_on_nop_bucket(b)
         }
     }
 
@@ -138,6 +140,7 @@ pub trait CircuitTransformationPass {
     run_on_bucket!(run_on_create_cmp_bucket, CreateCmpBucket);
     run_on_bucket!(run_on_constraint_bucket, ConstraintBucket);
     run_on_bucket!(run_on_unrolled_loop_bucket, UnrolledLoopBucket);
+    run_on_bucket!(run_on_nop_bucket, NopBucket);
 
     pre_hook!(pre_hook_circuit, Circuit);
     pre_hook!(pre_hook_template, TemplateCode);
@@ -156,6 +159,7 @@ pub trait CircuitTransformationPass {
     pre_hook!(pre_hook_create_cmp_bucket, CreateCmpBucket);
     pre_hook!(pre_hook_constraint_bucket, ConstraintBucket);
     pre_hook!(pre_hook_unrolled_loop_bucket, UnrolledLoopBucket);
+    pre_hook!(pre_hook_nop_bucket, NopBucket);
     
 }
 

@@ -15,6 +15,7 @@ pub use super::types::{InstrContext, ValueType};
 pub use super::value_bucket::ValueBucket;
 pub use super::constraint_bucket::{ConstraintBucket};
 pub use super::unrolled_loop_bucket::UnrolledLoopBucket;
+pub use super::nop_bucket::NopBucket;
 
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
@@ -55,7 +56,8 @@ pub enum Instruction {
     Loop(LoopBucket),
     CreateCmp(CreateCmpBucket),
     Constraint(ConstraintBucket),
-    UnrolledLoop(UnrolledLoopBucket)
+    UnrolledLoop(UnrolledLoopBucket),
+    Nop(NopBucket)
 }
 
 impl Allocate for Instruction {
@@ -80,7 +82,8 @@ impl ObtainMeta for Instruction {
             CreateCmp(v) => v.get_line(),
             Log(v) => v.get_line(),
             Constraint(v) => v.get_line(),
-            UnrolledLoop(v) => v.get_line()
+            UnrolledLoop(v) => v.get_line(),
+            Nop(v) => v.get_line()
         }
     }
 
@@ -99,7 +102,8 @@ impl ObtainMeta for Instruction {
             CreateCmp(v) => v.get_message_id(),
             Log(v) => v.get_message_id(),
             Constraint(v) => v.get_message_id(),
-            UnrolledLoop(v) => v.get_message_id()
+            UnrolledLoop(v) => v.get_message_id(),
+            Nop(v) => v.get_message_id()
         }
     }
 }
@@ -132,7 +136,8 @@ impl WriteWasm for Instruction {
             CreateCmp(v) => v.produce_wasm(producer),
             Log(v) => v.produce_wasm(producer),
             Constraint(v) => v.produce_wasm(producer),
-            UnrolledLoop(v) => unreachable!()
+            UnrolledLoop(_) => unreachable!(),
+            Nop(_) => unreachable!()
         }
     }
 }
@@ -153,7 +158,8 @@ impl WriteLLVMIR for Instruction {
             CreateCmp(v) => v.produce_llvm_ir(producer),
             Log(v) => v.produce_llvm_ir(producer),
             Constraint(v) => v.produce_llvm_ir(producer),
-            UnrolledLoop(v) => v.produce_llvm_ir(producer)
+            UnrolledLoop(v) => v.produce_llvm_ir(producer),
+            Nop(v) => v.produce_llvm_ir(producer)
         }
     }
 }
@@ -175,7 +181,8 @@ impl WriteC for Instruction {
             CreateCmp(v) => v.produce_c(producer, parallel),
             Log(v) => v.produce_c(producer, parallel),
             Constraint(v) => v.produce_c(producer, parallel),
-            UnrolledLoop(v) => unreachable!()
+            UnrolledLoop(_) => unreachable!(),
+            Nop(_) => unreachable!()
         }
     }
 }
@@ -196,7 +203,8 @@ impl ToString for Instruction {
             CreateCmp(v) => v.to_string(),
             Log(v) => v.to_string(),
             Constraint(v) => v.to_string(),
-            UnrolledLoop(v) => v.to_string()
+            UnrolledLoop(v) => v.to_string(),
+            Nop(v) => v.to_string()
         }
     }
 }
@@ -221,7 +229,8 @@ impl Instruction {
                 ConstraintBucket::Substitution(i) => i,
                 ConstraintBucket::Equality(i) => i
             }.label_name(idx),
-            UnrolledLoop(_) => format!("unrolled_loop{}", idx)
+            UnrolledLoop(_) => format!("unrolled_loop{}", idx),
+            Nop(_) => format!("nop{}", idx)
         }
     }
 
@@ -242,7 +251,8 @@ impl Instruction {
                 ConstraintBucket::Substitution(i) => i,
                 ConstraintBucket::Equality(i) => i
             }.get_statement().clone(),
-            Instruction::UnrolledLoop(UnrolledLoopBucket { original_loop, .. }) => original_loop.get_statement().clone()
+            Instruction::UnrolledLoop(UnrolledLoopBucket { original_loop, .. }) => original_loop.get_statement().clone(),
+            Instruction::Nop(_) => panic!("NopBucket does not have a statement!")
         }
     }
 
@@ -263,7 +273,8 @@ impl Instruction {
                 ConstraintBucket::Substitution(i) => i,
                 ConstraintBucket::Equality(i) => i
             }.get_expression().clone(),
-            Instruction::UnrolledLoop(UnrolledLoopBucket { original_loop, .. }) => original_loop.get_expression().clone()
+            Instruction::UnrolledLoop(UnrolledLoopBucket { original_loop, .. }) => original_loop.get_expression().clone(),
+            Instruction::Nop(_) => panic!("NopBucket does not have a expression!")
         }
     }
 }
