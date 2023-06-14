@@ -187,7 +187,7 @@ template B(n){
 component main = B(3);
 ```
 
-In the previous example, we are interesting in adding to the R1CS the constraint  `a * b = c`, but we can ignore the output signal `d`. 
+In the previous example, we are interested in adding the constraint  `a * b = c` to the R1CS, but we can ignore the output signal `d`. 
 
 In case the anonymous component has one more than one output, we can ignore the ones we are not interested. 
 
