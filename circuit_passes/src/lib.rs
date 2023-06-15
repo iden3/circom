@@ -4,6 +4,8 @@ mod loop_unroll;
 mod bucket_interpreter;
 mod simplification;
 
+use std::cell::RefCell;
+use code_producers::llvm_elements::LLVMCircuitData;
 use crate::loop_unroll::LoopUnrollPass;
 use compiler::circuit_design::function::{FunctionCode, FunctionCodeInfo};
 use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
@@ -14,6 +16,7 @@ use compiler::intermediate_representation::InstructionPointer;
 use compiler::intermediate_representation::ir_interface::Allocate;
 use constraint_generation::execute::RuntimeInformation;
 use program_structure::program_archive::ProgramArchive;
+use crate::simplification::ComputeSimplificationPass;
 
 macro_rules! run_on_bucket {
     ($name: ident, $bucket_ty: ty) => {
@@ -32,18 +35,24 @@ macro_rules! pre_hook {
 pub trait CircuitTransformationPass {
     fn run_on_circuit(&self, circuit: Circuit) -> Circuit {
         self.pre_hook_circuit(&circuit);
+        let templates = circuit.templates.iter().map(|t| {
+            self.run_on_template(t)
+        }).collect();
+
         Circuit {
             wasm_producer: circuit.wasm_producer,
             c_producer: circuit.c_producer,
-            llvm_data: circuit.llvm_data,
-            templates: circuit.templates.iter().map(|t| {
-                self.run_on_template(t)
-            }).collect(),
+            llvm_data: LLVMCircuitData {
+                field_tracking: self.get_updated_field_constants(),
+            },
+            templates,
             functions: circuit.functions.iter().map(|f| {
                 self.run_on_function(f)
             }).collect(),
         }
     }
+
+    fn get_updated_field_constants(&self) -> Vec<String>;
 
     fn run_on_template(&self, template: &TemplateCode) -> TemplateCode {
         self.pre_hook_template(template);
@@ -164,7 +173,7 @@ pub trait CircuitTransformationPass {
     
 }
 
-pub type Passes = Vec<Box<dyn CircuitTransformationPass>>;
+pub type Passes = RefCell<Vec<Box<dyn CircuitTransformationPass>>>;
 
 pub struct PassManager {
     passes: Passes
@@ -172,31 +181,26 @@ pub struct PassManager {
 
 impl PassManager {
     pub fn new() -> Self {
-        PassManager { passes: Vec::new() }
+        PassManager { passes: Default::default() }
     }
 
-    pub fn schedule_identity_pass(&mut self) -> &Self {
-        self.passes.push(Box::new(IdentityPass));
+    pub fn schedule_loop_unroll_pass(&self, program_archive: ProgramArchive, prime: &String) -> &Self {
+        let main_file_id = program_archive.get_file_id_main();
+        let runtime = RuntimeInformation::new(*main_file_id, program_archive.id_max, prime);
+        self.passes.borrow_mut().push(Box::new(LoopUnrollPass::new(prime)));
         self
     }
 
-    pub fn schedule_loop_unroll_pass(&mut self, program_archive: ProgramArchive, prime: &String) -> &Self {
-        let main_file_id = program_archive.get_file_id_main();
-        let runtime = RuntimeInformation::new(*main_file_id, program_archive.id_max, prime);
-        self.passes.push(Box::new(LoopUnrollPass::new(prime)));
+    pub fn schedule_simplification_pass(&self, prime: &String) -> &Self {
+        self.passes.borrow_mut().push(Box::new(ComputeSimplificationPass::new(prime)));
         self
     }
 
     pub fn run_on_circuit(&self, circuit: Circuit) -> Circuit {
         let mut transformed_circuit = circuit;
-        for pass in &self.passes {
+        for pass in self.passes.borrow().iter() {
             transformed_circuit = pass.run_on_circuit(transformed_circuit);
         }
         transformed_circuit
     }
 }
-
-/// A pass that does nothing
-struct IdentityPass;
-
-impl CircuitTransformationPass for IdentityPass {}

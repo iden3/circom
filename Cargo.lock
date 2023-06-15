@@ -191,6 +191,7 @@ dependencies = [
 name = "circuit_passes"
 version = "0.1.0"
 dependencies = [
+ "code_producers",
  "compiler",
  "constraint_generation",
  "program_structure",

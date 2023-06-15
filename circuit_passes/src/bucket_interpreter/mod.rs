@@ -73,13 +73,14 @@ impl BucketInterpreter {
     }
     
     pub fn execute_load_bucket(&self, bucket: &LoadBucket) -> Option<Value> {
+        println!("{}", bucket.to_string());
         let index = self.execute_location_rule(&bucket.src).unwrap().get_u32();
         let env = self.get_env();
         Some(match &bucket.address_type {
             AddressType::Variable => env.get_var(index),
             AddressType::Signal => env.get_signal(index),
             AddressType::SubcmpSignal { cmp_address, .. } => {
-                let cmp_index = self.execute_instruction(cmp_address).unwrap().get_u32();
+                let cmp_index = self.execute_instruction_ptr(cmp_address).unwrap().get_u32();
                 env.get_subcmp_signal(cmp_index, index)
             }
         })
@@ -88,7 +89,7 @@ impl BucketInterpreter {
     pub fn execute_location_rule(&self,loc: &LocationRule) -> Option<Value> {
         match loc {
             LocationRule::Indexed { location, .. } => {
-                self.execute_instruction(location)
+                self.execute_instruction_ptr(location)
             }
             LocationRule::Mapped { .. } => todo!()
         }
@@ -96,13 +97,13 @@ impl BucketInterpreter {
 
     pub fn execute_store_bucket(&self, bucket: &StoreBucket) -> Option<Value> {
         println!("{}", bucket.to_string());
-        let src = self.execute_instruction(&bucket.src).unwrap();
+        let src = self.execute_instruction_ptr(&bucket.src).unwrap();
         let idx = self.execute_location_rule(&bucket.dest).unwrap().get_u32();
         match &bucket.dest_address_type {
             AddressType::Variable => self.get_env_mut().set_var(idx, src),
             AddressType::Signal => self.get_env_mut().set_signal(idx, src),
             AddressType::SubcmpSignal { cmp_address, input_information, .. } => {
-                let addr = self.execute_instruction(cmp_address).unwrap().get_u32();
+                let addr = self.execute_instruction_ptr(cmp_address).unwrap().get_u32();
                 let mut env = self.get_env_mut();
                 env.set_subcmp_signal(addr, idx, src);
                 env.decrease_subcmp_counter(addr);
@@ -132,7 +133,7 @@ impl BucketInterpreter {
     }
 
     pub fn execute_compute_bucket(&self, bucket: &ComputeBucket) -> Option<Value> {
-        let stack: Vec<Value> = bucket.stack.iter().map(|i| self.execute_instruction(i).unwrap()).collect();
+        let stack: Vec<Value> = bucket.stack.iter().map(|i| self.execute_instruction_ptr(i).unwrap()).collect();
         // If any value of the stack is unknown we just return unknown
         if stack.iter().any(|v| v.is_unknown()) {
             return Some(Unknown)
@@ -182,7 +183,7 @@ impl BucketInterpreter {
     }
 
     pub fn execute_assert_bucket(&self, bucket: &AssertBucket) -> Option<Value> {
-        let cond = self.execute_instruction(&bucket.evaluate).unwrap();
+        let cond = self.execute_instruction_ptr(&bucket.evaluate).unwrap();
         if !cond.is_unknown() {
             assert!(cond.to_bool());
         }
@@ -197,7 +198,7 @@ impl BucketInterpreter {
     pub fn execute_conditional_bucket(&self, cond: &InstructionPointer,
                                       true_branch: &[InstructionPointer],
                                       false_branch: &[InstructionPointer]) -> (Option<Value>, Option<bool>) {
-        let executed_cond = self.execute_instruction(cond).unwrap();
+        let executed_cond = self.execute_instruction_ptr(cond).unwrap();
         println!("executed_cond == {:?}", executed_cond);
         let cond_bool_result = match executed_cond {
             Unknown => None,
@@ -251,7 +252,7 @@ impl BucketInterpreter {
     }
 
     pub fn execute_create_cmp_bucket(&self, bucket: &CreateCmpBucket) -> Option<Value> {
-        let cmp_id = self.execute_instruction(&bucket.sub_cmp_id).unwrap().get_u32();
+        let cmp_id = self.execute_instruction_ptr(&bucket.sub_cmp_id).unwrap().get_u32();
         let mut env = self.get_env_mut();
         env.create_subcmp(&bucket.symbol, cmp_id,bucket.number_of_cmp);
         // Run the subcomponents with 0 inputs directly
@@ -264,7 +265,7 @@ impl BucketInterpreter {
     }
 
     pub fn execute_constraint_bucket(&self, bucket: &ConstraintBucket) -> Option<Value> {
-        self.execute_instruction(match bucket {
+        self.execute_instruction_ptr(match bucket {
             ConstraintBucket::Substitution(i) => i,
             ConstraintBucket::Equality(i) => i
         })
@@ -273,7 +274,7 @@ impl BucketInterpreter {
     pub fn execute_instructions(&self, instructions: &[InstructionPointer]) -> Option<Value> {
         let mut last = None;
         for inst in instructions {
-            last = self.execute_instruction(inst);
+            last = self.execute_instruction_ptr(inst);
         }
         last
     }
@@ -290,8 +291,12 @@ impl BucketInterpreter {
         None
     }
 
-    pub fn execute_instruction(&self, inst: &InstructionPointer) -> Option<Value> {
-        match inst.as_ref() {
+    pub fn execute_instruction_ptr(&self, inst: &InstructionPointer) -> Option<Value> {
+        self.execute_instruction(&inst)
+    }
+
+    pub fn execute_instruction(&self, inst: &Instruction) -> Option<Value> {
+        match inst {
             Instruction::Value(b) => self.execute_value_bucket(b),
             Instruction::Load(b) => self.execute_load_bucket(b),
             Instruction::Store(b) => self.execute_store_bucket(b),

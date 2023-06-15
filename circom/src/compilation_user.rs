@@ -62,9 +62,10 @@ pub fn compile(config: CompilerConfig, program_archive: ProgramArchive, prime: &
 
     if config.llvm_flag {
         // Only run this passes if we are going to generate LLVM code
-        let mut pm = PassManager::new();
+        let pm = PassManager::new();
         circuit = pm
             .schedule_loop_unroll_pass(program_archive, prime)
+            .schedule_simplification_pass(prime)
             .run_on_circuit(circuit);
 
         compiler_interface::write_llvm_ir(&mut circuit, &config.llvm_folder, &config.llvm_file, config.clean_llvm)?;

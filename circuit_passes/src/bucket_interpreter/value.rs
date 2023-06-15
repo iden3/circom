@@ -27,13 +27,27 @@ impl Value {
     pub fn get_u32(&self) -> usize {
         match self {
             KnownU32(i) => *i,
-            _ => panic!("Can't unwrap a u32 from a non KnownU32 value!")
+            _ => panic!("Can't unwrap a u32 from a non KnownU32 value! {:?}", self)
+        }
+    }
+
+    pub fn get_bigint_as_string(&self) -> String {
+        match self {
+            KnownBigInt(b) => b.to_string(),
+            _ => panic!("Can't extract a string representation of a non big int")
         }
     }
 
     pub fn is_unknown(&self) -> bool {
         match self {
             Unknown => true,
+            _ => false
+        }
+    }
+
+    pub fn is_bigint(&self) -> bool {
+        match self {
+            KnownBigInt(_) => true,
             _ => false
         }
     }

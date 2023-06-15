@@ -16,10 +16,10 @@ use program_structure::program_archive::ProgramArchive;
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::env::{Env, FunctionsLibrary, TemplatesLibrary};
 
-struct PassMemory {
-    templates_library: TemplatesLibrary,
-    functions_library: FunctionsLibrary,
-    interpreter: BucketInterpreter
+pub struct PassMemory {
+    pub templates_library: TemplatesLibrary,
+    pub functions_library: FunctionsLibrary,
+    pub interpreter: BucketInterpreter
 }
 
 impl PassMemory {
@@ -163,5 +163,9 @@ impl CircuitTransformationPass for LoopUnrollPass {
             // This replicates running the loop but without checking the condition
             body: loop_iterations.iter().map(|body| self.run_on_instructions(body)).collect(),
         }.allocate()
+    }
+
+    fn get_updated_field_constants(&self) -> Vec<String> {
+        self.memory.borrow().interpreter.constant_fields.clone()
     }
 }
