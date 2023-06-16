@@ -25,7 +25,6 @@ pub enum ReturnType {
 
 #[derive(Clone, Debug)]
 pub struct CallBucket {
-    pub expr: Expression,
     pub line: usize,
     pub message_id: usize,
     pub symbol: String,

@@ -99,7 +99,6 @@ impl ToString for OperatorType {
 
 #[derive(Clone, Debug)]
 pub struct ComputeBucket {
-    pub expr: Expression,
     pub line: usize,
     pub message_id: usize,
     pub op: OperatorType,

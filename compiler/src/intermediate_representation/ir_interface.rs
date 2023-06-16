@@ -233,48 +233,4 @@ impl Instruction {
             Nop(_) => format!("nop{}", idx)
         }
     }
-
-    pub fn get_statement(&self) -> Statement {
-        match self {
-            Instruction::Value(b) => b.ast_node.unwrap_stmt().clone(),
-            Instruction::Load(b) => panic!("LoadBuckets do not have a statement!"),
-            Instruction::Store(b) =>b.stmt.clone(),
-            Instruction::Compute(_) => panic!("ComputeBuckets do not have a statement!"),
-            Instruction::Call(_) => panic!("CallBuckets do not have a statement!"),
-            Instruction::Branch(b) => b.stmt.clone(),
-            Instruction::Return(b) => b.stmt.clone(),
-            Instruction::Assert(b) =>b.stmt.clone(),
-            Instruction::Log(b) => b.stmt.clone(),
-            Instruction::Loop(b) => b.stmt.clone(),
-            Instruction::CreateCmp(b) => panic!("CreateCmpBuckets do not have a statement!"),
-            Instruction::Constraint(b) => match b {
-                ConstraintBucket::Substitution(i) => i,
-                ConstraintBucket::Equality(i) => i
-            }.get_statement().clone(),
-            Instruction::UnrolledLoop(UnrolledLoopBucket { original_loop, .. }) => original_loop.get_statement().clone(),
-            Instruction::Nop(_) => panic!("NopBucket does not have a statement!")
-        }
-    }
-
-    pub fn get_expression(&self) -> Expression {
-        match self {
-            Instruction::Value(b) => b.ast_node.unwrap_expr().clone(),
-            Instruction::Load(b) => b.expr.clone(),
-            Instruction::Store(_) => panic!("ValueBuckets do not have a expression!"),
-            Instruction::Compute(b) => b.expr.clone(),
-            Instruction::Call(b) => b.expr.clone(),
-            Instruction::Branch(_) => panic!("ValueBuckets do not have a expression!"),
-            Instruction::Return(_) => panic!("ValueBuckets do not have a expression!"),
-            Instruction::Assert(_) => panic!("ValueBuckets do not have a expression!"),
-            Instruction::Log(_) => panic!("ValueBuckets do not have a expression!"),
-            Instruction::Loop(_) => panic!("ValueBuckets do not have a expression!"),
-            Instruction::CreateCmp(_) => panic!("ValueBuckets do not have a expression!"),
-            Instruction::Constraint(b) => match b {
-                ConstraintBucket::Substitution(i) => i,
-                ConstraintBucket::Equality(i) => i
-            }.get_expression().clone(),
-            Instruction::UnrolledLoop(UnrolledLoopBucket { original_loop, .. }) => original_loop.get_expression().clone(),
-            Instruction::Nop(_) => panic!("NopBucket does not have a expression!")
-        }
-    }
 }

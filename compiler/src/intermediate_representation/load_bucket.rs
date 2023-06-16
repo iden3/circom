@@ -9,7 +9,6 @@ use program_structure::ast::{Expression, Statement};
 
 #[derive(Clone, Debug)]
 pub struct LoadBucket {
-    pub expr: Expression,
     pub line: usize,
     pub message_id: usize,
     pub address_type: AddressType,

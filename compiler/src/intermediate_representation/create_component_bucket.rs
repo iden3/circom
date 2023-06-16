@@ -9,7 +9,6 @@ use program_structure::ast::Statement;
 
 #[derive(Clone, Debug)]
 pub struct CreateCmpBucket {
-    //pub stmt: Statement, I dont think we need one here
     pub line: usize,
     pub message_id: usize,
     pub template_id: usize,

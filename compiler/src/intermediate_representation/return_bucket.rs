@@ -8,7 +8,6 @@ use program_structure::ast::Statement;
 
 #[derive(Clone, Debug)]
 pub struct ReturnBucket {
-    pub stmt: Statement,
     pub line: usize,
     pub message_id: usize,
     pub with_size: usize,

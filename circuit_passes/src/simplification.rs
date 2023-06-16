@@ -92,7 +92,6 @@ impl ComputeSimplificationPass {
         };
         interpreter.pop_env();
         let b = ValueBucket {
-            ast_node: EitherExprOrStmt::Expr(bucket.expr.clone()),
             line: bucket.line,
             message_id: bucket.message_id,
             parse_as,
@@ -119,7 +118,6 @@ impl ComputeSimplificationPass {
         };
         interpreter.pop_env();
         return ValueBucket {
-            ast_node: EitherExprOrStmt::Expr(bucket.expr.clone()),
             line: bucket.line,
             message_id: bucket.message_id,
             parse_as,
@@ -161,14 +159,12 @@ impl ComputeSimplificationPass {
         match i {
             Instruction::Value(b) => b.clone().allocate(),
             Instruction::Load(b) => LoadBucket {
-                expr: b.expr.clone(),
                 line: b.line,
                 message_id: b.message_id,
                 address_type: self.reconstruct_address_type(&b.address_type),
                 src: self.reconstruct_location_rule(&b.src),
             }.allocate(),
             Instruction::Store(b) => StoreBucket {
-                stmt: b.stmt.clone(),
                 line: b.line,
                 message_id: b.message_id,
                 context: b.context,
@@ -180,7 +176,6 @@ impl ComputeSimplificationPass {
             Instruction::Compute(b) => self.eval_compute_bucket(b),
             Instruction::Call(b) => self.eval_call_bucket(b),
             Instruction::Branch(b) => BranchBucket {
-                stmt: b.stmt.clone(),
                 line: b.line,
                 message_id: b.message_id,
                 cond: b.cond.clone(),
@@ -188,21 +183,18 @@ impl ComputeSimplificationPass {
                 else_branch: self.reconstruct_buckets(&b.else_branch),
             }.allocate(),
             Instruction::Return(b) => ReturnBucket {
-                stmt: b.stmt.clone(),
                 line: b.line,
                 message_id: b.message_id,
                 with_size: b.with_size,
                 value: self.reconstruct_bucket(&b.value),
             }.allocate(),
             Instruction::Assert(b) => AssertBucket {
-                stmt: b.stmt.clone(),
                 line: b.line,
                 message_id: b.message_id,
                 evaluate: self.reconstruct_bucket(&b.evaluate),
             }.allocate(),
             Instruction::Log(b) => b.clone().allocate(),
             Instruction::Loop(b) => LoopBucket {
-                stmt: b.stmt.clone(),
                 line: b.line,
                 message_id: b.message_id,
                 continue_condition: b.continue_condition.clone(),

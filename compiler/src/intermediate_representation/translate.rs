@@ -170,11 +170,6 @@ fn initialize_parameters(state: &mut State, params: Vec<Param>, body: &Statement
         let full_size = lengths.iter().fold(1, |p, s| p * (*s));
         let address = state.reserve_variable(full_size);
         let address_instruction = ValueBucket {
-            ast_node: EitherExprOrStmt::from_expr(Variable {
-                meta: body.get_meta().clone(),
-                name: p.name.clone(),
-                access: Vec::new(),
-            }),
             line: 0,
             message_id: 0,
             parse_as: ValueType::U32,
@@ -195,7 +190,6 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
         let address = state.reserve_variable(size);
         let address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
         let address_instruction = ValueBucket {
-            ast_node: EitherExprOrStmt::Expr(address_expr.clone()),
             line: 0,
             message_id: 0,
             parse_as: ValueType::U32,
@@ -217,7 +211,6 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
                 parse_as: ValueType::U32,
                 value: index,
                 op_aux_no: 0,
-                ast_node: EitherExprOrStmt::Expr(index_expr.clone())
             }
             .allocate();
             let full_address = ComputeBucket {
@@ -226,12 +219,6 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
                 op: OperatorType::AddAddress,
                 stack: vec![address_instruction.clone(), offset_instruction],
                 op_aux_no: 0,
-                expr: InfixOp {
-                    meta: stmt.get_meta().clone(),
-                    lhe: Box::new(address_expr.clone()),
-                    infix_op: ExpressionInfixOpcode::Add,
-                    rhe: Box::new(index_expr),
-                }
             }
             .allocate();
             let content = ValueBucket {
@@ -240,7 +227,6 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
                 parse_as: ValueType::BigInt,
                 value: cid,
                 op_aux_no: 0,
-                ast_node: EitherExprOrStmt::Expr(cid_expr.clone())
             }
             .allocate();
             let store_instruction = StoreBucket {
@@ -251,13 +237,6 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
                 dest: LocationRule::Indexed { location: full_address, template_header: None },
                 context: InstrContext { size: 1 },
                 src: content,
-                stmt: Statement::Substitution {
-                    meta: stmt.get_meta().clone(),
-                    var: arg.name.clone(),
-                    access: Vec::new(),
-                    op: AssignOp::AssignVar,
-                    rhe: cid_expr,
-                }
             }
             .allocate();
             state.code.push(store_instruction);
@@ -272,7 +251,6 @@ fn initialize_signals(state: &mut State, signals: Vec<Signal>, stmt: &Statement)
         let address = state.reserve_signal(size);
         let address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
         let instruction = ValueBucket {
-            ast_node: EitherExprOrStmt::Expr(address_expr),
             line: 0,
             message_id: state.message_id,
             parse_as: ValueType::U32,
@@ -292,7 +270,6 @@ fn initialize_components(state: &mut State, components: Vec<Component>, stmt: &S
         let address = state.reserve_component_address(size);
         let address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
         let instruction = ValueBucket {
-            ast_node: EitherExprOrStmt::Expr(address_expr),
             line: 0,
             message_id: state.message_id,
             parse_as: ValueType::U32,
@@ -410,7 +387,6 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
             parse_as: ValueType::U32,
             value: value_jump,
             op_aux_no: 0,
-            ast_node: EitherExprOrStmt::Expr(jump_expr.clone())
         }
         .allocate();
         let location = ComputeBucket {
@@ -419,12 +395,6 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
             message_id: state.message_id,
             op: OperatorType::AddAddress,
             stack: vec![symbol.access_instruction.clone(), jump],
-            expr: InfixOp {
-                meta: stmt.get_meta().clone(),
-                lhe: Box::new(symbol.access_instruction.get_expression()),
-                infix_op: ExpressionInfixOpcode::Add,
-                rhe: Box::new(jump_expr),
-            }
         }
         .allocate();
 
@@ -503,7 +473,6 @@ fn translate_if_then_else(stmt: Statement, state: &mut State, context: &Context)
         }
         let else_code = std::mem::replace(&mut state.code, main_program);
         let branch_instruction = BranchBucket {
-            stmt: if_then_else_stmt,
             line: starts_at,
             message_id: state.message_id,
             cond: cond_translation,
@@ -525,7 +494,6 @@ fn translate_while(stmt: Statement, state: &mut State, context: &Context) {
         translate_statement(*stmt, state, context);
         let loop_code = std::mem::replace(&mut state.code, main_program);
         let loop_instruction = LoopBucket {
-            stmt: while_stmt,
             line: starts_at,
             message_id: state.message_id,
             continue_condition: cond_translation,
@@ -604,7 +572,6 @@ fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) 
         let size = dimensions.iter().fold(1, |p, c| p * (*c));
         let address = state.reserve_variable(size);
         let instruction = ValueBucket {
-            ast_node: EitherExprOrStmt::from_stmt(declr_stmt),
             line: starts_at,
             message_id: state.message_id,
             parse_as: ValueType::U32,
@@ -650,12 +617,6 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
         let rhe_pointer = translate_expression(rhe.clone(), state, context);
         let stack = vec![lhe_pointer, rhe_pointer];
         let equality = ComputeBucket {
-            expr: InfixOp {
-                meta,
-                lhe: Box::new(lhe),
-                infix_op: ExpressionInfixOpcode::Eq,
-                rhe: Box::new(rhe),
-            },
             line: starts_at,
             message_id: state.message_id,
             op_aux_no: 0,
@@ -664,7 +625,7 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
         }
         .allocate();
         let assert_instruction =
-            AssertBucket { stmt: assert_stmt, line: starts_at, message_id: state.message_id, evaluate: equality }
+            AssertBucket { line: starts_at, message_id: state.message_id, evaluate: equality }
                 .allocate();
         let constraint_instruction = ConstraintBucket::Equality(assert_instruction).allocate();
         state.code.push(constraint_instruction);
@@ -679,7 +640,7 @@ fn translate_assert(stmt: Statement, state: &mut State, context: &Context) {
     if let Assert { meta, arg, .. } = stmt {
         let line = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let code = translate_expression(arg, state, context);
-        let assert = AssertBucket { stmt: assert_stmt, line, message_id: state.message_id, evaluate: code }.allocate();
+        let assert = AssertBucket { line, message_id: state.message_id, evaluate: code }.allocate();
         state.code.push(assert);
     }
 }
@@ -710,7 +671,6 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
         }
         
         let log = LogBucket {
-            stmt: log_stmt,
             line,
             message_id: state.message_id,
             argsprint: logbucket_args,
@@ -725,7 +685,6 @@ fn translate_return(stmt: Statement, state: &mut State, context: &Context) {
     if let Return { meta, value, .. } = stmt {
         let return_type = context.functions.get(&context.translating).unwrap();
         let return_bucket = ReturnBucket {
-            stmt: return_stmt,
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             with_size: return_type.iter().fold(1, |p, c| p * (*c)),
@@ -771,7 +730,6 @@ fn translate_call(
     if let Call { id, args, meta, .. } = expression {
         let args_inst = translate_call_arguments(args, state, context);
         CallBucket {
-            expr: call_expr,
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             symbol: id,
@@ -797,7 +755,6 @@ fn translate_infix(
         let lhi = translate_expression(*lhe, state, context);
         let rhi = translate_expression(*rhe, state, context);
         ComputeBucket {
-            expr: infix_expr,
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             op: translate_infix_operator(infix_op),
@@ -820,7 +777,6 @@ fn translate_prefix(
     if let PrefixOp { meta, prefix_op, rhe, .. } = expression {
         let rhi = translate_expression(*rhe, state, context);
         ComputeBucket {
-            expr: prefix_expr,
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             op_aux_no: 0,
@@ -893,7 +849,6 @@ fn translate_number(
             op_aux_no: 0,
             parse_as: ValueType::BigInt,
             value: cid,
-            ast_node: EitherExprOrStmt::Expr(number_expr)
         }
         .allocate()
     } else {
@@ -1111,7 +1066,6 @@ impl ProcessedSymbol {
             arguments: args.arguments,
             arena_size: 200,
             return_info: ReturnType::Final(data),
-            expr: expr.clone()
         }
         .allocate()
     }
@@ -1135,7 +1089,6 @@ impl ProcessedSymbol {
                 context: InstrContext { size: self.length },
                 dest_is_output: false,
                 dest_address_type: dest_type,
-                stmt: stmt.clone()
             }
             .allocate()
         } else {
@@ -1152,7 +1105,6 @@ impl ProcessedSymbol {
                 dest_is_output: self.signal_type.map_or(false, |t| t == SignalType::Output),
                 dest: LocationRule::Indexed { location: address, template_header: None },
                 context: InstrContext { size: self.length },
-                stmt: stmt.clone()
             }
             .allocate()
         }
@@ -1174,7 +1126,6 @@ impl ProcessedSymbol {
                 line: self.line,
                 message_id: self.message_id,
                 address_type: dest_type,
-                expr: expr.clone()
             }
             .allocate()
         } else {
@@ -1188,7 +1139,6 @@ impl ProcessedSymbol {
                 address_type: xtype,
                 message_id: self.message_id,
                 src: LocationRule::Indexed { location: address, template_header: None },
-                expr: expr.clone()
             }
             .allocate()
         }
@@ -1220,7 +1170,6 @@ fn compute_full_address(
                 parse_as: ValueType::U32,
                 op_aux_no: 0,
                 value: linear_length,
-                ast_node: EitherExprOrStmt::Expr(linear_length_expr.clone())
             }
             .allocate();
             let jump = ComputeBucket {
@@ -1229,12 +1178,6 @@ fn compute_full_address(
                 op_aux_no: 0,
                 op: OperatorType::MulAddress,
                 stack: vec![inst, instruction.clone()],
-                expr: InfixOp {
-                    meta: meta.clone(),
-                    lhe: Box::new(linear_length_expr),
-                    infix_op: ExpressionInfixOpcode::Mul,
-                    rhe: Box::new(instruction.get_expression()),
-                }
             }
             .allocate();
             stack.push(jump);
@@ -1278,7 +1221,6 @@ fn indexing_instructions_filter(
                     op_aux_no: 0,
                     op: OperatorType::ToAddress,
                     stack: vec![op.clone().allocate()],
-                    expr: op.get_expression()
                 };
                 index_stack.push(to_address.allocate());
             }
@@ -1327,12 +1269,6 @@ fn fold(using: OperatorType, mut stack: Vec<InstructionPointer>, state: &State, 
             op_aux_no: 0,
             op: using,
             stack: vec![inner_fold.clone(), instruction.clone()],
-            expr: InfixOp {
-                meta: meta.clone(),
-                lhe: Box::new(inner_fold.get_expression()),
-                infix_op: op_to_opcode(using),
-                rhe: Box::new(instruction.get_expression()),
-            }
         }
         .allocate()
     }

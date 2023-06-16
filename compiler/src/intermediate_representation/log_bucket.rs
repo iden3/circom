@@ -23,7 +23,6 @@ impl LogBucketArg{
 
 #[derive(Clone, Debug)]
 pub struct LogBucket {
-    pub stmt: Statement,
     pub line: usize,
     pub message_id: usize,
     pub argsprint: Vec<LogBucketArg>,

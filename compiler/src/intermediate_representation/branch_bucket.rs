@@ -9,7 +9,6 @@ use program_structure::ast::Statement;
 
 #[derive(Clone, Debug)]
 pub struct BranchBucket {
-    pub stmt: Statement,
     pub line: usize,
     pub message_id: usize,
     pub cond: InstructionPointer,

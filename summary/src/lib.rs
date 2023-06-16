@@ -16,7 +16,8 @@ struct Meta {
 struct SignalSummary {
     name: String,
     visibility: String,
-    idx: usize
+    idx: usize,
+    public: bool
 }
 
 #[derive(Serialize)]
@@ -77,6 +78,7 @@ fn unroll_signal(name: &String, info: &SignalInfo, idx: usize) -> Vec<SignalSumm
                 SignalType::Input => "input",
                 SignalType::Intermediate => "intermediate"
             }.to_string(),
+            public: false,
             idx
         }]
     }
@@ -90,7 +92,8 @@ fn unroll_signal(name: &String, info: &SignalInfo, idx: usize) -> Vec<SignalSumm
                 SignalType::Input => "input",
                 SignalType::Intermediate => "intermediate"
             }.to_string(),
-            idx: idx + offset
+            idx: idx + offset,
+            public: false
         })
     }
 
