@@ -4,8 +4,8 @@ use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, to_enum, LLVMIRProducer};
 use code_producers::llvm_elements::values::{create_literal_u32, get_const};
 use code_producers::wasm_elements::*;
-use program_structure::ast::Statement;
-use crate::intermediate_representation::either::EitherExprOrStmt;
+
+
 
 #[derive(Clone, Debug)]
 pub struct ValueBucket {

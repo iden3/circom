@@ -21,7 +21,7 @@ use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::wasm_elements::*;
-use program_structure::ast::{Expression, Statement};
+
 
 pub trait IntoInstruction {
     fn into_instruction(self) -> Instruction;

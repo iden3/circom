@@ -137,7 +137,7 @@ impl SummaryRoot {
 
             let mut signals_data: Vec<(String, usize)> = template_database.signals_id[template_id].clone().into_iter().collect();
             signals_data.sort_by_key(|(_, x)| *x);
-            for (signal_name, signal_idx) in &signals_data {
+            for (signal_name, _signal_idx) in &signals_data {
                 let signal_info = &template_database.signal_info[template_id][signal_name];
 
                 for signal_summary in unroll_signal(signal_name, signal_info, signals.len()) {

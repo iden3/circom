@@ -1,6 +1,6 @@
-use num_bigint::BigInt;
-use program_structure::ast::Expression;
-use crate::intermediate_representation::either::EitherExprOrStmt;
+
+
+
 use crate::intermediate_representation::ir_interface::*;
 
 pub fn reduce_list(list: InstructionList) -> InstructionList {
@@ -26,7 +26,7 @@ pub fn reduce_instruction(instr: Instruction) -> Instruction {
         CreateCmp(b) => reduce_crt_cmp(b),
         Compute(b) => reduce_compute(b),
         Constraint(b) => reduce_constraint(b),
-        UnrolledLoop(b) => unreachable!(),
+        UnrolledLoop(_b) => unreachable!(),
         Nop(b) => IntoInstruction::into_instruction(b)
     }
 }

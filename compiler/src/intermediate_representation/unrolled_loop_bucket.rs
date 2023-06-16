@@ -1,6 +1,6 @@
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use crate::intermediate_representation::{Instruction, InstructionList, InstructionPointer};
-use crate::intermediate_representation::ir_interface::{Allocate, IntoInstruction, LoopBucket, ObtainMeta};
+use crate::intermediate_representation::ir_interface::{Allocate, IntoInstruction, ObtainMeta};
 use crate::translating_traits::WriteLLVMIR;
 
 #[derive(Clone, Debug)]

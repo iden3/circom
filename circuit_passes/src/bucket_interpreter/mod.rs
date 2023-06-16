@@ -2,21 +2,21 @@ mod value;
 pub mod env;
 
 use std::cell::{Ref, RefCell, RefMut};
-use std::collections::HashMap;
-use std::mem::replace;
-use std::ops::{Add, Div, Mul, Sub};
+
+
+
 use std::rc::Rc;
-use compiler::circuit_design::function::FunctionCode;
-use compiler::circuit_design::template::TemplateCode;
+
+
 use compiler::intermediate_representation::{Instruction, InstructionPointer};
 use compiler::intermediate_representation::ir_interface::{AddressType, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, OperatorType, ReturnBucket, StatusInput, StoreBucket, UnrolledLoopBucket, ValueBucket, ValueType};
 use compiler::num_bigint::BigInt;
-use compiler::num_traits::{One, ToPrimitive, Zero};
+
 use env::Env;
 use program_structure::constants::UsefulConstants;
 use value::Value;
 use value::Value::{KnownBigInt, KnownU32, Unknown};
-use crate::bucket_interpreter::value::{mod_p, mod_value, resolve_operation};
+use crate::bucket_interpreter::value::{mod_value, resolve_operation};
 
 pub struct BucketInterpreter {
     env: Vec<Rc<RefCell<Env>>>,
@@ -170,7 +170,7 @@ impl BucketInterpreter {
         })
     }
 
-    pub fn execute_call_bucket(&self, bucket: &CallBucket) -> Option<Value> {
+    pub fn execute_call_bucket(&self, _bucket: &CallBucket) -> Option<Value> {
         todo!()
     }
 
@@ -178,7 +178,7 @@ impl BucketInterpreter {
         self.execute_conditional_bucket(&bucket.cond, &bucket.if_branch, &bucket.else_branch).0
     }
 
-    pub fn execute_return_bucket(&self, bucket: &ReturnBucket) -> Option<Value> {
+    pub fn execute_return_bucket(&self, _bucket: &ReturnBucket) -> Option<Value> {
         todo!()
     }
 
@@ -190,7 +190,7 @@ impl BucketInterpreter {
         None
     }
 
-    pub fn execute_log_bucket(&self, bucket: &LogBucket) -> Option<Value> {
+    pub fn execute_log_bucket(&self, _bucket: &LogBucket) -> Option<Value> {
         todo!()
     }
 

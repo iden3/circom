@@ -8,9 +8,9 @@ use program_structure::file_definition::FileLibrary;
 use program_structure::utils::environment::VarEnvironment;
 use std::collections::{HashMap, BTreeMap, HashSet};
 use program_structure::ast::AssignOp;
-use program_structure::ast::Expression::{InfixOp, Variable};
+
 use crate::intermediate_representation::constraint_bucket::ConstraintBucket;
-use crate::intermediate_representation::either::EitherExprOrStmt;
+
 
 type Length = usize;
 pub type E = VarEnvironment<SymbolInfo>;
@@ -164,7 +164,7 @@ struct Context<'a> {
     cmp_to_type: HashMap<String, ClusterType>,
 }
 
-fn initialize_parameters(state: &mut State, params: Vec<Param>, body: &Statement) {
+fn initialize_parameters(state: &mut State, params: Vec<Param>, _body: &Statement) {
     for p in params {
         let lengths = p.length;
         let full_size = lengths.iter().fold(1, |p, s| p * (*s));
@@ -188,7 +188,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
         let dimensions = arg.lengths;
         let size = dimensions.iter().fold(1, |p, c| p * (*c));
         let address = state.reserve_variable(size);
-        let address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
+        let _address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
         let address_instruction = ValueBucket {
             line: 0,
             message_id: 0,
@@ -203,8 +203,8 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
         let mut index = 0;
         for value in arg.values {
             let cid = bigint_to_cid(&mut state.field_tracker, &value);
-            let cid_expr = Expression::Number(stmt.get_meta().clone(), value);
-            let index_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(index));
+            let _cid_expr = Expression::Number(stmt.get_meta().clone(), value);
+            let _index_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(index));
             let offset_instruction = ValueBucket {
                 line: 0,
                 message_id: 0,
@@ -249,7 +249,7 @@ fn initialize_signals(state: &mut State, signals: Vec<Signal>, stmt: &Statement)
     for signal in signals {
         let size = signal.lengths.iter().fold(1, |p, c| p * (*c));
         let address = state.reserve_signal(size);
-        let address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
+        let _address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
         let instruction = ValueBucket {
             line: 0,
             message_id: state.message_id,
@@ -268,7 +268,7 @@ fn initialize_components(state: &mut State, components: Vec<Component>, stmt: &S
     for component in components {
         let size = component.size();
         let address = state.reserve_component_address(size);
-        let address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
+        let _address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
         let instruction = ValueBucket {
             line: 0,
             message_id: state.message_id,
@@ -380,7 +380,7 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
         let c_info = &triggers[index];
         let symbol = state.environment.get_variable(&c_info.component_name).unwrap().clone();
         let value_jump = compute_jump(&symbol.dimensions, &c_info.indexed_with);
-        let jump_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(value_jump));
+        let _jump_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(value_jump));
         let jump = ValueBucket {
             line: 0,
             message_id: state.message_id,
@@ -461,7 +461,7 @@ fn translate_statement(stmt: Statement, state: &mut State, context: &Context) {
 
 fn translate_if_then_else(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::IfThenElse;
-    let if_then_else_stmt = stmt.clone();
+    let _if_then_else_stmt = stmt.clone();
     if let IfThenElse { meta, cond, if_case, else_case, .. } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let main_program = std::mem::replace(&mut state.code, vec![]);
@@ -486,7 +486,7 @@ fn translate_if_then_else(stmt: Statement, state: &mut State, context: &Context)
 
 fn translate_while(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::While;
-    let while_stmt = stmt.clone();
+    let _while_stmt = stmt.clone();
     if let While { meta, cond, stmt, .. } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let main_program = std::mem::replace(&mut state.code, vec![]);
@@ -565,7 +565,7 @@ fn translate_standard_case(
 
 fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::Declaration;
-    let declr_stmt = stmt.clone();
+    let _declr_stmt = stmt.clone();
     if let Declaration { name, meta, .. } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let dimensions = meta.get_memory_knowledge().get_concrete_dimensions().to_vec();
@@ -604,7 +604,7 @@ fn translate_block(stmt: Statement, state: &mut State, context: &Context) {
 fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::ConstraintEquality;
     use Expression::Variable;
-    let assert_stmt = stmt.clone();
+    let _assert_stmt = stmt.clone();
     if let ConstraintEquality { meta, lhe, rhe } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
 
@@ -636,7 +636,7 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
 
 fn translate_assert(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::Assert;
-    let assert_stmt = stmt.clone();
+    let _assert_stmt = stmt.clone();
     if let Assert { meta, arg, .. } = stmt {
         let line = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let code = translate_expression(arg, state, context);
@@ -647,7 +647,7 @@ fn translate_assert(stmt: Statement, state: &mut State, context: &Context) {
 
 fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::LogCall;
-    let log_stmt = stmt.clone();
+    let _log_stmt = stmt.clone();
     if let LogCall { meta, args, .. } = stmt {
         let line = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let mut logbucket_args = Vec::new();
@@ -681,7 +681,7 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
 
 fn translate_return(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::Return;
-    let return_stmt = stmt.clone();
+    let _return_stmt = stmt.clone();
     if let Return { meta, value, .. } = stmt {
         let return_type = context.functions.get(&context.translating).unwrap();
         let return_bucket = ReturnBucket {
@@ -726,7 +726,7 @@ fn translate_call(
 ) -> InstructionPointer {
     use Expression::Call;
     use ReturnType::Intermediate;
-    let call_expr = expression.clone();
+    let _call_expr = expression.clone();
     if let Call { id, args, meta, .. } = expression {
         let args_inst = translate_call_arguments(args, state, context);
         CallBucket {
@@ -750,7 +750,7 @@ fn translate_infix(
     context: &Context,
 ) -> InstructionPointer {
     use Expression::InfixOp;
-    let infix_expr = expression.clone();
+    let _infix_expr = expression.clone();
     if let InfixOp { meta, infix_op, rhe, lhe, .. } = expression {
         let lhi = translate_expression(*lhe, state, context);
         let rhi = translate_expression(*rhe, state, context);
@@ -773,7 +773,7 @@ fn translate_prefix(
     context: &Context,
 ) -> InstructionPointer {
     use Expression::PrefixOp;
-    let prefix_expr = expression.clone();
+    let _prefix_expr = expression.clone();
     if let PrefixOp { meta, prefix_op, rhe, .. } = expression {
         let rhi = translate_expression(*rhe, state, context);
         ComputeBucket {
@@ -840,7 +840,7 @@ fn translate_number(
     context: &Context,
 ) -> InstructionPointer {
     use Expression::Number;
-    let number_expr = expression.clone();
+    let _number_expr = expression.clone();
     if let Number(meta, value) = expression {
         let cid = bigint_to_cid(&mut state.field_tracker, &value);
         ValueBucket {
@@ -1163,7 +1163,7 @@ fn compute_full_address(
         for instruction in index_stack {
             let dimension_length = with_dimensions.pop().unwrap();
             linear_length /= dimension_length;
-            let linear_length_expr = Expression::Number(meta.clone(), BigInt::from(linear_length));
+            let _linear_length_expr = Expression::Number(meta.clone(), BigInt::from(linear_length));
             let inst = ValueBucket {
                 line: at.get_line(),
                 message_id: at.get_message_id(),

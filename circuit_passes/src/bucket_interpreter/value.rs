@@ -282,10 +282,10 @@ pub fn bit_or_value(lhs: &Value, rhs: &Value) -> Value {
     match (lhs, rhs) {
         (Unknown, _) => Unknown,
         (_, Unknown) => Unknown,
-        (KnownU32(lhs), KnownU32(rhs)) => KnownU32((lhs | rhs)),
-        (KnownU32(lhs), KnownBigInt(rhs)) => KnownBigInt((BigInt::from(*lhs) | rhs)),
-        (KnownBigInt(lhs), KnownBigInt(rhs)) => KnownBigInt((lhs | rhs)),
-        (KnownBigInt(lhs), KnownU32(rhs)) => KnownBigInt((lhs | &BigInt::from(*rhs)))
+        (KnownU32(lhs), KnownU32(rhs)) => KnownU32(lhs | rhs),
+        (KnownU32(lhs), KnownBigInt(rhs)) => KnownBigInt(BigInt::from(*lhs) | rhs),
+        (KnownBigInt(lhs), KnownBigInt(rhs)) => KnownBigInt(lhs | rhs),
+        (KnownBigInt(lhs), KnownU32(rhs)) => KnownBigInt(lhs | &BigInt::from(*rhs))
     }
 }
 
@@ -294,9 +294,9 @@ pub fn bit_and_value(lhs: &Value, rhs: &Value) -> Value {
         (Unknown, _) => Unknown,
         (_, Unknown) => Unknown,
         (KnownU32(lhs), KnownU32(rhs)) => KnownU32((lhs & rhs).into()),
-        (KnownU32(lhs), KnownBigInt(rhs)) => KnownBigInt((BigInt::from(*lhs) & rhs)),
-        (KnownBigInt(lhs), KnownBigInt(rhs)) => KnownBigInt((lhs & rhs)),
-        (KnownBigInt(lhs), KnownU32(rhs)) => KnownBigInt((lhs & &BigInt::from(*rhs)))
+        (KnownU32(lhs), KnownBigInt(rhs)) => KnownBigInt(BigInt::from(*lhs) & rhs),
+        (KnownBigInt(lhs), KnownBigInt(rhs)) => KnownBigInt(lhs & rhs),
+        (KnownBigInt(lhs), KnownU32(rhs)) => KnownBigInt(lhs & &BigInt::from(*rhs))
     }
 }
 
@@ -305,16 +305,16 @@ pub fn bit_xor_value(lhs: &Value, rhs: &Value) -> Value {
         (Unknown, _) => Unknown,
         (_, Unknown) => Unknown,
         (KnownU32(lhs), KnownU32(rhs)) => KnownU32((lhs ^ rhs).into()),
-        (KnownU32(lhs), KnownBigInt(rhs)) => KnownBigInt((BigInt::from(*lhs) ^ rhs)),
-        (KnownBigInt(lhs), KnownBigInt(rhs)) => KnownBigInt((lhs ^ rhs)),
-        (KnownBigInt(lhs), KnownU32(rhs)) => KnownBigInt((lhs ^ &BigInt::from(*rhs)))
+        (KnownU32(lhs), KnownBigInt(rhs)) => KnownBigInt(BigInt::from(*lhs) ^ rhs),
+        (KnownBigInt(lhs), KnownBigInt(rhs)) => KnownBigInt(lhs ^ rhs),
+        (KnownBigInt(lhs), KnownU32(rhs)) => KnownBigInt(lhs ^ &BigInt::from(*rhs))
     }
 }
 
 pub fn prefix_sub(v: &Value) -> Value {
     match v {
         Unknown => Unknown,
-        KnownU32(n) => panic!("We cannot get the negative of an unsigned integer!"),
+        KnownU32(_n) => panic!("We cannot get the negative of an unsigned integer!"),
         KnownBigInt(n) => KnownBigInt(-n.clone())
     }
 }
@@ -359,11 +359,6 @@ impl Default for &Value {
     fn default() -> Self {
         &Unknown
     }
-}
-
-/// Returns a function that accepts a big int and applies modulus over p
-pub fn mod_p(p: BigInt) -> impl Fn(BigInt) -> BigInt {
-    move |x: BigInt| x % p.clone()
 }
 
 pub fn resolve_operation(op: fn(&Value, &Value) -> Value, p: &BigInt, stack: &[Value]) -> Value {

@@ -1,10 +1,10 @@
 use std::cell::RefCell;
-use std::ops::Add;
+
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{Instruction, InstructionList, InstructionPointer};
-use compiler::intermediate_representation::either::EitherExprOrStmt;
-use compiler::intermediate_representation::ir_interface::{AddressType, Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LogBucketArg, LoopBucket, NopBucket, ReturnBucket, StoreBucket, UnrolledLoopBucket, ValueBucket, ValueType};
+
+use compiler::intermediate_representation::ir_interface::{AddressType, Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucketArg, LoopBucket, NopBucket, ReturnBucket, StoreBucket, UnrolledLoopBucket, ValueBucket, ValueType};
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::env::{Env, FunctionsLibrary, TemplatesLibrary};
 use crate::CircuitTransformationPass;
@@ -75,7 +75,7 @@ impl ComputeSimplificationPass {
     /// Evaluated the compute bucket and returns either a copy of the bucket
     /// or a ValueBucket with the result of the expression represented in the ComputeBucket.
     fn eval_compute_bucket(&self, bucket: &ComputeBucket) -> InstructionPointer {
-        let mut interpreter = &mut self.memory.borrow_mut().interpreter;
+        let interpreter = &mut self.memory.borrow_mut().interpreter;
         interpreter.push_env();
         let result = interpreter.execute_compute_bucket(bucket).unwrap();
         if result.is_unknown() {
@@ -103,7 +103,7 @@ impl ComputeSimplificationPass {
     }
 
     fn eval_call_bucket(&self, bucket: &CallBucket) -> InstructionPointer {
-        let mut interpreter = &mut self.memory.borrow_mut().interpreter;
+        let interpreter = &mut self.memory.borrow_mut().interpreter;
         interpreter.push_env();
         let result = interpreter.execute_call_bucket(bucket).unwrap();
         if result.is_unknown() {
@@ -266,7 +266,7 @@ impl CircuitTransformationPass for ComputeSimplificationPass {
         };
 
         // Run the interpreter
-        let mut interpreter = &mut self.memory.borrow_mut().interpreter;
+        let interpreter = &mut self.memory.borrow_mut().interpreter;
         // We run the original instruction, not the new one.
         interpreter.execute_instruction(i);
         // Return the transformed bucket

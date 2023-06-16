@@ -5,7 +5,7 @@ use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::llvm_elements::instructions::{create_gep, create_load};
 use code_producers::llvm_elements::values::zero;
 use code_producers::wasm_elements::*;
-use program_structure::ast::{Expression, Statement};
+
 
 #[derive(Clone, Debug)]
 pub struct LoadBucket {

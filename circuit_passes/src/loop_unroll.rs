@@ -1,18 +1,18 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::ops::Deref;
-use std::rc::Rc;
+
+
+
 use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::Instruction::UnrolledLoop;
-use program_structure::ast::Statement::While;
+
+
 use crate::CircuitTransformationPass;
 use compiler::intermediate_representation::ir_interface::{AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LogBucket, LoopBucket, ReturnBucket, StoreBucket, UnrolledLoopBucket, ValueBucket};
 use compiler::intermediate_representation::InstructionPointer;
-use constraint_generation::execute::{execute_conditional_statement, RuntimeInformation};
+
 use compiler::intermediate_representation::ir_interface::Allocate;
-use program_structure::program_archive::ProgramArchive;
+
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::env::{Env, FunctionsLibrary, TemplatesLibrary};
 
@@ -126,7 +126,7 @@ impl CircuitTransformationPass for LoopUnrollPass {
     fn run_on_loop_bucket(&self, bucket: &LoopBucket) -> InstructionPointer {
         println!("[RUN ON] Executing {}", bucket.to_string());
         let loop_iterations = {
-            let mut interpreter = &mut self.memory.borrow_mut().interpreter;
+            let interpreter = &mut self.memory.borrow_mut().interpreter;
 
             interpreter.push_env(); // Save the environment
             // First we run the loop once. If the result is None that means that the condition is unknown

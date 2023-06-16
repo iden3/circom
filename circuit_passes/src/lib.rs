@@ -28,7 +28,7 @@ macro_rules! run_on_bucket {
 
 macro_rules! pre_hook {
     ($name: ident, $bucket_ty: ty) => {
-        fn $name(&self, bucket: &$bucket_ty)  {}
+        fn $name(&self, _bucket: &$bucket_ty)  {}
     }
 }
 
@@ -186,7 +186,7 @@ impl PassManager {
 
     pub fn schedule_loop_unroll_pass(&self, program_archive: ProgramArchive, prime: &String) -> &Self {
         let main_file_id = program_archive.get_file_id_main();
-        let runtime = RuntimeInformation::new(*main_file_id, program_archive.id_max, prime);
+        let _runtime = RuntimeInformation::new(*main_file_id, program_archive.id_max, prime);
         self.passes.borrow_mut().push(Box::new(LoopUnrollPass::new(prime)));
         self
     }
