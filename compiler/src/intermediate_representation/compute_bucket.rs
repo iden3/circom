@@ -11,9 +11,9 @@ use code_producers::llvm_elements::fr::{
 };
 use code_producers::llvm_elements::instructions::{create_add_with_name, create_call, create_mul_with_name};
 use code_producers::wasm_elements::*;
-use program_structure::ast::Expression;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum OperatorType {
     Mul,
     Div,
@@ -97,9 +97,8 @@ impl ToString for OperatorType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ComputeBucket {
-    pub expr: Expression,
     pub line: usize,
     pub message_id: usize,
     pub op: OperatorType,

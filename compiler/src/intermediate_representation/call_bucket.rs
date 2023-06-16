@@ -6,9 +6,9 @@ use code_producers::llvm_elements::instructions::{create_alloca, create_call, cr
 use code_producers::llvm_elements::types::bigint_type;
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
-use program_structure::ast::Expression;
 
-#[derive(Clone)]
+
+#[derive(Clone, Debug)]
 pub struct FinalData {
     // greater than one only with signals.
     pub context: InstrContext,
@@ -17,15 +17,14 @@ pub struct FinalData {
     pub dest: LocationRule,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ReturnType {
     Intermediate { op_aux_no: usize },
     Final(FinalData),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CallBucket {
-    pub expr: Expression,
     pub line: usize,
     pub message_id: usize,
     pub symbol: String,

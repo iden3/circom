@@ -5,11 +5,10 @@ use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::llvm_elements::instructions::{create_gep, create_load};
 use code_producers::llvm_elements::values::zero;
 use code_producers::wasm_elements::*;
-use program_structure::ast::{Expression, Statement};
 
-#[derive(Clone)]
+
+#[derive(Clone, Debug)]
 pub struct LoadBucket {
-    pub expr: Expression,
     pub line: usize,
     pub message_id: usize,
     pub address_type: AddressType,
@@ -52,7 +51,7 @@ impl ToString for LoadBucket {
 
 impl WriteLLVMIR for LoadBucket {
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
-        println!("{}\n", self.to_string());
+        println!("[LoadBucket as WriteLLVMIR]   {}\n", self.to_string());
         // Generate the code of the location and use the last value as the reference
         let index = self.src.produce_llvm_ir(producer).expect("We need to produce some kind of instruction!").into_int_value();
         let gep = match &self.address_type {
@@ -61,6 +60,7 @@ impl WriteLLVMIR for LoadBucket {
             AddressType::SubcmpSignal { cmp_address, ..  } => {
                 let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
                 let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
+                assert!(index.is_constant_int());
                 create_gep(producer, subcmp, &[zero(producer), index])
             }
         };

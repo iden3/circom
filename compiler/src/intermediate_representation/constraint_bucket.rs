@@ -7,7 +7,7 @@ use crate::intermediate_representation::{Instruction, InstructionPointer};
 use crate::intermediate_representation::ir_interface::{Allocate, IntoInstruction, ObtainMeta};
 use crate::translating_traits::{WriteC, WriteLLVMIR, WriteWasm};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ConstraintBucket {
     Substitution(InstructionPointer),
     Equality(InstructionPointer)

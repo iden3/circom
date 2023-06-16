@@ -27,7 +27,9 @@ pub fn visit_instruction(
         Assert(b) => visit_assert(b, function_to_arena_size),
         CreateCmp(b) => visit_create_cmp(b, function_to_arena_size),
         Log(b) => visit_log(b, function_to_arena_size),
-        Constraint(b) => visit_constraint(b, function_to_arena_size)
+        Constraint(b) => visit_constraint(b, function_to_arena_size),
+        UnrolledLoop(_) => unreachable!(),
+        Nop(_) => unreachable!()
     }
 }
 

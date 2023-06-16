@@ -4,12 +4,11 @@ use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, to_enum, LLVMIRProducer};
 use code_producers::llvm_elements::values::{create_literal_u32, get_const};
 use code_producers::wasm_elements::*;
-use program_structure::ast::Statement;
-use crate::intermediate_representation::either::EitherExprOrStmt;
 
-#[derive(Clone)]
+
+
+#[derive(Clone, Debug)]
 pub struct ValueBucket {
-    pub ast_node: EitherExprOrStmt,
     pub line: usize,
     pub message_id: usize,
     pub parse_as: ValueType,

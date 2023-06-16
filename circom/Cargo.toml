@@ -20,6 +20,7 @@ constraint_generation = { path = "../constraint_generation" }
 constraint_writers = { path = "../constraint_writers" }
 compiler = { path = "../compiler" }
 summary = { path = "../summary" }
+circuit_passes = { path = "../circuit_passes" }
 dag = { path = "../dag" }
 clap = "2.33.0"
 ansi_term = "0.12.1"

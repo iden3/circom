@@ -11,7 +11,7 @@ use code_producers::wasm_elements::*;
 //use std::io::Write;
 
 pub type FunctionCode = Box<FunctionCodeInfo>;
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct FunctionCodeInfo {
     pub header: String,
     pub name: String,

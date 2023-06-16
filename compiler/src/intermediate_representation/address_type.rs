@@ -17,7 +17,7 @@ pub enum InputInformation {
     Input {status: StatusInput},
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum AddressType {
     Variable,
     Signal,

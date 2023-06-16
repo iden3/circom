@@ -25,12 +25,12 @@ type AExpr = ArithmeticExpressionGen<String>;
 type AnonymousComponentsInfo = BTreeMap<String, (Meta, Vec<Expression>)>;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-enum BlockType {
+pub enum BlockType {
     Known,
     Unknown,
 }
 
-struct RuntimeInformation {
+pub struct RuntimeInformation {
     pub block_type: BlockType,
     pub analysis: Analysis,
     pub public_inputs: Vec<String>,
@@ -59,7 +59,8 @@ impl RuntimeInformation {
     }
 }
 
-struct FoldedValue {
+#[derive(Debug)]
+pub struct FoldedValue {
     pub arithmetic_slice: Option<AExpressionSlice>,
     pub node_pointer: Option<NodePointer>,
     pub is_parallel: Option<bool>,
@@ -1254,7 +1255,7 @@ fn signal_is_initialized(signal_previous_value: &MemorySlice<bool>, meta: &Meta,
 }
 
 // Evaluates the given condition and executes the corresponding statement. Returns a tuple (a,b) where a is the possible value returned and b is the value of the condition (in case the evaluation was successful)
-fn execute_conditional_statement(
+pub fn execute_conditional_statement(
     condition: &Expression,
     true_case: &Statement,
     false_case: Option<&Statement>,

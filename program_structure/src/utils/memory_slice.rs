@@ -33,7 +33,7 @@ pub type SimpleSlice = MemorySlice<BigInt>;
     The attribute route stores the dimensions of the slice, used to navigate through them.
     The length of values is equal to multiplying all the values in route.
 */
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct MemorySlice<C> {
     route: Vec<SliceCapacity>,
     values: Vec<C>,

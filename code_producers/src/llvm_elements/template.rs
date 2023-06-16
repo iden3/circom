@@ -137,6 +137,7 @@ impl<'a> TemplateCtx<'a> {
         producer: &dyn LLVMIRProducer<'a>,
         id: AnyValueEnum<'a>,
     ) -> PointerValue<'a> {
+        assert!(id.into_int_value().is_constant_int());
         let signals = create_gep(producer, self.subcmps, &[zero(producer), id.into_int_value(), zero(producer)])
             .into_pointer_value();
         create_load(producer, signals).into_pointer_value()
@@ -148,6 +149,7 @@ impl<'a> TemplateCtx<'a> {
         producer: &dyn LLVMIRProducer<'a>,
         id: AnyValueEnum<'a>,
     ) -> PointerValue<'a> {
+        assert!(id.into_int_value().is_constant_int());
         create_gep(
             producer,
             self.subcmps,
@@ -157,11 +159,13 @@ impl<'a> TemplateCtx<'a> {
     }
 
     /// Returns a pointer to the signal associated to the index
+    /// Crashes if `index` is not a literal value
     pub fn get_signal(
         &self,
         producer: &dyn LLVMIRProducer<'a>,
         index: IntValue<'a>,
     ) -> AnyValueEnum<'a> {
+        assert!(index.is_constant_int());
         let signals = self.current_function.get_nth_param(self.signals_arg_offset as u32).unwrap();
         println!("{} {}", index.print_to_string().to_string(), signals.print_to_string().to_string());
         create_gep(producer, signals.into_pointer_value(), &[zero(producer), index])

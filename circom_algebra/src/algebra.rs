@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 
+#[derive(Debug)]
 pub enum ArithmeticExpression<C>
 where
     C: Hash + Eq,
