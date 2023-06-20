@@ -10,6 +10,7 @@ use compiler::intermediate_representation::Instruction::Branch;
 use crate::passes::loop_unroll::LoopUnrollPass;
 use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket, AddressType, ReturnType, FinalData, LogBucketArg};
 use program_structure::ast::Expression::Call;
+use crate::passes::conditional_flattening::ConditionalFlattening;
 use crate::passes::simplification::SimplificationPass;
 
 mod conditional_flattening;
@@ -337,17 +338,19 @@ impl PassManager {
 
     pub fn schedule_loop_unroll_pass(
         &self,
-        program_archive: ProgramArchive,
         prime: &String,
     ) -> &Self {
-        let main_file_id = program_archive.get_file_id_main();
-        let _runtime = RuntimeInformation::new(*main_file_id, program_archive.id_max, prime);
         self.passes.borrow_mut().push(Box::new(LoopUnrollPass::new(prime)));
         self
     }
 
     pub fn schedule_simplification_pass(&self, prime: &String) -> &Self {
         self.passes.borrow_mut().push(Box::new(SimplificationPass::new(prime)));
+        self
+    }
+
+    pub fn schedule_conditional_flattening_pass(&self, prime: &String) -> &Self {
+        self.passes.borrow_mut().push(Box::new(ConditionalFlattening::new(prime)));
         self
     }
 
