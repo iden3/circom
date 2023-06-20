@@ -461,24 +461,23 @@ Listable: Vec<Expression> = {
     },
 };
 
-ListableWithInputNames  : (Vec<Expression>,Option<Vec<(AssignOp,String)>>) = {
+ListableWithInputNames  : (Vec<Expression>, Vec<(AssignOp,String)>) = {
     <e : (< IDENTIFIER> <ParseAssignOp> < ParseExpression> ",")*>
     <name: IDENTIFIER> <op : ParseAssignOp> <signal: ParseExpression> => {
         let (mut operators_names, mut signals) = unzip_3(e);
         signals.push(signal);
-        match operators_names.len() {
-            0 => (signals, Option::None),
-            _ => { operators_names.push((op,name)); (signals, Option::Some(operators_names))
-            }
-        }
+        operators_names.push((op, name));
+        (signals, operators_names)
     }
 };
 
-ListableAnon : (Vec<Expression>,Option<Vec<(AssignOp,String)>>) = {
+ListableAnon : (Vec<Expression>, Option<Vec<(AssignOp,String)>>) = {
+    <l : ListableWithInputNames> => {
+        (l.0, Option::Some(l.1))
+    },
     <l : Listable> => {
         (l, Option::None)
     },
-    <l : ListableWithInputNames> => l,
 };
 
 ParseString : LogArgument = {
@@ -599,7 +598,7 @@ Expression1: Expression = {
         Some(a) => a
     };
     let (signals, names) = match args2 {
-        None => (Vec::new(),Option::None),
+        None => (Vec::new(), Option::None),
         Some(a) => a
     };
     build_anonymous_component(Meta::new(s,e),id,params,signals,names,false)}
