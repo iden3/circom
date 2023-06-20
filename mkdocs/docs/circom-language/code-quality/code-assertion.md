@@ -2,7 +2,7 @@
 
 **assert(bool_expression);**
 
-This statement introduces conditions to be checked. Here, we distinguish two cases depending if **bool_expression** is unknown at compilation time:
+This statement introduces conditions to be checked. Here, we distinguish two cases depending on if **bool_expression** is unknown at compilation time:
 
 - If the assert statement depends on a control flow with only known conditions (see [Unknowns](../circom-insight/unknowns)) and the **bool_expression** is known (e.g., if it only depends on the value of template parameters or field constants), the assert is evaluated in compilation time. If the result of the evaluation is false, then the compilation fails.  Consider the next piece of code:
 
