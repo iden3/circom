@@ -5,7 +5,7 @@ mod passes;
 
 use std::cell::RefCell;
 use code_producers::llvm_elements::LLVMCircuitData;
-use code_producers::wasm_elements::WASMProducer;
+
 use compiler::circuit_design::function::{FunctionCode, FunctionCodeInfo};
 use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
 use compiler::compiler_interface::Circuit;

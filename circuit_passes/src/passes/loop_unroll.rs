@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap};
 use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
@@ -51,23 +51,23 @@ impl LoopUnrollPass {
 }
 
 impl InterpreterObserver for LoopUnrollPass {
-    fn on_value_bucket(&self, bucket: &ValueBucket, env: &FrozenEnv) -> bool {
+    fn on_value_bucket(&self, _bucket: &ValueBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_load_bucket(&self, bucket: &LoadBucket, env: &FrozenEnv) -> bool {
+    fn on_load_bucket(&self, _bucket: &LoadBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_store_bucket(&self, bucket: &StoreBucket, env: &FrozenEnv) -> bool {
+    fn on_store_bucket(&self, _bucket: &StoreBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &FrozenEnv) -> bool {
+    fn on_compute_bucket(&self, _bucket: &ComputeBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_assert_bucket(&self, bucket: &AssertBucket, env: &FrozenEnv) -> bool {
+    fn on_assert_bucket(&self, _bucket: &AssertBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
@@ -101,39 +101,39 @@ impl InterpreterObserver for LoopUnrollPass {
         true
     }
 
-    fn on_create_cmp_bucket(&self, bucket: &CreateCmpBucket, env: &FrozenEnv) -> bool {
+    fn on_create_cmp_bucket(&self, _bucket: &CreateCmpBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_constraint_bucket(&self, bucket: &ConstraintBucket, env: &FrozenEnv) -> bool {
+    fn on_constraint_bucket(&self, _bucket: &ConstraintBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_unrolled_loop_bucket(&self, bucket: &BlockBucket, env: &FrozenEnv) -> bool {
+    fn on_unrolled_loop_bucket(&self, _bucket: &BlockBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_nop_bucket(&self, bucket: &NopBucket, env: &FrozenEnv) -> bool {
+    fn on_nop_bucket(&self, _bucket: &NopBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_location_rule(&self, location_rule: &LocationRule, env: &FrozenEnv) -> bool {
+    fn on_location_rule(&self, _location_rule: &LocationRule, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_call_bucket(&self, bucket: &CallBucket, env: &FrozenEnv) -> bool {
+    fn on_call_bucket(&self, _bucket: &CallBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_branch_bucket(&self, bucket: &BranchBucket, env: &FrozenEnv) -> bool {
+    fn on_branch_bucket(&self, _bucket: &BranchBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_return_bucket(&self, bucket: &ReturnBucket, env: &FrozenEnv) -> bool {
+    fn on_return_bucket(&self, _bucket: &ReturnBucket, _env: &FrozenEnv) -> bool {
         true
     }
 
-    fn on_log_bucket(&self, bucket: &LogBucket, env: &FrozenEnv) -> bool {
+    fn on_log_bucket(&self, _bucket: &LogBucket, _env: &FrozenEnv) -> bool {
         true
     }
 }

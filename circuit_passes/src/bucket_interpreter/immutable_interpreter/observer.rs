@@ -1,7 +1,7 @@
 use compiler::intermediate_representation::{Instruction, InstructionPointer};
-use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket};
+use compiler::intermediate_representation::ir_interface::{AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket};
 use crate::bucket_interpreter::env::immutable_env::FrozenEnv;
-use crate::bucket_interpreter::value::Value;
+
 
 /// Will get called everytime we are about to execute a bucket, with access to the environment
 /// prior to the execution of the bucket

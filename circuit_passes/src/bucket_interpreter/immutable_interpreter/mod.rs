@@ -180,7 +180,7 @@ impl<'a> BucketInterpreter<'a> {
         (value, env)
     }
 
-    pub fn execute_return_bucket(&self, bucket: &ReturnBucket, observe: bool) -> R {
+    pub fn execute_return_bucket(&self, _bucket: &ReturnBucket, _observe: bool) -> R {
         todo!()
     }
 
@@ -195,7 +195,7 @@ impl<'a> BucketInterpreter<'a> {
         (None, env)
     }
 
-    pub fn execute_log_bucket(&self, bucket: &LogBucket, observe: bool) -> R {
+    pub fn execute_log_bucket(&self, _bucket: &LogBucket, _observe: bool) -> R {
         todo!()
     }
 
@@ -305,7 +305,7 @@ impl<'a> BucketInterpreter<'a> {
         return last;
     }
 
-    pub fn execute_nop_bucket(&self, _bucket: &NopBucket, env: &FrozenEnv, observe: bool) -> R {
+    pub fn execute_nop_bucket(&self, _bucket: &NopBucket, env: &FrozenEnv, _observe: bool) -> R {
         (None, env.clone())
     }
 

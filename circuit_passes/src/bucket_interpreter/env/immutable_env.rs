@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::bucket_interpreter::mutable_interpreter::MutableBucketInterpreter;
+
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
 use crate::bucket_interpreter::immutable_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::value::Value;

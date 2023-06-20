@@ -3,8 +3,7 @@ use compiler::intermediate_representation::ir_interface::ValueBucket;
 use compiler::num_bigint::BigInt;
 use compiler::num_traits::{One, ToPrimitive, Zero};
 use std::ops::{Add, Div, Mul, Sub};
-use crate::bucket_interpreter::Value::Unknown;
-use crate::bucket_interpreter::value::Value::{KnownBigInt, KnownU32};
+use crate::bucket_interpreter::value::Value::{KnownBigInt, KnownU32, Unknown};
 
 #[derive(Clone, Debug)]
 pub enum Value {
