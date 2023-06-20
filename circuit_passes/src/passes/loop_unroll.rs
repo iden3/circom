@@ -192,7 +192,7 @@ mod test {
         println!("{}", new_circuit.templates[0].body.last().unwrap().to_string());
         assert_ne!(circuit, new_circuit);
         match new_circuit.templates[0].body.last().unwrap().as_ref() {
-            Instruction::UnrolledLoop(b) => assert_eq!(b.body.len(), 5),
+            Instruction::Block(b) => assert_eq!(b.body.len(), 5),
             _ => assert!(false),
         }
     }

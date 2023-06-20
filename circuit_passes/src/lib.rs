@@ -105,7 +105,7 @@ pub trait CircuitTransformationPass {
             Loop(b) => self.pre_hook_loop_bucket(b),
             CreateCmp(b) => self.pre_hook_create_cmp_bucket(b),
             Constraint(b) => self.pre_hook_constraint_bucket(b),
-            UnrolledLoop(b) => self.pre_hook_unrolled_loop_bucket(b),
+            Block(b) => self.pre_hook_unrolled_loop_bucket(b),
             Nop(b) => self.pre_hook_nop_bucket(b),
         }
     }
@@ -126,7 +126,7 @@ pub trait CircuitTransformationPass {
             Loop(b) => self.run_on_loop_bucket(b),
             CreateCmp(b) => self.run_on_create_cmp_bucket(b),
             Constraint(b) => self.run_on_constraint_bucket(b),
-            UnrolledLoop(b) => self.run_on_unrolled_loop_bucket(b),
+            Block(b) => self.run_on_unrolled_loop_bucket(b),
             Nop(b) => self.run_on_nop_bucket(b),
         }
     }

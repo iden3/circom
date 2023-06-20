@@ -59,7 +59,7 @@ fn has_compute_bucket(i: &Instruction) -> bool {
             ConstraintBucket::Substitution(i) => i,
             ConstraintBucket::Equality(i) => i,
         }),
-        Instruction::UnrolledLoop(b) => b.body.iter().any(|i| has_compute_bucket(i)),
+        Instruction::Block(b) => b.body.iter().any(|i| has_compute_bucket(i)),
         Instruction::Nop(_) => false,
     }
 }
@@ -251,7 +251,7 @@ impl ComputeSimplificationPass {
                 }
             }
             .allocate(),
-            Instruction::UnrolledLoop(b) => BlockBucket {
+            Instruction::Block(b) => BlockBucket {
                 line: b.line,
                 message_id: b.message_id,
                 body: b.body.iter().map(|iter| self.reconstruct_bucket(iter)).collect(),

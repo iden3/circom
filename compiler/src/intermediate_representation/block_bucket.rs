@@ -12,7 +12,7 @@ pub struct BlockBucket {
 
 impl IntoInstruction for BlockBucket {
     fn into_instruction(self) -> Instruction {
-        Instruction::UnrolledLoop(self)
+        Instruction::Block(self)
     }
 }
 

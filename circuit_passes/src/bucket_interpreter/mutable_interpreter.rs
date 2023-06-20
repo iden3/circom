@@ -316,7 +316,7 @@ impl MutableBucketInterpreter {
             Instruction::Loop(b) => self.execute_loop_bucket(b),
             Instruction::CreateCmp(b) => self.execute_create_cmp_bucket(b),
             Instruction::Constraint(b) => self.execute_constraint_bucket(b),
-            Instruction::UnrolledLoop(b) => self.execute_unrolled_loop_bucket(b),
+            Instruction::Block(b) => self.execute_unrolled_loop_bucket(b),
             Instruction::Nop(b) => self.execute_nop_bucket(b),
         }
     }

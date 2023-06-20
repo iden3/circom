@@ -426,7 +426,7 @@ impl<'a> BucketInterpreter<'a> {
             Instruction::Constraint(b) => {
                 self.execute_constraint_bucket(b, env, continue_observing)
             }
-            Instruction::UnrolledLoop(b) => {
+            Instruction::Block(b) => {
                 self.execute_unrolled_loop_bucket(b, env, continue_observing)
             }
             Instruction::Nop(b) => self.execute_nop_bucket(b, env, continue_observing),

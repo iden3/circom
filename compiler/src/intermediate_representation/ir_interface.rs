@@ -56,7 +56,7 @@ pub enum Instruction {
     Loop(LoopBucket),
     CreateCmp(CreateCmpBucket),
     Constraint(ConstraintBucket),
-    UnrolledLoop(BlockBucket),
+    Block(BlockBucket),
     Nop(NopBucket)
 }
 
@@ -82,7 +82,7 @@ impl ObtainMeta for Instruction {
             CreateCmp(v) => v.get_line(),
             Log(v) => v.get_line(),
             Constraint(v) => v.get_line(),
-            UnrolledLoop(v) => v.get_line(),
+            Block(v) => v.get_line(),
             Nop(v) => v.get_line()
         }
     }
@@ -102,7 +102,7 @@ impl ObtainMeta for Instruction {
             CreateCmp(v) => v.get_message_id(),
             Log(v) => v.get_message_id(),
             Constraint(v) => v.get_message_id(),
-            UnrolledLoop(v) => v.get_message_id(),
+            Block(v) => v.get_message_id(),
             Nop(v) => v.get_message_id()
         }
     }
@@ -136,7 +136,7 @@ impl WriteWasm for Instruction {
             CreateCmp(v) => v.produce_wasm(producer),
             Log(v) => v.produce_wasm(producer),
             Constraint(v) => v.produce_wasm(producer),
-            UnrolledLoop(_) => unreachable!(),
+            Block(_) => unreachable!(),
             Nop(_) => unreachable!()
         }
     }
@@ -158,7 +158,7 @@ impl WriteLLVMIR for Instruction {
             CreateCmp(v) => v.produce_llvm_ir(producer),
             Log(v) => v.produce_llvm_ir(producer),
             Constraint(v) => v.produce_llvm_ir(producer),
-            UnrolledLoop(v) => v.produce_llvm_ir(producer),
+            Block(v) => v.produce_llvm_ir(producer),
             Nop(v) => v.produce_llvm_ir(producer)
         }
     }
@@ -181,7 +181,7 @@ impl WriteC for Instruction {
             CreateCmp(v) => v.produce_c(producer, parallel),
             Log(v) => v.produce_c(producer, parallel),
             Constraint(v) => v.produce_c(producer, parallel),
-            UnrolledLoop(_) => unreachable!(),
+            Block(_) => unreachable!(),
             Nop(_) => unreachable!()
         }
     }
@@ -203,7 +203,7 @@ impl ToString for Instruction {
             CreateCmp(v) => v.to_string(),
             Log(v) => v.to_string(),
             Constraint(v) => v.to_string(),
-            UnrolledLoop(v) => v.to_string(),
+            Block(v) => v.to_string(),
             Nop(v) => v.to_string()
         }
     }
@@ -229,7 +229,7 @@ impl Instruction {
                 ConstraintBucket::Substitution(i) => i,
                 ConstraintBucket::Equality(i) => i
             }.label_name(idx),
-            UnrolledLoop(_) => format!("unrolled_loop{}", idx),
+            Block(_) => format!("unrolled_loop{}", idx),
             Nop(_) => format!("nop{}", idx)
         }
     }

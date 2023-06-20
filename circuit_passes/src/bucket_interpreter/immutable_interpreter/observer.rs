@@ -39,7 +39,7 @@ pub trait InterpreterObserver {
             Instruction::Loop(bucket) => self.on_loop_bucket(bucket, env),
             Instruction::CreateCmp(bucket) => self.on_create_cmp_bucket(bucket, env),
             Instruction::Constraint(bucket) => self.on_constraint_bucket(bucket, env),
-            Instruction::UnrolledLoop(bucket) => self.on_unrolled_loop_bucket(bucket, env),
+            Instruction::Block(bucket) => self.on_unrolled_loop_bucket(bucket, env),
             Instruction::Nop(bucket) => self.on_nop_bucket(bucket, env),
         }
     }
