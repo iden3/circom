@@ -54,11 +54,15 @@ impl ToString for CallBucket {
     fn to_string(&self) -> String {
         let line = self.line.to_string();
         let template_id = self.message_id.to_string();
+	let ret = match &self.return_info {
+            ReturnType::Intermediate { op_aux_no } => {format!("Intermediate({})",op_aux_no.to_string())}
+	    _ => {format!("Final")}
+	};
         let mut args = "".to_string();
         for i in &self.arguments {
             args = format!("{}{},", args, i.to_string());
         }
-        format!("CALL(line:{},template_id:{},id:{},args:{})", line, template_id, self.symbol, args)
+        format!("CALL(line:{},template_id:{},id:{},return_type:{},args:{})", line, template_id, self.symbol, ret, args)
     }
 }
 
@@ -144,6 +148,9 @@ impl WriteWasm for CallBucket {
 		instructions.push(get_local(producer.get_merror_tag()));    
                 instructions.push(add_return());
                 instructions.push(add_end());
+                instructions.push(get_local(producer.get_expaux_tag()));
+                instructions.push(set_constant(&op_aux_no.to_string()));
+                instructions.push(add32());
             }
             ReturnType::Final(data) => {
                 let mut my_template_header = Option::<String>::None;
