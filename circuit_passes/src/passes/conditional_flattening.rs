@@ -5,8 +5,8 @@ use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::InstructionPointer;
 use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, ValueBucket};
 use crate::bucket_interpreter::env::Env;
-use crate::bucket_interpreter::interpreter::BucketInterpreter;
-use crate::bucket_interpreter::interpreter::observer::InterpreterObserver;
+use crate::bucket_interpreter::BucketInterpreter;
+use crate::bucket_interpreter::observer::InterpreterObserver;
 use crate::passes::CircuitTransformationPass;
 use crate::passes::memory::PassMemory;
 

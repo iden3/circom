@@ -11,8 +11,8 @@ use compiler::intermediate_representation::ir_interface::{
 };
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
 use crate::bucket_interpreter::env::Env;
-use crate::bucket_interpreter::interpreter::BucketInterpreter;
-use crate::bucket_interpreter::interpreter::observer::InterpreterObserver;
+use crate::bucket_interpreter::BucketInterpreter;
+use crate::bucket_interpreter::observer::InterpreterObserver;
 use crate::passes::CircuitTransformationPass;
 use crate::passes::memory::PassMemory;
 

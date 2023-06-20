@@ -4,8 +4,8 @@ use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
 use crate::bucket_interpreter::env::Env;
-use crate::bucket_interpreter::interpreter::BucketInterpreter;
-use crate::bucket_interpreter::interpreter::observer::InterpreterObserver;
+use crate::bucket_interpreter::BucketInterpreter;
+use crate::bucket_interpreter::observer::InterpreterObserver;
 
 pub struct PassMemory {
     pub templates_library: TemplatesLibrary,

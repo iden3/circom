@@ -10,7 +10,7 @@ pub type TemplatesLibrary = Rc<RefCell<HashMap<String, TemplateCode>>>;
 pub type FunctionsLibrary = Rc<RefCell<HashMap<String, FunctionCode>>>;
 
 
-use crate::bucket_interpreter::interpreter::BucketInterpreter;
+use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::value::Value;
 
 #[derive(Clone, Default, Debug)]
