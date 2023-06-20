@@ -15,22 +15,7 @@ use compiler::intermediate_representation::ir_interface::Allocate;
 
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::env::{Env, FunctionsLibrary, TemplatesLibrary};
-
-pub struct PassMemory {
-    pub templates_library: TemplatesLibrary,
-    pub functions_library: FunctionsLibrary,
-    pub interpreter: BucketInterpreter
-}
-
-impl PassMemory {
-    pub fn add_template(&mut self, template: &TemplateCode) {
-        self.templates_library.borrow_mut().insert(template.header.clone(), (*template).clone());
-    }
-
-    pub fn add_function(&mut self, function: &FunctionCode) {
-        self.functions_library.borrow_mut().insert(function.header.clone(), (*function).clone());
-    }
-}
+use crate::memory::PassMemory;
 
 pub struct LoopUnrollPass {
     // Wrapped in a RefCell because the reference to the static analysis is immutable but we need mutability

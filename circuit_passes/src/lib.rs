@@ -3,6 +3,8 @@ extern crate core;
 mod loop_unroll;
 mod bucket_interpreter;
 mod simplification;
+mod conditional_flattening;
+mod memory;
 
 use std::cell::RefCell;
 use code_producers::llvm_elements::LLVMCircuitData;

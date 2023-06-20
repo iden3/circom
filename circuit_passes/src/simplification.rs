@@ -8,7 +8,7 @@ use compiler::intermediate_representation::ir_interface::{AddressType, Allocate,
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::env::{Env, FunctionsLibrary, TemplatesLibrary};
 use crate::CircuitTransformationPass;
-use crate::loop_unroll::PassMemory;
+use crate::memory::PassMemory;
 
 /// Implement this pass as follows
 /// For each bucket check if there is a compute bucket inside
