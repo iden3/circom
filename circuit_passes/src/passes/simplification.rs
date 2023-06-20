@@ -1,311 +1,120 @@
 use std::cell::RefCell;
-
+use std::collections::BTreeMap;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::{Instruction, InstructionList, InstructionPointer};
-
-use compiler::intermediate_representation::ir_interface::{
-    AddressType, Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
-    CreateCmpBucket, LoadBucket, LocationRule, LogBucketArg, LoopBucket, NopBucket, ReturnBucket,
-    StoreBucket, BlockBucket, ValueBucket, ValueType,
-};
-use crate::bucket_interpreter::mutable_interpreter::MutableBucketInterpreter;
+use compiler::intermediate_representation::InstructionPointer;
+use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, ValueBucket};
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
-use crate::bucket_interpreter::env::mutable_env::Env;
-use crate::CircuitTransformationPass;
+use crate::bucket_interpreter::env::Env;
+use crate::bucket_interpreter::interpreter::BucketInterpreter;
+use crate::bucket_interpreter::interpreter::observer::InterpreterObserver;
+use crate::bucket_interpreter::value::Value;
+use crate::passes::CircuitTransformationPass;
 use crate::passes::memory::PassMemory;
 
-/// Implement this pass as follows
-/// For each bucket check if there is a compute bucket inside
-/// If there is one we take the current environment and evaluate the compute bucket
-/// If the result is a known value we replace that compute bucket with a literal value
-/// Then we run the original bucket to get the new environment
-/// We reconstruct the bucket with the replaced new value
-/// If there is no compute bucket in the expression we just clone the bucket, run
-/// it to update the environment and return.
-
-fn location_rule_has_compute_bucket(loc: &LocationRule) -> bool {
-    match loc {
-        LocationRule::Indexed { location, .. } => has_compute_bucket(location),
-        LocationRule::Mapped { indexes, .. } => indexes.iter().any(|i| has_compute_bucket(i)),
-    }
-}
-
-fn has_compute_bucket(i: &Instruction) -> bool {
-    match i {
-        Instruction::Value(_) => false,
-        Instruction::Load(b) => location_rule_has_compute_bucket(&b.src),
-        Instruction::Store(b) => {
-            location_rule_has_compute_bucket(&b.dest) || has_compute_bucket(&b.src)
-        }
-        Instruction::Compute(_) => true,
-        Instruction::Call(b) => b.arguments.iter().any(|i| has_compute_bucket(i)),
-        Instruction::Branch(b) => {
-            b.if_branch.iter().any(|i| has_compute_bucket(i))
-                || b.else_branch.iter().any(|i| has_compute_bucket(i))
-        }
-        Instruction::Return(b) => has_compute_bucket(&b.value),
-        Instruction::Assert(b) => has_compute_bucket(&b.evaluate),
-        Instruction::Log(b) => b.argsprint.iter().any(|a| {
-            if let LogBucketArg::LogExp(e) = a {
-                has_compute_bucket(e)
-            } else {
-                false
-            }
-        }),
-        Instruction::Loop(b) => b.body.iter().any(|i| has_compute_bucket(i)),
-        Instruction::CreateCmp(b) => has_compute_bucket(&b.sub_cmp_id),
-        Instruction::Constraint(b) => has_compute_bucket(match b {
-            ConstraintBucket::Substitution(i) => i,
-            ConstraintBucket::Equality(i) => i,
-        }),
-        Instruction::Block(b) => b.body.iter().any(|i| has_compute_bucket(i)),
-        Instruction::Nop(_) => false,
-    }
-}
-
-pub struct ComputeSimplificationPass {
+pub struct SimplificationPass {
+    // Wrapped in a RefCell because the reference to the static analysis is immutable but we need mutability
     memory: RefCell<PassMemory>,
+    replacements: RefCell<BTreeMap<ComputeBucket, Value>>,
 }
 
-impl ComputeSimplificationPass {
+impl SimplificationPass {
     pub fn new(prime: &String) -> Self {
-        let cl: TemplatesLibrary = Default::default();
-        let fl: FunctionsLibrary = Default::default();
-        ComputeSimplificationPass {
-            memory: RefCell::new(PassMemory {
-                templates_library: cl.clone(),
-                functions_library: fl.clone(),
-                interpreter: MutableBucketInterpreter::init(Env::new(cl, fl), prime, vec![]),
-            }),
-        }
-    }
-
-    /// Evaluated the compute bucket and returns either a copy of the bucket
-    /// or a ValueBucket with the result of the expression represented in the ComputeBucket.
-    fn eval_compute_bucket(&self, bucket: &ComputeBucket) -> InstructionPointer {
-        let interpreter = &mut self.memory.borrow_mut().interpreter;
-        interpreter.push_env();
-        let result = interpreter.execute_compute_bucket(bucket).unwrap();
-        if result.is_unknown() {
-            interpreter.pop_env();
-            println!("Value unknown. Not replacing");
-            return bucket.clone().allocate();
-        }
-        let (value, parse_as) = if result.is_bigint() {
-            let idx = interpreter.constant_fields.len();
-            interpreter.constant_fields.push(result.get_bigint_as_string());
-            (idx, ValueType::BigInt)
-        } else {
-            (result.get_u32(), ValueType::U32)
-        };
-        interpreter.pop_env();
-        let b = ValueBucket {
-            line: bucket.line,
-            message_id: bucket.message_id,
-            parse_as,
-            op_aux_no: 0,
-            value,
-        };
-        println!("Replacing\n\n {}\n\n with\n\n {}\n\n", bucket.to_string(), b.to_string());
-        b.allocate()
-    }
-
-    fn eval_call_bucket(&self, bucket: &CallBucket) -> InstructionPointer {
-        let interpreter = &mut self.memory.borrow_mut().interpreter;
-        interpreter.push_env();
-        let result = interpreter.execute_call_bucket(bucket).unwrap();
-        if result.is_unknown() {
-            return bucket.clone().allocate();
-        }
-        let (value, parse_as) = if result.is_bigint() {
-            let idx = interpreter.constant_fields.len();
-            interpreter.constant_fields.push(result.get_bigint_as_string());
-            (idx, ValueType::BigInt)
-        } else {
-            (result.get_u32(), ValueType::U32)
-        };
-        interpreter.pop_env();
-        return ValueBucket {
-            line: bucket.line,
-            message_id: bucket.message_id,
-            parse_as,
-            op_aux_no: 0,
-            value,
-        }
-        .allocate();
-    }
-
-    fn reconstruct_location_rule(&self, loc: &LocationRule) -> LocationRule {
-        match loc {
-            LocationRule::Indexed { location, template_header } => LocationRule::Indexed {
-                location: self.reconstruct_bucket(&location),
-                template_header: template_header.clone(),
-            },
-            LocationRule::Mapped { signal_code, indexes } => LocationRule::Mapped {
-                signal_code: *signal_code,
-                indexes: indexes.iter().map(|i| self.reconstruct_bucket(i)).collect(),
-            },
-        }
-    }
-
-    fn reconstruct_buckets(&self, l: &InstructionList) -> InstructionList {
-        l.iter().map(|i| self.reconstruct_bucket(i)).collect()
-    }
-
-    fn reconstruct_address_type(&self, addr: &AddressType) -> AddressType {
-        match addr {
-            AddressType::SubcmpSignal {
-                cmp_address,
-                uniform_parallel_value,
-                is_output,
-                input_information,
-            } => AddressType::SubcmpSignal {
-                uniform_parallel_value: uniform_parallel_value.clone(),
-                is_output: *is_output,
-                input_information: input_information.clone(),
-                cmp_address: self.reconstruct_bucket(&cmp_address),
-            },
-            x => x.clone(),
-        }
-    }
-
-    fn reconstruct_bucket(&self, i: &Instruction) -> InstructionPointer {
-        match i {
-            Instruction::Value(b) => b.clone().allocate(),
-            Instruction::Load(b) => LoadBucket {
-                line: b.line,
-                message_id: b.message_id,
-                address_type: self.reconstruct_address_type(&b.address_type),
-                src: self.reconstruct_location_rule(&b.src),
-            }
-            .allocate(),
-            Instruction::Store(b) => StoreBucket {
-                line: b.line,
-                message_id: b.message_id,
-                context: b.context,
-                dest_is_output: b.dest_is_output,
-                dest_address_type: self.reconstruct_address_type(&b.dest_address_type),
-                dest: self.reconstruct_location_rule(&b.dest),
-                src: self.reconstruct_bucket(&b.src),
-            }
-            .allocate(),
-            Instruction::Compute(b) => self.eval_compute_bucket(b),
-            Instruction::Call(b) => self.eval_call_bucket(b),
-            Instruction::Branch(b) => BranchBucket {
-                line: b.line,
-                message_id: b.message_id,
-                cond: b.cond.clone(),
-                if_branch: self.reconstruct_buckets(&b.if_branch),
-                else_branch: self.reconstruct_buckets(&b.else_branch),
-            }
-            .allocate(),
-            Instruction::Return(b) => ReturnBucket {
-                line: b.line,
-                message_id: b.message_id,
-                with_size: b.with_size,
-                value: self.reconstruct_bucket(&b.value),
-            }
-            .allocate(),
-            Instruction::Assert(b) => AssertBucket {
-                line: b.line,
-                message_id: b.message_id,
-                evaluate: self.reconstruct_bucket(&b.evaluate),
-            }
-            .allocate(),
-            Instruction::Log(b) => b.clone().allocate(),
-            Instruction::Loop(b) => LoopBucket {
-                line: b.line,
-                message_id: b.message_id,
-                continue_condition: b.continue_condition.clone(),
-                body: self.reconstruct_buckets(&b.body),
-            }
-            .allocate(),
-            Instruction::CreateCmp(b) => CreateCmpBucket {
-                line: b.line,
-                message_id: b.message_id,
-                template_id: b.template_id,
-                cmp_unique_id: b.cmp_unique_id,
-                symbol: b.symbol.to_string(),
-                sub_cmp_id: self.reconstruct_bucket(&b.sub_cmp_id),
-                name_subcomponent: b.name_subcomponent.to_string(),
-                defined_positions: b.defined_positions.clone(),
-                is_part_mixed_array_not_uniform_parallel: b
-                    .is_part_mixed_array_not_uniform_parallel,
-                uniform_parallel: b.uniform_parallel,
-                dimensions: b.dimensions.clone(),
-                signal_offset: b.signal_offset,
-                signal_offset_jump: b.signal_offset_jump,
-                component_offset: b.component_offset,
-                component_offset_jump: b.component_offset_jump,
-                number_of_cmp: b.number_of_cmp,
-                has_inputs: b.has_inputs,
-            }
-            .allocate(),
-            Instruction::Constraint(b) => match b {
-                ConstraintBucket::Substitution(i) => {
-                    ConstraintBucket::Substitution(self.reconstruct_bucket(i))
-                }
-                ConstraintBucket::Equality(i) => {
-                    ConstraintBucket::Equality(self.reconstruct_bucket(i))
-                }
-            }
-            .allocate(),
-            Instruction::Block(b) => BlockBucket {
-                line: b.line,
-                message_id: b.message_id,
-                body: b.body.iter().map(|iter| self.reconstruct_bucket(iter)).collect(),
-            }
-            .allocate(),
-            Instruction::Nop(_) => NopBucket.allocate(),
+        SimplificationPass {
+            memory: PassMemory::new_cell(prime),
+            replacements: Default::default(),
         }
     }
 }
 
-impl CircuitTransformationPass for ComputeSimplificationPass {
-    fn pre_hook_circuit(&self, circuit: &Circuit) {
-        for template in &circuit.templates {
-            self.memory.borrow_mut().add_template(template);
+impl InterpreterObserver for SimplificationPass {
+    fn on_value_bucket(&self, bucket: &ValueBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_load_bucket(&self, bucket: &LoadBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_store_bucket(&self, bucket: &StoreBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &Env) -> bool {
+        let mem = self.memory.borrow();
+        let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
+        let (eval, _) = interpreter.execute_compute_bucket(bucket, env, false);
+        let eval = eval.expect("Compute bucket must produce a value!");
+        if !eval.is_unknown() {
+            self.replacements.borrow_mut().insert(bucket.clone(), eval);
+            return false;
         }
-        for function in &circuit.functions {
-            self.memory.borrow_mut().add_function(function);
-        }
-        self.memory.borrow_mut().interpreter.constant_fields =
-            circuit.llvm_data.field_tracking.clone();
+        true
     }
 
-    /// Reset the interpreter when we are about to enter a new template
-    fn pre_hook_template(&self, template: &TemplateCode) {
-        eprintln!("Starting analysis of {}", template.header);
-        self.memory.borrow_mut().interpreter.reset();
+    fn on_assert_bucket(&self, bucket: &AssertBucket, env: &Env) -> bool {
+        true
     }
 
-    fn run_on_instruction(&self, i: &Instruction) -> InstructionPointer {
-        self.pre_hook_instruction(i);
-        println!("\n[RUN ON INST] {}\n", i.to_string());
-        let new_bucket = if has_compute_bucket(i) {
-            let x = self.reconstruct_bucket(i);
-            println!(
-                "[run_on_instruction] Replacing\n\n {}\n\nwith\n\n {}\n\n",
-                i.to_string(),
-                x.to_string()
-            );
-            x
-        } else {
-            i.clone().allocate()
-        };
-
-        // Run the interpreter
-        let interpreter = &mut self.memory.borrow_mut().interpreter;
-        // We run the original instruction, not the new one.
-        interpreter.execute_instruction(i);
-        // Return the transformed bucket
-        new_bucket
+    fn on_loop_bucket(&self, bucket: &LoopBucket, env: &Env) -> bool {
+        true
     }
 
+    fn on_create_cmp_bucket(&self, bucket: &CreateCmpBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_constraint_bucket(&self, bucket: &ConstraintBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_block_bucket(&self, bucket: &BlockBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_nop_bucket(&self, bucket: &NopBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_location_rule(&self, location_rule: &LocationRule, env: &Env) -> bool {
+        true
+    }
+
+    fn on_call_bucket(&self, bucket: &CallBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_branch_bucket(&self, bucket: &BranchBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_return_bucket(&self, bucket: &ReturnBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_log_bucket(&self, bucket: &LogBucket, env: &Env) -> bool {
+        true
+    }
+}
+
+impl CircuitTransformationPass for SimplificationPass {
     fn get_updated_field_constants(&self) -> Vec<String> {
-        self.memory.borrow().interpreter.constant_fields.clone()
+        self.memory.borrow().constant_fields.clone()
     }
 
-    // Any call to the run_on_*_bucket functions we know is a bucket that contains a compute bucket
+    fn run_on_compute_bucket(&self, bucket: &ComputeBucket) -> InstructionPointer {
+        if let Some(value) = self.replacements.borrow().get(&bucket) {
+            let mut constant_fields = &mut self.memory.borrow_mut().constant_fields;
+            return value.to_value_bucket(constant_fields).allocate();
+        }
+        bucket.clone().allocate()
+    }
+
+    fn pre_hook_circuit(&self, circuit: &Circuit) {
+        self.memory.borrow_mut().fill_from_circuit(circuit);
+    }
+
+    fn pre_hook_template(&self, template: &TemplateCode) {
+        self.memory.borrow().run_template(self, template);
+    }
 }

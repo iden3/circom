@@ -1,5 +1,5 @@
 use ansi_term::Colour;
-use circuit_passes::PassManager;
+use circuit_passes::passes::PassManager;
 use compiler::compiler_interface;
 use compiler::compiler_interface::{Config, VCP};
 use program_structure::error_definition::Report;

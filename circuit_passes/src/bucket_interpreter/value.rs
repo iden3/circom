@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use compiler::intermediate_representation::ir_interface::ValueBucket;
+use compiler::intermediate_representation::ir_interface::{ValueBucket, ValueType};
 use compiler::num_bigint::BigInt;
 use compiler::num_traits::{One, ToPrimitive, Zero};
 use std::ops::{Add, Div, Mul, Sub};
@@ -71,8 +71,29 @@ impl Value {
         }
     }
 
-    pub fn to_value_bucket(&self) -> ValueBucket {
-        todo!()
+    pub fn to_value_bucket(&self, constant_fields: &mut Vec<String>) -> ValueBucket {
+        match self {
+            Unknown => panic!("Can't create a value bucket from an unknown value!"),
+            KnownU32(n) => ValueBucket {
+                line: 0,
+                message_id: 0,
+                parse_as: ValueType::U32,
+                op_aux_no: 0,
+                value: *n,
+            },
+            KnownBigInt(n) => {
+                let str_repr = n.to_string();
+                let idx = constant_fields.len();
+                constant_fields.push(str_repr);
+                ValueBucket {
+                    line: 0,
+                    message_id: 0,
+                    parse_as: ValueType::BigInt,
+                    op_aux_no: 0,
+                    value: idx,
+                }
+            }
+        }
     }
 }
 

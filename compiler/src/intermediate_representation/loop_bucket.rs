@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;

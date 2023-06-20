@@ -1,91 +1,128 @@
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::ir_interface::{
-    AssertBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket,
-    LogBucket, LoopBucket, ReturnBucket, StoreBucket, ValueBucket,
-};
-use crate::CircuitTransformationPass;
+use compiler::intermediate_representation::InstructionPointer;
+use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, ValueBucket};
+use crate::bucket_interpreter::env::Env;
+use crate::bucket_interpreter::interpreter::BucketInterpreter;
+use crate::bucket_interpreter::interpreter::observer::InterpreterObserver;
+use crate::passes::CircuitTransformationPass;
 use crate::passes::memory::PassMemory;
 
 pub struct ConditionalFlattening {
+    // Wrapped in a RefCell because the reference to the static analysis is immutable but we need mutability
     memory: RefCell<PassMemory>,
+    replacements: RefCell<BTreeMap<BranchBucket, bool>>,
+}
+
+impl ConditionalFlattening {
+    pub fn new(prime: &String) -> Self {
+        ConditionalFlattening {
+            memory: PassMemory::new_cell(prime),
+            replacements: Default::default(),
+        }
+    }
+}
+
+impl InterpreterObserver for ConditionalFlattening {
+    fn on_value_bucket(&self, bucket: &ValueBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_load_bucket(&self, bucket: &LoadBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_store_bucket(&self, bucket: &StoreBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_assert_bucket(&self, bucket: &AssertBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_loop_bucket(&self, bucket: &LoopBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_create_cmp_bucket(&self, bucket: &CreateCmpBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_constraint_bucket(&self, bucket: &ConstraintBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_block_bucket(&self, bucket: &BlockBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_nop_bucket(&self, bucket: &NopBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_location_rule(&self, location_rule: &LocationRule, env: &Env) -> bool {
+        true
+    }
+
+    fn on_call_bucket(&self, bucket: &CallBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_branch_bucket(&self, bucket: &BranchBucket, env: &Env) -> bool {
+        let mem = self.memory.borrow();
+        let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
+        let (_, cond_result, _) = interpreter.execute_conditional_bucket(
+            &bucket.cond, &bucket.if_branch, &bucket.else_branch, env, false);
+        if cond_result.is_some() {
+            self.replacements.borrow_mut().insert(bucket.clone(), cond_result.unwrap());
+        }
+        true
+    }
+
+    fn on_return_bucket(&self, bucket: &ReturnBucket, env: &Env) -> bool {
+        true
+    }
+
+    fn on_log_bucket(&self, bucket: &LogBucket, env: &Env) -> bool {
+        true
+    }
 }
 
 impl CircuitTransformationPass for ConditionalFlattening {
-    fn get_updated_field_constants(&self) -> Vec<String> {
-        self.memory.borrow().interpreter.constant_fields.clone()
-    }
-
     fn pre_hook_circuit(&self, circuit: &Circuit) {
-        for template in &circuit.templates {
-            self.memory.borrow_mut().add_template(template);
-        }
-        for function in &circuit.functions {
-            self.memory.borrow_mut().add_function(function);
-        }
-        self.memory.borrow_mut().interpreter.constant_fields =
-            circuit.llvm_data.field_tracking.clone();
+        self.memory.borrow_mut().fill_from_circuit(circuit);
     }
 
-    /// Reset the interpreter when we are about to enter a new template
     fn pre_hook_template(&self, template: &TemplateCode) {
-        eprintln!("Starting analysis of {}", template.header);
-        self.memory.borrow_mut().interpreter.reset();
+        self.memory.borrow().run_template(self, template);
     }
 
-    fn pre_hook_store_bucket(&self, bucket: &StoreBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_store_bucket(bucket);
+    fn get_updated_field_constants(&self) -> Vec<String> {
+        self.memory.borrow().constant_fields.clone()
     }
 
-    fn pre_hook_value_bucket(&self, bucket: &ValueBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_value_bucket(bucket);
-    }
-
-    fn pre_hook_load_bucket(&self, bucket: &LoadBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_load_bucket(bucket);
-    }
-
-    fn pre_hook_compute_bucket(&self, bucket: &ComputeBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_compute_bucket(bucket);
-    }
-
-    fn pre_hook_call_bucket(&self, bucket: &CallBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_call_bucket(bucket);
-    }
-
-    fn pre_hook_loop_bucket(&self, bucket: &LoopBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_loop_bucket(bucket);
-    }
-
-    fn pre_hook_return_bucket(&self, bucket: &ReturnBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_return_bucket(bucket);
-    }
-
-    fn pre_hook_assert_bucket(&self, bucket: &AssertBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_assert_bucket(bucket);
-    }
-
-    fn pre_hook_log_bucket(&self, bucket: &LogBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_log_bucket(bucket);
-    }
-
-    fn pre_hook_create_cmp_bucket(&self, bucket: &CreateCmpBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_create_cmp_bucket(bucket);
-    }
-
-    fn pre_hook_constraint_bucket(&self, bucket: &ConstraintBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_constraint_bucket(bucket);
+    fn run_on_branch_bucket(&self, bucket: &BranchBucket) -> InstructionPointer {
+        if let Some(side) = self.replacements.borrow().get(&bucket) {
+            let code = if *side { &bucket.if_branch } else { &bucket.else_branch };
+            let block = BlockBucket {
+                line: bucket.line,
+                message_id: bucket.message_id,
+                body: code.clone(),
+            };
+            return self.run_on_block_bucket(&block);
+        }
+        BranchBucket {
+            line: bucket.line,
+            message_id: bucket.message_id,
+            cond: self.run_on_instruction(&bucket.cond),
+            if_branch: self.run_on_instructions(&bucket.if_branch),
+            else_branch: self.run_on_instructions(&bucket.else_branch),
+        }.allocate()
     }
 }

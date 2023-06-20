@@ -13,6 +13,15 @@ pub enum ConstraintBucket {
     Equality(InstructionPointer)
 }
 
+impl ConstraintBucket {
+    pub fn unwrap(&self) -> &InstructionPointer {
+        match self {
+            ConstraintBucket::Substitution(i) => i,
+            ConstraintBucket::Equality(i) => i
+        }
+    }
+}
+
 impl IntoInstruction for ConstraintBucket {
     fn into_instruction(self) -> Instruction {
         Instruction::Constraint(self)
