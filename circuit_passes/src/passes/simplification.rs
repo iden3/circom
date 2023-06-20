@@ -9,7 +9,7 @@ use crate::bucket_interpreter::mutable_interpreter::MutableBucketInterpreter;
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
 use crate::bucket_interpreter::env::mutable_env::Env;
 use crate::CircuitTransformationPass;
-use crate::memory::PassMemory;
+use crate::passes::memory::PassMemory;
 
 /// Implement this pass as follows
 /// For each bucket check if there is a compute bucket inside

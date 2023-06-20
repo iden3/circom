@@ -176,7 +176,7 @@ mod test {
     use compiler::intermediate_representation::Instruction;
     use compiler::intermediate_representation::ir_interface::{AddressType, Allocate, ComputeBucket, InstrContext, LoadBucket, LocationRule, LoopBucket, OperatorType, StoreBucket, ValueBucket, ValueType};
     use crate::CircuitTransformationPass;
-    use crate::loop_unroll::LoopUnrollPass;
+    use crate::passes::loop_unroll::LoopUnrollPass;
 
     #[test]
     fn test_loop_unrolling() {

@@ -3,7 +3,7 @@ use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::ir_interface::{AssertBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LogBucket, LoopBucket, ReturnBucket, StoreBucket, ValueBucket};
 use crate::CircuitTransformationPass;
-use crate::memory::PassMemory;
+use crate::passes::memory::PassMemory;
 
 pub struct ConditionalFlattening {
     memory: RefCell<PassMemory>

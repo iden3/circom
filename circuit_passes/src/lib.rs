@@ -1,15 +1,11 @@
 extern crate core;
 
 mod bucket_interpreter;
-mod simplification;
-mod conditional_flattening;
-mod memory;
-mod loop_unroll;
+mod passes;
 
 use std::cell::RefCell;
 use code_producers::llvm_elements::LLVMCircuitData;
 use code_producers::wasm_elements::WASMProducer;
-use crate::loop_unroll::LoopUnrollPass;
 use compiler::circuit_design::function::{FunctionCode, FunctionCodeInfo};
 use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
 use compiler::compiler_interface::Circuit;
@@ -19,7 +15,8 @@ use compiler::intermediate_representation::InstructionPointer;
 use compiler::intermediate_representation::ir_interface::Allocate;
 use constraint_generation::execute::RuntimeInformation;
 use program_structure::program_archive::ProgramArchive;
-use crate::simplification::ComputeSimplificationPass;
+use crate::passes::loop_unroll::LoopUnrollPass;
+use crate::passes::simplification::ComputeSimplificationPass;
 
 macro_rules! run_on_bucket {
     ($name: ident, $bucket_ty: ty) => {
