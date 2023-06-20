@@ -31,7 +31,7 @@ template B(n){
 }
 component main = B(2);
 ```
-Thanks to the use of anonymous components, we can easily write the next program, which is, equivalent to the previous one, but its code is much cleaner.
+Thanks to anonymous components, we can make the above program much cleaner.
 
 ```text
 template A(n){
