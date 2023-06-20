@@ -4,14 +4,16 @@ use super::slice_types::{
     ComponentSlice,
     SignalSlice, 
     SliceCapacity,
-    TagInfo
+    TagInfo, 
+    TagDefinitions,
+    TagState
 };
 use super::{ArithmeticExpression, CircomEnvironment, CircomEnvironmentError};
 use program_structure::memory_slice::MemoryError;
 use crate::ast::Meta;
 
 pub type ExecutionEnvironmentError = CircomEnvironmentError;
-pub type ExecutionEnvironment = CircomEnvironment<ComponentSlice, (TagInfo, SignalSlice), (TagInfo, AExpressionSlice)>;
+pub type ExecutionEnvironment = CircomEnvironment<ComponentSlice, (TagInfo, TagDefinitions, SignalSlice), (TagInfo, AExpressionSlice)>;
 
 pub fn environment_shortcut_add_component(
     environment: &mut ExecutionEnvironment,
@@ -28,7 +30,12 @@ pub fn environment_shortcut_add_input(
     tags: &TagInfo,
 ) {
     let slice = SignalSlice::new_with_route(dimensions, &true);
-    environment.add_input(input_name, (tags.clone(), slice));
+    let mut tags_defined = TagDefinitions::new();
+    for (t, value) in tags{
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: true});
+    }
+    
+    environment.add_input(input_name, (tags.clone(), tags_defined,  slice));
 }
 pub fn environment_shortcut_add_output(
     environment: &mut ExecutionEnvironment,
@@ -37,7 +44,11 @@ pub fn environment_shortcut_add_output(
     tags: &TagInfo,
 ) {
     let slice = SignalSlice::new_with_route(dimensions, &false);
-    environment.add_output(output_name, (tags.clone(), slice));
+    let mut tags_defined = TagDefinitions::new();
+    for (t, value) in tags{
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: false});
+    }
+    environment.add_output(output_name, (tags.clone(), tags_defined, slice));
 }
 pub fn environment_shortcut_add_intermediate(
     environment: &mut ExecutionEnvironment,
@@ -46,7 +57,11 @@ pub fn environment_shortcut_add_intermediate(
     tags: &TagInfo,
 ) {
     let slice = SignalSlice::new_with_route(dimensions, &false);
-    environment.add_intermediate(intermediate_name, (tags.clone(), slice));
+    let mut tags_defined = TagDefinitions::new();
+    for (t, value) in tags{
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: false});
+    }
+    environment.add_intermediate(intermediate_name, (tags.clone(), tags_defined, slice));
 }
 pub fn environment_shortcut_add_variable(
     environment: &mut ExecutionEnvironment,
