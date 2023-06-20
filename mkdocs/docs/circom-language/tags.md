@@ -101,4 +101,4 @@ template Bits2Num(n) {
 ```
 
 ### Tags in signal arrays
-Every signal in an array has exactly the same tag value. Then, the tag is accessed directly from the array name instead of accessing from a particular signal in the array.  Similarly to the previous erroneous example: if a particular position of the array is modified, then the tag value of the whole array cannot be modified at all. 
+Every signal in an array has exactly the same tag value. The tag is accessed directly from the array name instead of particular signal in the array.  Similar to the previous erroneous example: if a particular position of the array is modified, then the tag value of the whole array cannot be modified at all. 
