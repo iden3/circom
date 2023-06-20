@@ -7,15 +7,12 @@ use crate::bucket_interpreter::value::Value;
 #[derive(Clone)]
 pub struct SubcmpEnv {
     pub signals: HashMap<usize, Value>,
-    counter: usize
+    counter: usize,
 }
 
 impl SubcmpEnv {
     pub fn new(inputs: usize) -> Self {
-        SubcmpEnv {
-            signals: Default::default(),
-            counter: inputs
-        }
+        SubcmpEnv { signals: Default::default(), counter: inputs }
     }
 
     pub fn decrease_counter(&mut self) {
@@ -58,7 +55,7 @@ pub struct Env {
     signals: HashMap<usize, Value>,
     subcmps: HashMap<usize, SubcmpEnv>,
     templates_library: TemplatesLibrary,
-    functions_library: FunctionsLibrary
+    functions_library: FunctionsLibrary,
 }
 
 impl Display for Env {
@@ -90,7 +87,7 @@ impl Env {
             signals: Default::default(),
             subcmps: Default::default(),
             templates_library,
-            functions_library
+            functions_library,
         }
     }
 
@@ -124,7 +121,7 @@ impl Env {
         self.subcmps[&subcmp_idx].get_signal(signal_idx)
     }
 
-    pub fn set_subcmp_signal(&mut self, subcmp_idx: usize, signal_idx: usize, value: Value)  {
+    pub fn set_subcmp_signal(&mut self, subcmp_idx: usize, signal_idx: usize, value: Value) {
         self.subcmps.get_mut(&subcmp_idx).unwrap().set_signal(signal_idx, value)
     }
 
@@ -136,18 +133,29 @@ impl Env {
         self.subcmps.get(&subcmp_idx).unwrap().counter_is_zero()
     }
 
-    pub fn run_subcmp(&mut self, subcmp_idx: usize, name: &String, interpreter: &MutableBucketInterpreter) {
-        let code =  &self.templates_library.borrow()[name].body;
-        let mut subcmp_env = Env::new(self.templates_library.clone(), self.functions_library.clone());
+    pub fn run_subcmp(
+        &mut self,
+        subcmp_idx: usize,
+        name: &String,
+        interpreter: &MutableBucketInterpreter,
+    ) {
+        let code = &self.templates_library.borrow()[name].body;
+        let mut subcmp_env =
+            Env::new(self.templates_library.clone(), self.functions_library.clone());
         subcmp_env.copy_signals(&self.subcmps[&subcmp_idx].signals);
-        let interpreter = MutableBucketInterpreter::init(subcmp_env, &interpreter.prime, interpreter.constant_fields.clone());
+        let interpreter = MutableBucketInterpreter::init(
+            subcmp_env,
+            &interpreter.prime,
+            interpreter.constant_fields.clone(),
+        );
         interpreter.execute_instructions(code);
         self.subcmps.get_mut(&subcmp_idx).unwrap().copy_signals(&interpreter.get_env().signals);
     }
 
     pub fn create_subcmp(&mut self, name: &String, base_index: usize, count: usize) {
-        for i in base_index..(base_index+count) {
-            self.subcmps.insert(i, SubcmpEnv::new(self.templates_library.borrow()[name].number_of_inputs));
+        for i in base_index..(base_index + count) {
+            self.subcmps
+                .insert(i, SubcmpEnv::new(self.templates_library.borrow()[name].number_of_inputs));
         }
     }
 }

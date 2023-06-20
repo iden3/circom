@@ -1,7 +1,10 @@
 use compiler::intermediate_representation::{Instruction, InstructionPointer};
-use compiler::intermediate_representation::ir_interface::{AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket};
+use compiler::intermediate_representation::ir_interface::{
+    AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket,
+    LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket,
+    BlockBucket, ValueBucket,
+};
 use crate::bucket_interpreter::env::immutable_env::FrozenEnv;
-
 
 /// Will get called everytime we are about to execute a bucket, with access to the environment
 /// prior to the execution of the bucket
@@ -37,52 +40,7 @@ pub trait InterpreterObserver {
             Instruction::CreateCmp(bucket) => self.on_create_cmp_bucket(bucket, env),
             Instruction::Constraint(bucket) => self.on_constraint_bucket(bucket, env),
             Instruction::UnrolledLoop(bucket) => self.on_unrolled_loop_bucket(bucket, env),
-            Instruction::Nop(bucket) => self.on_nop_bucket(bucket, env)
+            Instruction::Nop(bucket) => self.on_nop_bucket(bucket, env),
         }
     }
 }
-
-
-
-/*pub trait BucketsReconstructor: InterpreterObserver {
-
-    fn on_location_rule(&self, location_rule: &LocationRule, _env: &FrozenEnv) {
-
-    }
-
-    fn on_load_bucket(&self, bucket: &LoadBucket, _env: &FrozenEnv) {
-
-    }
-
-    fn on_store_bucket(&self, bucket: &StoreBucket, idx: usize, src: &Value, env: &FrozenEnv) {}
-    fn on_compute_bucket(&self, bucket: &ComputeBucket, stack: &Vec<Value>, env: &FrozenEnv) {}
-    fn on_assert_bucket(&self, bucket: &AssertBucket, cond: &Value, env: &FrozenEnv) {}
-    fn on_loop_bucket(&self, bucket: &LoopBucket, env: &FrozenEnv) {}
-    fn on_create_cmp_bucket(&self, bucket: &CreateCmpBucket, cmp_id: usize, env: &FrozenEnv) {}
-    fn on_constraint_bucket(&self, bucket: &ConstraintBucket, env: &FrozenEnv) {}
-    fn on_unrolled_loop_bucket(&self, bucket: &UnrolledLoopBucket, env: &FrozenEnv) {}
-    fn on_nop_bucket(&self, bucket: &NopBucket, env: &FrozenEnv) {}
-}
-*/
-// XXX: If using multiple observers at the same time is necessary finish implementing this struct
-// pub struct ObserverMultiplexer<'a>(Vec<&'a dyn InterpreterObserver>);
-//
-// impl InterpreterObserver for ObserverMultiplexer<'_> {
-//     fn on_value_bucket(&self, bucket: &ValueBucket, env: &FrozenEnv) {
-//         for observer in &self.0 {
-//             observer.on_value_bucket(bucket, env);
-//         }
-//     }
-//
-//     fn on_load_bucket(&self, bucket: &LoadBucket, index: usize, env: &FrozenEnv) {
-//         for observer in &self.0 {
-//             observer.on_load_bucket(bucket, index, env)
-//         }
-//     }
-//
-//     fn on_store_bucket(&self, bucket: &StoreBucket, idx: usize, src: &Value, env: &FrozenEnv) {
-//         for observer in &self.0 {
-//             observer.on_store_bucket(bucket, idx, src, env);
-//         }
-//     }
-// }

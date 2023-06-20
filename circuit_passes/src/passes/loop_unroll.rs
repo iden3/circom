@@ -4,7 +4,11 @@ use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::InstructionPointer;
-use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket};
+use compiler::intermediate_representation::ir_interface::{
+    Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
+    CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
+    StoreBucket, BlockBucket, ValueBucket,
+};
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
 use crate::bucket_interpreter::env::immutable_env::FrozenEnv;
 use crate::bucket_interpreter::immutable_interpreter::BucketInterpreter;
@@ -15,7 +19,7 @@ pub struct PassMemory {
     pub templates_library: TemplatesLibrary,
     pub functions_library: FunctionsLibrary,
     pub prime: String,
-    pub constant_fields: Vec<String>
+    pub constant_fields: Vec<String>,
 }
 
 impl PassMemory {
@@ -31,7 +35,7 @@ impl PassMemory {
 pub struct LoopUnrollPass {
     // Wrapped in a RefCell because the reference to the static analysis is immutable but we need mutability
     memory: RefCell<PassMemory>,
-    replacements: RefCell<BTreeMap<LoopBucket, InstructionPointer>>
+    replacements: RefCell<BTreeMap<LoopBucket, InstructionPointer>>,
 }
 
 impl LoopUnrollPass {
@@ -43,9 +47,9 @@ impl LoopUnrollPass {
                 templates_library: cl.clone(),
                 functions_library: fl.clone(),
                 prime: prime.to_string(),
-                constant_fields: vec![]
+                constant_fields: vec![],
             }),
-            replacements: Default::default()
+            replacements: Default::default(),
         }
     }
 }
@@ -92,11 +96,9 @@ impl InterpreterObserver for LoopUnrollPass {
                 }
             }
         }
-        let block = BlockBucket {
-            line: bucket.line,
-            message_id: bucket.message_id,
-            body: block_body,
-        }.allocate();
+        let block =
+            BlockBucket { line: bucket.line, message_id: bucket.message_id, body: block_body }
+                .allocate();
         self.replacements.borrow_mut().insert(bucket.clone(), block);
         true
     }
@@ -174,7 +176,10 @@ mod test {
     use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
     use compiler::compiler_interface::Circuit;
     use compiler::intermediate_representation::Instruction;
-    use compiler::intermediate_representation::ir_interface::{AddressType, Allocate, ComputeBucket, InstrContext, LoadBucket, LocationRule, LoopBucket, OperatorType, StoreBucket, ValueBucket, ValueType};
+    use compiler::intermediate_representation::ir_interface::{
+        AddressType, Allocate, ComputeBucket, InstrContext, LoadBucket, LocationRule, LoopBucket,
+        OperatorType, StoreBucket, ValueBucket, ValueType,
+    };
     use crate::CircuitTransformationPass;
     use crate::passes::loop_unroll::LoopUnrollPass;
 
@@ -188,7 +193,7 @@ mod test {
         assert_ne!(circuit, new_circuit);
         match new_circuit.templates[0].body.last().unwrap().as_ref() {
             Instruction::UnrolledLoop(b) => assert_eq!(b.body.len(), 5),
-            _ => assert!(false)
+            _ => assert!(false),
         }
     }
 
@@ -197,211 +202,230 @@ mod test {
             wasm_producer: Default::default(),
             c_producer: Default::default(),
             llvm_data: Default::default(),
-            templates: vec![
-                Box::new(TemplateCodeInfo {
-                    id: 0,
-                    header: "test_0".to_string(),
-                    name: "test".to_string(),
-                    is_parallel: false,
-                    is_parallel_component: false,
-                    is_not_parallel_component: false,
-                    has_parallel_sub_cmp: false,
-                    number_of_inputs: 0,
-                    number_of_outputs: 0,
-                    number_of_intermediates: 0,
-                    body: vec![
-                        // (store 0 0)
-                        StoreBucket {
-                            line: 0,
-                            message_id: 0,
-                            context: InstrContext { size: 0 },
-                            dest_is_output: false,
-                            dest_address_type: AddressType::Variable,
-                            dest: LocationRule::Indexed {
-                                location: ValueBucket {
-                                    line: 0,
-                                    message_id: 0,
-                                    parse_as: ValueType::U32,
-                                    op_aux_no: 0,
-                                    value: 0,
-                                }.allocate(),
-                                template_header: Some("test_0".to_string())
-                            },
-                            src: ValueBucket {
+            templates: vec![Box::new(TemplateCodeInfo {
+                id: 0,
+                header: "test_0".to_string(),
+                name: "test".to_string(),
+                is_parallel: false,
+                is_parallel_component: false,
+                is_not_parallel_component: false,
+                has_parallel_sub_cmp: false,
+                number_of_inputs: 0,
+                number_of_outputs: 0,
+                number_of_intermediates: 0,
+                body: vec![
+                    // (store 0 0)
+                    StoreBucket {
+                        line: 0,
+                        message_id: 0,
+                        context: InstrContext { size: 0 },
+                        dest_is_output: false,
+                        dest_address_type: AddressType::Variable,
+                        dest: LocationRule::Indexed {
+                            location: ValueBucket {
                                 line: 0,
                                 message_id: 0,
                                 parse_as: ValueType::U32,
                                 op_aux_no: 0,
                                 value: 0,
-                            }.allocate(),
-                        }.allocate(),
-                        // (store 1 0)
-                        StoreBucket {
+                            }
+                            .allocate(),
+                            template_header: Some("test_0".to_string()),
+                        },
+                        src: ValueBucket {
                             line: 0,
                             message_id: 0,
-                            context: InstrContext { size: 0 },
-                            dest_is_output: false,
-                            dest_address_type: AddressType::Variable,
-                            dest: LocationRule::Indexed {
-                                location: ValueBucket {
-                                    line: 0,
-                                    message_id: 0,
-                                    parse_as: ValueType::U32,
-                                    op_aux_no: 0,
-                                    value: 1,
-                                }.allocate(),
-                                template_header: Some("test_0".to_string())
-                            },
-                            src: ValueBucket {
+                            parse_as: ValueType::U32,
+                            op_aux_no: 0,
+                            value: 0,
+                        }
+                        .allocate(),
+                    }
+                    .allocate(),
+                    // (store 1 0)
+                    StoreBucket {
+                        line: 0,
+                        message_id: 0,
+                        context: InstrContext { size: 0 },
+                        dest_is_output: false,
+                        dest_address_type: AddressType::Variable,
+                        dest: LocationRule::Indexed {
+                            location: ValueBucket {
                                 line: 0,
                                 message_id: 0,
                                 parse_as: ValueType::U32,
                                 op_aux_no: 0,
-                                value: 0,
-                            }.allocate(),
-                        }.allocate(),
-                        // (loop (compute le (load 1) 5) (
-                        LoopBucket {
+                                value: 1,
+                            }
+                            .allocate(),
+                            template_header: Some("test_0".to_string()),
+                        },
+                        src: ValueBucket {
                             line: 0,
                             message_id: 0,
-                            continue_condition: ComputeBucket {
-                                line: 0,
-                                message_id: 0,
-                                op: OperatorType::Lesser,
-                                op_aux_no: 0,
-                                stack: vec![
-                                    LoadBucket {
-                                        line: 0,
-                                        message_id: 0,
-                                        address_type: AddressType::Variable,
-                                        src: LocationRule::Indexed {
-                                            location: ValueBucket {
-                                                line: 0,
-                                                message_id: 0,
-                                                parse_as: ValueType::U32,
-                                                op_aux_no: 0,
-                                                value: 1,
-                                            }.allocate(),
-                                            template_header: Some("test_0".to_string())
-                                        },
-                                    }.allocate(),
-                                    ValueBucket {
-                                        line: 0,
-                                        message_id: 0,
-                                        parse_as: ValueType::U32,
-                                        op_aux_no: 0,
-                                        value: 5,
-                                    }.allocate()
-                                ],
-                            }.allocate(),
-                            body: vec![
-                                //   (store 0 (compute add (load 0) 2))
-                                StoreBucket {
+                            parse_as: ValueType::U32,
+                            op_aux_no: 0,
+                            value: 0,
+                        }
+                        .allocate(),
+                    }
+                    .allocate(),
+                    // (loop (compute le (load 1) 5) (
+                    LoopBucket {
+                        line: 0,
+                        message_id: 0,
+                        continue_condition: ComputeBucket {
+                            line: 0,
+                            message_id: 0,
+                            op: OperatorType::Lesser,
+                            op_aux_no: 0,
+                            stack: vec![
+                                LoadBucket {
                                     line: 0,
                                     message_id: 0,
-                                    context: InstrContext { size: 0 },
-                                    dest_is_output: false,
-                                    dest_address_type: AddressType::Variable,
-                                    dest: LocationRule::Indexed {
-                                        location: ValueBucket {
-                                            line: 0,
-                                            message_id: 0,
-                                            parse_as: ValueType::U32,
-                                            op_aux_no: 0,
-                                            value: 0,
-                                        }.allocate(),
-                                        template_header: None,
-                                    },
-                                    src: ComputeBucket {
-                                        line: 0,
-                                        message_id: 0,
-                                        op: OperatorType::Add,
-                                        op_aux_no: 0,
-                                        stack: vec![
-                                            LoadBucket {
-                                                line: 0,
-                                                message_id: 0,
-                                                address_type: AddressType::Variable,
-                                                src: LocationRule::Indexed {
-                                                    location: ValueBucket {
-                                                        line: 0,
-                                                        message_id: 0,
-                                                        parse_as: ValueType::U32,
-                                                        op_aux_no: 0,
-                                                        value: 0,
-                                                    }.allocate(),
-                                                    template_header: Some("test_0".to_string()),
-                                                },
-                                            }.allocate(),
-                                            ValueBucket {
-                                                line: 0,
-                                                message_id: 0,
-                                                parse_as: ValueType::U32,
-                                                op_aux_no: 0,
-                                                value: 2,
-                                            }.allocate()
-                                        ],
-                                    }.allocate(),
-                                }.allocate(),
-                                //   (store 1 (compute add (load 1) 1))
-                                StoreBucket {
-                                    line: 0,
-                                    message_id: 0,
-                                    context: InstrContext { size: 0 },
-                                    dest_is_output: false,
-                                    dest_address_type: AddressType::Variable,
-                                    dest: LocationRule::Indexed {
+                                    address_type: AddressType::Variable,
+                                    src: LocationRule::Indexed {
                                         location: ValueBucket {
                                             line: 0,
                                             message_id: 0,
                                             parse_as: ValueType::U32,
                                             op_aux_no: 0,
                                             value: 1,
-                                        }.allocate(),
-                                        template_header: None,
+                                        }
+                                        .allocate(),
+                                        template_header: Some("test_0".to_string()),
                                     },
-                                    src: ComputeBucket {
+                                }
+                                .allocate(),
+                                ValueBucket {
+                                    line: 0,
+                                    message_id: 0,
+                                    parse_as: ValueType::U32,
+                                    op_aux_no: 0,
+                                    value: 5,
+                                }
+                                .allocate(),
+                            ],
+                        }
+                        .allocate(),
+                        body: vec![
+                            //   (store 0 (compute add (load 0) 2))
+                            StoreBucket {
+                                line: 0,
+                                message_id: 0,
+                                context: InstrContext { size: 0 },
+                                dest_is_output: false,
+                                dest_address_type: AddressType::Variable,
+                                dest: LocationRule::Indexed {
+                                    location: ValueBucket {
                                         line: 0,
                                         message_id: 0,
-                                        op: OperatorType::Add,
+                                        parse_as: ValueType::U32,
                                         op_aux_no: 0,
-                                        stack: vec![
-                                            LoadBucket {
-                                                line: 0,
-                                                message_id: 0,
-                                                address_type: AddressType::Variable,
-                                                src: LocationRule::Indexed {
-                                                    location: ValueBucket {
-                                                        line: 0,
-                                                        message_id: 0,
-                                                        parse_as: ValueType::U32,
-                                                        op_aux_no: 0,
-                                                        value: 1,
-                                                    }.allocate(),
-                                                    template_header: Some("test_0".to_string()),
-                                                },
-                                            }.allocate(),
-                                            ValueBucket {
-                                                line: 0,
-                                                message_id: 0,
-                                                parse_as: ValueType::U32,
-                                                op_aux_no: 0,
-                                                value: 1,
-                                            }.allocate()
-                                        ],
-                                    }.allocate(),
-                                }.allocate(),
-
-                            ],
-                        }.allocate()
-                        // ))
-                    ],
-                    var_stack_depth: 0,
-                    expression_stack_depth: 0,
-                    signal_stack_depth: 0,
-                    number_of_components: 0,
-                })
-            ],
+                                        value: 0,
+                                    }
+                                    .allocate(),
+                                    template_header: None,
+                                },
+                                src: ComputeBucket {
+                                    line: 0,
+                                    message_id: 0,
+                                    op: OperatorType::Add,
+                                    op_aux_no: 0,
+                                    stack: vec![
+                                        LoadBucket {
+                                            line: 0,
+                                            message_id: 0,
+                                            address_type: AddressType::Variable,
+                                            src: LocationRule::Indexed {
+                                                location: ValueBucket {
+                                                    line: 0,
+                                                    message_id: 0,
+                                                    parse_as: ValueType::U32,
+                                                    op_aux_no: 0,
+                                                    value: 0,
+                                                }
+                                                .allocate(),
+                                                template_header: Some("test_0".to_string()),
+                                            },
+                                        }
+                                        .allocate(),
+                                        ValueBucket {
+                                            line: 0,
+                                            message_id: 0,
+                                            parse_as: ValueType::U32,
+                                            op_aux_no: 0,
+                                            value: 2,
+                                        }
+                                        .allocate(),
+                                    ],
+                                }
+                                .allocate(),
+                            }
+                            .allocate(),
+                            //   (store 1 (compute add (load 1) 1))
+                            StoreBucket {
+                                line: 0,
+                                message_id: 0,
+                                context: InstrContext { size: 0 },
+                                dest_is_output: false,
+                                dest_address_type: AddressType::Variable,
+                                dest: LocationRule::Indexed {
+                                    location: ValueBucket {
+                                        line: 0,
+                                        message_id: 0,
+                                        parse_as: ValueType::U32,
+                                        op_aux_no: 0,
+                                        value: 1,
+                                    }
+                                    .allocate(),
+                                    template_header: None,
+                                },
+                                src: ComputeBucket {
+                                    line: 0,
+                                    message_id: 0,
+                                    op: OperatorType::Add,
+                                    op_aux_no: 0,
+                                    stack: vec![
+                                        LoadBucket {
+                                            line: 0,
+                                            message_id: 0,
+                                            address_type: AddressType::Variable,
+                                            src: LocationRule::Indexed {
+                                                location: ValueBucket {
+                                                    line: 0,
+                                                    message_id: 0,
+                                                    parse_as: ValueType::U32,
+                                                    op_aux_no: 0,
+                                                    value: 1,
+                                                }
+                                                .allocate(),
+                                                template_header: Some("test_0".to_string()),
+                                            },
+                                        }
+                                        .allocate(),
+                                        ValueBucket {
+                                            line: 0,
+                                            message_id: 0,
+                                            parse_as: ValueType::U32,
+                                            op_aux_no: 0,
+                                            value: 1,
+                                        }
+                                        .allocate(),
+                                    ],
+                                }
+                                .allocate(),
+                            }
+                            .allocate(),
+                        ],
+                    }
+                    .allocate(), // ))
+                ],
+                var_stack_depth: 0,
+                expression_stack_depth: 0,
+                signal_stack_depth: 0,
+                number_of_components: 0,
+            })],
             functions: vec![],
         }
     }

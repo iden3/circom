@@ -5,7 +5,11 @@ use crate::bucket_interpreter::value;
 use crate::bucket_interpreter::value::{mod_value, resolve_operation, Value};
 use crate::bucket_interpreter::value::Value::{KnownBigInt, KnownU32, Unknown};
 use compiler::intermediate_representation::{Instruction, InstructionPointer};
-use compiler::intermediate_representation::ir_interface::{AddressType, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, OperatorType, ReturnBucket, StatusInput, StoreBucket, BlockBucket, ValueBucket, ValueType};
+use compiler::intermediate_representation::ir_interface::{
+    AddressType, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
+    CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket,
+    OperatorType, ReturnBucket, StatusInput, StoreBucket, BlockBucket, ValueBucket, ValueType,
+};
 
 use compiler::num_bigint::BigInt;
 use program_structure::utils::constants::UsefulConstants;
@@ -14,7 +18,7 @@ pub struct MutableBucketInterpreter {
     env: Vec<Rc<RefCell<Env>>>,
     constants: UsefulConstants,
     pub prime: String,
-    pub constant_fields: Vec<String>
+    pub constant_fields: Vec<String>,
 }
 
 impl MutableBucketInterpreter {
@@ -23,7 +27,7 @@ impl MutableBucketInterpreter {
             env: vec![Rc::new(RefCell::new(env))],
             constants: UsefulConstants::new(prime),
             prime: prime.clone(),
-            constant_fields
+            constant_fields,
         }
     }
 
@@ -58,9 +62,12 @@ impl MutableBucketInterpreter {
         Some(match bucket.parse_as {
             ValueType::BigInt => {
                 let constant = &self.constant_fields[bucket.value];
-                KnownBigInt(BigInt::parse_bytes(constant.as_bytes(), 10).expect(format!("Cannot parse constant {}", constant).as_str()))
-            },
-            ValueType::U32 => KnownU32(bucket.value)
+                KnownBigInt(
+                    BigInt::parse_bytes(constant.as_bytes(), 10)
+                        .expect(format!("Cannot parse constant {}", constant).as_str()),
+                )
+            }
+            ValueType::U32 => KnownU32(bucket.value),
         })
     }
 
@@ -78,12 +85,10 @@ impl MutableBucketInterpreter {
         })
     }
 
-    pub fn execute_location_rule(&self,loc: &LocationRule) -> Option<Value> {
+    pub fn execute_location_rule(&self, loc: &LocationRule) -> Option<Value> {
         match loc {
-            LocationRule::Indexed { location, .. } => {
-                self.execute_instruction_ptr(location)
-            }
-            LocationRule::Mapped { .. } => todo!()
+            LocationRule::Indexed { location, .. } => self.execute_instruction_ptr(location),
+            LocationRule::Mapped { .. } => todo!(),
         }
     }
 
@@ -101,8 +106,8 @@ impl MutableBucketInterpreter {
                 env.decrease_subcmp_counter(addr);
 
                 let sub_cmp_name = match &bucket.dest {
-                    LocationRule::Indexed { template_header, ..} => template_header.clone(),
-                    _ => None
+                    LocationRule::Indexed { template_header, .. } => template_header.clone(),
+                    _ => None,
                 };
 
                 if let InputInformation::Input { status } = input_information {
@@ -125,10 +130,11 @@ impl MutableBucketInterpreter {
     }
 
     pub fn execute_compute_bucket(&self, bucket: &ComputeBucket) -> Option<Value> {
-        let stack: Vec<Value> = bucket.stack.iter().map(|i| self.execute_instruction_ptr(i).unwrap()).collect();
+        let stack: Vec<Value> =
+            bucket.stack.iter().map(|i| self.execute_instruction_ptr(i).unwrap()).collect();
         // If any value of the stack is unknown we just return unknown
         if stack.iter().any(|v| v.is_unknown()) {
-            return Some(Unknown)
+            return Some(Unknown);
         }
         let p = self.constants.get_p();
         Some(match bucket.op {
@@ -153,9 +159,13 @@ impl MutableBucketInterpreter {
             OperatorType::BitOr => resolve_operation(value::bit_or_value, p, &stack),
             OperatorType::BitAnd => resolve_operation(value::bit_and_value, p, &stack),
             OperatorType::BitXor => resolve_operation(value::bit_xor_value, p, &stack),
-            OperatorType::PrefixSub => mod_value(&value::prefix_sub(&stack[0]), &KnownBigInt(p.clone())),
+            OperatorType::PrefixSub => {
+                mod_value(&value::prefix_sub(&stack[0]), &KnownBigInt(p.clone()))
+            }
             OperatorType::BoolNot => KnownU32((!stack[0].to_bool()).into()),
-            OperatorType::Complement => mod_value(&value::complement(&stack[0]), &KnownBigInt(p.clone())),
+            OperatorType::Complement => {
+                mod_value(&value::complement(&stack[0]), &KnownBigInt(p.clone()))
+            }
             OperatorType::ToAddress => value::to_address(&stack[0]),
             OperatorType::MulAddress => stack.iter().fold(KnownU32(1), value::mul_address),
             OperatorType::AddAddress => stack.iter().fold(KnownU32(0), value::add_address),
@@ -187,9 +197,12 @@ impl MutableBucketInterpreter {
     }
 
     // TODO: Needs more work!
-    pub fn execute_conditional_bucket(&self, cond: &InstructionPointer,
-                                      true_branch: &[InstructionPointer],
-                                      false_branch: &[InstructionPointer]) -> (Option<Value>, Option<bool>) {
+    pub fn execute_conditional_bucket(
+        &self,
+        cond: &InstructionPointer,
+        true_branch: &[InstructionPointer],
+        false_branch: &[InstructionPointer],
+    ) -> (Option<Value>, Option<bool>) {
         let executed_cond = self.execute_instruction_ptr(cond).unwrap();
         println!("executed_cond == {:?}", executed_cond);
         let cond_bool_result = match executed_cond {
@@ -197,7 +210,7 @@ impl MutableBucketInterpreter {
             KnownU32(1) => Some(true),
             KnownU32(0) => Some(false),
             KnownU32(_) => todo!(),
-            KnownBigInt(_) => todo!()
+            KnownBigInt(_) => todo!(),
         };
 
         return match cond_bool_result {
@@ -209,10 +222,8 @@ impl MutableBucketInterpreter {
                 (ret, None)
             }
             Some(true) => (self.execute_instructions(&true_branch), Some(true)),
-            Some(false) => {
-                (self.execute_instructions(&false_branch), Some(false))
-            }
-        }
+            Some(false) => (self.execute_instructions(&false_branch), Some(false)),
+        };
     }
 
     pub fn execute_loop_bucket_once(&self, bucket: &LoopBucket) -> (Option<Value>, Option<bool>) {
@@ -226,10 +237,15 @@ impl MutableBucketInterpreter {
     pub fn execute_loop_bucket(&self, bucket: &LoopBucket) -> Option<Value> {
         let mut last_value = Some(Unknown);
         loop {
-            let (value, cond) = self.execute_conditional_bucket(&bucket.continue_condition, &bucket.body, &[]);
+            let (value, cond) =
+                self.execute_conditional_bucket(&bucket.continue_condition, &bucket.body, &[]);
             match cond {
                 None => {
-                    let (value, _) = self.execute_conditional_bucket(&bucket.continue_condition, &bucket.body, &[]);
+                    let (value, _) = self.execute_conditional_bucket(
+                        &bucket.continue_condition,
+                        &bucket.body,
+                        &[],
+                    );
                     break value;
                 }
                 Some(false) => {
@@ -239,14 +255,13 @@ impl MutableBucketInterpreter {
                     last_value = value;
                 }
             }
-
         }
     }
 
     pub fn execute_create_cmp_bucket(&self, bucket: &CreateCmpBucket) -> Option<Value> {
         let cmp_id = self.execute_instruction_ptr(&bucket.sub_cmp_id).unwrap().get_u32();
         let mut env = self.get_env_mut();
-        env.create_subcmp(&bucket.symbol, cmp_id,bucket.number_of_cmp);
+        env.create_subcmp(&bucket.symbol, cmp_id, bucket.number_of_cmp);
         // Run the subcomponents with 0 inputs directly
         for i in cmp_id..(cmp_id + bucket.number_of_cmp) {
             if env.subcmp_counter_is_zero(i) {
@@ -259,7 +274,7 @@ impl MutableBucketInterpreter {
     pub fn execute_constraint_bucket(&self, bucket: &ConstraintBucket) -> Option<Value> {
         self.execute_instruction_ptr(match bucket {
             ConstraintBucket::Substitution(i) => i,
-            ConstraintBucket::Equality(i) => i
+            ConstraintBucket::Equality(i) => i,
         })
     }
 
@@ -302,8 +317,7 @@ impl MutableBucketInterpreter {
             Instruction::CreateCmp(b) => self.execute_create_cmp_bucket(b),
             Instruction::Constraint(b) => self.execute_constraint_bucket(b),
             Instruction::UnrolledLoop(b) => self.execute_unrolled_loop_bucket(b),
-            Instruction::Nop(b) => self.execute_nop_bucket(b)
+            Instruction::Nop(b) => self.execute_nop_bucket(b),
         }
     }
-
 }

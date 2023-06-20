@@ -6,7 +6,7 @@ use crate::bucket_interpreter::mutable_interpreter::MutableBucketInterpreter;
 pub struct PassMemory {
     pub templates_library: TemplatesLibrary,
     pub functions_library: FunctionsLibrary,
-    pub interpreter: MutableBucketInterpreter
+    pub interpreter: MutableBucketInterpreter,
 }
 
 impl PassMemory {

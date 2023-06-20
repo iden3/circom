@@ -7,15 +7,12 @@ use crate::bucket_interpreter::value::Value;
 #[derive(Clone, Default, Debug)]
 pub struct FrozenSubcmpEnv {
     pub signals: HashMap<usize, Value>,
-    counter: usize
+    counter: usize,
 }
 
 impl FrozenSubcmpEnv {
     pub fn new(inputs: usize) -> Self {
-        FrozenSubcmpEnv {
-            signals: Default::default(),
-            counter: inputs
-        }
+        FrozenSubcmpEnv { signals: Default::default(), counter: inputs }
     }
 
     pub fn get_signal(&self, index: usize) -> Value {
@@ -25,15 +22,12 @@ impl FrozenSubcmpEnv {
     pub fn set_signal(&self, idx: usize, value: Value) -> FrozenSubcmpEnv {
         FrozenSubcmpEnv {
             signals: self.signals.clone().into_iter().chain([(idx, value)]).collect(),
-            counter: self.counter
+            counter: self.counter,
         }
     }
 
     pub fn set_signals(&self, signals: HashMap<usize, Value>) -> FrozenSubcmpEnv {
-        FrozenSubcmpEnv {
-            signals,
-            counter: self.counter
-        }
+        FrozenSubcmpEnv { signals, counter: self.counter }
     }
 
     pub fn counter_is_zero(&self) -> bool {
@@ -41,10 +35,7 @@ impl FrozenSubcmpEnv {
     }
 
     pub fn decrease_counter(&self) -> FrozenSubcmpEnv {
-        FrozenSubcmpEnv {
-            signals: self.signals.clone(),
-            counter: self.counter - 1
-        }
+        FrozenSubcmpEnv { signals: self.signals.clone(), counter: self.counter - 1 }
     }
 }
 
@@ -55,7 +46,7 @@ pub struct FrozenEnv {
     signals: HashMap<usize, Value>,
     subcmps: HashMap<usize, FrozenSubcmpEnv>,
     templates_library: TemplatesLibrary,
-    functions_library: FunctionsLibrary
+    functions_library: FunctionsLibrary,
 }
 
 impl FrozenEnv {
@@ -65,7 +56,7 @@ impl FrozenEnv {
             signals: Default::default(),
             subcmps: Default::default(),
             templates_library,
-            functions_library
+            functions_library,
         }
     }
 
@@ -117,16 +108,24 @@ impl FrozenEnv {
         }
     }
 
-    pub fn set_subcmp_signal(&self, subcmp_idx: usize, signal_idx: usize, value: Value) -> FrozenEnv {
+    pub fn set_subcmp_signal(
+        &self,
+        subcmp_idx: usize,
+        signal_idx: usize,
+        value: Value,
+    ) -> FrozenEnv {
         let subcmp = &self.subcmps[&subcmp_idx];
         FrozenEnv {
             vars: self.vars.clone(),
             signals: self.vars.clone(),
             templates_library: self.templates_library.clone(),
             functions_library: self.functions_library.clone(),
-            subcmps: self.subcmps.clone().into_iter().chain([
-                (subcmp_idx, subcmp.set_signal(signal_idx, value))
-            ]).collect()
+            subcmps: self
+                .subcmps
+                .clone()
+                .into_iter()
+                .chain([(subcmp_idx, subcmp.set_signal(signal_idx, value))])
+                .collect(),
         }
     }
 
@@ -137,13 +136,20 @@ impl FrozenEnv {
             signals: self.vars.clone(),
             templates_library: self.templates_library.clone(),
             functions_library: self.functions_library.clone(),
-            subcmps: self.subcmps.clone().into_iter().chain([
-                (subcmp_idx, subcmp.decrease_counter())
-            ]).collect()
+            subcmps: self
+                .subcmps
+                .clone()
+                .into_iter()
+                .chain([(subcmp_idx, subcmp.decrease_counter())])
+                .collect(),
         }
     }
 
-    pub fn set_subcmp_signals(&self, subcmp_idx: usize, signals: HashMap<usize, Value>) -> FrozenEnv {
+    pub fn set_subcmp_signals(
+        &self,
+        subcmp_idx: usize,
+        signals: HashMap<usize, Value>,
+    ) -> FrozenEnv {
         println!("{subcmp_idx} {:?}", self.subcmps);
         let subcmp = &self.subcmps[&subcmp_idx];
         FrozenEnv {
@@ -151,26 +157,43 @@ impl FrozenEnv {
             signals: self.vars.clone(),
             templates_library: self.templates_library.clone(),
             functions_library: self.functions_library.clone(),
-            subcmps: self.subcmps.clone().into_iter().chain([
-                (subcmp_idx, subcmp.set_signals(signals))
-            ]).collect()
+            subcmps: self
+                .subcmps
+                .clone()
+                .into_iter()
+                .chain([(subcmp_idx, subcmp.set_signals(signals))])
+                .collect(),
         }
     }
 
-    pub fn run_subcmp(&self, subcmp_idx: usize, name: &String, interpreter: &BucketInterpreter, observe: bool) -> FrozenEnv {
-        let code =  &self.templates_library.borrow()[name].body;
-        let subcmp_env = FrozenEnv::new(self.templates_library.clone(), self.functions_library.clone())
-            .set_signals(self.subcmps[&subcmp_idx].signals.clone());
+    pub fn run_subcmp(
+        &self,
+        subcmp_idx: usize,
+        name: &String,
+        interpreter: &BucketInterpreter,
+        observe: bool,
+    ) -> FrozenEnv {
+        let code = &self.templates_library.borrow()[name].body;
+        let subcmp_env =
+            FrozenEnv::new(self.templates_library.clone(), self.functions_library.clone())
+                .set_signals(self.subcmps[&subcmp_idx].signals.clone());
 
-        let interpreter = BucketInterpreter::init(interpreter.prime(), interpreter.constant_fields, interpreter.observer());
+        let interpreter = BucketInterpreter::init(
+            interpreter.prime(),
+            interpreter.constant_fields,
+            interpreter.observer(),
+        );
         let (_, env) = interpreter.execute_instructions(code, &subcmp_env, observe);
         self.set_subcmp_signals(subcmp_idx, env.signals.clone())
     }
 
     pub fn create_subcmp(&self, name: &String, base_index: usize, count: usize) -> FrozenEnv {
         let mut subcmps = self.subcmps.clone();
-        for i in base_index..(base_index+count) {
-            subcmps.insert(i, FrozenSubcmpEnv::new(self.templates_library.borrow()[name].number_of_inputs));
+        for i in base_index..(base_index + count) {
+            subcmps.insert(
+                i,
+                FrozenSubcmpEnv::new(self.templates_library.borrow()[name].number_of_inputs),
+            );
         }
         println!("{:?}", subcmps);
 
@@ -179,7 +202,7 @@ impl FrozenEnv {
             signals: self.vars.clone(),
             templates_library: self.templates_library.clone(),
             functions_library: self.functions_library.clone(),
-            subcmps
+            subcmps,
         }
     }
 }

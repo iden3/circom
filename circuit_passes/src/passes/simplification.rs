@@ -4,7 +4,11 @@ use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{Instruction, InstructionList, InstructionPointer};
 
-use compiler::intermediate_representation::ir_interface::{AddressType, Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucketArg, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket, ValueType};
+use compiler::intermediate_representation::ir_interface::{
+    AddressType, Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
+    CreateCmpBucket, LoadBucket, LocationRule, LogBucketArg, LoopBucket, NopBucket, ReturnBucket,
+    StoreBucket, BlockBucket, ValueBucket, ValueType,
+};
 use crate::bucket_interpreter::mutable_interpreter::MutableBucketInterpreter;
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
 use crate::bucket_interpreter::env::mutable_env::Env;
@@ -20,11 +24,10 @@ use crate::passes::memory::PassMemory;
 /// If there is no compute bucket in the expression we just clone the bucket, run
 /// it to update the environment and return.
 
-
 fn location_rule_has_compute_bucket(loc: &LocationRule) -> bool {
     match loc {
         LocationRule::Indexed { location, .. } => has_compute_bucket(location),
-        LocationRule::Mapped { indexes, .. } => indexes.iter().any(|i| has_compute_bucket(i))
+        LocationRule::Mapped { indexes, .. } => indexes.iter().any(|i| has_compute_bucket(i)),
     }
 }
 
@@ -32,10 +35,15 @@ fn has_compute_bucket(i: &Instruction) -> bool {
     match i {
         Instruction::Value(_) => false,
         Instruction::Load(b) => location_rule_has_compute_bucket(&b.src),
-        Instruction::Store(b) => location_rule_has_compute_bucket(&b.dest) || has_compute_bucket(&b.src),
+        Instruction::Store(b) => {
+            location_rule_has_compute_bucket(&b.dest) || has_compute_bucket(&b.src)
+        }
         Instruction::Compute(_) => true,
         Instruction::Call(b) => b.arguments.iter().any(|i| has_compute_bucket(i)),
-        Instruction::Branch(b) => b.if_branch.iter().any(|i| has_compute_bucket(i)) || b.else_branch.iter().any(|i| has_compute_bucket(i)),
+        Instruction::Branch(b) => {
+            b.if_branch.iter().any(|i| has_compute_bucket(i))
+                || b.else_branch.iter().any(|i| has_compute_bucket(i))
+        }
         Instruction::Return(b) => has_compute_bucket(&b.value),
         Instruction::Assert(b) => has_compute_bucket(&b.evaluate),
         Instruction::Log(b) => b.argsprint.iter().any(|a| {
@@ -49,15 +57,15 @@ fn has_compute_bucket(i: &Instruction) -> bool {
         Instruction::CreateCmp(b) => has_compute_bucket(&b.sub_cmp_id),
         Instruction::Constraint(b) => has_compute_bucket(match b {
             ConstraintBucket::Substitution(i) => i,
-            ConstraintBucket::Equality(i) => i
+            ConstraintBucket::Equality(i) => i,
         }),
         Instruction::UnrolledLoop(b) => b.body.iter().any(|i| has_compute_bucket(i)),
-        Instruction::Nop(_) => false
+        Instruction::Nop(_) => false,
     }
 }
 
 pub struct ComputeSimplificationPass {
-    memory: RefCell<PassMemory>
+    memory: RefCell<PassMemory>,
 }
 
 impl ComputeSimplificationPass {
@@ -68,8 +76,8 @@ impl ComputeSimplificationPass {
             memory: RefCell::new(PassMemory {
                 templates_library: cl.clone(),
                 functions_library: fl.clone(),
-                interpreter: MutableBucketInterpreter::init(Env::new(cl, fl), prime, vec![])
-            })
+                interpreter: MutableBucketInterpreter::init(Env::new(cl, fl), prime, vec![]),
+            }),
         }
     }
 
@@ -124,19 +132,20 @@ impl ComputeSimplificationPass {
             parse_as,
             op_aux_no: 0,
             value,
-        }.allocate();
+        }
+        .allocate();
     }
 
     fn reconstruct_location_rule(&self, loc: &LocationRule) -> LocationRule {
         match loc {
-            LocationRule::Indexed { location, template_header, } => LocationRule::Indexed {
+            LocationRule::Indexed { location, template_header } => LocationRule::Indexed {
                 location: self.reconstruct_bucket(&location),
-                template_header: template_header.clone()
+                template_header: template_header.clone(),
             },
             LocationRule::Mapped { signal_code, indexes } => LocationRule::Mapped {
                 signal_code: *signal_code,
-                indexes: indexes.iter().map(|i| self.reconstruct_bucket(i)).collect()
-            }
+                indexes: indexes.iter().map(|i| self.reconstruct_bucket(i)).collect(),
+            },
         }
     }
 
@@ -146,13 +155,18 @@ impl ComputeSimplificationPass {
 
     fn reconstruct_address_type(&self, addr: &AddressType) -> AddressType {
         match addr {
-            AddressType::SubcmpSignal { cmp_address, uniform_parallel_value, is_output, input_information } => AddressType::SubcmpSignal {
+            AddressType::SubcmpSignal {
+                cmp_address,
+                uniform_parallel_value,
+                is_output,
+                input_information,
+            } => AddressType::SubcmpSignal {
                 uniform_parallel_value: uniform_parallel_value.clone(),
                 is_output: *is_output,
                 input_information: input_information.clone(),
-                cmp_address: self.reconstruct_bucket(&cmp_address)
+                cmp_address: self.reconstruct_bucket(&cmp_address),
             },
-            x => x.clone()
+            x => x.clone(),
         }
     }
 
@@ -164,7 +178,8 @@ impl ComputeSimplificationPass {
                 message_id: b.message_id,
                 address_type: self.reconstruct_address_type(&b.address_type),
                 src: self.reconstruct_location_rule(&b.src),
-            }.allocate(),
+            }
+            .allocate(),
             Instruction::Store(b) => StoreBucket {
                 line: b.line,
                 message_id: b.message_id,
@@ -173,7 +188,8 @@ impl ComputeSimplificationPass {
                 dest_address_type: self.reconstruct_address_type(&b.dest_address_type),
                 dest: self.reconstruct_location_rule(&b.dest),
                 src: self.reconstruct_bucket(&b.src),
-            }.allocate(),
+            }
+            .allocate(),
             Instruction::Compute(b) => self.eval_compute_bucket(b),
             Instruction::Call(b) => self.eval_call_bucket(b),
             Instruction::Branch(b) => BranchBucket {
@@ -182,25 +198,29 @@ impl ComputeSimplificationPass {
                 cond: b.cond.clone(),
                 if_branch: self.reconstruct_buckets(&b.if_branch),
                 else_branch: self.reconstruct_buckets(&b.else_branch),
-            }.allocate(),
+            }
+            .allocate(),
             Instruction::Return(b) => ReturnBucket {
                 line: b.line,
                 message_id: b.message_id,
                 with_size: b.with_size,
                 value: self.reconstruct_bucket(&b.value),
-            }.allocate(),
+            }
+            .allocate(),
             Instruction::Assert(b) => AssertBucket {
                 line: b.line,
                 message_id: b.message_id,
                 evaluate: self.reconstruct_bucket(&b.evaluate),
-            }.allocate(),
+            }
+            .allocate(),
             Instruction::Log(b) => b.clone().allocate(),
             Instruction::Loop(b) => LoopBucket {
                 line: b.line,
                 message_id: b.message_id,
                 continue_condition: b.continue_condition.clone(),
                 body: self.reconstruct_buckets(&b.body),
-            }.allocate(),
+            }
+            .allocate(),
             Instruction::CreateCmp(b) => CreateCmpBucket {
                 line: b.line,
                 message_id: b.message_id,
@@ -210,7 +230,8 @@ impl ComputeSimplificationPass {
                 sub_cmp_id: self.reconstruct_bucket(&b.sub_cmp_id),
                 name_subcomponent: b.name_subcomponent.to_string(),
                 defined_positions: b.defined_positions.clone(),
-                is_part_mixed_array_not_uniform_parallel: b.is_part_mixed_array_not_uniform_parallel,
+                is_part_mixed_array_not_uniform_parallel: b
+                    .is_part_mixed_array_not_uniform_parallel,
                 uniform_parallel: b.uniform_parallel,
                 dimensions: b.dimensions.clone(),
                 signal_offset: b.signal_offset,
@@ -219,22 +240,27 @@ impl ComputeSimplificationPass {
                 component_offset_jump: b.component_offset_jump,
                 number_of_cmp: b.number_of_cmp,
                 has_inputs: b.has_inputs,
-            }.allocate(),
+            }
+            .allocate(),
             Instruction::Constraint(b) => match b {
-                ConstraintBucket::Substitution(i) => ConstraintBucket::Substitution(self.reconstruct_bucket(i)),
-                ConstraintBucket::Equality(i) => ConstraintBucket::Equality(self.reconstruct_bucket(i))
-            }.allocate(),
+                ConstraintBucket::Substitution(i) => {
+                    ConstraintBucket::Substitution(self.reconstruct_bucket(i))
+                }
+                ConstraintBucket::Equality(i) => {
+                    ConstraintBucket::Equality(self.reconstruct_bucket(i))
+                }
+            }
+            .allocate(),
             Instruction::UnrolledLoop(b) => BlockBucket {
                 line: b.line,
                 message_id: b.message_id,
                 body: b.body.iter().map(|iter| self.reconstruct_bucket(iter)).collect(),
-            }.allocate(),
-            Instruction::Nop(_) => NopBucket.allocate()
+            }
+            .allocate(),
+            Instruction::Nop(_) => NopBucket.allocate(),
         }
     }
 }
-
-
 
 impl CircuitTransformationPass for ComputeSimplificationPass {
     fn pre_hook_circuit(&self, circuit: &Circuit) {
@@ -244,7 +270,8 @@ impl CircuitTransformationPass for ComputeSimplificationPass {
         for function in &circuit.functions {
             self.memory.borrow_mut().add_function(function);
         }
-        self.memory.borrow_mut().interpreter.constant_fields = circuit.llvm_data.field_tracking.clone();
+        self.memory.borrow_mut().interpreter.constant_fields =
+            circuit.llvm_data.field_tracking.clone();
     }
 
     /// Reset the interpreter when we are about to enter a new template
@@ -257,9 +284,12 @@ impl CircuitTransformationPass for ComputeSimplificationPass {
         self.pre_hook_instruction(i);
         println!("\n[RUN ON INST] {}\n", i.to_string());
         let new_bucket = if has_compute_bucket(i) {
-
             let x = self.reconstruct_bucket(i);
-            println!("[run_on_instruction] Replacing\n\n {}\n\nwith\n\n {}\n\n", i.to_string(), x.to_string());
+            println!(
+                "[run_on_instruction] Replacing\n\n {}\n\nwith\n\n {}\n\n",
+                i.to_string(),
+                x.to_string()
+            );
             x
         } else {
             i.clone().allocate()
@@ -276,7 +306,6 @@ impl CircuitTransformationPass for ComputeSimplificationPass {
     fn get_updated_field_constants(&self) -> Vec<String> {
         self.memory.borrow().interpreter.constant_fields.clone()
     }
-
 
     // Any call to the run_on_*_bucket functions we know is a bucket that contains a compute bucket
 }

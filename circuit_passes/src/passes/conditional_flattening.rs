@@ -1,12 +1,15 @@
 use std::cell::RefCell;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::ir_interface::{AssertBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LogBucket, LoopBucket, ReturnBucket, StoreBucket, ValueBucket};
+use compiler::intermediate_representation::ir_interface::{
+    AssertBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket,
+    LogBucket, LoopBucket, ReturnBucket, StoreBucket, ValueBucket,
+};
 use crate::CircuitTransformationPass;
 use crate::passes::memory::PassMemory;
 
 pub struct ConditionalFlattening {
-    memory: RefCell<PassMemory>
+    memory: RefCell<PassMemory>,
 }
 
 impl CircuitTransformationPass for ConditionalFlattening {
@@ -21,7 +24,8 @@ impl CircuitTransformationPass for ConditionalFlattening {
         for function in &circuit.functions {
             self.memory.borrow_mut().add_function(function);
         }
-        self.memory.borrow_mut().interpreter.constant_fields = circuit.llvm_data.field_tracking.clone();
+        self.memory.borrow_mut().interpreter.constant_fields =
+            circuit.llvm_data.field_tracking.clone();
     }
 
     /// Reset the interpreter when we are about to enter a new template
@@ -84,5 +88,4 @@ impl CircuitTransformationPass for ConditionalFlattening {
         eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
         self.memory.borrow().interpreter.execute_constraint_bucket(bucket);
     }
-
 }

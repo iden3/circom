@@ -10,7 +10,11 @@ use compiler::circuit_design::function::{FunctionCode, FunctionCodeInfo};
 use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{Instruction, InstructionList};
-use compiler::intermediate_representation::ir_interface::{AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket};
+use compiler::intermediate_representation::ir_interface::{
+    AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket,
+    LoadBucket, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket,
+    ValueBucket,
+};
 use compiler::intermediate_representation::InstructionPointer;
 use compiler::intermediate_representation::ir_interface::Allocate;
 use constraint_generation::execute::RuntimeInformation;
@@ -23,32 +27,26 @@ macro_rules! run_on_bucket {
         fn $name(&self, bucket: &$bucket_ty) -> InstructionPointer {
             bucket.clone().allocate()
         }
-    }
+    };
 }
 
 macro_rules! pre_hook {
     ($name: ident, $bucket_ty: ty) => {
-        fn $name(&self, _bucket: &$bucket_ty)  {}
-    }
+        fn $name(&self, _bucket: &$bucket_ty) {}
+    };
 }
 
 pub trait CircuitTransformationPass {
     fn run_on_circuit(&self, circuit: &Circuit) -> Circuit {
         self.pre_hook_circuit(&circuit);
-        let templates = circuit.templates.iter().map(|t| {
-            self.run_on_template(t)
-        }).collect();
+        let templates = circuit.templates.iter().map(|t| self.run_on_template(t)).collect();
 
         Circuit {
             wasm_producer: circuit.wasm_producer.clone(),
             c_producer: circuit.c_producer.clone(),
-            llvm_data: LLVMCircuitData {
-                field_tracking: self.get_updated_field_constants(),
-            },
+            llvm_data: LLVMCircuitData { field_tracking: self.get_updated_field_constants() },
             templates,
-            functions: circuit.functions.iter().map(|f| {
-                self.run_on_function(f)
-            }).collect(),
+            functions: circuit.functions.iter().map(|f| self.run_on_function(f)).collect(),
         }
     }
 
@@ -89,9 +87,7 @@ pub trait CircuitTransformationPass {
     }
 
     fn run_on_instructions(&self, i: &InstructionList) -> InstructionList {
-        i.iter().map(|i| {
-            self.run_on_instruction(i)
-        }).collect()
+        i.iter().map(|i| self.run_on_instruction(i)).collect()
     }
 
     fn pre_hook_instruction(&self, i: &Instruction) {
@@ -110,10 +106,10 @@ pub trait CircuitTransformationPass {
             CreateCmp(b) => self.pre_hook_create_cmp_bucket(b),
             Constraint(b) => self.pre_hook_constraint_bucket(b),
             UnrolledLoop(b) => self.pre_hook_unrolled_loop_bucket(b),
-            Nop(b) => self.pre_hook_nop_bucket(b)
+            Nop(b) => self.pre_hook_nop_bucket(b),
         }
     }
-    
+
     fn run_on_instruction(&self, i: &Instruction) -> InstructionPointer {
         self.pre_hook_instruction(i);
         use Instruction::*;
@@ -131,7 +127,7 @@ pub trait CircuitTransformationPass {
             CreateCmp(b) => self.run_on_create_cmp_bucket(b),
             Constraint(b) => self.run_on_constraint_bucket(b),
             UnrolledLoop(b) => self.run_on_unrolled_loop_bucket(b),
-            Nop(b) => self.run_on_nop_bucket(b)
+            Nop(b) => self.run_on_nop_bucket(b),
         }
     }
 
@@ -170,13 +166,12 @@ pub trait CircuitTransformationPass {
     pre_hook!(pre_hook_constraint_bucket, ConstraintBucket);
     pre_hook!(pre_hook_unrolled_loop_bucket, BlockBucket);
     pre_hook!(pre_hook_nop_bucket, NopBucket);
-    
 }
 
 pub type Passes = RefCell<Vec<Box<dyn CircuitTransformationPass>>>;
 
 pub struct PassManager {
-    passes: Passes
+    passes: Passes,
 }
 
 impl PassManager {
@@ -184,7 +179,11 @@ impl PassManager {
         PassManager { passes: Default::default() }
     }
 
-    pub fn schedule_loop_unroll_pass(&self, program_archive: ProgramArchive, prime: &String) -> &Self {
+    pub fn schedule_loop_unroll_pass(
+        &self,
+        program_archive: ProgramArchive,
+        prime: &String,
+    ) -> &Self {
         let main_file_id = program_archive.get_file_id_main();
         let _runtime = RuntimeInformation::new(*main_file_id, program_archive.id_max, prime);
         self.passes.borrow_mut().push(Box::new(LoopUnrollPass::new(prime)));
