@@ -13,7 +13,7 @@ mod store_bucket;
 mod types;
 mod value_bucket;
 mod constraint_bucket;
-mod unrolled_loop_bucket;
+mod block_bucket;
 mod nop_bucket;
 
 pub mod ir_interface;

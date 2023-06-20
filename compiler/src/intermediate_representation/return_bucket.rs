@@ -6,7 +6,7 @@ use code_producers::llvm_elements::instructions::create_return_from_any_value;
 use code_producers::wasm_elements::*;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct ReturnBucket {
     pub line: usize,
     pub message_id: usize,

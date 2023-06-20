@@ -8,7 +8,7 @@ use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct FinalData {
     // greater than one only with signals.
     pub context: InstrContext,
@@ -17,13 +17,13 @@ pub struct FinalData {
     pub dest: LocationRule,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ReturnType {
     Intermediate { op_aux_no: usize },
     Final(FinalData),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct CallBucket {
     pub line: usize,
     pub message_id: usize,

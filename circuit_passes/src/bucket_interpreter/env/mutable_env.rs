@@ -1,10 +1,7 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use compiler::circuit_design::function::FunctionCode;
-use compiler::circuit_design::template::TemplateCode;
-use crate::bucket_interpreter::BucketInterpreter;
+use std::collections::HashMap;
+use crate::bucket_interpreter::mutable_interpreter::MutableBucketInterpreter;
+use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
 use crate::bucket_interpreter::value::Value;
 
 #[derive(Clone)]
@@ -139,11 +136,11 @@ impl Env {
         self.subcmps.get(&subcmp_idx).unwrap().counter_is_zero()
     }
 
-    pub fn run_subcmp(&mut self, subcmp_idx: usize, name: &String, interpreter: &BucketInterpreter) {
+    pub fn run_subcmp(&mut self, subcmp_idx: usize, name: &String, interpreter: &MutableBucketInterpreter) {
         let code =  &self.templates_library.borrow()[name].body;
         let mut subcmp_env = Env::new(self.templates_library.clone(), self.functions_library.clone());
         subcmp_env.copy_signals(&self.subcmps[&subcmp_idx].signals);
-        let interpreter = BucketInterpreter::init(subcmp_env, &interpreter.prime, interpreter.constant_fields.clone());
+        let interpreter = MutableBucketInterpreter::init(subcmp_env, &interpreter.prime, interpreter.constant_fields.clone());
         interpreter.execute_instructions(code);
         self.subcmps.get_mut(&subcmp_idx).unwrap().copy_signals(&interpreter.get_env().signals);
     }
@@ -154,6 +151,3 @@ impl Env {
         }
     }
 }
-
-pub type TemplatesLibrary = Rc<RefCell<HashMap<String, TemplateCode>>>;
-pub type FunctionsLibrary = Rc<RefCell<HashMap<String, FunctionCode>>>;

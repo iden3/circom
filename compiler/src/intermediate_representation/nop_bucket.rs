@@ -3,7 +3,7 @@ use crate::intermediate_representation::{Instruction, InstructionPointer};
 use crate::intermediate_representation::ir_interface::{Allocate, IntoInstruction, ObtainMeta};
 use crate::translating_traits::WriteLLVMIR;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct NopBucket;
 
 impl IntoInstruction for NopBucket {

@@ -14,7 +14,7 @@ pub use super::log_bucket::LogBucketArg;
 pub use super::types::{InstrContext, ValueType};
 pub use super::value_bucket::ValueBucket;
 pub use super::constraint_bucket::{ConstraintBucket};
-pub use super::unrolled_loop_bucket::UnrolledLoopBucket;
+pub use super::block_bucket::BlockBucket;
 pub use super::nop_bucket::NopBucket;
 
 use crate::translating_traits::*;
@@ -42,7 +42,7 @@ pub trait CheckCompute {
 pub type InstructionList = Vec<InstructionPointer>;
 pub type InstructionPointer = Box<Instruction>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Instruction {
     Value(ValueBucket),
     Load(LoadBucket),
@@ -56,7 +56,7 @@ pub enum Instruction {
     Loop(LoopBucket),
     CreateCmp(CreateCmpBucket),
     Constraint(ConstraintBucket),
-    UnrolledLoop(UnrolledLoopBucket),
+    UnrolledLoop(BlockBucket),
     Nop(NopBucket)
 }
 

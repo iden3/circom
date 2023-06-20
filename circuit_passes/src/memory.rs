@@ -1,12 +1,12 @@
 use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
-use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
+use crate::bucket_interpreter::mutable_interpreter::MutableBucketInterpreter;
 
 pub struct PassMemory {
     pub templates_library: TemplatesLibrary,
     pub functions_library: FunctionsLibrary,
-    pub interpreter: BucketInterpreter
+    pub interpreter: MutableBucketInterpreter
 }
 
 impl PassMemory {

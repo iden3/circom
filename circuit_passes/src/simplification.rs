@@ -4,9 +4,10 @@ use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{Instruction, InstructionList, InstructionPointer};
 
-use compiler::intermediate_representation::ir_interface::{AddressType, Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucketArg, LoopBucket, NopBucket, ReturnBucket, StoreBucket, UnrolledLoopBucket, ValueBucket, ValueType};
-use crate::bucket_interpreter::BucketInterpreter;
-use crate::bucket_interpreter::env::{Env, FunctionsLibrary, TemplatesLibrary};
+use compiler::intermediate_representation::ir_interface::{AddressType, Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucketArg, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket, ValueType};
+use crate::bucket_interpreter::mutable_interpreter::MutableBucketInterpreter;
+use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
+use crate::bucket_interpreter::env::mutable_env::Env;
 use crate::CircuitTransformationPass;
 use crate::memory::PassMemory;
 
@@ -50,7 +51,7 @@ fn has_compute_bucket(i: &Instruction) -> bool {
             ConstraintBucket::Substitution(i) => i,
             ConstraintBucket::Equality(i) => i
         }),
-        Instruction::UnrolledLoop(b) => b.body.iter().any(|i| i.iter().any(|i| has_compute_bucket(i))),
+        Instruction::UnrolledLoop(b) => b.body.iter().any(|i| has_compute_bucket(i)),
         Instruction::Nop(_) => false
     }
 }
@@ -67,7 +68,7 @@ impl ComputeSimplificationPass {
             memory: RefCell::new(PassMemory {
                 templates_library: cl.clone(),
                 functions_library: fl.clone(),
-                interpreter: BucketInterpreter::init(Env::new(cl, fl), prime, vec![])
+                interpreter: MutableBucketInterpreter::init(Env::new(cl, fl), prime, vec![])
             })
         }
     }
@@ -223,11 +224,10 @@ impl ComputeSimplificationPass {
                 ConstraintBucket::Substitution(i) => ConstraintBucket::Substitution(self.reconstruct_bucket(i)),
                 ConstraintBucket::Equality(i) => ConstraintBucket::Equality(self.reconstruct_bucket(i))
             }.allocate(),
-            Instruction::UnrolledLoop(b) => UnrolledLoopBucket {
-                original_loop: b.original_loop.clone().allocate(),
+            Instruction::UnrolledLoop(b) => BlockBucket {
                 line: b.line,
                 message_id: b.message_id,
-                body: b.body.iter().map(|iter| self.reconstruct_buckets(iter)).collect(),
+                body: b.body.iter().map(|iter| self.reconstruct_bucket(iter)).collect(),
             }.allocate(),
             Instruction::Nop(_) => NopBucket.allocate()
         }

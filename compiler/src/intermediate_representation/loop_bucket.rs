@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
@@ -7,7 +8,7 @@ use code_producers::llvm_elements::instructions::{create_br, create_conditional_
 use code_producers::wasm_elements::*;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct LoopBucket {
     pub line: usize,
     pub message_id: usize,

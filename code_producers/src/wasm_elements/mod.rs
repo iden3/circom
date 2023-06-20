@@ -4,6 +4,7 @@ use crate::components::*;
 
 type WasmInstruction = String;
 
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct WASMProducer {
     pub main_signal_offset: usize,
     pub fr_memory_size: usize, // depending of the prime; missing in build.rs

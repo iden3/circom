@@ -1,19 +1,20 @@
 extern crate core;
 
-mod loop_unroll;
 mod bucket_interpreter;
 mod simplification;
 mod conditional_flattening;
 mod memory;
+mod loop_unroll;
 
 use std::cell::RefCell;
 use code_producers::llvm_elements::LLVMCircuitData;
+use code_producers::wasm_elements::WASMProducer;
 use crate::loop_unroll::LoopUnrollPass;
 use compiler::circuit_design::function::{FunctionCode, FunctionCodeInfo};
 use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{Instruction, InstructionList};
-use compiler::intermediate_representation::ir_interface::{AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, UnrolledLoopBucket, ValueBucket};
+use compiler::intermediate_representation::ir_interface::{AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket};
 use compiler::intermediate_representation::InstructionPointer;
 use compiler::intermediate_representation::ir_interface::Allocate;
 use constraint_generation::execute::RuntimeInformation;
@@ -35,15 +36,15 @@ macro_rules! pre_hook {
 }
 
 pub trait CircuitTransformationPass {
-    fn run_on_circuit(&self, circuit: Circuit) -> Circuit {
+    fn run_on_circuit(&self, circuit: &Circuit) -> Circuit {
         self.pre_hook_circuit(&circuit);
         let templates = circuit.templates.iter().map(|t| {
             self.run_on_template(t)
         }).collect();
 
         Circuit {
-            wasm_producer: circuit.wasm_producer,
-            c_producer: circuit.c_producer,
+            wasm_producer: circuit.wasm_producer.clone(),
+            c_producer: circuit.c_producer.clone(),
             llvm_data: LLVMCircuitData {
                 field_tracking: self.get_updated_field_constants(),
             },
@@ -151,7 +152,7 @@ pub trait CircuitTransformationPass {
     run_on_bucket!(run_on_loop_bucket, LoopBucket);
     run_on_bucket!(run_on_create_cmp_bucket, CreateCmpBucket);
     run_on_bucket!(run_on_constraint_bucket, ConstraintBucket);
-    run_on_bucket!(run_on_unrolled_loop_bucket, UnrolledLoopBucket);
+    run_on_bucket!(run_on_unrolled_loop_bucket, BlockBucket);
     run_on_bucket!(run_on_nop_bucket, NopBucket);
 
     pre_hook!(pre_hook_circuit, Circuit);
@@ -170,7 +171,7 @@ pub trait CircuitTransformationPass {
     pre_hook!(pre_hook_loop_bucket, LoopBucket);
     pre_hook!(pre_hook_create_cmp_bucket, CreateCmpBucket);
     pre_hook!(pre_hook_constraint_bucket, ConstraintBucket);
-    pre_hook!(pre_hook_unrolled_loop_bucket, UnrolledLoopBucket);
+    pre_hook!(pre_hook_unrolled_loop_bucket, BlockBucket);
     pre_hook!(pre_hook_nop_bucket, NopBucket);
     
 }
@@ -201,7 +202,7 @@ impl PassManager {
     pub fn run_on_circuit(&self, circuit: Circuit) -> Circuit {
         let mut transformed_circuit = circuit;
         for pass in self.passes.borrow().iter() {
-            transformed_circuit = pass.run_on_circuit(transformed_circuit);
+            transformed_circuit = pass.run_on_circuit(&transformed_circuit);
         }
         transformed_circuit
     }

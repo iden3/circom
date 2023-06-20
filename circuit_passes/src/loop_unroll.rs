@@ -1,25 +1,37 @@
 use std::cell::RefCell;
-
-
-
+use std::collections::{BTreeMap, HashMap};
 use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-
-
-use crate::CircuitTransformationPass;
-use compiler::intermediate_representation::ir_interface::{AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LogBucket, LoopBucket, ReturnBucket, StoreBucket, UnrolledLoopBucket, ValueBucket};
 use compiler::intermediate_representation::InstructionPointer;
+use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket};
+use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
+use crate::bucket_interpreter::env::immutable_env::FrozenEnv;
+use crate::bucket_interpreter::immutable_interpreter::BucketInterpreter;
+use crate::bucket_interpreter::immutable_interpreter::observer::InterpreterObserver;
+use crate::CircuitTransformationPass;
 
-use compiler::intermediate_representation::ir_interface::Allocate;
+pub struct PassMemory {
+    pub templates_library: TemplatesLibrary,
+    pub functions_library: FunctionsLibrary,
+    pub prime: String,
+    pub constant_fields: Vec<String>
+}
 
-use crate::bucket_interpreter::BucketInterpreter;
-use crate::bucket_interpreter::env::{Env, FunctionsLibrary, TemplatesLibrary};
-use crate::memory::PassMemory;
+impl PassMemory {
+    pub fn add_template(&mut self, template: &TemplateCode) {
+        self.templates_library.borrow_mut().insert(template.header.clone(), (*template).clone());
+    }
+
+    pub fn add_function(&mut self, function: &FunctionCode) {
+        self.functions_library.borrow_mut().insert(function.header.clone(), (*function).clone());
+    }
+}
 
 pub struct LoopUnrollPass {
     // Wrapped in a RefCell because the reference to the static analysis is immutable but we need mutability
-    memory: RefCell<PassMemory>
+    memory: RefCell<PassMemory>,
+    replacements: RefCell<BTreeMap<LoopBucket, InstructionPointer>>
 }
 
 impl LoopUnrollPass {
@@ -30,9 +42,99 @@ impl LoopUnrollPass {
             memory: RefCell::new(PassMemory {
                 templates_library: cl.clone(),
                 functions_library: fl.clone(),
-                interpreter: BucketInterpreter::init(Env::new(cl, fl), prime, vec![])
-            })
+                prime: prime.to_string(),
+                constant_fields: vec![]
+            }),
+            replacements: Default::default()
         }
+    }
+}
+
+impl InterpreterObserver for LoopUnrollPass {
+    fn on_value_bucket(&self, bucket: &ValueBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_load_bucket(&self, bucket: &LoadBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_store_bucket(&self, bucket: &StoreBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_assert_bucket(&self, bucket: &AssertBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_loop_bucket(&self, bucket: &LoopBucket, env: &FrozenEnv) -> bool {
+        let mem = self.memory.borrow();
+        let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
+        // First we run the loop once. If the result is None that means that the condition is unknown
+        let (_, cond_result, _) = interpreter.execute_loop_bucket_once(bucket, env, false);
+        if cond_result.is_none() {
+            return true;
+        }
+        let mut block_body = vec![];
+        let mut cond_result = Some(true);
+        let mut env = env.clone();
+        while cond_result.unwrap() {
+            let (_, new_cond, new_env) = interpreter.execute_loop_bucket_once(bucket, &env, false);
+            cond_result = new_cond;
+            env = new_env;
+            if let Some(true) = new_cond {
+                for inst in &bucket.body {
+                    block_body.push(inst.clone());
+                }
+            }
+        }
+        let block = BlockBucket {
+            line: bucket.line,
+            message_id: bucket.message_id,
+            body: block_body,
+        }.allocate();
+        self.replacements.borrow_mut().insert(bucket.clone(), block);
+        true
+    }
+
+    fn on_create_cmp_bucket(&self, bucket: &CreateCmpBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_constraint_bucket(&self, bucket: &ConstraintBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_unrolled_loop_bucket(&self, bucket: &BlockBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_nop_bucket(&self, bucket: &NopBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_location_rule(&self, location_rule: &LocationRule, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_call_bucket(&self, bucket: &CallBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_branch_bucket(&self, bucket: &BranchBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_return_bucket(&self, bucket: &ReturnBucket, env: &FrozenEnv) -> bool {
+        true
+    }
+
+    fn on_log_bucket(&self, bucket: &LogBucket, env: &FrozenEnv) -> bool {
+        true
     }
 }
 
@@ -44,113 +146,263 @@ impl CircuitTransformationPass for LoopUnrollPass {
         for function in &circuit.functions {
             self.memory.borrow_mut().add_function(function);
         }
-        self.memory.borrow_mut().interpreter.constant_fields = circuit.llvm_data.field_tracking.clone();
+        self.memory.borrow_mut().constant_fields = circuit.llvm_data.field_tracking.clone();
     }
 
-    /// Reset the interpreter when we are about to enter a new template
     fn pre_hook_template(&self, template: &TemplateCode) {
         eprintln!("Starting analysis of {}", template.header);
-        self.memory.borrow_mut().interpreter.reset();
-    }
-
-    fn pre_hook_store_bucket(&self, bucket: &StoreBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_store_bucket(bucket);
-    }
-
-    fn pre_hook_value_bucket(&self, bucket: &ValueBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_value_bucket(bucket);
-    }
-
-    fn pre_hook_load_bucket(&self, bucket: &LoadBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_load_bucket(bucket);
-    }
-
-    fn pre_hook_compute_bucket(&self, bucket: &ComputeBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_compute_bucket(bucket);
-    }
-
-    fn pre_hook_call_bucket(&self, bucket: &CallBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_call_bucket(bucket);
-    }
-
-    fn pre_hook_branch_bucket(&self, bucket: &BranchBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_branch_bucket(bucket);
-    }
-
-    fn pre_hook_return_bucket(&self, bucket: &ReturnBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_return_bucket(bucket);
-    }
-
-    fn pre_hook_assert_bucket(&self, bucket: &AssertBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_assert_bucket(bucket);
-    }
-
-    fn pre_hook_log_bucket(&self, bucket: &LogBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_log_bucket(bucket);
-    }
-
-    fn pre_hook_create_cmp_bucket(&self, bucket: &CreateCmpBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_create_cmp_bucket(bucket);
-    }
-
-    fn pre_hook_constraint_bucket(&self, bucket: &ConstraintBucket) {
-        eprintln!("[PRE HOOK] Executing {}", bucket.to_string());
-        self.memory.borrow().interpreter.execute_constraint_bucket(bucket);
-    }
-
-    fn run_on_loop_bucket(&self, bucket: &LoopBucket) -> InstructionPointer {
-        println!("[RUN ON] Executing {}", bucket.to_string());
-        let loop_iterations = {
-            let interpreter = &mut self.memory.borrow_mut().interpreter;
-
-            interpreter.push_env(); // Save the environment
-            // First we run the loop once. If the result is None that means that the condition is unknown
-            let (_, cond_result) = interpreter.execute_loop_bucket_once(bucket);
-            interpreter.pop_env(); // Restore back to before running the loop
-
-            interpreter.push_env(); // Save the environment for running the loop for extracting the number of iterations
-            if cond_result.is_none() {
-                // We just run the loop and return the bucket as is.
-                interpreter.execute_loop_bucket(bucket);
-
-                return bucket.clone().allocate();
-            }
-
-            // If we got something, either true or false we run the loop many times and construct the
-            // a UnrolledLoopBucket that contains the unrolled loop
-            let mut loop_iterations = vec![];
-            let mut cond_result = Some(true);
-            while cond_result.unwrap() {
-                let (_, new_cond) = interpreter.execute_loop_bucket_once(bucket);
-                cond_result = new_cond;
-                if let Some(true) = new_cond {
-                    loop_iterations.push(bucket.body.clone());
-                }
-            }
-            interpreter.pop_env(); // Restore back
-            loop_iterations
-        };
-        UnrolledLoopBucket {
-            original_loop: bucket.clone().allocate(),
-            line: bucket.line,
-            message_id: bucket.message_id,
-            // We run the analysis recursively on each iteration of the loop in order
-            // This replicates running the loop but without checking the condition
-            body: loop_iterations.iter().map(|body| self.run_on_instructions(body)).collect(),
-        }.allocate()
+        let mem = self.memory.borrow();
+        let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
+        let env = FrozenEnv::new(mem.templates_library.clone(), mem.functions_library.clone());
+        interpreter.execute_instructions(&template.body, &env, true);
     }
 
     fn get_updated_field_constants(&self) -> Vec<String> {
-        self.memory.borrow().interpreter.constant_fields.clone()
+        self.memory.borrow().constant_fields.clone()
+    }
+
+    fn run_on_loop_bucket(&self, bucket: &LoopBucket) -> InstructionPointer {
+        if let Some(unrolled_loop) = self.replacements.borrow().get(&bucket) {
+            return unrolled_loop.clone();
+        }
+        bucket.clone().allocate()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
+    use compiler::compiler_interface::Circuit;
+    use compiler::intermediate_representation::Instruction;
+    use compiler::intermediate_representation::ir_interface::{AddressType, Allocate, ComputeBucket, InstrContext, LoadBucket, LocationRule, LoopBucket, OperatorType, StoreBucket, ValueBucket, ValueType};
+    use crate::CircuitTransformationPass;
+    use crate::loop_unroll::LoopUnrollPass;
+
+    #[test]
+    fn test_loop_unrolling() {
+        let prime = "goldilocks".to_string();
+        let pass = LoopUnrollPass::new(&prime);
+        let circuit = example_program();
+        let new_circuit = pass.run_on_circuit(&circuit);
+        println!("{}", new_circuit.templates[0].body.last().unwrap().to_string());
+        assert_ne!(circuit, new_circuit);
+        match new_circuit.templates[0].body.last().unwrap().as_ref() {
+            Instruction::UnrolledLoop(b) => assert_eq!(b.body.len(), 5),
+            _ => assert!(false)
+        }
+    }
+
+    fn example_program() -> Circuit {
+        Circuit {
+            wasm_producer: Default::default(),
+            c_producer: Default::default(),
+            llvm_data: Default::default(),
+            templates: vec![
+                Box::new(TemplateCodeInfo {
+                    id: 0,
+                    header: "test_0".to_string(),
+                    name: "test".to_string(),
+                    is_parallel: false,
+                    is_parallel_component: false,
+                    is_not_parallel_component: false,
+                    has_parallel_sub_cmp: false,
+                    number_of_inputs: 0,
+                    number_of_outputs: 0,
+                    number_of_intermediates: 0,
+                    body: vec![
+                        // (store 0 0)
+                        StoreBucket {
+                            line: 0,
+                            message_id: 0,
+                            context: InstrContext { size: 0 },
+                            dest_is_output: false,
+                            dest_address_type: AddressType::Variable,
+                            dest: LocationRule::Indexed {
+                                location: ValueBucket {
+                                    line: 0,
+                                    message_id: 0,
+                                    parse_as: ValueType::U32,
+                                    op_aux_no: 0,
+                                    value: 0,
+                                }.allocate(),
+                                template_header: Some("test_0".to_string())
+                            },
+                            src: ValueBucket {
+                                line: 0,
+                                message_id: 0,
+                                parse_as: ValueType::U32,
+                                op_aux_no: 0,
+                                value: 0,
+                            }.allocate(),
+                        }.allocate(),
+                        // (store 1 0)
+                        StoreBucket {
+                            line: 0,
+                            message_id: 0,
+                            context: InstrContext { size: 0 },
+                            dest_is_output: false,
+                            dest_address_type: AddressType::Variable,
+                            dest: LocationRule::Indexed {
+                                location: ValueBucket {
+                                    line: 0,
+                                    message_id: 0,
+                                    parse_as: ValueType::U32,
+                                    op_aux_no: 0,
+                                    value: 1,
+                                }.allocate(),
+                                template_header: Some("test_0".to_string())
+                            },
+                            src: ValueBucket {
+                                line: 0,
+                                message_id: 0,
+                                parse_as: ValueType::U32,
+                                op_aux_no: 0,
+                                value: 0,
+                            }.allocate(),
+                        }.allocate(),
+                        // (loop (compute le (load 1) 5) (
+                        LoopBucket {
+                            line: 0,
+                            message_id: 0,
+                            continue_condition: ComputeBucket {
+                                line: 0,
+                                message_id: 0,
+                                op: OperatorType::Lesser,
+                                op_aux_no: 0,
+                                stack: vec![
+                                    LoadBucket {
+                                        line: 0,
+                                        message_id: 0,
+                                        address_type: AddressType::Variable,
+                                        src: LocationRule::Indexed {
+                                            location: ValueBucket {
+                                                line: 0,
+                                                message_id: 0,
+                                                parse_as: ValueType::U32,
+                                                op_aux_no: 0,
+                                                value: 1,
+                                            }.allocate(),
+                                            template_header: Some("test_0".to_string())
+                                        },
+                                    }.allocate(),
+                                    ValueBucket {
+                                        line: 0,
+                                        message_id: 0,
+                                        parse_as: ValueType::U32,
+                                        op_aux_no: 0,
+                                        value: 5,
+                                    }.allocate()
+                                ],
+                            }.allocate(),
+                            body: vec![
+                                //   (store 0 (compute add (load 0) 2))
+                                StoreBucket {
+                                    line: 0,
+                                    message_id: 0,
+                                    context: InstrContext { size: 0 },
+                                    dest_is_output: false,
+                                    dest_address_type: AddressType::Variable,
+                                    dest: LocationRule::Indexed {
+                                        location: ValueBucket {
+                                            line: 0,
+                                            message_id: 0,
+                                            parse_as: ValueType::U32,
+                                            op_aux_no: 0,
+                                            value: 0,
+                                        }.allocate(),
+                                        template_header: None,
+                                    },
+                                    src: ComputeBucket {
+                                        line: 0,
+                                        message_id: 0,
+                                        op: OperatorType::Add,
+                                        op_aux_no: 0,
+                                        stack: vec![
+                                            LoadBucket {
+                                                line: 0,
+                                                message_id: 0,
+                                                address_type: AddressType::Variable,
+                                                src: LocationRule::Indexed {
+                                                    location: ValueBucket {
+                                                        line: 0,
+                                                        message_id: 0,
+                                                        parse_as: ValueType::U32,
+                                                        op_aux_no: 0,
+                                                        value: 0,
+                                                    }.allocate(),
+                                                    template_header: Some("test_0".to_string()),
+                                                },
+                                            }.allocate(),
+                                            ValueBucket {
+                                                line: 0,
+                                                message_id: 0,
+                                                parse_as: ValueType::U32,
+                                                op_aux_no: 0,
+                                                value: 2,
+                                            }.allocate()
+                                        ],
+                                    }.allocate(),
+                                }.allocate(),
+                                //   (store 1 (compute add (load 1) 1))
+                                StoreBucket {
+                                    line: 0,
+                                    message_id: 0,
+                                    context: InstrContext { size: 0 },
+                                    dest_is_output: false,
+                                    dest_address_type: AddressType::Variable,
+                                    dest: LocationRule::Indexed {
+                                        location: ValueBucket {
+                                            line: 0,
+                                            message_id: 0,
+                                            parse_as: ValueType::U32,
+                                            op_aux_no: 0,
+                                            value: 1,
+                                        }.allocate(),
+                                        template_header: None,
+                                    },
+                                    src: ComputeBucket {
+                                        line: 0,
+                                        message_id: 0,
+                                        op: OperatorType::Add,
+                                        op_aux_no: 0,
+                                        stack: vec![
+                                            LoadBucket {
+                                                line: 0,
+                                                message_id: 0,
+                                                address_type: AddressType::Variable,
+                                                src: LocationRule::Indexed {
+                                                    location: ValueBucket {
+                                                        line: 0,
+                                                        message_id: 0,
+                                                        parse_as: ValueType::U32,
+                                                        op_aux_no: 0,
+                                                        value: 1,
+                                                    }.allocate(),
+                                                    template_header: Some("test_0".to_string()),
+                                                },
+                                            }.allocate(),
+                                            ValueBucket {
+                                                line: 0,
+                                                message_id: 0,
+                                                parse_as: ValueType::U32,
+                                                op_aux_no: 0,
+                                                value: 1,
+                                            }.allocate()
+                                        ],
+                                    }.allocate(),
+                                }.allocate(),
+
+                            ],
+                        }.allocate()
+                        // ))
+                    ],
+                    var_stack_depth: 0,
+                    expression_stack_depth: 0,
+                    signal_stack_depth: 0,
+                    number_of_components: 0,
+                })
+            ],
+            functions: vec![],
+        }
     }
 }

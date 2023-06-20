@@ -2,7 +2,7 @@ use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use crate::translating_traits::WriteLLVMIR;
 use super::ir_interface::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum LocationRule {
     Indexed { location: InstructionPointer, template_header: Option<String> },
     Mapped { signal_code: usize, indexes: Vec<InstructionPointer> },

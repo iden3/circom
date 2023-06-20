@@ -3,6 +3,7 @@ pub mod c_code_generator;
 pub use crate::components::*;
 
 pub type CInstruction = String;
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct CProducer {
     pub main_header: String,
     pub main_is_parallel: bool,

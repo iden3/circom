@@ -4,20 +4,20 @@
 
 use super::ir_interface::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum StatusInput {
     Last,
     NoLast,
     Unknown,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum InputInformation {
     NoInput,
     Input {status: StatusInput},
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum AddressType {
     Variable,
     Signal,

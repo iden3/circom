@@ -9,7 +9,7 @@ use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StoreBucket {
     pub line: usize,
     pub message_id: usize,

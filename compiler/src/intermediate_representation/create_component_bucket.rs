@@ -7,7 +7,7 @@ use code_producers::llvm_elements::values::create_literal_u32;
 use code_producers::wasm_elements::*;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct CreateCmpBucket {
     pub line: usize,
     pub message_id: usize,
