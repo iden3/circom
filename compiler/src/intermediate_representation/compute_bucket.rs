@@ -11,6 +11,7 @@ use code_producers::llvm_elements::fr::{
 };
 use code_producers::llvm_elements::instructions::{create_add_with_name, create_call, create_mul_with_name};
 use code_producers::wasm_elements::*;
+use crate::intermediate_representation::BucketId;
 
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Ord, PartialOrd)]
@@ -99,6 +100,7 @@ impl ToString for OperatorType {
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct ComputeBucket {
+    pub id: BucketId,
     pub line: usize,
     pub message_id: usize,
     pub op: OperatorType,

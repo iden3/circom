@@ -2,21 +2,27 @@ use code_producers::llvm_elements::LLVMCircuitData;
 use compiler::circuit_design::function::{FunctionCode, FunctionCodeInfo};
 use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::{Instruction, InstructionList, InstructionPointer};
+use compiler::intermediate_representation::{Instruction, InstructionList, InstructionPointer, new_id};
 use constraint_generation::execute::RuntimeInformation;
 use program_structure::program_archive::ProgramArchive;
 use std::cell::RefCell;
-use compiler::intermediate_representation::Instruction::Branch;
+use compiler::intermediate_representation::Instruction::{Branch, Value};
 use crate::passes::loop_unroll::LoopUnrollPass;
-use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, BlockBucket, ValueBucket, AddressType, ReturnType, FinalData, LogBucketArg};
+use compiler::intermediate_representation::ir_interface::{
+    Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
+    CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
+    StoreBucket, BlockBucket, ValueBucket, AddressType, ReturnType, FinalData, LogBucketArg,
+};
 use program_structure::ast::Expression::Call;
 use crate::passes::conditional_flattening::ConditionalFlattening;
+use crate::passes::deterministic_subcomponent_invocation::DeterministicSubCmpInvokePass;
 use crate::passes::simplification::SimplificationPass;
 
 mod conditional_flattening;
 mod loop_unroll;
 mod memory;
 mod simplification;
+mod deterministic_subcomponent_invocation;
 
 macro_rules! pre_hook {
     ($name: ident, $bucket_ty: ty) => {
@@ -25,22 +31,22 @@ macro_rules! pre_hook {
 }
 
 pub trait CircuitTransformationPass {
-    fn run_on_circuit(&self, circuit: &Circuit) -> Circuit {
+    fn transform_circuit(&self, circuit: &Circuit) -> Circuit {
         self.pre_hook_circuit(&circuit);
-        let templates = circuit.templates.iter().map(|t| self.run_on_template(t)).collect();
+        let templates = circuit.templates.iter().map(|t| self.transform_template(t)).collect();
 
         Circuit {
             wasm_producer: circuit.wasm_producer.clone(),
             c_producer: circuit.c_producer.clone(),
             llvm_data: LLVMCircuitData { field_tracking: self.get_updated_field_constants() },
             templates,
-            functions: circuit.functions.iter().map(|f| self.run_on_function(f)).collect(),
+            functions: circuit.functions.iter().map(|f| self.transform_function(f)).collect(),
         }
     }
 
     fn get_updated_field_constants(&self) -> Vec<String>;
 
-    fn run_on_template(&self, template: &TemplateCode) -> TemplateCode {
+    fn transform_template(&self, template: &TemplateCode) -> TemplateCode {
         self.pre_hook_template(template);
         Box::new(TemplateCodeInfo {
             id: template.id,
@@ -53,7 +59,7 @@ pub trait CircuitTransformationPass {
             number_of_inputs: template.number_of_inputs,
             number_of_outputs: template.number_of_outputs,
             number_of_intermediates: template.number_of_intermediates,
-            body: self.run_on_instructions(&template.body),
+            body: self.transform_instructions(&template.body),
             var_stack_depth: template.var_stack_depth,
             expression_stack_depth: template.expression_stack_depth,
             signal_stack_depth: template.signal_stack_depth,
@@ -61,21 +67,21 @@ pub trait CircuitTransformationPass {
         })
     }
 
-    fn run_on_function(&self, function: &FunctionCode) -> FunctionCode {
+    fn transform_function(&self, function: &FunctionCode) -> FunctionCode {
         self.pre_hook_function(function);
         Box::new(FunctionCodeInfo {
             header: function.header.clone(),
             name: function.name.clone(),
             params: function.params.clone(),
             returns: function.returns.clone(),
-            body: self.run_on_instructions(&function.body),
+            body: self.transform_instructions(&function.body),
             max_number_of_vars: function.max_number_of_vars,
             max_number_of_ops_in_expression: function.max_number_of_ops_in_expression,
         })
     }
 
-    fn run_on_instructions(&self, i: &InstructionList) -> InstructionList {
-        i.iter().map(|i| self.run_on_instruction(i)).collect()
+    fn transform_instructions(&self, i: &InstructionList) -> InstructionList {
+        i.iter().map(|i| self.transform_instruction(i)).collect()
     }
 
     fn pre_hook_instruction(&self, i: &Instruction) {
@@ -98,186 +104,212 @@ pub trait CircuitTransformationPass {
         }
     }
 
-    fn run_on_instruction(&self, i: &Instruction) -> InstructionPointer {
+    fn transform_instruction(&self, i: &Instruction) -> InstructionPointer {
         self.pre_hook_instruction(i);
         use compiler::intermediate_representation::Instruction::*;
         match i {
-            Value(b) => self.run_on_value_bucket(b),
-            Load(b) => self.run_on_load_bucket(b),
-            Store(b) => self.run_on_store_bucket(b),
-            Compute(b) => self.run_on_compute_bucket(b),
-            Call(b) => self.run_on_call_bucket(b),
-            Branch(b) => self.run_on_branch_bucket(b),
-            Return(b) => self.run_on_return_bucket(b),
-            Assert(b) => self.run_on_assert_bucket(b),
-            Log(b) => self.run_on_log_bucket(b),
-            Loop(b) => self.run_on_loop_bucket(b),
-            CreateCmp(b) => self.run_on_create_cmp_bucket(b),
-            Constraint(b) => self.run_on_constraint_bucket(b),
-            Block(b) => self.run_on_block_bucket(b),
-            Nop(b) => self.run_on_nop_bucket(b),
+            Value(b) => self.transform_value_bucket(b),
+            Load(b) => self.transform_load_bucket(b),
+            Store(b) => self.transform_store_bucket(b),
+            Compute(b) => self.transform_compute_bucket(b),
+            Call(b) => self.transform_call_bucket(b),
+            Branch(b) => self.transform_branch_bucket(b),
+            Return(b) => self.transform_return_bucket(b),
+            Assert(b) => self.transform_assert_bucket(b),
+            Log(b) => self.transform_log_bucket(b),
+            Loop(b) => self.transform_loop_bucket(b),
+            CreateCmp(b) => self.transform_create_cmp_bucket(b),
+            Constraint(b) => self.transform_constraint_bucket(b),
+            Block(b) => self.transform_block_bucket(b),
+            Nop(b) => self.transform_nop_bucket(b),
         }
     }
 
     // This macros both define the interface of each bucket method and
     // the default behaviour which is to just copy the bucket without modifying it
-    fn run_on_value_bucket(&self, bucket: &ValueBucket) -> InstructionPointer {
-        bucket.clone().allocate()
+    fn transform_value_bucket(&self, bucket: &ValueBucket) -> InstructionPointer {
+        ValueBucket {
+            id: new_id(),
+            line: bucket.line,
+            message_id: bucket.message_id,
+            parse_as: bucket.parse_as,
+            op_aux_no: bucket.op_aux_no,
+            value: bucket.value,
+        }.allocate()
     }
 
-    fn run_on_address_type(&self, address: &AddressType) -> AddressType {
+    fn transform_address_type(&self, address: &AddressType) -> AddressType {
         match address {
             AddressType::SubcmpSignal {
                 cmp_address,
                 uniform_parallel_value,
                 is_output,
-                input_information
+                input_information,
             } => AddressType::SubcmpSignal {
-                cmp_address: self.run_on_instruction(cmp_address),
+                cmp_address: self.transform_instruction(cmp_address),
                 uniform_parallel_value: uniform_parallel_value.clone(),
                 is_output: *is_output,
                 input_information: input_information.clone(),
             },
-            x => x.clone()
+            x => x.clone(),
         }
     }
 
-    fn run_on_location_rule(&self, location_rule: &LocationRule) -> LocationRule {
+    fn transform_location_rule(&self, location_rule: &LocationRule) -> LocationRule {
         match location_rule {
             LocationRule::Indexed { location, template_header } => LocationRule::Indexed {
-                location: self.run_on_instruction(location),
-                template_header: template_header.clone()
+                location: self.transform_instruction(location),
+                template_header: template_header.clone(),
             },
             LocationRule::Mapped { signal_code, indexes } => LocationRule::Mapped {
                 signal_code: *signal_code,
-                indexes: self.run_on_instructions(indexes)
-            }
+                indexes: self.transform_instructions(indexes),
+            },
         }
     }
 
-    fn run_on_load_bucket(&self, bucket: &LoadBucket) -> InstructionPointer {
+    fn transform_load_bucket(&self, bucket: &LoadBucket) -> InstructionPointer {
         LoadBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
-            address_type: self.run_on_address_type(&bucket.address_type),
-            src: self.run_on_location_rule(&bucket.src),
-        }.allocate()
+            address_type: self.transform_address_type(&bucket.address_type),
+            src: self.transform_location_rule(&bucket.src),
+        }
+        .allocate()
     }
 
-    fn run_on_store_bucket(&self, bucket: &StoreBucket) -> InstructionPointer {
+    fn transform_store_bucket(&self, bucket: &StoreBucket) -> InstructionPointer {
         StoreBucket {
             line: bucket.line,
             message_id: bucket.message_id,
             context: bucket.context.clone(),
             dest_is_output: bucket.dest_is_output,
-            dest_address_type: self.run_on_address_type(&bucket.dest_address_type),
-            dest: self.run_on_location_rule(&bucket.dest),
-            src: self.run_on_instruction(&bucket.src),
-        }.allocate()
+            dest_address_type: self.transform_address_type(&bucket.dest_address_type),
+            dest: self.transform_location_rule(&bucket.dest),
+            src: self.transform_instruction(&bucket.src),
+        }
+        .allocate()
     }
 
-    fn run_on_compute_bucket(&self, bucket: &ComputeBucket) -> InstructionPointer {
+    fn transform_compute_bucket(&self, bucket: &ComputeBucket) -> InstructionPointer {
         ComputeBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
             op: bucket.op,
             op_aux_no: bucket.op_aux_no,
-            stack: self.run_on_instructions(&bucket.stack),
-        }.allocate()
+            stack: self.transform_instructions(&bucket.stack),
+        }
+        .allocate()
     }
 
-    fn run_on_final_data(&self, final_data: &FinalData) -> FinalData {
+    fn transform_final_data(&self, final_data: &FinalData) -> FinalData {
         FinalData {
             context: final_data.context,
             dest_is_output: final_data.dest_is_output,
-            dest_address_type: self.run_on_address_type(&final_data.dest_address_type),
-            dest: self.run_on_location_rule(&final_data.dest),
+            dest_address_type: self.transform_address_type(&final_data.dest_address_type),
+            dest: self.transform_location_rule(&final_data.dest),
         }
     }
 
-    fn run_on_return_type(&self, return_type: &ReturnType) -> ReturnType {
+    fn transform_return_type(&self, return_type: &ReturnType) -> ReturnType {
         match return_type {
-            ReturnType::Final(f) => ReturnType::Final(self.run_on_final_data(f)),
-            x => x.clone()
+            ReturnType::Final(f) => ReturnType::Final(self.transform_final_data(f)),
+            x => x.clone(),
         }
     }
 
-    fn run_on_call_bucket(&self, bucket: &CallBucket) -> InstructionPointer {
+    fn transform_call_bucket(&self, bucket: &CallBucket) -> InstructionPointer {
         CallBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
             symbol: bucket.symbol.to_string(),
             argument_types: bucket.argument_types.clone(),
-            arguments: self.run_on_instructions(&bucket.arguments),
+            arguments: self.transform_instructions(&bucket.arguments),
             arena_size: bucket.arena_size,
-            return_info: self.run_on_return_type(&bucket.return_info),
-        }.allocate()
+            return_info: self.transform_return_type(&bucket.return_info),
+        }
+        .allocate()
     }
 
-    fn run_on_branch_bucket(&self, bucket: &BranchBucket) -> InstructionPointer {
+    fn transform_branch_bucket(&self, bucket: &BranchBucket) -> InstructionPointer {
         BranchBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
-            cond: self.run_on_instruction(&bucket.cond),
-            if_branch: self.run_on_instructions(&bucket.if_branch),
-            else_branch: self.run_on_instructions(&bucket.else_branch),
-        }.allocate()
+            cond: self.transform_instruction(&bucket.cond),
+            if_branch: self.transform_instructions(&bucket.if_branch),
+            else_branch: self.transform_instructions(&bucket.else_branch),
+        }
+        .allocate()
     }
 
-    fn run_on_return_bucket(&self, bucket: &ReturnBucket) -> InstructionPointer {
+    fn transform_return_bucket(&self, bucket: &ReturnBucket) -> InstructionPointer {
         ReturnBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
             with_size: bucket.with_size,
-            value: self.run_on_instruction(&bucket.value),
-        }.allocate()
+            value: self.transform_instruction(&bucket.value),
+        }
+        .allocate()
     }
 
-    fn run_on_assert_bucket(&self, bucket: &AssertBucket) -> InstructionPointer {
+    fn transform_assert_bucket(&self, bucket: &AssertBucket) -> InstructionPointer {
         AssertBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
-            evaluate: self.run_on_instruction(&bucket.evaluate),
-        }.allocate()
+            evaluate: self.transform_instruction(&bucket.evaluate),
+        }
+        .allocate()
     }
 
-    fn run_on_log_bucket_arg(&self, args: &Vec<LogBucketArg>) -> Vec<LogBucketArg> {
-        args.iter().map(|arg| {
-            match arg {
-                LogBucketArg::LogExp(e) => LogBucketArg::LogExp(self.run_on_instruction(e)),
-                x => x.clone()
-            }
-        }).collect()
+    fn transform_log_bucket_arg(&self, args: &Vec<LogBucketArg>) -> Vec<LogBucketArg> {
+        args.iter()
+            .map(|arg| match arg {
+                LogBucketArg::LogExp(e) => LogBucketArg::LogExp(self.transform_instruction(e)),
+                x => x.clone(),
+            })
+            .collect()
     }
 
-    fn run_on_log_bucket(&self, bucket: &LogBucket) -> InstructionPointer {
+    fn transform_log_bucket(&self, bucket: &LogBucket) -> InstructionPointer {
         LogBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
-            argsprint: self.run_on_log_bucket_arg(&bucket.argsprint),
-        }.allocate()
+            argsprint: self.transform_log_bucket_arg(&bucket.argsprint),
+        }
+        .allocate()
     }
 
-    fn run_on_loop_bucket(&self, bucket: &LoopBucket) -> InstructionPointer {
+    fn transform_loop_bucket(&self, bucket: &LoopBucket) -> InstructionPointer {
         LoopBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
-            continue_condition: self.run_on_instruction(&bucket.continue_condition),
-            body: self.run_on_instructions(&bucket.body),
-        }.allocate()
+            continue_condition: self.transform_instruction(&bucket.continue_condition),
+            body: self.transform_instructions(&bucket.body),
+        }
+        .allocate()
     }
 
-    fn run_on_create_cmp_bucket(&self, bucket: &CreateCmpBucket) -> InstructionPointer {
+    fn transform_create_cmp_bucket(&self, bucket: &CreateCmpBucket) -> InstructionPointer {
         CreateCmpBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
             template_id: bucket.template_id,
             cmp_unique_id: bucket.cmp_unique_id,
             symbol: bucket.symbol.clone(),
-            sub_cmp_id: self.run_on_instruction(&bucket.sub_cmp_id),
+            sub_cmp_id: self.transform_instruction(&bucket.sub_cmp_id),
             name_subcomponent: bucket.name_subcomponent.to_string(),
             defined_positions: bucket.defined_positions.clone(),
-            is_part_mixed_array_not_uniform_parallel: bucket.is_part_mixed_array_not_uniform_parallel,
+            is_part_mixed_array_not_uniform_parallel: bucket
+                .is_part_mixed_array_not_uniform_parallel,
             uniform_parallel: bucket.uniform_parallel,
             dimensions: bucket.dimensions.clone(),
             signal_offset: bucket.signal_offset,
@@ -286,22 +318,33 @@ pub trait CircuitTransformationPass {
             component_offset_jump: bucket.component_offset_jump,
             number_of_cmp: bucket.number_of_cmp,
             has_inputs: bucket.has_inputs,
-        }.allocate()
+        }
+        .allocate()
     }
 
-    fn run_on_constraint_bucket(&self, bucket: &ConstraintBucket) -> InstructionPointer {
-        self.run_on_instruction(bucket.unwrap())
+    fn transform_constraint_bucket(&self, bucket: &ConstraintBucket) -> InstructionPointer {
+        match bucket {
+            ConstraintBucket::Substitution(i) => {
+                ConstraintBucket::Substitution(self.transform_instruction(i))
+            }
+            ConstraintBucket::Equality(i) => {
+                ConstraintBucket::Equality(self.transform_instruction(i))
+            }
+        }
+        .allocate()
     }
 
-    fn run_on_block_bucket(&self, bucket: &BlockBucket) -> InstructionPointer {
+    fn transform_block_bucket(&self, bucket: &BlockBucket) -> InstructionPointer {
         BlockBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
-            body: self.run_on_instructions(&bucket.body),
-        }.allocate()
+            body: self.transform_instructions(&bucket.body),
+        }
+        .allocate()
     }
 
-    fn run_on_nop_bucket(&self, bucket: &NopBucket) -> InstructionPointer {
+    fn transform_nop_bucket(&self, bucket: &NopBucket) -> InstructionPointer {
         bucket.clone().allocate()
     }
 
@@ -336,10 +379,7 @@ impl PassManager {
         PassManager { passes: Default::default() }
     }
 
-    pub fn schedule_loop_unroll_pass(
-        &self,
-        prime: &String,
-    ) -> &Self {
+    pub fn schedule_loop_unroll_pass(&self, prime: &String) -> &Self {
         self.passes.borrow_mut().push(Box::new(LoopUnrollPass::new(prime)));
         self
     }
@@ -354,10 +394,14 @@ impl PassManager {
         self
     }
 
-    pub fn run_on_circuit(&self, circuit: Circuit) -> Circuit {
+    pub fn schedule_deterministic_subcmp_invoke_pass(&self, prime: &String) -> &Self {
+        self.passes.borrow_mut().push(Box::new(DeterministicSubCmpInvokePass::new(prime)));
+        self
+    }
+    pub fn transform_circuit(&self, circuit: Circuit) -> Circuit {
         let mut transformed_circuit = circuit;
         for pass in self.passes.borrow().iter() {
-            transformed_circuit = pass.run_on_circuit(&transformed_circuit);
+            transformed_circuit = pass.transform_circuit(&transformed_circuit);
         }
         transformed_circuit
     }

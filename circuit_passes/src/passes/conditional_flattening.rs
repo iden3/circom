@@ -2,8 +2,12 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::InstructionPointer;
-use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, ValueBucket};
+use compiler::intermediate_representation::{InstructionPointer, new_id};
+use compiler::intermediate_representation::ir_interface::{
+    Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
+    CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
+    StoreBucket, ValueBucket,
+};
 use crate::bucket_interpreter::env::Env;
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::observer::InterpreterObserver;
@@ -78,7 +82,12 @@ impl InterpreterObserver for ConditionalFlattening {
         let mem = self.memory.borrow();
         let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
         let (_, cond_result, _) = interpreter.execute_conditional_bucket(
-            &bucket.cond, &bucket.if_branch, &bucket.else_branch, env, false);
+            &bucket.cond,
+            &bucket.if_branch,
+            &bucket.else_branch,
+            env,
+            false,
+        );
         if cond_result.is_some() {
             self.replacements.borrow_mut().insert(bucket.clone(), cond_result.unwrap());
         }
@@ -107,22 +116,25 @@ impl CircuitTransformationPass for ConditionalFlattening {
         self.memory.borrow().constant_fields.clone()
     }
 
-    fn run_on_branch_bucket(&self, bucket: &BranchBucket) -> InstructionPointer {
+    fn transform_branch_bucket(&self, bucket: &BranchBucket) -> InstructionPointer {
         if let Some(side) = self.replacements.borrow().get(&bucket) {
             let code = if *side { &bucket.if_branch } else { &bucket.else_branch };
             let block = BlockBucket {
+                id: new_id(),
                 line: bucket.line,
                 message_id: bucket.message_id,
                 body: code.clone(),
             };
-            return self.run_on_block_bucket(&block);
+            return self.transform_block_bucket(&block);
         }
         BranchBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
-            cond: self.run_on_instruction(&bucket.cond),
-            if_branch: self.run_on_instructions(&bucket.if_branch),
-            else_branch: self.run_on_instructions(&bucket.else_branch),
-        }.allocate()
+            cond: self.transform_instruction(&bucket.cond),
+            if_branch: self.transform_instructions(&bucket.if_branch),
+            else_branch: self.transform_instructions(&bucket.else_branch),
+        }
+        .allocate()
     }
 }

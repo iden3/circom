@@ -3,11 +3,11 @@ use std::collections::BTreeMap;
 use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::InstructionPointer;
+use compiler::intermediate_representation::{InstructionPointer, new_id};
 use compiler::intermediate_representation::ir_interface::{
-    Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket,
-    ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket,
-    ReturnBucket, StoreBucket, ValueBucket,
+    Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
+    CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
+    StoreBucket, ValueBucket,
 };
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
 use crate::bucket_interpreter::env::Env;
@@ -24,10 +24,7 @@ pub struct LoopUnrollPass {
 
 impl LoopUnrollPass {
     pub fn new(prime: &String) -> Self {
-        LoopUnrollPass {
-            memory: PassMemory::new_cell(prime),
-            replacements: Default::default(),
-        }
+        LoopUnrollPass { memory: PassMemory::new_cell(prime), replacements: Default::default() }
     }
 }
 
@@ -74,7 +71,7 @@ impl InterpreterObserver for LoopUnrollPass {
             }
         }
         let block =
-            BlockBucket { line: bucket.line, message_id: bucket.message_id, body: block_body }
+            BlockBucket { id: new_id(), line: bucket.line, message_id: bucket.message_id, body: block_body }
                 .allocate();
         self.replacements.borrow_mut().insert(bucket.clone(), block);
         true
@@ -130,16 +127,18 @@ impl CircuitTransformationPass for LoopUnrollPass {
         self.memory.borrow().constant_fields.clone()
     }
 
-    fn run_on_loop_bucket(&self, bucket: &LoopBucket) -> InstructionPointer {
+    fn transform_loop_bucket(&self, bucket: &LoopBucket) -> InstructionPointer {
         if let Some(unrolled_loop) = self.replacements.borrow().get(&bucket) {
-            return self.run_on_instruction(unrolled_loop);
+            return self.transform_instruction(unrolled_loop);
         }
         LoopBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
-            continue_condition: self.run_on_instruction(&bucket.continue_condition),
-            body: self.run_on_instructions(&bucket.body),
-        }.allocate()
+            continue_condition: self.transform_instruction(&bucket.continue_condition),
+            body: self.transform_instructions(&bucket.body),
+        }
+        .allocate()
     }
 }
 
@@ -160,7 +159,7 @@ mod test {
         let prime = "goldilocks".to_string();
         let pass = LoopUnrollPass::new(&prime);
         let circuit = example_program();
-        let new_circuit = pass.run_on_circuit(&circuit);
+        let new_circuit = pass.transform_circuit(&circuit);
         println!("{}", new_circuit.templates[0].body.last().unwrap().to_string());
         assert_ne!(circuit, new_circuit);
         match new_circuit.templates[0].body.last().unwrap().as_ref() {

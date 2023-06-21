@@ -1,4 +1,3 @@
-
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -8,7 +7,6 @@ use compiler::circuit_design::template::TemplateCode;
 
 pub type TemplatesLibrary = Rc<RefCell<HashMap<String, TemplateCode>>>;
 pub type FunctionsLibrary = Rc<RefCell<HashMap<String, FunctionCode>>>;
-
 
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::value::Value;
@@ -45,6 +43,10 @@ impl SubcmpEnv {
 
     pub fn decrease_counter(&self) -> SubcmpEnv {
         SubcmpEnv { signals: self.signals.clone(), counter: self.counter - 1 }
+    }
+
+    pub fn counter_equal_to(&self, value: usize) -> bool {
+        self.counter == value
     }
 }
 
@@ -86,6 +88,10 @@ impl Env {
         self.subcmps.get(&subcmp_idx).unwrap().counter_is_zero()
     }
 
+    pub fn subcmp_counter_equal_to(&self, subcmp_idx: usize, value: usize) -> bool {
+        self.subcmps.get(&subcmp_idx).unwrap().counter_equal_to(value)
+    }
+
     // WRITE OPERATIONS
     pub fn set_var(&self, idx: usize, value: Value) -> Env {
         Env {
@@ -117,12 +123,7 @@ impl Env {
         }
     }
 
-    pub fn set_subcmp_signal(
-        &self,
-        subcmp_idx: usize,
-        signal_idx: usize,
-        value: Value,
-    ) -> Env {
+    pub fn set_subcmp_signal(&self, subcmp_idx: usize, signal_idx: usize, value: Value) -> Env {
         let subcmp = &self.subcmps[&subcmp_idx];
         Env {
             vars: self.vars.clone(),
@@ -154,11 +155,7 @@ impl Env {
         }
     }
 
-    pub fn set_subcmp_signals(
-        &self,
-        subcmp_idx: usize,
-        signals: HashMap<usize, Value>,
-    ) -> Env {
+    pub fn set_subcmp_signals(&self, subcmp_idx: usize, signals: HashMap<usize, Value>) -> Env {
         println!("{subcmp_idx} {:?}", self.subcmps);
         let subcmp = &self.subcmps[&subcmp_idx];
         Env {
@@ -183,9 +180,8 @@ impl Env {
         observe: bool,
     ) -> Env {
         let code = &self.templates_library.borrow()[name].body;
-        let subcmp_env =
-            Env::new(self.templates_library.clone(), self.functions_library.clone())
-                .set_signals(self.subcmps[&subcmp_idx].signals.clone());
+        let subcmp_env = Env::new(self.templates_library.clone(), self.functions_library.clone())
+            .set_signals(self.subcmps[&subcmp_idx].signals.clone());
 
         let interpreter = BucketInterpreter::init(
             interpreter.prime(),
@@ -199,10 +195,8 @@ impl Env {
     pub fn create_subcmp(&self, name: &String, base_index: usize, count: usize) -> Env {
         let mut subcmps = self.subcmps.clone();
         for i in base_index..(base_index + count) {
-            subcmps.insert(
-                i,
-                SubcmpEnv::new(self.templates_library.borrow()[name].number_of_inputs),
-            );
+            subcmps
+                .insert(i, SubcmpEnv::new(self.templates_library.borrow()[name].number_of_inputs));
         }
         println!("{:?}", subcmps);
 

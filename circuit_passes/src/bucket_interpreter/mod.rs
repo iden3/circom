@@ -5,8 +5,9 @@ pub mod observer;
 use compiler::intermediate_representation::{Instruction, InstructionPointer};
 use compiler::intermediate_representation::ir_interface::{
     AddressType, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket,
-    ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket, LoopBucket,
-    NopBucket, OperatorType, ReturnBucket, StatusInput, StoreBucket, ValueBucket, ValueType,
+    ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket,
+    LoopBucket, NopBucket, OperatorType, ReturnBucket, StatusInput, StoreBucket, ValueBucket,
+    ValueType,
 };
 use compiler::num_bigint::BigInt;
 use observer::InterpreterObserver;
@@ -136,12 +137,7 @@ impl<'a> BucketInterpreter<'a> {
         }
     }
 
-    pub fn execute_compute_bucket(
-        &self,
-        bucket: &ComputeBucket,
-        env: &Env,
-        observe: bool,
-    ) -> R {
+    pub fn execute_compute_bucket(&self, bucket: &ComputeBucket, env: &Env, observe: bool) -> R {
         let mut stack = vec![];
         let mut env = env.clone();
         for i in &bucket.stack {
@@ -202,12 +198,7 @@ impl<'a> BucketInterpreter<'a> {
         todo!()
     }
 
-    pub fn execute_branch_bucket(
-        &self,
-        bucket: &BranchBucket,
-        env: &Env,
-        observe: bool,
-    ) -> R {
+    pub fn execute_branch_bucket(&self, bucket: &BranchBucket, env: &Env, observe: bool) -> R {
         let (value, _, env) = self.execute_conditional_bucket(
             &bucket.cond,
             &bucket.if_branch,
@@ -222,12 +213,7 @@ impl<'a> BucketInterpreter<'a> {
         todo!()
     }
 
-    pub fn execute_assert_bucket(
-        &self,
-        bucket: &AssertBucket,
-        env: &Env,
-        observe: bool,
-    ) -> R {
+    pub fn execute_assert_bucket(&self, bucket: &AssertBucket, env: &Env, observe: bool) -> R {
         self.observer.on_assert_bucket(bucket, &env);
 
         let (cond, env) = self.execute_instruction(&bucket.evaluate, env, observe);
@@ -396,12 +382,7 @@ impl<'a> BucketInterpreter<'a> {
         (None, env.clone())
     }
 
-    pub fn execute_instruction(
-        &self,
-        inst: &InstructionPointer,
-        env: &Env,
-        observe: bool,
-    ) -> R {
+    pub fn execute_instruction(&self, inst: &InstructionPointer, env: &Env, observe: bool) -> R {
         let continue_observing =
             if observe { self.observer.on_instruction(inst, env) } else { observe };
         match inst.as_ref() {
@@ -419,9 +400,7 @@ impl<'a> BucketInterpreter<'a> {
             Instruction::Constraint(b) => {
                 self.execute_constraint_bucket(b, env, continue_observing)
             }
-            Instruction::Block(b) => {
-                self.execute_unrolled_loop_bucket(b, env, continue_observing)
-            }
+            Instruction::Block(b) => self.execute_unrolled_loop_bucket(b, env, continue_observing),
             Instruction::Nop(b) => self.execute_nop_bucket(b, env, continue_observing),
         }
     }

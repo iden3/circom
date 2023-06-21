@@ -1,10 +1,11 @@
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
-use crate::intermediate_representation::{Instruction, InstructionList, InstructionPointer};
+use crate::intermediate_representation::{BucketId, Instruction, InstructionList, InstructionPointer};
 use crate::intermediate_representation::ir_interface::{Allocate, IntoInstruction, ObtainMeta};
 use crate::translating_traits::WriteLLVMIR;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct BlockBucket {
+    pub id: BucketId,
     pub line: usize,
     pub message_id: usize,
     pub body: InstructionList

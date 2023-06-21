@@ -1,9 +1,14 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use by_address::ByAddress;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::InstructionPointer;
-use compiler::intermediate_representation::ir_interface::{Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, ValueBucket};
+use compiler::intermediate_representation::ir_interface::{
+    Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
+    CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
+    StoreBucket, ValueBucket,
+};
 use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
 use crate::bucket_interpreter::env::Env;
 use crate::bucket_interpreter::BucketInterpreter;
@@ -20,10 +25,7 @@ pub struct SimplificationPass {
 
 impl SimplificationPass {
     pub fn new(prime: &String) -> Self {
-        SimplificationPass {
-            memory: PassMemory::new_cell(prime),
-            replacements: Default::default(),
-        }
+        SimplificationPass { memory: PassMemory::new_cell(prime), replacements: Default::default() }
     }
 }
 
@@ -46,6 +48,7 @@ impl InterpreterObserver for SimplificationPass {
         let (eval, _) = interpreter.execute_compute_bucket(bucket, env, false);
         let eval = eval.expect("Compute bucket must produce a value!");
         if !eval.is_unknown() {
+            println!("{} ==> {}", bucket.to_string(), eval);
             self.replacements.borrow_mut().insert(bucket.clone(), eval);
             return false;
         }
@@ -102,8 +105,9 @@ impl CircuitTransformationPass for SimplificationPass {
         self.memory.borrow().constant_fields.clone()
     }
 
-    fn run_on_compute_bucket(&self, bucket: &ComputeBucket) -> InstructionPointer {
+    fn transform_compute_bucket(&self, bucket: &ComputeBucket) -> InstructionPointer {
         if let Some(value) = self.replacements.borrow().get(&bucket) {
+            println!("{} --> {}", bucket.to_string(), value);
             let mut constant_fields = &mut self.memory.borrow_mut().constant_fields;
             return value.to_value_bucket(constant_fields).allocate();
         }

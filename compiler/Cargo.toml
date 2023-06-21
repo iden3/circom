@@ -11,4 +11,5 @@ code_producers = {path = "../code_producers"}
 
 num-bigint-dig = "0.6.0"
 num-traits = "0.2.6"
+rand = "0.8.5"
 

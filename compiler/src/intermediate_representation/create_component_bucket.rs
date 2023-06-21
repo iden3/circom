@@ -5,10 +5,12 @@ use code_producers::llvm_elements::{build_fn_name, LLVMInstruction, LLVMIRProduc
 use code_producers::llvm_elements::instructions::{create_add, create_call};
 use code_producers::llvm_elements::values::create_literal_u32;
 use code_producers::wasm_elements::*;
+use crate::intermediate_representation::BucketId;
 
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct CreateCmpBucket {
+    pub id: BucketId,
     pub line: usize,
     pub message_id: usize,
     pub template_id: usize,

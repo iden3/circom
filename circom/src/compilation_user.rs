@@ -67,7 +67,8 @@ pub fn compile(config: CompilerConfig, program_archive: ProgramArchive, prime: &
             .schedule_loop_unroll_pass(prime)
             .schedule_conditional_flattening_pass(prime)
             .schedule_simplification_pass(prime)
-            .run_on_circuit(circuit);
+            .schedule_deterministic_subcmp_invoke_pass(prime)
+            .transform_circuit(circuit);
 
         compiler_interface::write_llvm_ir(&mut circuit, &config.llvm_folder, &config.llvm_file, config.clean_llvm)?;
         println!(

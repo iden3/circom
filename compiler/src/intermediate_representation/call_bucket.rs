@@ -6,6 +6,7 @@ use code_producers::llvm_elements::instructions::{create_alloca, create_call, cr
 use code_producers::llvm_elements::types::bigint_type;
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
+use crate::intermediate_representation::BucketId;
 
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -25,6 +26,7 @@ pub enum ReturnType {
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct CallBucket {
+    pub id: BucketId,
     pub line: usize,
     pub message_id: usize,
     pub symbol: String,

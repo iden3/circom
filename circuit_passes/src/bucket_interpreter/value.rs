@@ -3,6 +3,7 @@ use compiler::intermediate_representation::ir_interface::{ValueBucket, ValueType
 use compiler::num_bigint::BigInt;
 use compiler::num_traits::{One, ToPrimitive, Zero};
 use std::ops::{Add, Div, Mul, Sub};
+use compiler::intermediate_representation::new_id;
 use crate::bucket_interpreter::value::Value::{KnownBigInt, KnownU32, Unknown};
 
 #[derive(Clone, Debug)]
@@ -75,6 +76,7 @@ impl Value {
         match self {
             Unknown => panic!("Can't create a value bucket from an unknown value!"),
             KnownU32(n) => ValueBucket {
+                id: new_id(),
                 line: 0,
                 message_id: 0,
                 parse_as: ValueType::U32,
@@ -86,6 +88,7 @@ impl Value {
                 let idx = constant_fields.len();
                 constant_fields.push(str_repr);
                 ValueBucket {
+                    id: new_id(),
                     line: 0,
                     message_id: 0,
                     parse_as: ValueType::BigInt,

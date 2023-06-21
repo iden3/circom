@@ -10,3 +10,4 @@ constraint_generation = {path = "../constraint_generation"}
 compiler = {path = "../compiler"}
 program_structure = {path = "../program_structure"}
 code_producers = {path = "../code_producers"}
+by_address = "1.1.0"

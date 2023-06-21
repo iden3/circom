@@ -10,6 +10,7 @@ use std::collections::{HashMap, BTreeMap, HashSet};
 use program_structure::ast::AssignOp;
 
 use crate::intermediate_representation::constraint_bucket::ConstraintBucket;
+use crate::intermediate_representation::new_id;
 
 
 type Length = usize;
@@ -170,6 +171,7 @@ fn initialize_parameters(state: &mut State, params: Vec<Param>, _body: &Statemen
         let full_size = lengths.iter().fold(1, |p, s| p * (*s));
         let address = state.reserve_variable(full_size);
         let address_instruction = ValueBucket {
+            id: new_id(),
             line: 0,
             message_id: 0,
             parse_as: ValueType::U32,
@@ -190,6 +192,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
         let address = state.reserve_variable(size);
         let _address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
         let address_instruction = ValueBucket {
+            id: new_id(),
             line: 0,
             message_id: 0,
             parse_as: ValueType::U32,
@@ -206,6 +209,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
             let _cid_expr = Expression::Number(stmt.get_meta().clone(), value);
             let _index_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(index));
             let offset_instruction = ValueBucket {
+                id: new_id(),
                 line: 0,
                 message_id: 0,
                 parse_as: ValueType::U32,
@@ -214,6 +218,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
             }
             .allocate();
             let full_address = ComputeBucket {
+                id: new_id(),
                 line: 0,
                 message_id: 0,
                 op: OperatorType::AddAddress,
@@ -222,6 +227,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
             }
             .allocate();
             let content = ValueBucket {
+                id: new_id(),
                 line: 0,
                 message_id: 0,
                 parse_as: ValueType::BigInt,
@@ -251,6 +257,7 @@ fn initialize_signals(state: &mut State, signals: Vec<Signal>, stmt: &Statement)
         let address = state.reserve_signal(size);
         let _address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
         let instruction = ValueBucket {
+            id: new_id(),
             line: 0,
             message_id: state.message_id,
             parse_as: ValueType::U32,
@@ -270,6 +277,7 @@ fn initialize_components(state: &mut State, components: Vec<Component>, stmt: &S
         let address = state.reserve_component_address(size);
         let _address_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(address));
         let instruction = ValueBucket {
+            id: new_id(),
             line: 0,
             message_id: state.message_id,
             parse_as: ValueType::U32,
@@ -337,6 +345,7 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
         }
 
         let creation_instr = CreateCmpBucket {
+            id: new_id(),
             line: 0,
             message_id: state.message_id,
             symbol: c_info.runs.clone(),
@@ -382,6 +391,7 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
         let value_jump = compute_jump(&symbol.dimensions, &c_info.indexed_with);
         let _jump_expr = Expression::Number(stmt.get_meta().clone(), BigInt::from(value_jump));
         let jump = ValueBucket {
+            id: new_id(),
             line: 0,
             message_id: state.message_id,
             parse_as: ValueType::U32,
@@ -390,6 +400,7 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
         }
         .allocate();
         let location = ComputeBucket {
+            id: new_id(),
             line: 0,
             op_aux_no: 0,
             message_id: state.message_id,
@@ -409,6 +420,7 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
         }
 
         let creation_instr = CreateCmpBucket {
+            id: new_id(),
             line: 0,
             message_id: state.message_id,
             symbol: c_info.runs.clone(),
@@ -473,6 +485,7 @@ fn translate_if_then_else(stmt: Statement, state: &mut State, context: &Context)
         }
         let else_code = std::mem::replace(&mut state.code, main_program);
         let branch_instruction = BranchBucket {
+            id: new_id(),
             line: starts_at,
             message_id: state.message_id,
             cond: cond_translation,
@@ -494,6 +507,7 @@ fn translate_while(stmt: Statement, state: &mut State, context: &Context) {
         translate_statement(*stmt, state, context);
         let loop_code = std::mem::replace(&mut state.code, main_program);
         let loop_instruction = LoopBucket {
+            id: new_id(),
             line: starts_at,
             message_id: state.message_id,
             continue_condition: cond_translation,
@@ -572,6 +586,7 @@ fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) 
         let size = dimensions.iter().fold(1, |p, c| p * (*c));
         let address = state.reserve_variable(size);
         let instruction = ValueBucket {
+            id: new_id(),
             line: starts_at,
             message_id: state.message_id,
             parse_as: ValueType::U32,
@@ -617,6 +632,7 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
         let rhe_pointer = translate_expression(rhe.clone(), state, context);
         let stack = vec![lhe_pointer, rhe_pointer];
         let equality = ComputeBucket {
+            id: new_id(),
             line: starts_at,
             message_id: state.message_id,
             op_aux_no: 0,
@@ -625,7 +641,7 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
         }
         .allocate();
         let assert_instruction =
-            AssertBucket { line: starts_at, message_id: state.message_id, evaluate: equality }
+            AssertBucket { id: new_id(), line: starts_at, message_id: state.message_id, evaluate: equality }
                 .allocate();
         let constraint_instruction = ConstraintBucket::Equality(assert_instruction).allocate();
         state.code.push(constraint_instruction);
@@ -640,7 +656,7 @@ fn translate_assert(stmt: Statement, state: &mut State, context: &Context) {
     if let Assert { meta, arg, .. } = stmt {
         let line = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let code = translate_expression(arg, state, context);
-        let assert = AssertBucket { line, message_id: state.message_id, evaluate: code }.allocate();
+        let assert = AssertBucket { id: new_id(), line, message_id: state.message_id, evaluate: code }.allocate();
         state.code.push(assert);
     }
 }
@@ -671,6 +687,7 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
         }
         
         let log = LogBucket {
+            id: new_id(),
             line,
             message_id: state.message_id,
             argsprint: logbucket_args,
@@ -685,6 +702,7 @@ fn translate_return(stmt: Statement, state: &mut State, context: &Context) {
     if let Return { meta, value, .. } = stmt {
         let return_type = context.functions.get(&context.translating).unwrap();
         let return_bucket = ReturnBucket {
+            id: new_id(),
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             with_size: return_type.iter().fold(1, |p, c| p * (*c)),
@@ -730,6 +748,7 @@ fn translate_call(
     if let Call { id, args, meta, .. } = expression {
         let args_inst = translate_call_arguments(args, state, context);
         CallBucket {
+            id: new_id(),
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             symbol: id,
@@ -755,6 +774,7 @@ fn translate_infix(
         let lhi = translate_expression(*lhe, state, context);
         let rhi = translate_expression(*rhe, state, context);
         ComputeBucket {
+            id: new_id(),
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             op: translate_infix_operator(infix_op),
@@ -777,6 +797,7 @@ fn translate_prefix(
     if let PrefixOp { meta, prefix_op, rhe, .. } = expression {
         let rhi = translate_expression(*rhe, state, context);
         ComputeBucket {
+            id: new_id(),
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             op_aux_no: 0,
@@ -844,6 +865,7 @@ fn translate_number(
     if let Number(meta, value) = expression {
         let cid = bigint_to_cid(&mut state.field_tracker, &value);
         ValueBucket {
+            id: new_id(),
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             op_aux_no: 0,
@@ -1059,6 +1081,7 @@ impl ProcessedSymbol {
             }
         };
         CallBucket {
+            id: new_id(),
             line: self.line,
             message_id: self.message_id,
             symbol: id,
@@ -1122,6 +1145,7 @@ impl ProcessedSymbol {
                 },
             };
             LoadBucket {
+                id: new_id(),
                 src: signal,
                 line: self.line,
                 message_id: self.message_id,
@@ -1135,6 +1159,7 @@ impl ProcessedSymbol {
                 _ => AddressType::Signal,
             };
             LoadBucket {
+                id: new_id(),
                 line: self.line,
                 address_type: xtype,
                 message_id: self.message_id,
@@ -1165,6 +1190,7 @@ fn compute_full_address(
             linear_length /= dimension_length;
             let _linear_length_expr = Expression::Number(meta.clone(), BigInt::from(linear_length));
             let inst = ValueBucket {
+                id: new_id(),
                 line: at.get_line(),
                 message_id: at.get_message_id(),
                 parse_as: ValueType::U32,
@@ -1173,6 +1199,7 @@ fn compute_full_address(
             }
             .allocate();
             let jump = ComputeBucket {
+                id: new_id(),
                 line: at.get_line(),
                 message_id: at.get_message_id(),
                 op_aux_no: 0,
@@ -1216,6 +1243,7 @@ fn indexing_instructions_filter(
             }
             op => {
                 let to_address = ComputeBucket {
+                    id: new_id(),
                     line: op.get_line(),
                     message_id: op.get_message_id(),
                     op_aux_no: 0,
@@ -1264,6 +1292,7 @@ fn fold(using: OperatorType, mut stack: Vec<InstructionPointer>, state: &State, 
     } else {
         let inner_fold = fold(using, stack, state, meta);
         ComputeBucket {
+            id: new_id(),
             line: instruction.get_line(),
             message_id: instruction.get_message_id(),
             op_aux_no: 0,
