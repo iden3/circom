@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::InstructionPointer;
+
 use compiler::intermediate_representation::ir_interface::{
     AddressType, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket,
     ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket,
@@ -33,11 +33,11 @@ impl DeterministicSubCmpInvokePass {
 }
 
 impl InterpreterObserver for DeterministicSubCmpInvokePass {
-    fn on_value_bucket(&self, bucket: &ValueBucket, env: &Env) -> bool {
+    fn on_value_bucket(&self, _bucket: &ValueBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_load_bucket(&self, bucket: &LoadBucket, env: &Env) -> bool {
+    fn on_load_bucket(&self, _bucket: &LoadBucket, _env: &Env) -> bool {
         true
     }
 
@@ -64,51 +64,51 @@ impl InterpreterObserver for DeterministicSubCmpInvokePass {
         true
     }
 
-    fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &Env) -> bool {
+    fn on_compute_bucket(&self, _bucket: &ComputeBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_assert_bucket(&self, bucket: &AssertBucket, env: &Env) -> bool {
+    fn on_assert_bucket(&self, _bucket: &AssertBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_loop_bucket(&self, bucket: &LoopBucket, env: &Env) -> bool {
+    fn on_loop_bucket(&self, _bucket: &LoopBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_create_cmp_bucket(&self, bucket: &CreateCmpBucket, env: &Env) -> bool {
+    fn on_create_cmp_bucket(&self, _bucket: &CreateCmpBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_constraint_bucket(&self, bucket: &ConstraintBucket, env: &Env) -> bool {
+    fn on_constraint_bucket(&self, _bucket: &ConstraintBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_block_bucket(&self, bucket: &BlockBucket, env: &Env) -> bool {
+    fn on_block_bucket(&self, _bucket: &BlockBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_nop_bucket(&self, bucket: &NopBucket, env: &Env) -> bool {
+    fn on_nop_bucket(&self, _bucket: &NopBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_location_rule(&self, location_rule: &LocationRule, env: &Env) -> bool {
+    fn on_location_rule(&self, _location_rule: &LocationRule, _env: &Env) -> bool {
         true
     }
 
-    fn on_call_bucket(&self, bucket: &CallBucket, env: &Env) -> bool {
+    fn on_call_bucket(&self, _bucket: &CallBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_branch_bucket(&self, bucket: &BranchBucket, env: &Env) -> bool {
+    fn on_branch_bucket(&self, _bucket: &BranchBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_return_bucket(&self, bucket: &ReturnBucket, env: &Env) -> bool {
+    fn on_return_bucket(&self, _bucket: &ReturnBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_log_bucket(&self, bucket: &LogBucket, env: &Env) -> bool {
+    fn on_log_bucket(&self, _bucket: &LogBucket, _env: &Env) -> bool {
         true
     }
 }

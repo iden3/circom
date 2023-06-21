@@ -3,17 +3,17 @@ use compiler::circuit_design::function::{FunctionCode, FunctionCodeInfo};
 use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{Instruction, InstructionList, InstructionPointer, new_id};
-use constraint_generation::execute::RuntimeInformation;
-use program_structure::program_archive::ProgramArchive;
+
+
 use std::cell::RefCell;
-use compiler::intermediate_representation::Instruction::{Branch, Value};
+
 use crate::passes::loop_unroll::LoopUnrollPass;
 use compiler::intermediate_representation::ir_interface::{
     Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
     CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
     StoreBucket, BlockBucket, ValueBucket, AddressType, ReturnType, FinalData, LogBucketArg,
 };
-use program_structure::ast::Expression::Call;
+
 use crate::passes::conditional_flattening::ConditionalFlattening;
 use crate::passes::deterministic_subcomponent_invocation::DeterministicSubCmpInvokePass;
 use crate::passes::simplification::SimplificationPass;
@@ -26,7 +26,7 @@ mod deterministic_subcomponent_invocation;
 
 macro_rules! pre_hook {
     ($name: ident, $bucket_ty: ty) => {
-        fn $name(&self, bucket: &$bucket_ty) {}
+        fn $name(&self, _bucket: &$bucket_ty) {}
     };
 }
 

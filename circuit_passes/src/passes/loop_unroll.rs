@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use compiler::circuit_design::function::FunctionCode;
+
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{InstructionPointer, new_id};
@@ -9,7 +9,7 @@ use compiler::intermediate_representation::ir_interface::{
     CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
     StoreBucket, ValueBucket,
 };
-use crate::bucket_interpreter::env::{FunctionsLibrary, TemplatesLibrary};
+
 use crate::bucket_interpreter::env::Env;
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::observer::InterpreterObserver;

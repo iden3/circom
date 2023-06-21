@@ -30,51 +30,51 @@ impl ConditionalFlattening {
 }
 
 impl InterpreterObserver for ConditionalFlattening {
-    fn on_value_bucket(&self, bucket: &ValueBucket, env: &Env) -> bool {
+    fn on_value_bucket(&self, _bucket: &ValueBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_load_bucket(&self, bucket: &LoadBucket, env: &Env) -> bool {
+    fn on_load_bucket(&self, _bucket: &LoadBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_store_bucket(&self, bucket: &StoreBucket, env: &Env) -> bool {
+    fn on_store_bucket(&self, _bucket: &StoreBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &Env) -> bool {
+    fn on_compute_bucket(&self, _bucket: &ComputeBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_assert_bucket(&self, bucket: &AssertBucket, env: &Env) -> bool {
+    fn on_assert_bucket(&self, _bucket: &AssertBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_loop_bucket(&self, bucket: &LoopBucket, env: &Env) -> bool {
+    fn on_loop_bucket(&self, _bucket: &LoopBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_create_cmp_bucket(&self, bucket: &CreateCmpBucket, env: &Env) -> bool {
+    fn on_create_cmp_bucket(&self, _bucket: &CreateCmpBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_constraint_bucket(&self, bucket: &ConstraintBucket, env: &Env) -> bool {
+    fn on_constraint_bucket(&self, _bucket: &ConstraintBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_block_bucket(&self, bucket: &BlockBucket, env: &Env) -> bool {
+    fn on_block_bucket(&self, _bucket: &BlockBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_nop_bucket(&self, bucket: &NopBucket, env: &Env) -> bool {
+    fn on_nop_bucket(&self, _bucket: &NopBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_location_rule(&self, location_rule: &LocationRule, env: &Env) -> bool {
+    fn on_location_rule(&self, _location_rule: &LocationRule, _env: &Env) -> bool {
         true
     }
 
-    fn on_call_bucket(&self, bucket: &CallBucket, env: &Env) -> bool {
+    fn on_call_bucket(&self, _bucket: &CallBucket, _env: &Env) -> bool {
         true
     }
 
@@ -94,11 +94,11 @@ impl InterpreterObserver for ConditionalFlattening {
         true
     }
 
-    fn on_return_bucket(&self, bucket: &ReturnBucket, env: &Env) -> bool {
+    fn on_return_bucket(&self, _bucket: &ReturnBucket, _env: &Env) -> bool {
         true
     }
 
-    fn on_log_bucket(&self, bucket: &LogBucket, env: &Env) -> bool {
+    fn on_log_bucket(&self, _bucket: &LogBucket, _env: &Env) -> bool {
         true
     }
 }
