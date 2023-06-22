@@ -55,7 +55,7 @@ fn check_anonymous_components_statement(
                     "An anonymous component cannot be used in the left side of an assignment".to_string())
                 )
             } else{
-                if rhe.contains_anonymous_comp() && *op != AssignOp::AssignSignal{
+                if rhe.contains_anonymous_comp() && *op == AssignOp::AssignSignal{
                     let error = format!("Anonymous components only admit the use of the operator <==");
                     Result::Err(anonymous_general_error(meta.clone(),error))
                 } else{
