@@ -1,6 +1,7 @@
 # Release notes
 
-## June 21, 2023 circom 2.1.6
+## June 22, 2023 circom 2.1.6
+
 #### Extensions
 - Improving tag propagation: array case.
 - Handling new prime numbers: pallas, vesta, grumpkin
