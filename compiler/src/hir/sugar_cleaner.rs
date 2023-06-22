@@ -135,8 +135,21 @@ fn extend_substitution(
     context: &Context,
 ) -> Vec<Statement> {
     use Statement::Substitution;
-    if let Substitution { rhe, .. } = stmt {
-        extend_expression(rhe, state, context).initializations
+    if let Substitution { rhe, access, .. } = stmt {
+        let mut expands = extend_expression(rhe, state, context).initializations;
+        
+        let mut inits = vec![];
+        for acc in access {
+            if let Access::ArrayAccess(e) = acc {
+                let mut expand = extend_expression(e, state, context);
+                inits.append(&mut expand.initializations);
+                let mut expr = vec![e.clone()];
+                sugar_filter(&mut expr, state, &mut inits);
+                *e = expr.pop().unwrap();
+            }
+        }
+        expands.append(&mut inits);
+        expands
     } else {
         unreachable!()
     }
