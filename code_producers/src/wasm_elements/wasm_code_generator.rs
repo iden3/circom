@@ -793,6 +793,7 @@ pub fn init_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     instructions.push(header);
     instructions.push(" (param $t i32)".to_string());
     instructions.push(" (local $i i32)".to_string());
+    instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
     // initialize set counter
     instructions.push(set_constant(&producer.get_remaining_input_signal_counter().to_string()));
     instructions.push(";; Number of Main inputs".to_string());
@@ -832,8 +833,18 @@ pub fn init_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     //    instructions.push(store32(None));
     instructions.push(set_constant(&next_to_one.to_string()));
     let funcname = format!("${}_create", producer.get_main_header());
-    instructions.push(call(&funcname));
+    instructions.push(call(&funcname));    
     instructions.push(drop());
+    if producer.get_number_of_main_inputs() == 0 {
+    instructions.push(set_constant(&producer.get_component_tree_start().to_string()));
+    let funcname = format!("${}_run", producer.get_main_header());
+    instructions.push(call(&funcname));
+    instructions.push(tee_local(producer.get_merror_tag()));
+    instructions.push(add_if()); 
+    instructions.push(get_local("$merror"));    
+    instructions.push(call("$exceptionHandler"));
+    instructions.push(add_end());
+    }
     instructions.push(")".to_string());
     instructions
 }

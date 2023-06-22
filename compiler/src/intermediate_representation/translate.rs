@@ -1151,44 +1151,161 @@ fn compute_full_address(
 fn indexing_instructions_filter(
     indexing: Vec<InstructionPointer>,
     state: &State,
-) -> Vec<InstructionPointer> {
-    use Instruction::{Value, Compute};
+ ) -> Vec<InstructionPointer>{
     let mut index_stack = vec![];
     for i in indexing {
-        match *i {
-            Value(v) if v.parse_as == ValueType::U32 => {
-                index_stack.push(v.allocate());
-            }
-            Value(mut v) if v.parse_as == ValueType::BigInt => {
-                v.parse_as = ValueType::U32;
-                let field = state.field_tracker.get_constant(v.value).unwrap();
-                v.value = usize::from_str_radix(field, 10).unwrap_or_else(|_| usize::MAX);
-                index_stack.push(v.allocate());
-            }
-            Compute(mut v) if v.op == OperatorType::Add => {
-                v.stack = indexing_instructions_filter(v.stack, state);
-                v.op = OperatorType::AddAddress;
-                index_stack.push(v.into_instruction().allocate());
-            }
-            Compute(mut v) if v.op == OperatorType::Mul => {
-                v.stack = indexing_instructions_filter(v.stack, state);
-                v.op = OperatorType::MulAddress;
-                index_stack.push(v.into_instruction().allocate());
-            }
-            op => {
-                let to_address = ComputeBucket {
-                    line: op.get_line(),
-                    message_id: op.get_message_id(),
-                    op_aux_no: 0,
-                    op: OperatorType::ToAddress,
-                    stack: vec![op.allocate()],
-                };
-                index_stack.push(to_address.allocate());
-            }
+
+        let (possible_to_usize, _) = check_if_possible_to_usize_single(&i, state);
+
+        if possible_to_usize{
+            let new_index = convert_to_usize_single(i, state);
+            index_stack.push(new_index);
+        } else{
+
+            let to_usize = ComputeBucket {
+                line: i.get_line(),
+                message_id: i.get_message_id(),
+                op_aux_no: 0,
+                op: OperatorType::ToAddress,
+                stack: vec![i.allocate()],
+            }.allocate();
+            index_stack.push(to_usize);
+
         }
     }
     index_stack
 }
+
+fn check_if_possible_to_usize_single( // returns if it is possible to convert to usize and if it is a small usize
+                                      // we consider that a usize is small if it is a number < 100
+                                      // we consider that a multiplication is usize if at least one of its operands is usize 
+                                      // and the other is usize
+    index: &InstructionPointer,
+    state: &State,
+)-> (bool, bool){
+
+    use Instruction::{Value, Compute};
+
+    match &**index {
+        Value(v) if v.parse_as == ValueType::U32 => {
+            (true, v.value < 100)
+        }
+        Value(v) if v.parse_as == ValueType::BigInt => {
+            let field = state.field_tracker.get_constant(v.value).unwrap();
+            let new_value  = usize::from_str_radix(field, 10);
+
+            match new_value{
+                Ok(_) =>{
+                    (true, new_value.unwrap() < 100)
+                }
+                _ =>{
+                    (false, false)
+                }
+            }
+
+        }
+        Compute(v) if v.op == OperatorType::Add => {
+            let (are_usize, _) = check_if_possible_to_usize_multiple(&v.stack, state);
+            (are_usize, false)
+        } 
+        Compute(v) if v.op == OperatorType::Mul => {
+            let (are_usize, are_small) = check_if_possible_to_usize_multiple(&v.stack, state);
+            (are_usize && are_small, false)
+        }
+        Compute(_) =>{
+            (false, false)
+        }
+        _ => {
+            // Case variable
+            (true, false)
+        }
+    }
+}
+
+fn check_if_possible_to_usize_multiple( // returns if all of them are usize and if the number of non small usizes is at most one
+    indexing: &Vec<InstructionPointer>,
+    state: &State,
+) -> (bool, bool) { 
+    let mut is_usize = true;
+    let mut number_non_small = 0;
+    for i in indexing {
+        let (is_usize_i, is_small_i) = check_if_possible_to_usize_single(i, state);
+        is_usize &= is_usize_i;
+        if !is_small_i{
+            number_non_small += 1;
+        }
+    }
+    (is_usize, number_non_small <= 1)
+}
+
+
+
+fn convert_to_usize_single(
+    index: InstructionPointer,
+    state: &State,
+)-> InstructionPointer{
+
+    use Instruction::{Value, Compute};
+
+    match *index {
+        Value(v) if v.parse_as == ValueType::U32 => {
+            v.allocate()
+        }
+        Value(mut v) if v.parse_as == ValueType::BigInt => {
+            let field = state.field_tracker.get_constant(v.value).unwrap();
+            let new_value  = usize::from_str_radix(field, 10);
+
+            match new_value{
+                Ok(value) =>{
+                    v.parse_as = ValueType::U32;
+                    v.value = value;
+                    v.allocate()
+                }
+                _ =>{
+                    unreachable!()
+                }
+            }
+
+        }
+        Compute(mut v) if v.op == OperatorType::Add => {
+            v.stack = convert_to_usize_multiple(v.stack, state);
+            v.op = OperatorType::AddAddress;
+            v.into_instruction().allocate()
+        }
+        Compute(mut v) if v.op == OperatorType::Mul => {
+            v.stack = convert_to_usize_multiple(v.stack, state);
+            v.op = OperatorType::MulAddress;
+            v.into_instruction().allocate()
+        }
+        Compute(_) =>{
+            unreachable!()
+        }
+        _ => {
+            // Case variable
+            ComputeBucket {
+                line: index.get_line(),
+                message_id: index.get_message_id(),
+                op_aux_no: 0,
+                op: OperatorType::ToAddress,
+                stack: vec![index.allocate()],
+            }.allocate()
+        }
+
+    }
+}
+
+fn convert_to_usize_multiple(
+    indexing: Vec<InstructionPointer>,
+    state: &State,
+) ->  Vec<InstructionPointer> { 
+    let mut index_stack = vec![];
+    for i in indexing {
+        let new_index = convert_to_usize_single(i, state);
+        index_stack.push(new_index);
+    }
+    index_stack
+}
+
 
 fn fold(using: OperatorType, mut stack: Vec<InstructionPointer>, state: &State) -> InstructionPointer {
     let instruction = stack.pop().unwrap();
