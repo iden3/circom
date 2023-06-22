@@ -6,7 +6,14 @@ use std::ops::{Add, Div, Mul, Sub};
 use compiler::intermediate_representation::new_id;
 use crate::bucket_interpreter::value::Value::{KnownBigInt, KnownU32, Unknown};
 
-#[derive(Clone, Debug)]
+pub trait JoinSemiLattice {
+    fn join(&self, other: &Self) -> Self;
+}
+
+/// Poor man's lattice that gives up the moment values are not equal
+/// It's a join semi lattice with a top (Unknown)
+/// Not a complete lattice because there is no bottom
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Value {
     Unknown,
     KnownU32(usize),
@@ -23,6 +30,14 @@ impl Display for Value {
     }
 }
 
+impl JoinSemiLattice for Value {
+    /// a ⊔ b = a    iff a = b
+    /// a ⊔ b = UNK  otherwise
+    fn join(&self, other: &Self) -> Self {
+        if self == other { self.clone() } else { Unknown }
+    }
+}
+
 impl Value {
     pub fn get_u32(&self) -> usize {
         match self {
@@ -30,6 +45,8 @@ impl Value {
             _ => panic!("Can't unwrap a u32 from a non KnownU32 value! {:?}", self),
         }
     }
+
+
 
     pub fn get_bigint_as_string(&self) -> String {
         match self {

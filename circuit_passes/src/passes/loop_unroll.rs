@@ -112,6 +112,14 @@ impl InterpreterObserver for LoopUnrollPass {
     fn on_log_bucket(&self, _bucket: &LogBucket, _env: &Env) -> bool {
         true
     }
+
+    fn ignore_function_calls(&self) -> bool {
+        true
+    }
+
+    fn ignore_subcmp_calls(&self) -> bool {
+        true
+    }
 }
 
 impl CircuitTransformationPass for LoopUnrollPass {

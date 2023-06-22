@@ -34,11 +34,12 @@ pub trait CircuitTransformationPass {
     fn transform_circuit(&self, circuit: &Circuit) -> Circuit {
         self.pre_hook_circuit(&circuit);
         let templates = circuit.templates.iter().map(|t| self.transform_template(t)).collect();
-
+        let field_tracking = self.get_updated_field_constants();
+        println!("Replacing {:?} with {:?}", circuit.llvm_data.field_tracking, field_tracking);
         Circuit {
             wasm_producer: circuit.wasm_producer.clone(),
             c_producer: circuit.c_producer.clone(),
-            llvm_data: LLVMCircuitData { field_tracking: self.get_updated_field_constants() },
+            llvm_data: LLVMCircuitData { field_tracking },
             templates,
             functions: circuit.functions.iter().map(|f| self.transform_function(f)).collect(),
         }

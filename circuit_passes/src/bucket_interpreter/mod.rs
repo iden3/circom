@@ -2,18 +2,15 @@ pub mod value;
 pub mod env;
 pub mod observer;
 
-use compiler::intermediate_representation::{Instruction, InstructionPointer};
-use compiler::intermediate_representation::ir_interface::{
-    AddressType, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket,
-    ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket,
-    LoopBucket, NopBucket, OperatorType, ReturnBucket, StatusInput, StoreBucket, ValueBucket,
-    ValueType,
-};
+use std::collections::BTreeSet;
+use std::ops::Add;
+use compiler::intermediate_representation::{Instruction, InstructionList, InstructionPointer};
+use compiler::intermediate_representation::ir_interface::{AddressType, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket, LogBucketArg, LoopBucket, NopBucket, OperatorType, ReturnBucket, ReturnType, StatusInput, StoreBucket, ValueBucket, ValueType};
 use compiler::num_bigint::BigInt;
 use observer::InterpreterObserver;
 use program_structure::constants::UsefulConstants;
-use crate::bucket_interpreter::env::Env;
-use crate::bucket_interpreter::value::{mod_value, resolve_operation, Value};
+use crate::bucket_interpreter::env::{Env, EnvSet};
+use crate::bucket_interpreter::value::{JoinSemiLattice, mod_value, resolve_operation, Value};
 use crate::bucket_interpreter::value::Value::{KnownBigInt, KnownU32, Unknown};
 
 pub struct BucketInterpreter<'a> {
@@ -24,6 +21,22 @@ pub struct BucketInterpreter<'a> {
 }
 
 pub type R = (Option<Value>, Env);
+
+impl JoinSemiLattice for Option<Value> {
+    fn join(&self, other: &Self) -> Self {
+        match (self, other) {
+            (x, None) => x.clone(),
+            (None, x) => x.clone(),
+            (Some(x), Some(y)) => Some(x.join(y))
+        }
+    }
+}
+
+impl JoinSemiLattice for R {
+    fn join(&self, other: &Self) -> Self {
+        (self.0.join(&other.0), self.1.join(&other.1))
+    }
+}
 
 impl<'a> BucketInterpreter<'a> {
     pub fn init(
@@ -51,6 +64,7 @@ impl<'a> BucketInterpreter<'a> {
         (
             Some(match bucket.parse_as {
                 ValueType::BigInt => {
+                    println!("{:?}", self.constant_fields);
                     let constant = &self.constant_fields[bucket.value];
                     KnownBigInt(
                         BigInt::parse_bytes(constant.as_bytes(), 10)
@@ -91,14 +105,10 @@ impl<'a> BucketInterpreter<'a> {
         }
     }
 
-    pub fn execute_store_bucket(&self, bucket: &StoreBucket, env: &Env, observe: bool) -> R {
-        let (src, env) = self.execute_instruction(&bucket.src, env, observe);
-        let (idx, env) = self.execute_location_rule(&bucket.dest, &env, observe);
-        let idx = idx.expect("dest instruction in StoreBucket must produce a value!").get_u32();
-        let src = src.expect("src instruction in StoreBucket must produce a value!");
-        match &bucket.dest_address_type {
-            AddressType::Variable => (None, env.set_var(idx, src)),
-            AddressType::Signal => (None, env.set_signal(idx, src)),
+    pub fn store_value_in_address(&self, address: &AddressType, location: &LocationRule, idx: usize, value: Value, env: &Env, observe: bool) -> Env {
+        match address {
+            AddressType::Variable => env.set_var(idx, value),
+            AddressType::Signal => env.set_signal(idx, value),
             AddressType::SubcmpSignal { cmp_address, input_information, .. } => {
                 let (addr, env) = self.execute_instruction(cmp_address, &env, observe);
                 let addr = addr
@@ -106,9 +116,9 @@ impl<'a> BucketInterpreter<'a> {
                         "cmp_address instruction in StoreBucket SubcmpSignal must produce a value!",
                     )
                     .get_u32();
-                let env = env.set_subcmp_signal(addr, idx, src).decrease_subcmp_counter(addr);
+                let env = env.set_subcmp_signal(addr, idx, value).decrease_subcmp_counter(addr);
 
-                let sub_cmp_name = match &bucket.dest {
+                let sub_cmp_name = match location {
                     LocationRule::Indexed { template_header, .. } => template_header.clone(),
                     _ => None,
                 };
@@ -116,25 +126,32 @@ impl<'a> BucketInterpreter<'a> {
                 if let InputInformation::Input { status } = input_information {
                     match status {
                         StatusInput::Last => {
-                            return (
-                                None,
-                                env.run_subcmp(addr, &sub_cmp_name.unwrap(), self, observe),
-                            );
+                            return
+                                env.run_subcmp(addr, &sub_cmp_name.unwrap(), self, observe)
+                            ;
                         }
                         StatusInput::Unknown => {
                             if env.subcmp_counter_is_zero(addr) {
-                                return (
-                                    None,
-                                    env.run_subcmp(addr, &sub_cmp_name.unwrap(), self, observe),
-                                );
+                                return
+                                    env.run_subcmp(addr, &sub_cmp_name.unwrap(), self, observe)
+                                ;
                             }
                         }
                         _ => {}
                     }
                 }
-                (None, env)
+                env
             }
         }
+    }
+
+    pub fn execute_store_bucket(&self, bucket: &StoreBucket, env: &Env, observe: bool) -> R {
+        let (src, env) = self.execute_instruction(&bucket.src, env, observe);
+        let (idx, env) = self.execute_location_rule(&bucket.dest, &env, observe);
+        let idx = idx.expect("dest instruction in StoreBucket must produce a value!").get_u32();
+        let src = src.expect("src instruction in StoreBucket must produce a value!");
+        let env = self.store_value_in_address(&bucket.dest_address_type, &bucket.dest, idx, src, &env, observe);
+        (None, env)
     }
 
     pub fn execute_compute_bucket(&self, bucket: &ComputeBucket, env: &Env, observe: bool) -> R {
@@ -192,10 +209,20 @@ impl<'a> BucketInterpreter<'a> {
         for i in &bucket.arguments {
             let (value, new_env) = self.execute_instruction(i, &env, observe);
             env = new_env;
-            args.push(value);
+            args.push(value.expect("Function argument must produce a value!"));
         }
 
-        todo!()
+        let result = env.run_function(&bucket.symbol, self, args, observe);
+
+        // Write the result in the destination according to the address type
+        match &bucket.return_info {
+            ReturnType::Intermediate { .. } => (Some(result), env),
+            ReturnType::Final(final_data) => {
+                let (idx, env) = self.execute_location_rule(&final_data.dest, &env, observe);
+                let idx = idx.expect("Location rule must produce an index").get_u32();
+                (None, self.store_value_in_address(&final_data.dest_address_type, &final_data.dest, idx, result, &env, observe))
+            }
+        }
     }
 
     pub fn execute_branch_bucket(&self, bucket: &BranchBucket, env: &Env, observe: bool) -> R {
@@ -209,8 +236,8 @@ impl<'a> BucketInterpreter<'a> {
         (value, env)
     }
 
-    pub fn execute_return_bucket(&self, _bucket: &ReturnBucket, _observe: bool) -> R {
-        todo!()
+    pub fn execute_return_bucket(&self, bucket: &ReturnBucket, env: &Env, observe: bool) -> R {
+        self.execute_instruction(&bucket.value, env, observe)
     }
 
     pub fn execute_assert_bucket(&self, bucket: &AssertBucket, env: &Env, observe: bool) -> R {
@@ -224,8 +251,15 @@ impl<'a> BucketInterpreter<'a> {
         (None, env)
     }
 
-    pub fn execute_log_bucket(&self, _bucket: &LogBucket, _observe: bool) -> R {
-        todo!()
+    pub fn execute_log_bucket(&self, bucket: &LogBucket, env: &Env, observe: bool) -> R {
+        let mut env = env.clone();
+        for arg in &bucket.argsprint {
+            if let LogBucketArg::LogExp(i) = arg {
+                let (_, new_env) = self.execute_instruction(i, &env, observe);
+                env = new_env
+            }
+        }
+        (None, env)
     }
 
     // TODO: Needs more work!
@@ -240,16 +274,21 @@ impl<'a> BucketInterpreter<'a> {
         let (executed_cond, env) = self.execute_instruction(cond, env, observe);
         let executed_cond = executed_cond.expect("executed_cond must produce a value!");
         println!("executed_cond == {:?}", executed_cond);
-        let cond_bool_result = match executed_cond {
-            Unknown => None,
-            KnownU32(1) => Some(true),
-            KnownU32(0) => Some(false),
-            KnownU32(_) => todo!(),
-            KnownBigInt(_) => todo!(),
-        };
+        let cond_bool_result = self.value_to_bool(&executed_cond);
 
         return match cond_bool_result {
             None => {
+                // let (then_side, then_env) = self.execute_instructions(true_branch, &env, observe);
+                // let (else_side, else_env) = self.execute_instructions(false_branch, &env, observe);
+                //
+                // let value = match (then_side, else_side) {
+                //     (None, None) => None,
+                //     (Some(x), None) => Some(x),
+                //     (None, Some(x)) => Some(x),
+                //     (Some(x), Some(y)) => Some(x.join(&y))
+                // };
+                //
+                // return (value, None, then_env.join(&else_env));
                 let (mut ret, mut new_env) = self.execute_instructions(true_branch, &env, observe);
                 if ret.is_none() {
                     (ret, new_env) = self.execute_instructions(false_branch, &env, observe);
@@ -274,6 +313,39 @@ impl<'a> BucketInterpreter<'a> {
         observe: bool,
     ) -> (Option<Value>, Option<bool>, Env) {
         self.execute_conditional_bucket(&bucket.continue_condition, &bucket.body, &[], env, observe)
+    }
+
+    fn value_to_bool(&self, value: &Value) -> Option<bool> {
+        match value {
+            Unknown => None,
+            KnownU32(1) => Some(true),
+            KnownU32(0) => Some(false),
+            KnownU32(_) => todo!(),
+            KnownBigInt(_) => todo!(),
+        }
+    }
+
+    fn compute_while(&self, predicate: &InstructionPointer, body: &InstructionList, env: &Env, visited_states: EnvSet, observe: bool) -> R {
+        if visited_states.contains(env) {
+            return (None, env.clone());
+        }
+        let (cond, _) = self.execute_instruction(predicate, env, observe);
+        let cond = cond.expect("executed_cond must produce a value!");
+        let cond_bool_result = self.value_to_bool(&cond);
+        match cond_bool_result {
+            None => {
+                let r = self.execute_instructions(body, env, observe);
+                let rec = self.compute_while(predicate, body, &r.1, visited_states.add(env), observe);
+                (None, env.clone()).join(&rec)
+            }
+            Some(true) => {
+                let r = self.execute_instructions(body, env, observe);
+                self.compute_while(predicate, body, &r.1, visited_states.add(env), observe)
+            }
+            Some(false) => {
+                self.execute_instructions(body, env, observe)
+            }
+        }
     }
 
     /// Executes the loop many times. If the result of the loop condition is unknown
@@ -312,6 +384,13 @@ impl<'a> BucketInterpreter<'a> {
                 }
             }
         }
+        // self.compute_while(
+        //     &bucket.continue_condition,
+        //     &bucket.body,
+        //     env,
+        //     Default::default(),
+        //     observe
+        // )
     }
 
     pub fn execute_create_cmp_bucket(
@@ -371,11 +450,7 @@ impl<'a> BucketInterpreter<'a> {
         env: &Env,
         observe: bool,
     ) -> R {
-        let mut last = (None, env.clone());
-        for iteration in &bucket.body {
-            last = self.execute_instruction(iteration, &last.1, observe);
-        }
-        return last;
+        self.execute_instructions(&bucket.body, env, observe)
     }
 
     pub fn execute_nop_bucket(&self, _bucket: &NopBucket, env: &Env, _observe: bool) -> R {
@@ -383,6 +458,8 @@ impl<'a> BucketInterpreter<'a> {
     }
 
     pub fn execute_instruction(&self, inst: &InstructionPointer, env: &Env, observe: bool) -> R {
+        println!("ABOUT TO EXECUTE {}", inst.to_string());
+        println!("CURRENT ENV: {}", env);
         let continue_observing =
             if observe { self.observer.on_instruction(inst, env) } else { observe };
         match inst.as_ref() {
@@ -392,9 +469,9 @@ impl<'a> BucketInterpreter<'a> {
             Instruction::Compute(b) => self.execute_compute_bucket(b, env, continue_observing),
             Instruction::Call(b) => self.execute_call_bucket(b, env, continue_observing),
             Instruction::Branch(b) => self.execute_branch_bucket(b, env, continue_observing),
-            Instruction::Return(b) => self.execute_return_bucket(b, continue_observing),
+            Instruction::Return(b) => self.execute_return_bucket(b, env, continue_observing),
             Instruction::Assert(b) => self.execute_assert_bucket(b, env, continue_observing),
-            Instruction::Log(b) => self.execute_log_bucket(b, continue_observing),
+            Instruction::Log(b) => self.execute_log_bucket(b, env, continue_observing),
             Instruction::Loop(b) => self.execute_loop_bucket(b, env, continue_observing),
             Instruction::CreateCmp(b) => self.execute_create_cmp_bucket(b, env, continue_observing),
             Instruction::Constraint(b) => {

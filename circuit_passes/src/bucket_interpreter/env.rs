@@ -1,6 +1,8 @@
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 
 use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
@@ -9,12 +11,39 @@ pub type TemplatesLibrary = Rc<RefCell<HashMap<String, TemplateCode>>>;
 pub type FunctionsLibrary = Rc<RefCell<HashMap<String, FunctionCode>>>;
 
 use crate::bucket_interpreter::BucketInterpreter;
-use crate::bucket_interpreter::value::Value;
+use crate::bucket_interpreter::value::{JoinSemiLattice, Value};
 
-#[derive(Clone, Default, Debug)]
+impl<L: JoinSemiLattice + Clone> JoinSemiLattice for HashMap<usize, L> {
+    fn join(&self, other: &Self) -> Self {
+        let mut new: HashMap<usize, L> = Default::default();
+        for (k, v) in self {
+            new.insert(*k, v.clone());
+        }
+
+        for (k, v) in other {
+            if new.contains_key(&k) {
+                new.get_mut(&k).unwrap().join(v);
+            } else {
+                new.insert(*k, v.clone());
+            }
+        }
+        new
+    }
+}
+
+#[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub struct SubcmpEnv {
     pub signals: HashMap<usize, Value>,
     counter: usize,
+}
+
+impl JoinSemiLattice for SubcmpEnv {
+    fn join(&self, other: &Self) -> Self {
+        SubcmpEnv {
+            signals: self.signals.join(&other.signals),
+            counter: std::cmp::min(self.counter, other.counter),
+        }
+    }
 }
 
 impl SubcmpEnv {
@@ -50,14 +79,51 @@ impl SubcmpEnv {
     }
 }
 
+/// Very inefficient
+#[derive(Default)]
+pub struct EnvSet {
+    envs: Vec<Env>
+}
+
+impl EnvSet {
+    pub fn new() -> Self {
+        EnvSet {
+            envs: Default::default()
+        }
+    }
+
+    pub fn contains(&self, env: &Env) -> bool {
+        for e in &self.envs {
+            if e == env {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn add(&self, env: &Env) -> EnvSet {
+        let mut new = vec![env.clone()];
+        for e in &self.envs {
+            new.push(e.clone())
+        }
+        EnvSet { envs: new }
+    }
+}
+
 // An immutable env that returns a new copy when modified
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub struct Env {
     vars: HashMap<usize, Value>,
     signals: HashMap<usize, Value>,
     subcmps: HashMap<usize, SubcmpEnv>,
     templates_library: TemplatesLibrary,
     functions_library: FunctionsLibrary,
+}
+
+impl Display for Env {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\n  vars = {:?}\n  signals = {:?}\n  subcmps = {:?}", self.vars, self.signals, self.subcmps)
+    }
 }
 
 impl Env {
@@ -183,12 +249,10 @@ impl Env {
         let subcmp_env = Env::new(self.templates_library.clone(), self.functions_library.clone())
             .set_signals(self.subcmps[&subcmp_idx].signals.clone());
 
-        let interpreter = BucketInterpreter::init(
-            interpreter.prime(),
-            interpreter.constant_fields,
-            interpreter.observer(),
-        );
-        let (_, env) = interpreter.execute_instructions(code, &subcmp_env, observe);
+        let (_, env) = interpreter.execute_instructions(
+            code,
+            &subcmp_env,
+            !interpreter.observer.ignore_subcmp_calls() && observe);
         self.set_subcmp_signals(subcmp_idx, env.signals.clone())
     }
 
@@ -206,6 +270,32 @@ impl Env {
             templates_library: self.templates_library.clone(),
             functions_library: self.functions_library.clone(),
             subcmps,
+        }
+    }
+
+    pub fn run_function(&self, name: &String,
+                        interpreter: &BucketInterpreter,
+                        args: Vec<Value>,
+                        observe: bool) -> Value {
+        let code = &self.functions_library.borrow()[name].body;
+        let mut function_env = Env::new(self.templates_library.clone(), self.functions_library.clone());
+        for (id, arg) in args.iter().enumerate() {
+            function_env = function_env.set_var(id, arg.clone());
+        }
+        let r = interpreter.execute_instructions(
+            &code,
+            &function_env,
+            !interpreter.observer.ignore_function_calls() && observe);
+        r.0.expect("Function must return a value!")
+    }
+
+    pub fn join(&self, other: &Self) -> Self {
+        Env {
+            vars: self.vars.join(&other.vars),
+            signals: self.signals.join(&other.signals),
+            subcmps: self.subcmps.join(&other.subcmps),
+            templates_library: self.templates_library.clone(),
+            functions_library: self.functions_library.clone()
         }
     }
 }

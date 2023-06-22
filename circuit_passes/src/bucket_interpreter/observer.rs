@@ -43,4 +43,7 @@ pub trait InterpreterObserver {
             Instruction::Nop(bucket) => self.on_nop_bucket(bucket, env),
         }
     }
+
+    fn ignore_function_calls(&self) -> bool;
+    fn ignore_subcmp_calls(&self) -> bool;
 }
