@@ -47,11 +47,19 @@ const JSON: &'static str = "json";
 
 impl Input {
     pub fn new() -> Result<Input, ()> {
+        use ansi_term::Colour;
         use input_processing::SimplificationStyle;
         let matches = input_processing::view();
         let input = input_processing::get_input(&matches)?;
-        let file_name = input.file_stem().unwrap().to_str().unwrap().to_string();
+        let mut file_name = input.file_stem().unwrap().to_str().unwrap().to_string();
         let output_path = input_processing::get_output_path(&matches)?;
+
+        let c_flag = input_processing::get_c(&matches);
+
+        if c_flag && (file_name == "main" || file_name == "fr" || file_name == "calcwit"){
+            println!("{}", Colour::Yellow.paint(format!("The name {} is reserved in Circom when using de --c flag. The files generated for your circuit will use the name {}_c instead of {}.", file_name, file_name, file_name)));
+            file_name = format!("{}_c", file_name)
+        };
         let output_c_path = Input::build_folder(&output_path, &file_name, CPP);
         let output_js_path = Input::build_folder(&output_path, &file_name, JS);
         let o_style = input_processing::get_simplification_style(&matches)?;
@@ -76,7 +84,7 @@ impl Input {
             ),
             wat_flag:input_processing::get_wat(&matches),
             wasm_flag: input_processing::get_wasm(&matches),
-            c_flag: input_processing::get_c(&matches),
+            c_flag: c_flag,
             r1cs_flag: input_processing::get_r1cs(&matches),
             sym_flag: input_processing::get_sym(&matches),
             main_inputs_flag: input_processing::get_main_inputs_log(&matches),
