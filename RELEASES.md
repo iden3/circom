@@ -1,18 +1,18 @@
 # Release notes
 
-## June 21,, 2023 circom 2.1.6
+## June 21, 2023 circom 2.1.6
 #### Extensions
 - Improving tag propagation: array case.
 - Handling new prime numbers: pallas, vesta, grumpkin
-- Improving ToAddress function: minimizing the number of uses but guaranteeing safety while computing position in an array.
+- Improving array access index computation in the code generated intermediate representation: using cheap addition and multiplication operations when possible.
 - Updating the documentation.
 
 #### Bugs 
 - Fixing a bug while parsing anonymous components.
 - Fixing a problem in calls to anonymous components with signal names.
 - Fixing a bug in wasm witness generation that happened when doing a call inside an array index.
-- Executing the main method without inputs in wasm witness generation. 
-
+- Executing the main method without inputs in wasm witness generation.
+  
   
 ## March 15, 2023 circom 2.1.5
 
