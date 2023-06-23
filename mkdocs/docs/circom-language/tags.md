@@ -67,11 +67,11 @@ template IsZero() {
 To the light of this example, when using tags in intermediate or output signals, the programmer must use components like the previous one or explicitly include the constraints to guarantee the validity of the tags.
 
 ### Tags with value
-Notice that in the previous template `Bits2Num`, we can add more information about the output signal `out`: the maximum number of bits needed to represent it is `n`. To express this fact is necessary that tags can have a value.
+Notice that in the previous template `Bits2Num`, we can add more information about the output signal `out`: the maximum number of bits needed to represent it is `n`. To express this fact, it is necessary that tags can have a value.
 
 The value of the tag can be accessed using the notation `.` at any moment as a part of an arithmetic expression. However, if the tag has not been previously initialized, then the compiler reports an error. 
 
-The value of the tag can be also modified using the notation `.`, as long as the corresponding signal has not received any value. Valued tags behave like parameters which means that they can only be assigned to values known at compilation time.
+The value of the tag can also be modified using the notation `.`, as long as the corresponding signal has not received any value. Valued tags behave like parameters which means that they can only be assigned to values known at compilation time.
 
 Let us modify the previous example to include this tag in the template.
 
