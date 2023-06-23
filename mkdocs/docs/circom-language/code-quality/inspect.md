@@ -47,10 +47,11 @@ template A(n){
         out <== 5;
       }
 }
- ```
+```
 
 Alternatively, since `circom 2.1.5`, we can also define signals inside `if` blocks with conditions known at compilation time and thus, we can use this feature to solve the previous warning as follows:
- ```
+
+```
 template A(n){
       signal out;
       if(n == 2){
@@ -61,7 +62,7 @@ template A(n){
         out <== 5;
       }
 }
- ```
+```
 
 - Another case where a warning is thrown is when using subcomponents inside a template, since it is required that every input and output signal of each subcomponent in a template should appear in at least one constraint of the father component.
 
@@ -80,12 +81,14 @@ component main = check_bits(10);
 ```
 
 It is quite common to use the `Num2Bits` template just to check if `in` can be represented with `n`bits. In this case, the main component checks if the value of `in` can be represented using 10 bits, and it works as expected. The constraints introduced by the subcomponent `check` will guarantee that the R1CS system only has a solution if `in` can be represented with 10 bits, but it does not matter which is the specific representation. However, the compiler throws the next warning:
+
 ```
 In template "check_bits(10)": Array of subcomponent input/output signals check.out contains a total 
 of 10 signals that do not appear in any constraint of the father component = For example: check.out[0], check.out[1].
 ```
 
 Since we are not interested in the binary representation, the template does not make use of array signal `check.out`. Thus, we should add `_ <== check.out` to inform that the binary representation is irrelevant and avoid the warning.
+
 ```
 template check_bits(n){
 	signal input in;
@@ -94,7 +97,9 @@ template check_bits(n){
 	_ <== check.out;
 }
 ```
+
 or even using anonymous components we can write
+
 ```
 template check_bits(n){
 	signal input in;
@@ -121,17 +126,20 @@ component main = parity(10);
 ```
 
 In this case, we are again using a component `Num2Bits(10)` to get the binary representation of signal `in`, but we are only interested in the least-significant bit to know its parity. Then, the warning throws the next warning: 
+
 ```
 In template "parity(10)": Array of subcomponent input/output signals check.out contains a total of 9 signals 
 that do not appear in any constraint of the father component. = For example: check.out[1], check.out[2].
- ```
+```
 
 To fix this example, we can either add for loop at the end of the template to indicate those positions that are intendedly not used
+
 ```
 for (var i = 1; i < n; i++) {
 	_ <== check.out[i];
 }
 ```
+
 or simply add ` _ <== check.out` at the end of the template to let the compiler know that the remaining positions are irrelevant (as this is not going to affect to the use of check.out[0]).
 
 - Finally, the `--inspect` option also searches for assignments with operator `<--` that can be transformed into assignments with operator `<==`, which automatically include the corresponding constraint to guarantee the code is correct. A typical scenario of this situation is shown below:
