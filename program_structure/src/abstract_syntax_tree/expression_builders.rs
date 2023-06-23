@@ -66,11 +66,11 @@ pub fn build_uniform_array(meta: Meta, value: Expression, dimension: Expression)
     UniformArray { meta, value: Box::new(value), dimension: Box::new(dimension) }
 }
 
-pub fn unzip_3(vec : Vec<(String,AssignOp,Expression)>) -> (Vec<(AssignOp,String)>, Vec<Expression>){
+pub fn unzip_3(vec : Vec<(String, AssignOp, Expression)>) -> (Vec<(AssignOp, String)>, Vec<Expression>){
     let mut op_name = Vec::new();
     let mut exprs = Vec::new();
     for i in vec{
-        op_name.push((i.1,i.0));
+        op_name.push((i.1, i.0));
         exprs.push(i.2);
     }
     (op_name, exprs)

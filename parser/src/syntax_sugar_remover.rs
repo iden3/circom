@@ -48,14 +48,19 @@ fn check_anonymous_components_statement(
     stm : &Statement,
 ) -> Result<(), Report>{
     match stm {
-        Statement::MultSubstitution {meta, lhe, rhe,  ..} => {
+        Statement::MultSubstitution {meta, lhe, rhe,  op, ..} => {
             if lhe.contains_anonymous_comp() {
                 Result::Err(anonymous_general_error(
                     meta.clone(),
                     "An anonymous component cannot be used in the left side of an assignment".to_string())
                 )
             } else{
-                check_anonymous_components_expression(rhe)
+                if rhe.contains_anonymous_comp() && *op == AssignOp::AssignSignal{
+                    let error = format!("Anonymous components only admit the use of the operator <==");
+                    Result::Err(anonymous_general_error(meta.clone(),error))
+                } else{
+                    check_anonymous_components_expression(rhe)
+                }
             }
         },
         Statement::IfThenElse { meta, cond, if_case, else_case, .. } 
@@ -131,7 +136,7 @@ fn check_anonymous_components_statement(
             }
             Result::Ok(())
         }
-        Statement::Substitution { meta, rhe, access, ..} => {
+        Statement::Substitution { meta, rhe, access, op, ..} => {
             use program_structure::ast::Access::ComponentAccess;
             use program_structure::ast::Access::ArrayAccess;
             for acc in access{
@@ -144,7 +149,13 @@ fn check_anonymous_components_statement(
                     ComponentAccess(_)=>{},
                 }
             }
-            check_anonymous_components_expression(rhe)
+
+            if rhe.contains_anonymous_comp() && *op == AssignOp::AssignSignal{
+                let error = format!("Anonymous components only admit the use of the operator <==");
+                Result::Err(anonymous_general_error(meta.clone(),error))
+            } else{
+                check_anonymous_components_expression(rhe)
+            }
         }
         Statement::UnderscoreSubstitution { .. } => unreachable!(),
     }
@@ -396,6 +407,7 @@ pub fn remove_anonymous_from_expression(
         AnonymousComp { meta, id, params, signals, names,  is_parallel } => {
             let mut declarations = Vec::new();
             let mut seq_substs = Vec::new();
+
             // get the template we are calling to
             let template = templates.get(&id);
             if template.is_none(){
@@ -446,35 +458,44 @@ pub fn remove_anonymous_from_expression(
 
             // assign the inputs
             // reorder the signals in new_signals (case names)
-            let inputs = template.unwrap().get_declaration_inputs();
-            let mut new_signals = Vec::new();
-            let mut new_operators = Vec::new();
-            if let Some(m) = names {
-                let (operators, names) : (Vec<AssignOp>, Vec<String>) = m.iter().cloned().unzip();
-                for (signal, _) in inputs{
-                    if !names.contains(signal) {
-                        let error = signal.clone() + " has not been found in the anonymous call";
+            let mut inputs_to_assignments = HashMap::new();
+
+            if let Some(m) = names { // in case we have a list of names and assignments
+                let inputs = template.unwrap().get_inputs();
+                let mut n_expr = 0;
+                for (operator, name) in m{
+                    if operator != AssignOp::AssignConstraintSignal{
+                        let error = format!("Anonymous components only admit the use of the operator <==");
                         return Result::Err(anonymous_general_error(meta.clone(),error));
-                    } else {
-                        let pos = names.iter().position(|r| r == signal).unwrap();
-                        new_signals.push(signals.get(pos).unwrap().clone());
-                        new_operators.push(*operators.get(pos).unwrap());
                     }
-                }
+                    if inputs.contains_key(&name){
+                        inputs_to_assignments.insert(name, (operator, signals[n_expr].clone()));
+                    } else{
+                        let error = format!("The template {} does not have an input signal named {}", template.unwrap().get_name(),  name);
+                        return Result::Err(anonymous_general_error(meta.clone(),error));
+                    }
+                    n_expr += 1;
+                }   
+                if inputs.len() != inputs_to_assignments.len() {
+                    return Result::Err(anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
+                }            
             }
             else{
-                new_signals = signals;
-                for _i in 0..new_signals.len() {
-                    new_operators.push(AssignOp::AssignConstraintSignal);
+                let inputs = template.unwrap().get_declaration_inputs();
+                let mut n_expr = 0;
+                for value in signals {
+                    inputs_to_assignments.insert(inputs[n_expr].0.clone(), (AssignOp::AssignConstraintSignal, value));
+                    n_expr += 1;
+                }
+                
+                if inputs.len() != inputs_to_assignments.len() {
+                    return Result::Err(anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
                 }
             }
-            if inputs.len() != new_signals.len() {
-                return Result::Err(anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
-            }
+            
 
             // generate the substitutions for the inputs
-            let mut num_input = 0;
-            for (name_signal, _) in inputs{
+            for (name_signal, (operator, expr)) in inputs_to_assignments{
                 let mut acc = if var_access.is_none(){
                     Vec::new()
                 } else{
@@ -484,14 +505,13 @@ pub fn remove_anonymous_from_expression(
                 let  (mut stmts, mut declarations2, new_exp) = remove_anonymous_from_expression(
                         templates, 
                         file_lib, 
-                        new_signals.get(num_input).unwrap().clone(),
+                        expr,
                         var_access
                 )?;
  
                 seq_substs.append(&mut stmts);
                 declarations.append(&mut declarations2);
-                let subs = Statement::Substitution { meta: meta.clone(), var: id_anon_temp.clone(), access: acc, op: *new_operators.get(num_input).unwrap(), rhe: new_exp };
-                num_input += 1;
+                let subs = Statement::Substitution { meta: meta.clone(), var: id_anon_temp.clone(), access: acc, op: operator, rhe: new_exp };
                 seq_substs.push(subs);
             }
             // generate the expression for the outputs -> return as expression (if single out) or tuple

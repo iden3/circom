@@ -101,4 +101,14 @@ template Bits2Num(n) {
 ```
 
 ### Tags in signal arrays
-Every signal in an array has exactly the same tag value. The tag is accessed directly from the array name instead of particular signal in the array.  Similar to the previous erroneous example: if a particular position of the array is modified, then the tag value of the whole array cannot be modified at all. 
+Every signal in an array has exactly the same tag value. Then, the tag is accessed directly from the array name instead of accessing from a particular signal in the array.  Similarly to the previous erroneous example: if a particular position of the array is modified, then the tag value of the whole array cannot be modified at all.
+
+
+```
+template A(){
+    signal output {max} out[100];
+    out[0] <== 1;
+    out.max = 10;
+}
+```
+The compilation of the previous code throws the next error "Invalid assignment: tags cannot be assigned to a signal already initialized", since a position of the array (out[0]) already has a value, then the value of max cannot be modified after the first assignment.

@@ -1,4 +1,21 @@
 # Release notes
+
+## June 22, 2023 circom 2.1.6
+
+#### Extensions
+- Improving tag propagation: array case.
+- Handling new prime numbers: pallas, vesta, grumpkin
+- Improving array access index computation in the code generated intermediate representation: using cheap addition and multiplication operations when possible.
+- Updating the documentation.
+- Added check on the name of the circom file when --C is used to avoid clashes with reserved names. When the file is called main.circom, fr.circom or calcwit.circom it is changed to main_c, fr_c and calcwit_c respectively.
+
+#### Bugs 
+- Fixing a bug while parsing anonymous components.
+- Fixing a problem in calls to anonymous components with signal names.
+- Fixing a bug in wasm witness generation that happened when doing a call inside an array index.
+- Executing the main method without inputs in wasm witness generation.
+  
+  
 ## March 15, 2023 circom 2.1.5
 
 #### Extensions
