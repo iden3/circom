@@ -1068,7 +1068,8 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
             format!("Expecting {} arguments, {} where obtained", expected, got)
         }
         UninitializedComponent => "Trying to access to a signal of a component that has not been initialized".to_string(),
-        _ => panic!("Unimplemented error code"),
+        NonCompatibleBranchTypes => "Inline switch operator branches types are non compatible".to_string(),
+        e => panic!("Unimplemented error code: {}", e),
     };
     report.add_primary(location, file_id, message);
     reports.push(report);
