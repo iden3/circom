@@ -7,10 +7,12 @@ use code_producers::llvm_elements::instructions::{create_br, create_call, create
 use code_producers::llvm_elements::run_fn_name;
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
+use crate::intermediate_representation::BucketId;
 
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StoreBucket {
+    pub id: BucketId,
     pub line: usize,
     pub message_id: usize,
     pub context: InstrContext,

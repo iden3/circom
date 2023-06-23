@@ -458,8 +458,6 @@ impl<'a> BucketInterpreter<'a> {
     }
 
     pub fn execute_instruction(&self, inst: &InstructionPointer, env: &Env, observe: bool) -> R {
-        println!("ABOUT TO EXECUTE {}", inst.to_string());
-        println!("CURRENT ENV: {}", env);
         let continue_observing =
             if observe { self.observer.on_instruction(inst, env) } else { observe };
         match inst.as_ref() {

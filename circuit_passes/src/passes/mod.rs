@@ -182,6 +182,7 @@ pub trait CircuitTransformationPass {
 
     fn transform_store_bucket(&self, bucket: &StoreBucket) -> InstructionPointer {
         StoreBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
             context: bucket.context.clone(),

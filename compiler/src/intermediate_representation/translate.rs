@@ -236,6 +236,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>, stmt: &Stat
             }
             .allocate();
             let store_instruction = StoreBucket {
+                id: new_id(),
                 line: 0,
                 message_id: 0,
                 dest_is_output: false,
@@ -1105,6 +1106,7 @@ impl ProcessedSymbol {
                 },
             };
             StoreBucket {
+                id: new_id(),
                 src,
                 dest: signal,
                 line: self.line,
@@ -1121,6 +1123,7 @@ impl ProcessedSymbol {
                 _ => AddressType::Signal,
             };
             StoreBucket {
+                id: new_id(),
                 src,
                 line: self.line,
                 dest_address_type: xtype,

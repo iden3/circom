@@ -154,7 +154,7 @@ impl CircuitTransformationPass for LoopUnrollPass {
 mod test {
     use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
     use compiler::compiler_interface::Circuit;
-    use compiler::intermediate_representation::Instruction;
+    use compiler::intermediate_representation::{Instruction, new_id};
     use compiler::intermediate_representation::ir_interface::{
         AddressType, Allocate, ComputeBucket, InstrContext, LoadBucket, LocationRule, LoopBucket,
         OperatorType, StoreBucket, ValueBucket, ValueType,
@@ -171,7 +171,7 @@ mod test {
         println!("{}", new_circuit.templates[0].body.last().unwrap().to_string());
         assert_ne!(circuit, new_circuit);
         match new_circuit.templates[0].body.last().unwrap().as_ref() {
-            Instruction::Block(b) => assert_eq!(b.body.len(), 5),
+            Instruction::Block(b) => assert_eq!(b.body.len(), 10), // 5 iterations unrolled times 2 statements in the loop body
             _ => assert!(false),
         }
     }
@@ -195,6 +195,7 @@ mod test {
                 body: vec![
                     // (store 0 0)
                     StoreBucket {
+                        id: new_id(),
                         line: 0,
                         message_id: 0,
                         context: InstrContext { size: 0 },
@@ -202,6 +203,7 @@ mod test {
                         dest_address_type: AddressType::Variable,
                         dest: LocationRule::Indexed {
                             location: ValueBucket {
+                                id: new_id(),
                                 line: 0,
                                 message_id: 0,
                                 parse_as: ValueType::U32,
@@ -212,6 +214,7 @@ mod test {
                             template_header: Some("test_0".to_string()),
                         },
                         src: ValueBucket {
+                            id: new_id(),
                             line: 0,
                             message_id: 0,
                             parse_as: ValueType::U32,
@@ -223,6 +226,7 @@ mod test {
                     .allocate(),
                     // (store 1 0)
                     StoreBucket {
+                        id: new_id(),
                         line: 0,
                         message_id: 0,
                         context: InstrContext { size: 0 },
@@ -230,6 +234,7 @@ mod test {
                         dest_address_type: AddressType::Variable,
                         dest: LocationRule::Indexed {
                             location: ValueBucket {
+                                id: new_id(),
                                 line: 0,
                                 message_id: 0,
                                 parse_as: ValueType::U32,
@@ -240,6 +245,7 @@ mod test {
                             template_header: Some("test_0".to_string()),
                         },
                         src: ValueBucket {
+                            id: new_id(),
                             line: 0,
                             message_id: 0,
                             parse_as: ValueType::U32,
@@ -251,20 +257,24 @@ mod test {
                     .allocate(),
                     // (loop (compute le (load 1) 5) (
                     LoopBucket {
+                        id: new_id(),
                         line: 0,
                         message_id: 0,
                         continue_condition: ComputeBucket {
+                            id: new_id(),
                             line: 0,
                             message_id: 0,
                             op: OperatorType::Lesser,
                             op_aux_no: 0,
                             stack: vec![
                                 LoadBucket {
+                                    id: new_id(),
                                     line: 0,
                                     message_id: 0,
                                     address_type: AddressType::Variable,
                                     src: LocationRule::Indexed {
                                         location: ValueBucket {
+                                            id: new_id(),
                                             line: 0,
                                             message_id: 0,
                                             parse_as: ValueType::U32,
@@ -277,6 +287,7 @@ mod test {
                                 }
                                 .allocate(),
                                 ValueBucket {
+                                    id: new_id(),
                                     line: 0,
                                     message_id: 0,
                                     parse_as: ValueType::U32,
@@ -290,6 +301,7 @@ mod test {
                         body: vec![
                             //   (store 0 (compute add (load 0) 2))
                             StoreBucket {
+                                id: new_id(),
                                 line: 0,
                                 message_id: 0,
                                 context: InstrContext { size: 0 },
@@ -297,6 +309,7 @@ mod test {
                                 dest_address_type: AddressType::Variable,
                                 dest: LocationRule::Indexed {
                                     location: ValueBucket {
+                                        id: new_id(),
                                         line: 0,
                                         message_id: 0,
                                         parse_as: ValueType::U32,
@@ -307,17 +320,20 @@ mod test {
                                     template_header: None,
                                 },
                                 src: ComputeBucket {
+                                    id: new_id(),
                                     line: 0,
                                     message_id: 0,
                                     op: OperatorType::Add,
                                     op_aux_no: 0,
                                     stack: vec![
                                         LoadBucket {
+                                            id: new_id(),
                                             line: 0,
                                             message_id: 0,
                                             address_type: AddressType::Variable,
                                             src: LocationRule::Indexed {
                                                 location: ValueBucket {
+                                                    id: new_id(),
                                                     line: 0,
                                                     message_id: 0,
                                                     parse_as: ValueType::U32,
@@ -330,6 +346,7 @@ mod test {
                                         }
                                         .allocate(),
                                         ValueBucket {
+                                            id: new_id(),
                                             line: 0,
                                             message_id: 0,
                                             parse_as: ValueType::U32,
@@ -344,6 +361,7 @@ mod test {
                             .allocate(),
                             //   (store 1 (compute add (load 1) 1))
                             StoreBucket {
+                                id: new_id(),
                                 line: 0,
                                 message_id: 0,
                                 context: InstrContext { size: 0 },
@@ -351,6 +369,7 @@ mod test {
                                 dest_address_type: AddressType::Variable,
                                 dest: LocationRule::Indexed {
                                     location: ValueBucket {
+                                        id: new_id(),
                                         line: 0,
                                         message_id: 0,
                                         parse_as: ValueType::U32,
@@ -361,17 +380,20 @@ mod test {
                                     template_header: None,
                                 },
                                 src: ComputeBucket {
+                                    id: new_id(),
                                     line: 0,
                                     message_id: 0,
                                     op: OperatorType::Add,
                                     op_aux_no: 0,
                                     stack: vec![
                                         LoadBucket {
+                                            id: new_id(),
                                             line: 0,
                                             message_id: 0,
                                             address_type: AddressType::Variable,
                                             src: LocationRule::Indexed {
                                                 location: ValueBucket {
+                                                    id: new_id(),
                                                     line: 0,
                                                     message_id: 0,
                                                     parse_as: ValueType::U32,
@@ -384,6 +406,7 @@ mod test {
                                         }
                                         .allocate(),
                                         ValueBucket {
+                                            id: new_id(),
                                             line: 0,
                                             message_id: 0,
                                             parse_as: ValueType::U32,
