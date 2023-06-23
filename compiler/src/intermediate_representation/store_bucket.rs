@@ -9,7 +9,7 @@ use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StoreBucket {
     pub line: usize,
     pub message_id: usize,
@@ -100,6 +100,7 @@ impl WriteLLVMIR for StoreBucket {
                         create_call(producer, run_fn.as_str(), &[subcmp.into()]);
                     }
                     StatusInput::Unknown => {
+                        panic!("There should not be Unknown input status");
                         let sub_cmp_name = sub_cmp_name.expect("Could not get the name of the subcomponent");
                         let run_fn = run_fn_name(sub_cmp_name.clone());
                         let current_function = producer.current_function();

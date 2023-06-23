@@ -156,7 +156,7 @@ impl TemplateInstance {
     }
 }
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub struct Param {
     pub name: String,
     pub length: VCT,

@@ -49,7 +49,7 @@ pub trait LLVMIRProducer<'a> {
     fn get_template_mem_arg(&self, run_fn: FunctionValue<'a>) -> ArrayValue<'a>;
 }
 
-#[derive(Default)]
+#[derive(Default, Eq, PartialEq, Debug)]
 pub struct LLVMCircuitData {
     pub field_tracking: Vec<String>,
 }

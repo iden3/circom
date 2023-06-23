@@ -1,10 +1,12 @@
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
-use crate::intermediate_representation::{Instruction, InstructionPointer};
+use crate::intermediate_representation::{BucketId, Instruction, InstructionPointer};
 use crate::intermediate_representation::ir_interface::{Allocate, IntoInstruction, ObtainMeta};
 use crate::translating_traits::WriteLLVMIR;
 
-#[derive(Clone, Debug)]
-pub struct NopBucket;
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct NopBucket {
+    pub id: BucketId,
+}
 
 impl IntoInstruction for NopBucket {
     fn into_instruction(self) -> Instruction {

@@ -1,6 +1,7 @@
 use lz_fnv::Fnv1a;
 use std::collections::BTreeMap;
 
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct IODef {
     pub code: usize,
     pub offset: usize,
@@ -10,6 +11,7 @@ pub struct IODef {
 // It is an array that contains (name, start position, size)
 pub type InputList = Vec<(String, usize, usize)>;
 pub type TemplateList = Vec<String>;
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct InfoParallel{
     pub name: String,
     pub is_parallel: bool,

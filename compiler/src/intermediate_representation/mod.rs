@@ -13,11 +13,18 @@ mod store_bucket;
 mod types;
 mod value_bucket;
 mod constraint_bucket;
-mod unrolled_loop_bucket;
+mod block_bucket;
 mod nop_bucket;
 
 pub mod ir_interface;
 pub mod translate;
-pub mod either;
 
+use rand::Rng;
 pub use ir_interface::{Instruction, InstructionList, InstructionPointer};
+
+pub type BucketId = u128;
+
+pub fn new_id() -> BucketId {
+    let mut rng = rand::thread_rng();
+    rng.gen()
+}

@@ -18,6 +18,7 @@ pub struct CompilationFlags {
     pub wat_flag:bool,
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub struct Circuit {
     pub wasm_producer: WASMProducer,
     pub c_producer: CProducer,

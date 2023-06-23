@@ -7,10 +7,19 @@ use crate::intermediate_representation::{Instruction, InstructionPointer};
 use crate::intermediate_representation::ir_interface::{Allocate, IntoInstruction, ObtainMeta};
 use crate::translating_traits::{WriteC, WriteLLVMIR, WriteWasm};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ConstraintBucket {
     Substitution(InstructionPointer),
     Equality(InstructionPointer)
+}
+
+impl ConstraintBucket {
+    pub fn unwrap(&self) -> &InstructionPointer {
+        match self {
+            ConstraintBucket::Substitution(i) => i,
+            ConstraintBucket::Equality(i) => i
+        }
+    }
 }
 
 impl IntoInstruction for ConstraintBucket {

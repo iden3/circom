@@ -2,6 +2,7 @@
 
 
 use crate::intermediate_representation::ir_interface::*;
+use crate::intermediate_representation::new_id;
 
 pub fn reduce_list(list: InstructionList) -> InstructionList {
     let mut reduced = InstructionList::with_capacity(InstructionList::len(&list));
@@ -26,7 +27,7 @@ pub fn reduce_instruction(instr: Instruction) -> Instruction {
         CreateCmp(b) => reduce_crt_cmp(b),
         Compute(b) => reduce_compute(b),
         Constraint(b) => reduce_constraint(b),
-        UnrolledLoop(_b) => unreachable!(),
+        Block(_b) => unreachable!(),
         Nop(b) => IntoInstruction::into_instruction(b)
     }
 }
@@ -58,6 +59,7 @@ pub fn reduce_compute(mut bucket: ComputeBucket) -> Instruction {
     });
     if let Some(value) = res {
         let v_bucket = ValueBucket {
+            id: new_id(),
             line: bucket.line,
             message_id: bucket.message_id,
             parse_as: ValueType::U32,

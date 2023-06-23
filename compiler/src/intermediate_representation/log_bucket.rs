@@ -3,10 +3,10 @@ use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::wasm_elements::*;
+use crate::intermediate_representation::BucketId;
 
 
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum LogBucketArg {
     LogExp(InstructionPointer),
     LogStr(usize)
@@ -21,8 +21,9 @@ impl LogBucketArg{
 }
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct LogBucket {
+    pub id: BucketId,
     pub line: usize,
     pub message_id: usize,
     pub argsprint: Vec<LogBucketArg>,

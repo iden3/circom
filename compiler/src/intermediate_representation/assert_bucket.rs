@@ -6,10 +6,12 @@ use code_producers::llvm_elements::instructions::create_call;
 use code_producers::llvm_elements::stdlib::ASSERT_FN_NAME;
 use code_producers::llvm_elements::types::bool_type;
 use code_producers::wasm_elements::*;
+use crate::intermediate_representation::BucketId;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct AssertBucket {
+    pub id: BucketId,
     pub line: usize,
     pub message_id: usize,
     pub evaluate: InstructionPointer,

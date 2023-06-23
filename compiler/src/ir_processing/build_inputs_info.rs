@@ -46,7 +46,7 @@ pub fn visit_instruction(
         CreateCmp(b) => visit_create_cmp(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
         Log(b) => visit_log(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
         Constraint(b) => visit_constraint(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        UnrolledLoop(_) => unreachable!(),
+        Block(_) => unreachable!(),
         Nop(_) => unreachable!()
     }
 }

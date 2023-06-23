@@ -4,10 +4,12 @@ use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::llvm_elements::instructions::create_return_from_any_value;
 use code_producers::wasm_elements::*;
+use crate::intermediate_representation::BucketId;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct ReturnBucket {
+    pub id: BucketId,
     pub line: usize,
     pub message_id: usize,
     pub with_size: usize,

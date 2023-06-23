@@ -5,10 +5,12 @@ use code_producers::llvm_elements::{LLVMInstruction, LLVMIRProducer};
 use code_producers::llvm_elements::instructions::{create_gep, create_load};
 use code_producers::llvm_elements::values::zero;
 use code_producers::wasm_elements::*;
+use crate::intermediate_representation::BucketId;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct LoadBucket {
+    pub id: BucketId,
     pub line: usize,
     pub message_id: usize,
     pub address_type: AddressType,

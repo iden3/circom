@@ -1,5 +1,5 @@
 use ansi_term::Colour;
-use circuit_passes::PassManager;
+use circuit_passes::passes::PassManager;
 use compiler::compiler_interface;
 use compiler::compiler_interface::{Config, VCP};
 use program_structure::error_definition::Report;
@@ -64,9 +64,11 @@ pub fn compile(config: CompilerConfig, program_archive: ProgramArchive, prime: &
         // Only run this passes if we are going to generate LLVM code
         let pm = PassManager::new();
         circuit = pm
-            .schedule_loop_unroll_pass(program_archive, prime)
+            .schedule_loop_unroll_pass(prime)
+            .schedule_conditional_flattening_pass(prime)
             .schedule_simplification_pass(prime)
-            .run_on_circuit(circuit);
+            .schedule_deterministic_subcmp_invoke_pass(prime)
+            .transform_circuit(circuit);
 
         compiler_interface::write_llvm_ir(&mut circuit, &config.llvm_folder, &config.llvm_file, config.clean_llvm)?;
         println!(
