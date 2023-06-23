@@ -8,7 +8,7 @@ use super::environment_utils::{
     slice_types::{
         AExpressionSlice, ArithmeticExpression as ArithmeticExpressionGen, ComponentRepresentation,
         ComponentSlice, MemoryError, TypeInvalidAccess, TypeAssignmentError, MemorySlice, 
-        SignalSlice, SliceCapacity, TagInfo
+        SignalSlice, SliceCapacity, TagInfo, TagState
     },
 };
 
@@ -21,6 +21,7 @@ use super::{
 };
 use circom_algebra::num_bigint::BigInt;
 use std::collections::{HashMap, BTreeMap};
+use std::mem;
 use crate::FlagsExecution;
 type AExpr = ArithmeticExpressionGen<String>;
 type AnonymousComponentsInfo = BTreeMap<String, (Meta, Vec<Expression>)>;
@@ -907,23 +908,14 @@ fn perform_assign(
         }
         let tag = accessing_information.signal_access.clone().unwrap();
         let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
-        let (reference_to_tags, reference_to_signal_content) = treat_result_with_environment_error(
+        let (reference_to_tags, reference_to_tags_defined, reference_to_signal_content) = treat_result_with_environment_error(
                 environment_response,
                 meta,
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
         )?;
-        let memory_response_for_signal_previous_value = SignalSlice::access_values(
-                reference_to_signal_content,
-                &accessing_information.before_signal,
-        );
-        let signal_previous_value = treat_result_with_memory_error(
-            memory_response_for_signal_previous_value,
-            meta,
-            &mut runtime.runtime_errors,
-            &runtime.call_trace,
-        )?;
-        if signal_is_initialized(&signal_previous_value, meta, &mut runtime.runtime_errors, &runtime.call_trace) {
+
+        if SignalSlice::get_number_of_inserts(&reference_to_signal_content) > 0{
             treat_result_with_memory_error(
                 Result::Err(MemoryError::AssignmentTagAfterInit),
                 meta,
@@ -935,37 +927,41 @@ fn perform_assign(
             let value = AExpressionSlice::unwrap_to_single(a_slice);
             match value {
                 ArithmeticExpressionGen::Number { value } => {
-                        let possible_tag = reference_to_tags.get(&tag.clone());
-                        if let Some(val) = possible_tag {
-                            if let Some(_) = val {
-                                treat_result_with_memory_error(
-                                    Result::Err(MemoryError::AssignmentTagTwice),
-                                    meta,
-                                    &mut runtime.runtime_errors,
-                                    &runtime.call_trace,
-                                )?
-                            } else {
-                                reference_to_tags.insert(tag.clone(), Option::Some(value.clone()));
-                                if let Option::Some(node) = actual_node{
-                                    node.add_tag_signal(symbol, &tag, Some(value));
-                                } else{
-                                    unreachable!();
-                                }
-                                
+                    let possible_tag = reference_to_tags.get(&tag.clone());
+                    if let Some(val) = possible_tag {
+                        if let Some(_) = val {
+                            treat_result_with_memory_error(
+                                Result::Err(MemoryError::AssignmentTagTwice),
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?
+                        } else { // we add the info saying that the tag is defined
+                            reference_to_tags.insert(tag.clone(), Option::Some(value.clone()));
+                            let tag_state = reference_to_tags_defined.get_mut(&tag).unwrap();
+                            tag_state.value_defined = true;
+                            if let Option::Some(node) = actual_node{
+                                node.add_tag_signal(symbol, &tag, Some(value));
+                            } else{
+                                unreachable!();
                             }
-                        } else {unreachable!()} 
+                                
+                        }
+                    } else {unreachable!()} 
                 },
                 _ => unreachable!(),
             }   
         }
-        else { unreachable!() }
+        else { 
+            unreachable!() 
+        }
         Option::None
     } else if ExecutionEnvironment::has_signal(&runtime.environment, symbol) {
         debug_assert!(accessing_information.signal_access.is_none());
         debug_assert!(accessing_information.after_signal.is_empty());
 
         let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
-        let (reference_to_tags, reference_to_signal_content) = treat_result_with_environment_error(
+        let (reference_to_tags, reference_to_tags_defined, reference_to_signal_content) = treat_result_with_environment_error(
             environment_response,
             meta,
             &mut runtime.runtime_errors,
@@ -983,69 +979,94 @@ fn perform_assign(
         )?;
 
         // Study the tags: add the new ones and copy their content.
-        // The case of inputs is studied in other place
-        if r_folded.tags.is_some() && op == AssignOp::AssignConstraintSignal{
-            let rfolded_tags = r_folded.tags.as_ref().unwrap();
-            if signal_is_initialized(&signal_previous_value, meta, &mut runtime.runtime_errors, &runtime.call_trace) {
-                // check that all the tags have the same values
-                for (tag, value) in reference_to_tags{
-                    match rfolded_tags.get(tag){
-                        Some(value_rfolded) => {
-                            if value != value_rfolded {
-                                treat_result_with_memory_error(
-                                    Result::Err(MemoryError::AssignmentTagTwice),
-                                    meta,
-                                    &mut runtime.runtime_errors,
-                                    &runtime.call_trace,
-                                )?
+        /*
+        Cases:
+
+            Inherance in arrays => We only have a tag in case it inherites the tag in all positions
+            
+            - Tag defined by user: 
+                * Already with value defined by user => do not copy new values
+                * No value defined by user
+                   - Already initialized:
+                     * If same value as previous preserve
+                     * If not set value to None
+                   - No initialized:
+                     * Set value to new one
+            - Tag not defined by user:
+                * Already initialized:
+                   - If contains same tag with same value preserve
+                   - No tag or different value => do not save tag or loose it
+                * No initialized:
+                   - Save tag
+
+
+        */
+        let previous_tags = mem::take(reference_to_tags);
+        
+        let new_tags = if r_folded.tags.is_some() && op == AssignOp::AssignConstraintSignal{
+            r_folded.tags.clone().unwrap()
+        } else{
+            TagInfo::new()
+        };
+
+        let signal_is_init = SignalSlice::get_number_of_inserts(reference_to_signal_content) > 0;
+
+        for (tag, value) in previous_tags{
+            let tag_state =  reference_to_tags_defined.get(&tag).unwrap();
+            if tag_state.defined{// is signal defined by user
+                if tag_state.value_defined{
+                    // already with value, store the same value
+                    reference_to_tags.insert(tag, value);
+                } else{
+                    if signal_is_init {
+                        // only keep value if same as previous
+                        let to_store_value = if new_tags.contains_key(&tag){
+                            let value_new = new_tags.get(&tag).unwrap();
+                            if value != *value_new{
+                                None
+                            } else{
+                                value
                             }
-                        },
-                        None => {},
+                        } else{
+                            None
+                        };
+                        reference_to_tags.insert(tag, to_store_value);
+                    } else{
+                        // always keep
+                        if new_tags.contains_key(&tag){
+                            let value_new = new_tags.get(&tag).unwrap();
+                            reference_to_tags.insert(tag, value_new.clone());
+                        } else{
+                            reference_to_tags.insert(tag, None);
+                        }
                     }
                 }
-            } else {
-                for (tag, value) in r_folded.tags.as_ref().unwrap() {
-                    let possible_tag = reference_to_tags.get(tag);
-                    if let Some(val) = possible_tag {
-                        if let Some(previous_value) = val {
-                            if let Some(new_value) = value{
-                                if new_value != previous_value{
-                                    treat_result_with_memory_error(
-                                        Result::Err(MemoryError::AssignmentTagTwice),
-                                        meta,
-                                        &mut runtime.runtime_errors,
-                                        &runtime.call_trace,
-                                    )?
-                                }
-                            } else{
-                                treat_result_with_memory_error(
-                                    Result::Err(MemoryError::AssignmentTagTwice),
-                                    meta,
-                                    &mut runtime.runtime_errors,
-                                    &runtime.call_trace,
-                                )?
-                            }
-                            
-                        } else {
-                            reference_to_tags.insert(tag.clone(), value.clone());
-                            if let Option::Some(node) = actual_node{
-                                node.add_tag_signal(symbol, &tag, value.clone());
-                            } else{
-                                unreachable!();
-                            }
-                        }
+            } else{
+                // it is not defined by user
+                if new_tags.contains_key(&tag){
+                    let value_new = new_tags.get(&tag).unwrap();
+                    if value == *value_new{
+                        reference_to_tags.insert(tag, value);
+                    } else{
+                        reference_to_tags_defined.remove(&tag);
                     }
-                    else { // it is a tag that does not belong to the signal 
-                        reference_to_tags.insert(tag.clone(), value.clone());
-                        if let Option::Some(node) = actual_node{
-                            node.add_tag_signal(symbol, &tag, value.clone());
-                        } else{
-                            unreachable!();
-                        }
-                    } 
+                } else{
+                    reference_to_tags_defined.remove(&tag);
+                }
+            }
+        } 
+
+        if !signal_is_init{ // first init, add new tags
+            for (tag, value) in new_tags{
+                if !reference_to_tags.contains_key(&tag){ // in case it is a new tag (not defined by user)
+                    reference_to_tags.insert(tag.clone(), value.clone());
+                    let state = TagState{defined: false, value_defined: false, complete: false};
+                    reference_to_tags_defined.insert(tag.clone(), state);
                 }
             }
         }
+
+
 
         let r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
         let new_value_slice = &SignalSlice::new_with_route(r_slice.route(), &true);
@@ -1080,6 +1101,8 @@ fn perform_assign(
                 )?;
             }
         }
+
+        
         
         let access_response = SignalSlice::insert_values(
             reference_to_signal_content,
@@ -1087,6 +1110,28 @@ fn perform_assign(
             &new_value_slice,
             true
         );
+
+        let signal_is_completely_initialized = 
+            SignalSlice::get_number_of_inserts(reference_to_signal_content) == 
+            SignalSlice::get_number_of_cells(reference_to_signal_content);
+
+
+
+        if signal_is_completely_initialized {
+
+            for (tag, value) in reference_to_tags{
+                let tag_state = reference_to_tags_defined.get_mut(tag).unwrap();
+                tag_state.complete = true;
+                if let Option::Some(node) = actual_node{
+                    if !tag_state.value_defined{
+                        node.add_tag_signal(symbol, &tag, value.clone());
+                    }
+                } else{
+                    unreachable!();
+                }
+            }
+        }
+
 
 
         treat_result_with_memory_error_void(
@@ -1310,21 +1355,6 @@ fn perform_assign(
     }
 }
 
-fn signal_is_initialized(signal_previous_value: &MemorySlice<bool>, meta: &Meta, mut runtime_errors: &mut ReportCollection,
-    call_trace: &[String],) -> bool {
-    for i in 0..SignalSlice::get_number_of_cells(&signal_previous_value){
-        let signal_was_assigned = treat_result_with_memory_error(
-            SignalSlice::access_value_by_index(&signal_previous_value, i),
-            meta,
-            &mut runtime_errors,
-            &call_trace,
-        );
-        if let Ok(signal_was_assigned) = signal_was_assigned {
-            if signal_was_assigned { return true; }
-        }
-    }
-    return false;
-}
 
 // Evaluates the given condition and executes the corresponding statement. Returns a tuple (a,b) where a is the possible value returned and b is the value of the condition (in case the evaluation was successful)
 fn execute_conditional_statement(
@@ -1513,7 +1543,7 @@ fn execute_signal(
     } else {
         unreachable!();
     };
-    let (tags, signal_slice) = treat_result_with_environment_error(
+    let (tags,tags_definitions,  signal_slice) = treat_result_with_environment_error(
         environment_response,
         meta,
         &mut runtime.runtime_errors,
@@ -1522,10 +1552,23 @@ fn execute_signal(
     if let Some(acc) = access_information.signal_access {
         if tags.contains_key(&acc) {
             let value_tag = tags.get(&acc).unwrap();
-            if let Some(value_tag) = value_tag {
-                let a_value = AExpr::Number { value: value_tag.clone() };
-                let ae_slice = AExpressionSlice::new(&a_value);
-                Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
+            let state = tags_definitions.get(&acc).unwrap();
+            if let Some(value_tag) = value_tag { // tag has value
+                // access only allowed when (1) it is value defined by user or (2) it is completely assigned
+                if state.value_defined || state.complete{
+                    let a_value = AExpr::Number { value: value_tag.clone() };
+                    let ae_slice = AExpressionSlice::new(&a_value);
+                    Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
+                } else{
+                    let error = MemoryError::TagValueNotInitializedAccess;
+                    treat_result_with_memory_error(
+                        Result::Err(error),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?
+                }
+                
             }
             else {
                 let error = MemoryError::TagValueNotInitializedAccess;
@@ -1537,7 +1580,9 @@ fn execute_signal(
                 )?
             }
         }
-        else { unreachable!() }
+        else {
+             unreachable!() 
+        }
     } else {
         let memory_response = SignalSlice::access_values(signal_slice, indexing);
         let signal_slice = treat_result_with_memory_error(
@@ -1554,9 +1599,20 @@ fn execute_signal(
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
+
+        let mut tags_propagated = TagInfo::new();
+        for (tag, value) in tags{
+            let state = tags_definitions.get(tag).unwrap();
+            if state.value_defined || state.complete{
+                tags_propagated.insert(tag.clone(), value.clone());
+            } else if state.defined{
+                tags_propagated.insert(tag.clone(), None);
+            }
+        }
+
         Result::Ok(FoldedValue {
             arithmetic_slice: Option::Some(arith_slice),
-            tags: Option::Some(tags.clone()),
+            tags: Option::Some(tags_propagated),
             ..FoldedValue::default()
         })
     }
@@ -2187,6 +2243,11 @@ fn treat_result_with_memory_error_void(
                     "Invalid assignment: this tag already got a value".to_string(),
                     RuntimeError,
                 ),
+                MemoryError::AssignmentTagInputTwice(tag) => Report::error(
+                    format!("Invalid assignment: tags required by the input signal always have to have the same value. \n Problematic tag: {}",
+                        tag),
+                    RuntimeError,
+                ),
                 MemoryError::AssignmentTagInput => Report::error(
                     "Invalid assignment: this tag belongs to an input which already got a value".to_string(),
                     RuntimeError,
@@ -2266,6 +2327,11 @@ fn treat_result_with_memory_error<C>(
                 ),
                 MemoryError::AssignmentTagTwice => Report::error(
                     "Invalid assignment: this tag already got a value".to_string(),
+                    RuntimeError,
+                ),
+                MemoryError::AssignmentTagInputTwice(tag) => Report::error(
+                    format!("Invalid assignment: tags required by the input signal always have to have the same value. \n Problematic tag: {}",
+                        tag),
                     RuntimeError,
                 ),
                 MemoryError::AssignmentTagInput => Report::error(
