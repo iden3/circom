@@ -5,6 +5,10 @@
 #include <string>
 #include <gmp.h>
 
+#ifdef __APPLE__
+#include <sys/types.h> // typedef unsigned int uint;
+#endif // __APPLE__
+
 #define Fr_N64 1
 #define Fr_SHORT 0x00000000
 #define Fr_LONG 0x80000000
