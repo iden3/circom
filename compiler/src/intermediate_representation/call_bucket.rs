@@ -503,16 +503,20 @@ impl WriteC for CallBucket {
                 match &data.dest_address_type {
                     AddressType::SubcmpSignal { uniform_parallel_value, input_information, .. } => {
                         // if subcomponent input check if run needed
-			let sub_cmp_counter_decrease = format!(
-			    "{}->componentMemory[{}[{}]].inputCounter -= {}",
-			    CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref, &data.context.size
-			);
+                        let sub_cmp_counter = format!(
+                            "{}->componentMemory[{}[{}]].inputCounter",
+                            CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref
+                        );
+                        let sub_cmp_counter_decrease = format!(
+                            "{} -= {}",
+                            sub_cmp_counter, &data.context.size
+                        );
 			if let InputInformation::Input{status} = input_information {
 			    if let StatusInput::NoLast = status {
 				// no need to run subcomponent
 				prologue.push("// no need to run sub component".to_string());
-				//prologue.push(format!("{};",sub_cmp_counter_decrease));
-				prologue.push(format!("assert({});",sub_cmp_counter_decrease));
+				prologue.push(format!("{};", sub_cmp_counter_decrease));
+				prologue.push(format!("assert({} > 0);", sub_cmp_counter));
 			    } else {
 				let sub_cmp_pos = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
 				let sub_cmp_call_arguments =
@@ -558,7 +562,8 @@ impl WriteC for CallBucket {
                         prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
                     } else {
                         prologue.push("// need to run sub component".to_string());
-                        prologue.push(format!("assert(!({}));",sub_cmp_counter_decrease));
+                        prologue.push(format!("{};", sub_cmp_counter_decrease));
+                        prologue.push(format!("assert(!({}));", sub_cmp_counter));
                         prologue.append(&mut call_instructions);
                     }
                 }
@@ -591,7 +596,8 @@ impl WriteC for CallBucket {
                         prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
                     } else {
                         prologue.push("// need to run sub component".to_string());
-                        prologue.push(format!("assert(!({}));",sub_cmp_counter_decrease));
+                        prologue.push(format!("{};", sub_cmp_counter_decrease));
+                        prologue.push(format!("assert(!({}));", sub_cmp_counter));
                         prologue.append(&mut call_instructions);
                     }
                     // end of case parallel
@@ -616,7 +622,8 @@ impl WriteC for CallBucket {
                         prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
                     } else {
                         prologue.push("// need to run sub component".to_string());
-                        prologue.push(format!("assert(!({}));",sub_cmp_counter_decrease));
+                        prologue.push(format!("{};", sub_cmp_counter_decrease));
+                        prologue.push(format!("assert(!({}));", sub_cmp_counter));
                         prologue.append(&mut call_instructions);
                     }
 
