@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use code_producers::components::TemplateInstanceIOMap;
 
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
@@ -26,7 +27,7 @@ pub struct DeterministicSubCmpInvokePass {
 impl DeterministicSubCmpInvokePass {
     pub fn new(prime: &String) -> Self {
         DeterministicSubCmpInvokePass {
-            memory: PassMemory::new_cell(prime),
+            memory: PassMemory::new_cell(prime, "".to_string(), Default::default()),
             replacements: Default::default(),
         }
     }
@@ -43,7 +44,7 @@ impl InterpreterObserver for DeterministicSubCmpInvokePass {
 
     fn on_store_bucket(&self, bucket: &StoreBucket, env: &Env) -> bool {
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
+        let interpreter = BucketInterpreter::init(mem.current_scope.clone(), &mem.prime, &mem.constant_fields, self, mem.io_map.clone());
         // If the address of the subcomponent input information is unk, then
         // If executing this store bucket would result in calling the subcomponent we replace it with Last
         //    Will result in calling if the counter is at one because after the execution it will be 0

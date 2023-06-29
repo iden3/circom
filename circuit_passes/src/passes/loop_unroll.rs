@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use code_producers::c_elements::TemplateInstanceIOMap;
 
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
@@ -20,11 +21,12 @@ pub struct LoopUnrollPass {
     // Wrapped in a RefCell because the reference to the static analysis is immutable but we need mutability
     memory: RefCell<PassMemory>,
     replacements: RefCell<BTreeMap<LoopBucket, InstructionPointer>>,
+
 }
 
 impl LoopUnrollPass {
     pub fn new(prime: &String) -> Self {
-        LoopUnrollPass { memory: PassMemory::new_cell(prime), replacements: Default::default() }
+        LoopUnrollPass { memory: PassMemory::new_cell(prime, "".to_string(), Default::default()), replacements: Default::default() }
     }
 }
 
@@ -51,7 +53,7 @@ impl InterpreterObserver for LoopUnrollPass {
 
     fn on_loop_bucket(&self, bucket: &LoopBucket, env: &Env) -> bool {
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
+        let interpreter = BucketInterpreter::init(mem.current_scope.clone(), &mem.prime, &mem.constant_fields, self, mem.io_map.clone());
         // First we run the loop once. If the result is None that means that the condition is unknown
         let (_, cond_result, _) = interpreter.execute_loop_bucket_once(bucket, env, false);
         if cond_result.is_none() {

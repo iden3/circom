@@ -1,9 +1,10 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use code_producers::c_elements::TemplateInstanceIOMap;
 
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::InstructionPointer;
+use compiler::intermediate_representation::{InstructionPointer, new_id};
 use compiler::intermediate_representation::ir_interface::{
     Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
     CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
@@ -25,7 +26,7 @@ pub struct SimplificationPass {
 
 impl SimplificationPass {
     pub fn new(prime: &String) -> Self {
-        SimplificationPass { memory: PassMemory::new_cell(prime), replacements: Default::default() }
+        SimplificationPass { memory: PassMemory::new_cell(prime, "".to_string(), Default::default()), replacements: Default::default() }
     }
 }
 
@@ -44,7 +45,7 @@ impl InterpreterObserver for SimplificationPass {
 
     fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &Env) -> bool {
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
+        let interpreter = BucketInterpreter::init(mem.current_scope.clone(), &mem.prime, &mem.constant_fields, self, mem.io_map.clone());
         let (eval, _) = interpreter.execute_compute_bucket(bucket, env, false);
         let eval = eval.expect("Compute bucket must produce a value!");
         if !eval.is_unknown() {
@@ -71,9 +72,7 @@ impl InterpreterObserver for SimplificationPass {
         true
     }
 
-    fn on_block_bucket(&self, _bucket: &BlockBucket, _env: &Env) -> bool {
-        true
-    }
+    fn on_block_bucket(&self, _bucket: &BlockBucket, _env: &Env) -> bool { true }
 
     fn on_nop_bucket(&self, _bucket: &NopBucket, _env: &Env) -> bool {
         true
@@ -119,7 +118,14 @@ impl CircuitTransformationPass for SimplificationPass {
             let constant_fields = &mut self.memory.borrow_mut().constant_fields;
             return value.to_value_bucket(constant_fields).allocate();
         }
-        bucket.clone().allocate()
+        ComputeBucket {
+            id: new_id(),
+            line: bucket.line,
+            message_id: bucket.message_id,
+            op: bucket.op,
+            op_aux_no: bucket.op_aux_no,
+            stack: self.transform_instructions(&bucket.stack),
+        }.allocate()
     }
 
     fn pre_hook_circuit(&self, circuit: &Circuit) {

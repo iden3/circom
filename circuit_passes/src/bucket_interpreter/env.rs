@@ -35,20 +35,26 @@ impl<L: JoinSemiLattice + Clone> JoinSemiLattice for HashMap<usize, L> {
 pub struct SubcmpEnv {
     pub signals: HashMap<usize, Value>,
     counter: usize,
+    name: String,
+    template_id: usize
 }
 
 impl JoinSemiLattice for SubcmpEnv {
     fn join(&self, other: &Self) -> Self {
+        assert_eq!(self.name, other.name);
+        assert_eq!(self.template_id, other.template_id);
         SubcmpEnv {
             signals: self.signals.join(&other.signals),
             counter: std::cmp::min(self.counter, other.counter),
+            name: self.name.clone(),
+            template_id: self.template_id
         }
     }
 }
 
 impl SubcmpEnv {
-    pub fn new(inputs: usize) -> Self {
-        SubcmpEnv { signals: Default::default(), counter: inputs }
+    pub fn new(inputs: usize, name: String, template_id: usize) -> Self {
+        SubcmpEnv { signals: Default::default(), counter: inputs, name, template_id }
     }
 
     pub fn get_signal(&self, index: usize) -> Value {
@@ -59,11 +65,14 @@ impl SubcmpEnv {
         SubcmpEnv {
             signals: self.signals.clone().into_iter().chain([(idx, value)]).collect(),
             counter: self.counter,
+            name: self.name.clone(),
+            template_id: self.template_id
         }
     }
 
     pub fn set_signals(&self, signals: HashMap<usize, Value>) -> SubcmpEnv {
-        SubcmpEnv { signals, counter: self.counter }
+        SubcmpEnv { signals, counter: self.counter, name: self.name.clone(),
+            template_id: self.template_id }
     }
 
     pub fn counter_is_zero(&self) -> bool {
@@ -71,7 +80,8 @@ impl SubcmpEnv {
     }
 
     pub fn decrease_counter(&self) -> SubcmpEnv {
-        SubcmpEnv { signals: self.signals.clone(), counter: self.counter - 1 }
+        SubcmpEnv { signals: self.signals.clone(), counter: self.counter - 1, name: self.name.clone(),
+            template_id: self.template_id }
     }
 
     pub fn counter_equal_to(&self, value: usize) -> bool {
@@ -150,6 +160,14 @@ impl Env {
         self.subcmps[&subcmp_idx].get_signal(signal_idx)
     }
 
+    pub fn get_subcmp_name(&self, subcmp_idx: usize) -> String {
+        self.subcmps[&subcmp_idx].name.clone()
+    }
+
+    pub fn get_subcmp_template_id(&self, subcmp_idx: usize) -> usize {
+        self.subcmps[&subcmp_idx].template_id
+    }
+
     pub fn subcmp_counter_is_zero(&self, subcmp_idx: usize) -> bool {
         self.subcmps.get(&subcmp_idx).unwrap().counter_is_zero()
     }
@@ -222,7 +240,6 @@ impl Env {
     }
 
     pub fn set_subcmp_signals(&self, subcmp_idx: usize, signals: HashMap<usize, Value>) -> Env {
-        println!("{subcmp_idx} {:?}", self.subcmps);
         let subcmp = &self.subcmps[&subcmp_idx];
         Env {
             vars: self.vars.clone(),
@@ -256,13 +273,12 @@ impl Env {
         self.set_subcmp_signals(subcmp_idx, env.signals.clone())
     }
 
-    pub fn create_subcmp(&self, name: &String, base_index: usize, count: usize) -> Env {
+    pub fn create_subcmp(&self, name: &String, base_index: usize, count: usize, template_id: usize) -> Env {
         let mut subcmps = self.subcmps.clone();
         for i in base_index..(base_index + count) {
             subcmps
-                .insert(i, SubcmpEnv::new(self.templates_library.borrow()[name].number_of_inputs));
+                .insert(i, SubcmpEnv::new(self.templates_library.borrow()[name].number_of_inputs, name.clone(), template_id));
         }
-        println!("{:?}", subcmps);
 
         Env {
             vars: self.vars.clone(),
@@ -282,6 +298,7 @@ impl Env {
         for (id, arg) in args.iter().enumerate() {
             function_env = function_env.set_var(id, arg.clone());
         }
+        let interpreter = BucketInterpreter::clone_in_new_scope(interpreter, name.to_string());
         let r = interpreter.execute_instructions(
             &code,
             &function_env,

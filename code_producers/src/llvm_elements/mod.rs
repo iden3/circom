@@ -17,6 +17,7 @@ use template::TemplateCtx;
 use crate::llvm_elements::types::bool_type;
 pub use inkwell::types::AnyType;
 pub use inkwell::values::AnyValue;
+use crate::components::TemplateInstanceIOMap;
 use crate::llvm_elements::instructions::create_alloca;
 
 pub mod stdlib;
@@ -52,6 +53,7 @@ pub trait LLVMIRProducer<'a> {
 #[derive(Default, Eq, PartialEq, Debug)]
 pub struct LLVMCircuitData {
     pub field_tracking: Vec<String>,
+    pub io_map: TemplateInstanceIOMap
 }
 
 pub struct TopLevelLLVMIRProducer<'a> {

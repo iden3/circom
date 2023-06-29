@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use code_producers::c_elements::TemplateInstanceIOMap;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{InstructionPointer, new_id};
@@ -23,7 +24,7 @@ pub struct ConditionalFlattening {
 impl ConditionalFlattening {
     pub fn new(prime: &String) -> Self {
         ConditionalFlattening {
-            memory: PassMemory::new_cell(prime),
+            memory: PassMemory::new_cell(prime, "".to_string(), Default::default()),
             replacements: Default::default(),
         }
     }
@@ -80,7 +81,7 @@ impl InterpreterObserver for ConditionalFlattening {
 
     fn on_branch_bucket(&self, bucket: &BranchBucket, env: &Env) -> bool {
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
+        let interpreter = BucketInterpreter::init(mem.current_scope.clone(), &mem.prime, &mem.constant_fields, self, mem.io_map.clone());
         let (_, cond_result, _) = interpreter.execute_conditional_bucket(
             &bucket.cond,
             &bucket.if_branch,
