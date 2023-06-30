@@ -1,21 +1,15 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::process;
-use code_producers::c_elements::TemplateInstanceIOMap;
 
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
-use compiler::intermediate_representation::{InstructionPointer, new_id};
-use compiler::intermediate_representation::ir_interface::{
-    Allocate, AddressType, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
-    CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
-    StoreBucket, ValueBucket,
-};
+use compiler::intermediate_representation::{InstructionPointer};
+use compiler::intermediate_representation::ir_interface::{AddressType, Allocate, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket, StoreBucket, ValueBucket};
 
 use crate::bucket_interpreter::env::Env;
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::observer::InterpreterObserver;
-use crate::bucket_interpreter::value::Value;
+use crate::bucket_interpreter::value::Value::KnownU32;
 use crate::passes::CircuitTransformationPass;
 use crate::passes::memory::PassMemory;
 
@@ -31,23 +25,32 @@ impl MappedToIndexedPass {
     }
 
     fn transform_mapped_loc_to_indexed_loc(&self,
-        cmp_address: &InstructionPointer, indexes: &Vec<InstructionPointer>, env: &Env) -> LocationRule {
+        cmp_address: &InstructionPointer, indexes: &Vec<InstructionPointer>, signal_code: usize, env: &Env) -> LocationRule {
 
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(mem.current_scope.clone(), &mem.prime, &mem.constant_fields, self, mem.io_map.clone());
+        let interpreter = BucketInterpreter::init(&mem.current_scope, &mem.prime, &mem.constant_fields, self, &mem.io_map);
 
-        let (resolved_addr, acc_env) = interpreter.execute_instruction(cmp_address, &env, false);
+        let (resolved_addr, acc_env) = interpreter.execute_instruction(cmp_address, env.clone(), false);
 
         let resolved_addr = resolved_addr
             .expect("cmp_address instruction in SubcmpSignal must produce a value!")
             .get_u32();
 
         let name = acc_env.get_subcmp_name(resolved_addr).clone();
+        let mut indexes_values = vec![];
+        let mut acc_env = acc_env;
+        for i in indexes {
+            let (val, new_env) = interpreter.execute_instruction(i, acc_env, false);
+            indexes_values.push(val.expect("Mapped location must produce a value!").get_u32());
+            acc_env = new_env;
+        }
 
         if indexes.len() > 0 {
             if indexes.len() == 1 {
-                let index: &InstructionPointer = &indexes[0];
-                LocationRule::Indexed { location: index.clone(), template_header: Some(name) }
+                let map_access = &mem.io_map[&acc_env.get_subcmp_template_id(resolved_addr)][signal_code].offset;
+                let value = map_access + indexes_values[0];
+                let mut unused = vec![];
+                LocationRule::Indexed { location: KnownU32(value).to_value_bucket(&mut unused).allocate(), template_header: Some(name) }
             } else {
                 todo!()
             }
@@ -67,8 +70,8 @@ impl MappedToIndexedPass {
             AddressType::SubcmpSignal { cmp_address, .. } => {
                 match location {
                     LocationRule::Indexed { .. } => true,
-                    LocationRule::Mapped { indexes, .. } => {
-                        let indexed_rule = self.transform_mapped_loc_to_indexed_loc(cmp_address, indexes, env);
+                    LocationRule::Mapped { indexes, signal_code } => {
+                        let indexed_rule = self.transform_mapped_loc_to_indexed_loc(cmp_address, indexes, *signal_code, env);
                         self.replacements.borrow_mut().insert(location.clone(), indexed_rule);
                         true
                     }
@@ -83,15 +86,15 @@ impl InterpreterObserver for MappedToIndexedPass {
         true
     }
 
-    fn on_load_bucket(&self, _bucket: &LoadBucket, _env: &Env) -> bool {
-        self.maybe_transform_location_rule(&_bucket.address_type, &_bucket.src, &_env)
+    fn on_load_bucket(&self, bucket: &LoadBucket, env: &Env) -> bool {
+        self.maybe_transform_location_rule(&bucket.address_type, &bucket.src, env)
     }
 
-    fn on_store_bucket(&self, _bucket: &StoreBucket, _env: &Env) -> bool {
-        self.maybe_transform_location_rule(&_bucket.dest_address_type, &_bucket.dest, &_env)
+    fn on_store_bucket(&self, bucket: &StoreBucket, env: &Env) -> bool {
+        self.maybe_transform_location_rule(&bucket.dest_address_type, &bucket.dest, env)
     }
 
-    fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &Env) -> bool {
+    fn on_compute_bucket(&self, _bucket: &ComputeBucket, _env: &Env) -> bool {
         true
     }
 
