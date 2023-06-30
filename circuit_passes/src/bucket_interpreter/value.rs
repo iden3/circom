@@ -408,12 +408,11 @@ impl Default for &Value {
     }
 }
 
-pub fn resolve_operation(op: fn(&Value, &Value) -> Value, p: &BigInt, stack: &[Value]) -> Value {
+pub fn resolve_operation(op: fn(&Value, &Value) -> Value, p: &Value, stack: &[Value]) -> Value {
     assert!(stack.len() > 0);
-    let p = KnownBigInt(p.clone());
     let mut acc = stack[0].clone();
     for i in &stack[1..] {
-        let result = mod_value(&op(&acc, i), &p);
+        let result = mod_value(&op(&acc, i), p);
         acc = result.clone();
     }
     acc.clone()

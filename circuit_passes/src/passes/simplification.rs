@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use code_producers::c_elements::TemplateInstanceIOMap;
 
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
@@ -44,8 +43,9 @@ impl InterpreterObserver for SimplificationPass {
     }
 
     fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &Env) -> bool {
+        let env = env.clone();
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(mem.current_scope.clone(), &mem.prime, &mem.constant_fields, self, mem.io_map.clone());
+        let interpreter = BucketInterpreter::init(&mem.current_scope, &mem.prime, &mem.constant_fields, self, &mem.io_map);
         let (eval, _) = interpreter.execute_compute_bucket(bucket, env, false);
         let eval = eval.expect("Compute bucket must produce a value!");
         if !eval.is_unknown() {

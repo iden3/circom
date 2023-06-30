@@ -1,14 +1,11 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
 use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
 
-pub type TemplatesLibrary = Rc<RefCell<HashMap<String, TemplateCode>>>;
-pub type FunctionsLibrary = Rc<RefCell<HashMap<String, FunctionCode>>>;
+pub type TemplatesLibrary = HashMap<String, TemplateCode>;
+pub type FunctionsLibrary = HashMap<String, FunctionCode>;
 
 use crate::bucket_interpreter::BucketInterpreter;
 use crate::bucket_interpreter::value::{JoinSemiLattice, Value};
@@ -65,20 +62,12 @@ impl<'a> SubcmpEnv<'a> {
         let mut copy = self;
         copy.signals.insert(idx, value);
         copy
-        // SubcmpEnv {
-        //     signals: self.signals.clone().into_iter().chain([(idx, value)]).collect(),
-        //     counter: self.counter,
-        //     name: self.name.clone(),
-        //     template_id: self.template_id
-        // }
     }
 
     pub fn set_signals(self, signals: HashMap<usize, Value>) -> SubcmpEnv<'a> {
         let mut copy = self;
         copy.signals = signals;
         copy
-        // SubcmpEnv { signals, counter: self.counter, name: self.name.clone(),
-        //     template_id: self.template_id }
     }
 
     pub fn counter_is_zero(&self) -> bool {
@@ -89,8 +78,6 @@ impl<'a> SubcmpEnv<'a> {
         let mut copy = self;
         copy.counter -= 1;
         copy
-        // SubcmpEnv { signals: self.signals.clone(), counter: self.counter - 1, name: self.name.clone(),
-        //     template_id: self.template_id }
     }
 
     pub fn counter_equal_to(&self, value: usize) -> bool {
@@ -130,13 +117,13 @@ impl<'a> SubcmpEnv<'a> {
 // }
 
 // An immutable env that returns a new copy when modified
-#[derive(Clone, Default, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Env<'a> {
     vars: HashMap<usize, Value>,
     signals: HashMap<usize, Value>,
     subcmps: HashMap<usize, SubcmpEnv<'a>>,
-    templates_library: TemplatesLibrary,
-    functions_library: FunctionsLibrary,
+    templates_library: &'a TemplatesLibrary,
+    functions_library: &'a FunctionsLibrary,
 }
 
 impl Display for Env<'_> {
@@ -146,7 +133,7 @@ impl Display for Env<'_> {
 }
 
 impl<'a> Env<'a> {
-    pub fn new(templates_library: TemplatesLibrary, functions_library: FunctionsLibrary) -> Self {
+    pub fn new(templates_library: &'a TemplatesLibrary, functions_library: &'a FunctionsLibrary) -> Self {
         Env {
             vars: Default::default(),
             signals: Default::default(),
@@ -169,8 +156,8 @@ impl<'a> Env<'a> {
         self.subcmps[&subcmp_idx].get_signal(signal_idx)
     }
 
-    pub fn get_subcmp_name(&self, subcmp_idx: usize) -> String {
-        self.subcmps[&subcmp_idx].name.clone()
+    pub fn get_subcmp_name(&self, subcmp_idx: usize) -> &String {
+        self.subcmps[&subcmp_idx].name
     }
 
     pub fn get_subcmp_template_id(&self, subcmp_idx: usize) -> usize {
@@ -190,39 +177,18 @@ impl<'a> Env<'a> {
         let mut copy = self;
         copy.vars.insert(idx, value);
         copy
-        // Env {
-        //     vars: self.vars.clone().into_iter().chain([(idx, value)]).collect(),
-        //     signals: self.signals.clone(),
-        //     subcmps: self.subcmps.clone(),
-        //     templates_library: self.templates_library.clone(),
-        //     functions_library: self.functions_library.clone(),
-        // }
     }
 
     pub fn set_signals(self, signals: HashMap<usize, Value>) -> Self {
         let mut copy = self;
         copy.signals = signals;
         copy
-        // Env {
-        //     vars: self.vars.clone(),
-        //     signals,
-        //     subcmps: self.subcmps.clone(),
-        //     templates_library: self.templates_library.clone(),
-        //     functions_library: self.functions_library.clone(),
-        // }
     }
 
     pub fn set_signal(self, idx: usize, value: Value) -> Self {
         let mut copy = self;
         copy.signals.insert(idx, value);
         copy
-        // Env {
-        //     vars: self.vars.clone(),
-        //     signals: self.signals.clone().into_iter().chain([(idx, value)]).collect(),
-        //     subcmps: self.subcmps.clone(),
-        //     templates_library: self.templates_library.clone(),
-        //     functions_library: self.functions_library.clone(),
-        // }
     }
 
     pub fn set_subcmp_signal(self, subcmp_idx: usize, signal_idx: usize, value: Value) -> Self {
@@ -231,18 +197,6 @@ impl<'a> Env<'a> {
         let subcmp_env = copy.subcmps.remove(&subcmp_idx).expect(format!("Can't set a signal of subcomponent {}", subcmp_idx).as_str());
         copy.subcmps.insert(subcmp_idx, subcmp_env.set_signal(signal_idx, value));
         copy
-        // Env {
-        //     vars: self.vars.clone(),
-        //     signals: self.vars.clone(),
-        //     templates_library: self.templates_library.clone(),
-        //     functions_library: self.functions_library.clone(),
-        //     subcmps: self
-        //         .subcmps
-        //         .clone()
-        //         .into_iter()
-        //         .chain([(subcmp_idx, subcmp.set_signal(signal_idx, value))])
-        //         .collect(),
-        // }
     }
 
     pub fn decrease_subcmp_counter(self, subcmp_idx: usize) -> Self {
@@ -250,19 +204,6 @@ impl<'a> Env<'a> {
         let subcmp_env = copy.subcmps.remove(&subcmp_idx).expect(format!("Can't decrease counter of subcomponent {}", subcmp_idx).as_str());
         copy.subcmps.insert(subcmp_idx, subcmp_env.decrease_counter());
         copy
-        // let subcmp = &self.subcmps[&subcmp_idx];
-        // Env {
-        //     vars: self.vars.clone(),
-        //     signals: self.vars.clone(),
-        //     templates_library: self.templates_library.clone(),
-        //     functions_library: self.functions_library.clone(),
-        //     subcmps: self
-        //         .subcmps
-        //         .clone()
-        //         .into_iter()
-        //         .chain([(subcmp_idx, subcmp.decrease_counter())])
-        //         .collect(),
-        // }
     }
 
     pub fn set_subcmp_signals(self, subcmp_idx: usize, signals: HashMap<usize, Value>) -> Self {
@@ -270,45 +211,24 @@ impl<'a> Env<'a> {
         let subcmp_env = copy.subcmps.remove(&subcmp_idx).expect(format!("Can't decrease counter of subcomponent {}", subcmp_idx).as_str());
         copy.subcmps.insert(subcmp_idx, subcmp_env.set_signals(signals));
         copy
-        // let subcmp = &self.subcmps[&subcmp_idx];
-        // Env {
-        //     vars: self.vars.clone(),
-        //     signals: self.vars.clone(),
-        //     templates_library: self.templates_library.clone(),
-        //     functions_library: self.functions_library.clone(),
-        //     subcmps: self
-        //         .subcmps
-        //         .clone()
-        //         .into_iter()
-        //         .chain([(subcmp_idx, subcmp.set_signals(signals))])
-        //         .collect(),
-        // }
     }
 
     pub fn run_subcmp(
         self,
-        subcmp_idx: usize,
-        name: &String,
-        interpreter: &BucketInterpreter,
-        observe: bool,
+        _subcmp_idx: usize,
+        _name: &String,
+        _interpreter: &BucketInterpreter,
+        _observe: bool,
     ) -> Self {
-        let env = {
-            let code = &self.templates_library.borrow()[name].body;
-            let subcmp_env = Env::new(self.templates_library.clone(), self.functions_library.clone())
-                .set_signals(self.subcmps[&subcmp_idx].signals.clone());
-
-            let (_, env) = interpreter.execute_instructions(
-                code,
-                subcmp_env,
-                !interpreter.observer.ignore_subcmp_calls() && observe);
-            env
-        };
-        self.set_subcmp_signals(subcmp_idx, env.signals)
+        // The env returns Unknown by default to any index that does not have a value
+        // So we can fake executing a subcomponent and any read to the output
+        // of a subcomponent will return Unknown which is the only value that signals can have.
+        self
     }
 
     pub fn create_subcmp(self, name: &'a String, base_index: usize, count: usize, template_id: usize) -> Self {
         let number_of_inputs = {
-            self.templates_library.borrow()[name].number_of_inputs
+            self.templates_library[name].number_of_inputs
         };
         let mut copy = self;
         for i in base_index..(base_index + count) {
@@ -316,26 +236,18 @@ impl<'a> Env<'a> {
                 .insert(i, SubcmpEnv::new(number_of_inputs, name, template_id));
         }
         copy
-        //
-        // Env {
-        //     vars: self.vars.clone(),
-        //     signals: self.vars.clone(),
-        //     templates_library: self.templates_library.clone(),
-        //     functions_library: self.functions_library.clone(),
-        //     subcmps,
-        // }
     }
 
     pub fn run_function(&self, name: &String,
                         interpreter: &BucketInterpreter,
                         args: Vec<Value>,
                         observe: bool) -> Value {
-        let code = &self.functions_library.borrow()[name].body;
-        let mut function_env = Env::new(self.templates_library.clone(), self.functions_library.clone());
+        let code = &self.functions_library[name].body;
+        let mut function_env = Env::new(self.templates_library, self.functions_library);
         for (id, arg) in args.iter().enumerate() {
             function_env = function_env.set_var(id, arg.clone());
         }
-        let interpreter = BucketInterpreter::clone_in_new_scope(interpreter, name.to_string());
+        let interpreter = BucketInterpreter::clone_in_new_scope(interpreter, name);
         let r = interpreter.execute_instructions(
             &code,
             function_env,
@@ -348,8 +260,8 @@ impl<'a> Env<'a> {
             vars: self.vars.join(&other.vars),
             signals: self.signals.join(&other.signals),
             subcmps: self.subcmps.join(&other.subcmps),
-            templates_library: self.templates_library.clone(),
-            functions_library: self.functions_library.clone()
+            templates_library: self.templates_library,
+            functions_library: self.functions_library
         }
     }
 }

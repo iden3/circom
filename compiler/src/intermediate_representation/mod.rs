@@ -19,7 +19,6 @@ mod nop_bucket;
 pub mod ir_interface;
 pub mod translate;
 
-use std::cell::RefCell;
 use rand::Rng;
 pub use ir_interface::{Instruction, InstructionList, InstructionPointer};
 

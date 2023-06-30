@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use code_producers::components::TemplateInstanceIOMap;
 
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
@@ -43,8 +42,9 @@ impl InterpreterObserver for DeterministicSubCmpInvokePass {
     }
 
     fn on_store_bucket(&self, bucket: &StoreBucket, env: &Env) -> bool {
+        let env = env.clone();
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(mem.current_scope.clone(), &mem.prime, &mem.constant_fields, self, mem.io_map.clone());
+        let interpreter = BucketInterpreter::init(&mem.current_scope, &mem.prime, &mem.constant_fields, self, &mem.io_map);
         // If the address of the subcomponent input information is unk, then
         // If executing this store bucket would result in calling the subcomponent we replace it with Last
         //    Will result in calling if the counter is at one because after the execution it will be 0
@@ -55,7 +55,7 @@ impl InterpreterObserver for DeterministicSubCmpInvokePass {
             ..
         } = &bucket.dest_address_type
         {
-            let (addr, env) = interpreter.execute_instruction(cmp_address, &env, false);
+            let (addr, env) = interpreter.execute_instruction(cmp_address, env, false);
             let addr = addr
                 .expect("cmp_address instruction in StoreBucket SubcmpSignal must produce a value!")
                 .get_u32();

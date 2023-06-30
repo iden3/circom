@@ -6,8 +6,6 @@ use compiler::intermediate_representation::{Instruction, InstructionList, Instru
 
 
 use std::cell::RefCell;
-use code_producers::c_elements::TemplateInstanceIOMap;
-use compiler::intermediate_representation::Instruction::Nop;
 
 use crate::passes::loop_unroll::LoopUnrollPass;
 use compiler::intermediate_representation::ir_interface::{

@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use code_producers::c_elements::TemplateInstanceIOMap;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
 use compiler::intermediate_representation::{InstructionPointer, new_id};
@@ -81,12 +80,12 @@ impl InterpreterObserver for ConditionalFlattening {
 
     fn on_branch_bucket(&self, bucket: &BranchBucket, env: &Env) -> bool {
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(mem.current_scope.clone(), &mem.prime, &mem.constant_fields, self, mem.io_map.clone());
+        let interpreter = BucketInterpreter::init(&mem.current_scope, &mem.prime, &mem.constant_fields, self, &mem.io_map);
         let (_, cond_result, _) = interpreter.execute_conditional_bucket(
             &bucket.cond,
             &bucket.if_branch,
             &bucket.else_branch,
-            env,
+            env.clone(),
             false,
         );
         if cond_result.is_some() {

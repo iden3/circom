@@ -260,7 +260,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
     producer
 }
 
-fn initialize_llvm_data(vcp: &VCP, database: &TemplateDB, version: &str) -> LLVMCircuitData {
+fn initialize_llvm_data(vcp: &VCP, database: &TemplateDB) -> LLVMCircuitData {
     let mut producer = LLVMCircuitData::default();
 
     producer.io_map = build_io_map(vcp, database);
@@ -372,7 +372,7 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
     let mut circuit = Circuit::default();
     circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
     circuit.c_producer = initialize_c_producer(&vcp, &template_database, version);
-    circuit.llvm_data = initialize_llvm_data(&vcp, &template_database, version);
+    circuit.llvm_data = initialize_llvm_data(&vcp, &template_database);
 
     let field_tracker = FieldTracker::new();
     let circuit_info = CircuitInfo {

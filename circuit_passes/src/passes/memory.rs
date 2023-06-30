@@ -31,17 +31,17 @@ impl PassMemory {
 
     pub fn run_template(&self, observer: &dyn InterpreterObserver, template: &TemplateCode) {
         eprintln!("Starting analysis of {}", template.header);
-        let interpreter = BucketInterpreter::init(template.name.clone(), &self.prime, &self.constant_fields, observer, self.io_map.clone());
-        let env = Env::new(self.templates_library.clone(), self.functions_library.clone());
-        interpreter.execute_instructions(&template.body, &env, true);
+        let interpreter = BucketInterpreter::init(&template.name, &self.prime, &self.constant_fields, observer, &self.io_map);
+        let env = Env::new(&self.templates_library, &self.functions_library);
+        interpreter.execute_instructions(&template.body, env, true);
     }
 
     pub fn add_template(&mut self, template: &TemplateCode) {
-        self.templates_library.borrow_mut().insert(template.header.clone(), (*template).clone());
+        self.templates_library.insert(template.header.clone(), (*template).clone());
     }
 
     pub fn add_function(&mut self, function: &FunctionCode) {
-        self.functions_library.borrow_mut().insert(function.header.clone(), (*function).clone());
+        self.functions_library.insert(function.header.clone(), (*function).clone());
     }
 
     pub fn fill_from_circuit(&mut self, circuit: &Circuit) {
