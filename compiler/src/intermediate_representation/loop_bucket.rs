@@ -52,33 +52,39 @@ impl ToString for LoopBucket {
 }
 
 impl WriteLLVMIR for LoopBucket {
-    fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
+    fn produce_llvm_ir<'a, 'b>(
+        &self,
+        producer: &'b dyn LLVMIRProducer<'a>,
+    ) -> Option<LLVMInstruction<'a>> {
         let current_function = producer.current_function();
-        let cond_bb = create_bb(producer, current_function, "loop.cond.0");
-        let body_bb = create_bb(producer, current_function, "loop.body.0");
-        let end_bb = create_bb(producer, current_function, "loop.end.0");
+        let cond_bb = create_bb(producer, current_function, "loop.cond");
+        let body_bb = create_bb(producer, current_function, "loop.body");
+        let end_bb = create_bb(producer, current_function, "loop.end");
+        // Generate jump from current block to the new condition block
         create_br(producer, cond_bb);
         producer.set_current_bb(cond_bb);
         // Cond logic
         let cond_res = self.continue_condition.produce_llvm_ir(producer);
         // XXX: Assumption: If the value is 0 the we go to the end block
-        let cond = create_conditional_branch(
+        create_conditional_branch(
             producer,
             cond_res.expect("Conditional check expression must produce a value").into_int_value(),
             body_bb,
-            end_bb
+            end_bb,
         );
 
+        // Body contents and branch back to header to check condition
         producer.set_current_bb(body_bb);
-        // Body logic
         for stmt in &self.body {
             stmt.produce_llvm_ir(producer);
         }
         create_br(producer, cond_bb);
+
+        //
         producer.set_current_bb(end_bb);
 
-        // Returns the condition code
-        Some(cond)
+        // Returns None since the current block "end_bb" is empty
+        None
     }
 }
 
