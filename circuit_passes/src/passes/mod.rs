@@ -7,22 +7,24 @@ use compiler::intermediate_representation::{Instruction, InstructionList, Instru
 
 use std::cell::RefCell;
 
-use crate::passes::loop_unroll::LoopUnrollPass;
 use compiler::intermediate_representation::ir_interface::{
     Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
     CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
     StoreBucket, BlockBucket, ValueBucket, AddressType, ReturnType, FinalData, LogBucketArg,
 };
 
+use crate::passes::loop_unroll::LoopUnrollPass;
 use crate::passes::conditional_flattening::ConditionalFlattening;
 use crate::passes::deterministic_subcomponent_invocation::DeterministicSubCmpInvokePass;
 use crate::passes::simplification::SimplificationPass;
+use crate::passes::mapped_to_indexed::MappedToIndexedPass;
 
 mod conditional_flattening;
 mod loop_unroll;
 mod memory;
 mod simplification;
 mod deterministic_subcomponent_invocation;
+mod mapped_to_indexed;
 
 macro_rules! pre_hook {
     ($name: ident, $bucket_ty: ty) => {
@@ -401,6 +403,12 @@ impl PassManager {
         self.passes.borrow_mut().push(Box::new(DeterministicSubCmpInvokePass::new(prime)));
         self
     }
+
+    pub fn schedule_mapped_to_indexed_pass(&self, prime: &String) -> &Self {
+        self.passes.borrow_mut().push(Box::new(MappedToIndexedPass::new(prime)));
+        self
+    }
+
     pub fn transform_circuit(&self, circuit: Circuit) -> Circuit {
         let mut transformed_circuit = circuit;
         for pass in self.passes.borrow().iter() {
