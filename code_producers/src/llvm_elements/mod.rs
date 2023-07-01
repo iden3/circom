@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-
 use std::convert::TryFrom;
 use std::rc::Rc;
 use ansi_term::Colour;
@@ -9,16 +8,16 @@ use inkwell::builder::Builder;
 use inkwell::context::{Context, ContextRef};
 use inkwell::module::Module;
 use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, IntType};
-use inkwell::values::{AnyValueEnum, ArrayValue, BasicMetadataValueEnum, BasicValueEnum, IntValue};
+use inkwell::values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum, IntValue};
 use inkwell::values::FunctionValue;
 
 use template::TemplateCtx;
 
 use crate::llvm_elements::types::bool_type;
 pub use inkwell::types::AnyType;
-pub use inkwell::values::AnyValue;
 use crate::components::TemplateInstanceIOMap;
 use crate::llvm_elements::instructions::create_alloca;
+pub use inkwell::values::{AnyValue, AnyValueEnum, InstructionOpcode};
 
 pub mod stdlib;
 pub mod template;
@@ -96,7 +95,9 @@ impl<'a> LLVMIRProducer<'a> for TopLevelLLVMIRProducer<'a> {
     }
 
     fn get_template_mem_arg(&self, _run_fn: FunctionValue<'a>) -> ArrayValue<'a> {
-        panic!("The top level llvm producer can't extract the template argument of a run function!");
+        panic!(
+            "The top level llvm producer can't extract the template argument of a run function!"
+        );
     }
 }
 
@@ -123,14 +124,17 @@ impl<'a> TopLevelLLVMIRProducer<'a> {
 pub type LLVMAdapter<'a> = &'a Rc<RefCell<LLVM<'a>>>;
 pub type BigIntType<'a> = IntType<'a>; // i256
 
-
-
 pub fn new_constraint<'a>(producer: &dyn LLVMIRProducer<'a>) -> AnyValueEnum<'a> {
     let alloca = create_alloca(producer, bool_type(producer).into(), "constraint");
     let s = producer.context().metadata_string("constraint");
     let kind = producer.context().get_kind_id("constraint");
     let node = producer.context().metadata_node(&[s.into()]);
-    alloca.into_pointer_value().as_instruction().unwrap().set_metadata(node, kind).expect("Could not setup metadata marker for constraint value");
+    alloca
+        .into_pointer_value()
+        .as_instruction()
+        .unwrap()
+        .set_metadata(node, kind)
+        .expect("Could not setup metadata marker for constraint value");
     alloca
 }
 
@@ -184,16 +188,17 @@ pub struct LLVM<'a> {
 
 impl<'a> LLVM<'a> {
     pub fn from_context(context: &'a Context, name: &str) -> Self {
-        LLVM {
-            module: context.create_module(name),
-            builder: context.create_builder(),
-        }
+        LLVM { module: context.create_module(name), builder: context.create_builder() }
     }
 
     pub fn write_to_file(&self, path: &str) -> Result<(), ()> {
         // Run module verification
         self.module.verify().map_err(|llvm_err| {
-            eprintln!("{}: {}", Colour::Red.paint("LLVM Module verification failed"), llvm_err.to_string());
+            eprintln!(
+                "{}: {}",
+                Colour::Red.paint("LLVM Module verification failed"),
+                llvm_err.to_string()
+            );
             eprintln!("Generated LLVM:");
             self.module.print_to_stderr();
         })?;
@@ -219,7 +224,11 @@ impl<'a> LLVM<'a> {
         }
         // Write the output to file
         self.module.print_to_file(path).map_err(|llvm_err| {
-            eprintln!("{}: {}", Colour::Red.paint("Writing LLVM Module failed"), llvm_err.to_string());
+            eprintln!(
+                "{}: {}",
+                Colour::Red.paint("Writing LLVM Module failed"),
+                llvm_err.to_string()
+            );
         })
     }
 }

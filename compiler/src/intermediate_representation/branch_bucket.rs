@@ -1,9 +1,12 @@
 use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
-use code_producers::llvm_elements::{LLVMInstruction, any_value_wraps_basic_value, any_value_to_basic, to_enum, LLVMIRProducer};
+use code_producers::llvm_elements::{
+    any_value_wraps_basic_value, LLVMInstruction, LLVMIRProducer, AnyValue,
+};
+use code_producers::llvm_elements::{AnyValueEnum, InstructionOpcode}; //from inkwell via "pub use" in mod.rs
 use code_producers::llvm_elements::functions::create_bb;
-use code_producers::llvm_elements::instructions::{create_br, create_conditional_branch, create_phi};
+use code_producers::llvm_elements::instructions::{create_br, create_conditional_branch};
 use code_producers::wasm_elements::*;
 use crate::intermediate_representation::BucketId;
 
@@ -65,60 +68,58 @@ impl WriteLLVMIR for BranchBucket {
         let then_bb = create_bb(producer, current_function, "if.then");
         let else_bb = create_bb(producer, current_function, "if.else");
         let merge_bb = create_bb(producer, current_function, "if.merge");
-        // Check of the condition
-        let cond_code = self.cond.produce_llvm_ir(producer)
-            .expect("Cond instruction must produce a value!");
+
+        // Generate check of the condition and the conditional jump in the current block
+        let cond_code =
+            self.cond.produce_llvm_ir(producer).expect("Cond instruction must produce a value!");
         create_conditional_branch(producer, cond_code.into_int_value(), then_bb, else_bb);
+
+        // Define helper to process the body of the given branch of the if-statement.
+        // If needed, it will produce an unconditional jump to the "merge" basic block.
+        // Returns true iff the unconditional jump was produced.
+        let process_body = |branch_body: &InstructionList| {
+            let mut last_inst = None;
+            for inst in branch_body {
+                last_inst = inst.produce_llvm_ir(producer);
+            }
+            if let Some(inst) = last_inst {
+                //The final instruction will never be a BasicValueEnum. Even the
+                //  ternary conditional operator will be desugared to a normal
+                //  if-statement that stores to a temporary variable.
+                assert!(!any_value_wraps_basic_value(inst));
+                //Special case: Should not branch after a branch, return, or unreachable
+                if let AnyValueEnum::InstructionValue(v) = inst {
+                    match v.get_opcode() {
+                        InstructionOpcode::Unreachable
+                        | InstructionOpcode::Return
+                        | InstructionOpcode::Br => {
+                            return false;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            //Any other case
+            create_br(producer, merge_bb);
+            return true;
+        };
+
         // Then branch
         producer.set_current_bb(then_bb);
-        let mut then_last_inst = None;
-        for inst in &self.if_branch {
-            then_last_inst = inst.produce_llvm_ir(producer);
-            if let Some(inst) = then_last_inst {
-                if !any_value_wraps_basic_value(inst) {
-                    then_last_inst = None
-                }
-            }
-        }
-        create_br(producer, merge_bb);
+        let jump_from_if = process_body(&self.if_branch);
         // Else branch
         producer.set_current_bb(else_bb);
-        let mut else_last_inst = None;
-        for inst in &self.else_branch {
-            else_last_inst = inst.produce_llvm_ir(producer);
-            if let Some(inst) = else_last_inst {
-                if !any_value_wraps_basic_value(inst) {
-                    else_last_inst = None
-                }
-            }
-        }
-        create_br(producer, merge_bb);
-        // Merge results
+        let jump_from_else = process_body(&self.else_branch);
+        // Merge block (where the function body continues)
         producer.set_current_bb(merge_bb);
-        match (then_last_inst, else_last_inst) {
-            (None, None) => {
-                None
-            }
-            (Some(then), None) => {
-                let phi = create_phi(producer,then.get_type(), "if.merge.phi");
-                let then = any_value_to_basic(then);
-                phi.add_incoming_as_enum(&[(then, then_bb)]);
-                Some(to_enum(phi))
-            }
-            (None, Some(else_)) => {
-                let phi = create_phi(producer, else_.get_type(), "if.merge.phi");
-                let else_ = any_value_to_basic(else_);
-                phi.add_incoming_as_enum(&[(else_, else_bb)]);
-                Some(to_enum(phi))
-            }
-            (Some(then), Some(else_)) => {
-                assert_eq!(then.get_type(), else_.get_type(), "Types of the two branches of if statement must be of the same type!");
-                let phi = create_phi(producer,then.get_type(), "if.merge.phi");
-                let then = any_value_to_basic(then);
-                let else_ = any_value_to_basic(else_);
-                phi.add_incoming_as_enum(&[(then, then_bb), (else_, else_bb)]);
-                Some(to_enum(phi))
-            }
+
+
+        //If there are no jumps to the merge block, it is unreachable.
+        if !jump_from_if && !jump_from_else {
+            let u = producer.builder().build_unreachable();
+            Some(u.as_any_value_enum())
+        } else {
+            None //merge block is empty
         }
     }
 }

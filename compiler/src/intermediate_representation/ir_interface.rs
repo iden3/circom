@@ -143,6 +143,7 @@ impl WriteWasm for Instruction {
 }
 
 impl WriteLLVMIR for Instruction {
+    /// This must always return the final statement in the current BasicBlock or None if empty.
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
         use Instruction::*;
         match self {
