@@ -13,7 +13,7 @@ import subprocess
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Tuple, List, Match
+from typing import Tuple, List, Match, Union
 
 import click
 
@@ -46,8 +46,26 @@ def is_llvm_validation_error(message: str) -> bool:
     return "LLVM Module verification failed" in message
 
 
+def non_constant_id(message: str) -> bool:
+    return "is_constant_int()" in message
+
+
+class TimedOutExecution:
+    def __init__(self, exception: subprocess.TimeoutExpired):
+        self.exception = exception
+        self.returncode = 1
+
+    @property
+    def stdout(self):
+        return self.exception.stdout
+
+    @property
+    def stderr(self):
+        return self.exception.stderr
+
+
 class Report:
-    def __init__(self, src: str, cmd: List[str], execution: subprocess.CompletedProcess, run_time: float):
+    def __init__(self, src: str, cmd: List[str], execution: Union[subprocess.CompletedProcess | TimedOutExecution], run_time: float):
         self.src = src
         self.cmd = cmd
         self.execution = execution
@@ -95,6 +113,10 @@ class Report:
             return "panic!"
         if is_llvm_validation_error(self.stderr):
             return "invalid llvm ir"
+        if non_constant_id(self.stderr):
+            return "non constant indexing"
+        if isinstance(self.execution, TimedOutExecution):
+            return "timeout"
         return "other"
 
     def to_dict(self) -> dict:
@@ -128,23 +150,30 @@ def run_test(src: str, circom: str, debug: bool, cwd: str, libs_path: str) -> Re
         '-l', libs_path,
         src
     ]
-    start = time.time()
-    execution = subprocess.run(cmd, capture_output=True, cwd=cwd)
-    end = time.time()
     if debug:
         print("Source file:", src)
         print("CMD:", ' '.join(cmd))
-        if execution.returncode == 0:
-            print("Success!")
-        else:
-            print("Failure!")
-        # if execution.stdout:
-        #     print("Circom stdout:\n", escape_ansi(execution.stdout.decode("utf-8")))
-        if execution.stderr:
-            print("Circom stderr:\n", execution.stderr.decode("utf-8"))
-        print("Execution time in seconds:", end - start)
+    try:
+        start = time.time()
+        execution = subprocess.run(cmd, capture_output=True, cwd=cwd, timeout=5)
+        end = time.time()
+        if debug:
 
-    return Report(src, cmd, execution, end - start)
+            if execution.returncode == 0:
+                print("Success!")
+            else:
+                print("Failure!")
+            # if execution.stdout:
+            #     print("Circom stdout:\n", escape_ansi(execution.stdout.decode("utf-8")))
+            if execution.stderr:
+                print("Circom stderr:\n", execution.stderr.decode("utf-8"))
+            print("Execution time in seconds:", end - start)
+
+        return Report(src, cmd, execution, end - start)
+    except subprocess.TimeoutExpired as e:
+        if debug:
+            print("Test timed out!")
+            return Report(src, cmd, TimedOutExecution(e), 30)
 
 
 def evaluate_test(test_path: str, circom: str, debug: bool, libs_path: str) -> List[Report]:

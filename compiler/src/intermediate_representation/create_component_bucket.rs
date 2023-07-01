@@ -80,7 +80,8 @@ impl WriteLLVMIR for CreateCmpBucket {
             create_call(producer, build_fn_name(self.symbol.clone()).as_str(), &[sub_cmp_addr.into()]);
             // If it has 0 inputs run directly
             if !self.has_inputs {
-                let sub_cmp = to_basic_metadata_enum(to_enum(sub_cmp_addr));
+                let sub_cmp_signal_addr = ctx.load_subcmp_addr(producer, add);
+                let sub_cmp = to_basic_metadata_enum(to_enum(sub_cmp_signal_addr));
                 create_call(producer, run_fn_name(self.symbol.clone()).as_str(), &[sub_cmp]);
             }
         }

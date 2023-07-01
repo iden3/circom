@@ -167,7 +167,6 @@ impl<'a> TemplateCtx<'a> {
     ) -> AnyValueEnum<'a> {
         assert!(index.is_constant_int());
         let signals = self.current_function.get_nth_param(self.signals_arg_offset as u32).unwrap();
-        println!("{} {}", index.print_to_string().to_string(), signals.print_to_string().to_string());
         create_gep(producer, signals.into_pointer_value(), &[zero(producer), index])
     }
 }

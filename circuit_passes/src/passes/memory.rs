@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use code_producers::components::TemplateInstanceIOMap;
 use compiler::circuit_design::function::FunctionCode;
 use compiler::circuit_design::template::TemplateCode;
 use compiler::compiler_interface::Circuit;
@@ -12,31 +13,34 @@ pub struct PassMemory {
     pub functions_library: FunctionsLibrary,
     pub prime: String,
     pub constant_fields: Vec<String>,
+    pub current_scope: String,
+    pub io_map: TemplateInstanceIOMap
 }
 
 impl PassMemory {
-    pub fn new_cell(prime: &String) -> RefCell<Self> {
+    pub fn new_cell(prime: &String, current_scope: String, io_map: TemplateInstanceIOMap) -> RefCell<Self> {
         RefCell::new(PassMemory {
             templates_library: Default::default(),
             functions_library: Default::default(),
             prime: prime.to_string(),
             constant_fields: vec![],
+            current_scope,
+            io_map
         })
     }
 
     pub fn run_template(&self, observer: &dyn InterpreterObserver, template: &TemplateCode) {
-        eprintln!("Starting analysis of {}", template.header);
-        let interpreter = BucketInterpreter::init(&self.prime, &self.constant_fields, observer);
-        let env = Env::new(self.templates_library.clone(), self.functions_library.clone());
-        interpreter.execute_instructions(&template.body, &env, true);
+        let interpreter = BucketInterpreter::init(&template.name, &self.prime, &self.constant_fields, observer, &self.io_map);
+        let env = Env::new(&self.templates_library, &self.functions_library);
+        interpreter.execute_instructions(&template.body, env, true);
     }
 
     pub fn add_template(&mut self, template: &TemplateCode) {
-        self.templates_library.borrow_mut().insert(template.header.clone(), (*template).clone());
+        self.templates_library.insert(template.header.clone(), (*template).clone());
     }
 
     pub fn add_function(&mut self, function: &FunctionCode) {
-        self.functions_library.borrow_mut().insert(function.header.clone(), (*function).clone());
+        self.functions_library.insert(function.header.clone(), (*function).clone());
     }
 
     pub fn fill_from_circuit(&mut self, circuit: &Circuit) {
@@ -47,5 +51,6 @@ impl PassMemory {
             self.add_function(function);
         }
         self.constant_fields = circuit.llvm_data.field_tracking.clone();
+        self.io_map = circuit.llvm_data.io_map.clone();
     }
 }

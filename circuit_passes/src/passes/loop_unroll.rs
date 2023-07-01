@@ -20,11 +20,12 @@ pub struct LoopUnrollPass {
     // Wrapped in a RefCell because the reference to the static analysis is immutable but we need mutability
     memory: RefCell<PassMemory>,
     replacements: RefCell<BTreeMap<LoopBucket, InstructionPointer>>,
+
 }
 
 impl LoopUnrollPass {
     pub fn new(prime: &String) -> Self {
-        LoopUnrollPass { memory: PassMemory::new_cell(prime), replacements: Default::default() }
+        LoopUnrollPass { memory: PassMemory::new_cell(prime, "".to_string(), Default::default()), replacements: Default::default() }
     }
 }
 
@@ -50,18 +51,19 @@ impl InterpreterObserver for LoopUnrollPass {
     }
 
     fn on_loop_bucket(&self, bucket: &LoopBucket, env: &Env) -> bool {
+        let env = env.clone();
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(&mem.prime, &mem.constant_fields, self);
+        let interpreter = BucketInterpreter::init(&mem.current_scope, &mem.prime, &mem.constant_fields, self, &mem.io_map);
         // First we run the loop once. If the result is None that means that the condition is unknown
-        let (_, cond_result, _) = interpreter.execute_loop_bucket_once(bucket, env, false);
+        let (_, cond_result, env_once) = interpreter.execute_loop_bucket_once(bucket, env, false);
         if cond_result.is_none() {
             return true;
         }
         let mut block_body = vec![];
         let mut cond_result = Some(true);
-        let mut env = env.clone();
+        let mut env = env_once;
         while cond_result.unwrap() {
-            let (_, new_cond, new_env) = interpreter.execute_loop_bucket_once(bucket, &env, false);
+            let (_, new_cond, new_env) = interpreter.execute_loop_bucket_once(bucket, env, false);
             cond_result = new_cond;
             env = new_env;
             if let Some(true) = new_cond {
@@ -152,7 +154,7 @@ impl CircuitTransformationPass for LoopUnrollPass {
 
 #[cfg(test)]
 mod test {
-    use compiler::circuit_design::template::{TemplateCode, TemplateCodeInfo};
+    use compiler::circuit_design::template::TemplateCodeInfo;
     use compiler::compiler_interface::Circuit;
     use compiler::intermediate_representation::{Instruction, new_id};
     use compiler::intermediate_representation::ir_interface::{

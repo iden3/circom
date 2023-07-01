@@ -2,8 +2,7 @@ use super::ir_interface::*;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::llvm_elements::{LLVMInstruction, to_enum, LLVMIRProducer};
-use code_producers::llvm_elements::functions::create_bb;
-use code_producers::llvm_elements::instructions::{create_br, create_call, create_conditional_branch, create_eq_with_name, create_gep, create_load_with_name, create_store, create_sub_with_name};
+use code_producers::llvm_elements::instructions::{create_call, create_gep, create_load_with_name, create_store, create_sub_with_name};
 use code_producers::llvm_elements::run_fn_name;
 use code_producers::llvm_elements::values::{create_literal_u32, zero};
 use code_producers::wasm_elements::*;
@@ -103,26 +102,26 @@ impl WriteLLVMIR for StoreBucket {
                     }
                     StatusInput::Unknown => {
                         panic!("There should not be Unknown input status");
-                        let sub_cmp_name = sub_cmp_name.expect("Could not get the name of the subcomponent");
-                        let run_fn = run_fn_name(sub_cmp_name.clone());
-                        let current_function = producer.current_function();
-                        let run_bb = create_bb(producer, current_function, format!("maybe_run.{}", sub_cmp_name).as_str());
-                        let continue_bb = create_bb(producer, current_function,"continue.store");
-                        // Here we need to get the counter and check if its 0
-                        // If its is then call the run function because it means that all signals have been assigned
-                        let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
-                        let counter = producer.template_ctx().load_subcmp_counter(producer, addr);
-                        let value = create_load_with_name(producer, counter, "load.subcmp.counter");
-                        let is_zero = create_eq_with_name(producer, zero(producer), value.into_int_value(), "subcmp.counter.isZero");
-                        create_conditional_branch(producer, is_zero.into_int_value(), run_bb, continue_bb);
-                        producer.set_current_bb(run_bb);
-
-                        let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
-                        let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
-
-                        create_call(producer, run_fn.as_str(), &[subcmp.into()]);
-                        create_br(producer,continue_bb);
-                        producer.set_current_bb(continue_bb);
+                        // let sub_cmp_name = sub_cmp_name.expect("Could not get the name of the subcomponent");
+                        // let run_fn = run_fn_name(sub_cmp_name.clone());
+                        // let current_function = producer.current_function();
+                        // let run_bb = create_bb(producer, current_function, format!("maybe_run.{}", sub_cmp_name).as_str());
+                        // let continue_bb = create_bb(producer, current_function,"continue.store");
+                        // // Here we need to get the counter and check if its 0
+                        // // If its is then call the run function because it means that all signals have been assigned
+                        // let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
+                        // let counter = producer.template_ctx().load_subcmp_counter(producer, addr);
+                        // let value = create_load_with_name(producer, counter, "load.subcmp.counter");
+                        // let is_zero = create_eq_with_name(producer, zero(producer), value.into_int_value(), "subcmp.counter.isZero");
+                        // create_conditional_branch(producer, is_zero.into_int_value(), run_bb, continue_bb);
+                        // producer.set_current_bb(run_bb);
+                        //
+                        // let addr = cmp_address.produce_llvm_ir(producer).expect("The address of a subcomponent must yield a value!");
+                        // let subcmp = producer.template_ctx().load_subcmp_addr(producer, addr);
+                        //
+                        // create_call(producer, run_fn.as_str(), &[subcmp.into()]);
+                        // create_br(producer,continue_bb);
+                        // producer.set_current_bb(continue_bb);
                     }
                     _ => {}
                 }

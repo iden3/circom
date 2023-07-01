@@ -8,6 +8,7 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use program_structure::file_definition::FileLibrary;
 use std::collections::{BTreeMap, HashMap};
+use code_producers::llvm_elements::LLVMCircuitData;
 
 #[cfg(debug_assertions)]
 fn matching_lengths_and_offsets(list: &InputOutputList) {
@@ -259,6 +260,13 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
     producer
 }
 
+fn initialize_llvm_data(vcp: &VCP, database: &TemplateDB) -> LLVMCircuitData {
+    let mut producer = LLVMCircuitData::default();
+
+    producer.io_map = build_io_map(vcp, database);
+    producer
+}
+
 fn main_input_list(main: &TemplateInstance) -> InputList {
     use program_structure::ast::SignalType::*;
     let mut input_list = vec![];
@@ -364,6 +372,7 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
     let mut circuit = Circuit::default();
     circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
     circuit.c_producer = initialize_c_producer(&vcp, &template_database, version);
+    circuit.llvm_data = initialize_llvm_data(&vcp, &template_database);
 
     let field_tracker = FieldTracker::new();
     let circuit_info = CircuitInfo {

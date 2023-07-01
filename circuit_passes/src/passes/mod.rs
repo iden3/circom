@@ -7,22 +7,24 @@ use compiler::intermediate_representation::{Instruction, InstructionList, Instru
 
 use std::cell::RefCell;
 
-use crate::passes::loop_unroll::LoopUnrollPass;
 use compiler::intermediate_representation::ir_interface::{
     Allocate, AssertBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket,
     CreateCmpBucket, LoadBucket, LocationRule, LogBucket, LoopBucket, NopBucket, ReturnBucket,
     StoreBucket, BlockBucket, ValueBucket, AddressType, ReturnType, FinalData, LogBucketArg,
 };
 
+use crate::passes::loop_unroll::LoopUnrollPass;
 use crate::passes::conditional_flattening::ConditionalFlattening;
 use crate::passes::deterministic_subcomponent_invocation::DeterministicSubCmpInvokePass;
 use crate::passes::simplification::SimplificationPass;
+use crate::passes::mapped_to_indexed::MappedToIndexedPass;
 
 mod conditional_flattening;
 mod loop_unroll;
 mod memory;
 mod simplification;
 mod deterministic_subcomponent_invocation;
+mod mapped_to_indexed;
 
 macro_rules! pre_hook {
     ($name: ident, $bucket_ty: ty) => {
@@ -35,11 +37,10 @@ pub trait CircuitTransformationPass {
         self.pre_hook_circuit(&circuit);
         let templates = circuit.templates.iter().map(|t| self.transform_template(t)).collect();
         let field_tracking = self.get_updated_field_constants();
-        println!("Replacing {:?} with {:?}", circuit.llvm_data.field_tracking, field_tracking);
         Circuit {
             wasm_producer: circuit.wasm_producer.clone(),
             c_producer: circuit.c_producer.clone(),
-            llvm_data: LLVMCircuitData { field_tracking },
+            llvm_data: LLVMCircuitData { field_tracking, io_map: circuit.llvm_data.io_map.clone() },
             templates,
             functions: circuit.functions.iter().map(|f| self.transform_function(f)).collect(),
         }
@@ -346,8 +347,10 @@ pub trait CircuitTransformationPass {
         .allocate()
     }
 
-    fn transform_nop_bucket(&self, bucket: &NopBucket) -> InstructionPointer {
-        bucket.clone().allocate()
+    fn transform_nop_bucket(&self, _bucket: &NopBucket) -> InstructionPointer {
+        NopBucket {
+            id: new_id()
+        }.allocate()
     }
 
     pre_hook!(pre_hook_circuit, Circuit);
@@ -400,6 +403,12 @@ impl PassManager {
         self.passes.borrow_mut().push(Box::new(DeterministicSubCmpInvokePass::new(prime)));
         self
     }
+
+    pub fn schedule_mapped_to_indexed_pass(&self, prime: &String) -> &Self {
+        self.passes.borrow_mut().push(Box::new(MappedToIndexedPass::new(prime)));
+        self
+    }
+
     pub fn transform_circuit(&self, circuit: Circuit) -> Circuit {
         let mut transformed_circuit = circuit;
         for pass in self.passes.borrow().iter() {

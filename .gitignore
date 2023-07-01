@@ -13,3 +13,5 @@ type_analysis/target/
 ir_log
 .venv
 report.csv
+out.stacks
+flamegraph.svg

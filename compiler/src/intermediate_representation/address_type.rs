@@ -1,7 +1,3 @@
-
-
-
-
 use super::ir_interface::*;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]

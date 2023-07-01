@@ -66,6 +66,7 @@ pub fn compile(config: CompilerConfig, program_archive: ProgramArchive, prime: &
         circuit = pm
             .schedule_loop_unroll_pass(prime)
             .schedule_conditional_flattening_pass(prime)
+            .schedule_mapped_to_indexed_pass(prime)
             .schedule_simplification_pass(prime)
             .schedule_deterministic_subcmp_invoke_pass(prime)
             .transform_circuit(circuit);

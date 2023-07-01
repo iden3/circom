@@ -148,7 +148,6 @@ impl ToString for ComputeBucket {
 
 impl WriteLLVMIR for ComputeBucket {
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
-        println!("{}\n", self.to_string());
         let mut stack = vec![];
         for i in &self.stack {
             let inst = i.produce_llvm_ir(producer);
