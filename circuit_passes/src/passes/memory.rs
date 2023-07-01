@@ -30,7 +30,6 @@ impl PassMemory {
     }
 
     pub fn run_template(&self, observer: &dyn InterpreterObserver, template: &TemplateCode) {
-        eprintln!("Starting analysis of {}", template.header);
         let interpreter = BucketInterpreter::init(&template.name, &self.prime, &self.constant_fields, observer, &self.io_map);
         let env = Env::new(&self.templates_library, &self.functions_library);
         interpreter.execute_instructions(&template.body, env, true);
