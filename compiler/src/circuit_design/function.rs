@@ -40,7 +40,6 @@ impl WriteLLVMIR for FunctionCodeInfo {
 
         let mut last = None;
         for t in &self.body {
-            println!("{}", t.to_string());
             let bb = create_bb(producer, function, t.label_name(function.count_basic_blocks()).as_str());
             create_br(producer, bb);
             producer.set_current_bb(bb);

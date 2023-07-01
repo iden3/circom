@@ -49,7 +49,6 @@ impl InterpreterObserver for SimplificationPass {
         let (eval, _) = interpreter.execute_compute_bucket(bucket, env, false);
         let eval = eval.expect("Compute bucket must produce a value!");
         if !eval.is_unknown() {
-            println!("{} ==> {}", bucket.to_string(), eval);
             self.replacements.borrow_mut().insert(bucket.clone(), eval);
             return false;
         }
@@ -114,7 +113,6 @@ impl CircuitTransformationPass for SimplificationPass {
 
     fn transform_compute_bucket(&self, bucket: &ComputeBucket) -> InstructionPointer {
         if let Some(value) = self.replacements.borrow().get(&bucket) {
-            println!("{} --> {}", bucket.to_string(), value);
             let constant_fields = &mut self.memory.borrow_mut().constant_fields;
             return value.to_value_bucket(constant_fields).allocate();
         }

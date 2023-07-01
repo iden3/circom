@@ -42,7 +42,7 @@ impl ToString for BlockBucket {
             body = format!("{}{};", body, i.to_string());
         }
         body = format!("{}]", body);
-        format!("UNROLLED_LOOP(line:{},template_id:{},n_iterations:{},body:{})", line, template_id, self.body.len(), body)
+        format!("BLOCK(line:{},template_id:{},n_iterations:{},body:{})", line, template_id, self.body.len(), body)
     }
 }
 

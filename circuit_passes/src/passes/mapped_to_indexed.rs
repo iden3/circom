@@ -163,11 +163,6 @@ impl CircuitTransformationPass for MappedToIndexedPass {
     fn transform_location_rule(&self, location_rule: &LocationRule) -> LocationRule {
         // If the interpreter found a viable transformation, do that.
         if let Some(indexed_rule) = self.replacements.borrow().get(&location_rule) {
-            println!("MappedToIndexedPass: {:?} --> {:?}", location_rule.to_string(), indexed_rule);
-            match indexed_rule {
-                LocationRule::Indexed { location, .. } => println!("\tWill output location: {:?}", location),
-                LocationRule::Mapped { .. } => unreachable!()
-            }
             return indexed_rule.clone();
         }
         match location_rule {

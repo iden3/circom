@@ -53,13 +53,11 @@ impl ToString for LoadBucket {
 
 impl WriteLLVMIR for LoadBucket {
     fn produce_llvm_ir<'a, 'b>(&self, producer: &'b dyn LLVMIRProducer<'a>) -> Option<LLVMInstruction<'a>> {
-        println!("[LoadBucket as WriteLLVMIR]   {}\n", self.to_string());
         // Generate the code of the location and use the last value as the reference
         let index = self.src.produce_llvm_ir(producer).expect("We need to produce some kind of instruction!").into_int_value();
         let gep = match &self.address_type {
             AddressType::Variable => producer.body_ctx().get_variable(producer, index),
             AddressType::Signal => {
-                println!("{self:?}");
                 producer.template_ctx().get_signal(producer, index)
             },
             AddressType::SubcmpSignal { cmp_address, ..  } => {
@@ -70,7 +68,6 @@ impl WriteLLVMIR for LoadBucket {
             }
         };
         let load = create_load(producer, gep.into_pointer_value());
-        println!("Done LOAD");
         Some(load)
     }
 }

@@ -99,7 +99,6 @@ impl WriteLLVMIR for TemplateCodeInfo {
 
         // Run function body
         for t in &self.body {
-            println!("{}", t.to_string());
             let bb = create_bb(&template_producer, run_function, t.label_name(run_function.count_basic_blocks()).as_str());
             create_br(&template_producer, bb);
             template_producer.set_current_bb(bb);

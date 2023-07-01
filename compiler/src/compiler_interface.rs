@@ -46,11 +46,17 @@ pub fn write_llvm_ir(circuit: &mut Circuit, llvm_folder: &str, llvm_file: &str, 
     use std::path::Path;
     if clean_llvm {
         if Path::new(llvm_folder).is_dir() {
-            std::fs::remove_dir_all(llvm_folder).map_err(|_err| {})?;
+            std::fs::remove_dir_all(llvm_folder).map_err(|err| {
+                eprintln!("Error removing {}: {}", llvm_folder, err)
+            })?;
         }
-        std::fs::create_dir(llvm_folder).map_err(|_err| {})?;
+        std::fs::create_dir(llvm_folder).map_err(|err| {
+            eprintln!("Error creating directory {}: {}", llvm_folder, err)
+        })?;
     }
-    let _ = File::create(llvm_file).map_err(|_err| {})?;
+    let _ = File::create(llvm_file).map_err(|err| {
+        eprintln!("Error creating the LLVM file {}: {}", llvm_file, err)
+    })?;
     circuit.produce_llvm_ir(llvm_folder, &llvm_file)
 }
 
