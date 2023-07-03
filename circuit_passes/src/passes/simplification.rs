@@ -25,7 +25,7 @@ pub struct SimplificationPass {
 
 impl SimplificationPass {
     pub fn new(prime: &String) -> Self {
-        SimplificationPass { memory: PassMemory::new_cell(prime, "".to_string(), Default::default()), replacements: Default::default() }
+        SimplificationPass { memory: PassMemory::new_cell(prime, "".to_string(), Default::default(), todo!(),todo!()), replacements: Default::default() }
     }
 }
 
@@ -45,7 +45,7 @@ impl InterpreterObserver for SimplificationPass {
     fn on_compute_bucket(&self, bucket: &ComputeBucket, env: &Env) -> bool {
         let env = env.clone();
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(&mem.current_scope, &mem.prime, &mem.constant_fields, self, &mem.io_map);
+        let interpreter = mem.build_interpreter(self);
         let (eval, _) = interpreter.execute_compute_bucket(bucket, env, false);
         let eval = eval.expect("Compute bucket must produce a value!");
         if !eval.is_unknown() {
@@ -131,6 +131,6 @@ impl CircuitTransformationPass for SimplificationPass {
     }
 
     fn pre_hook_template(&self, template: &TemplateCode) {
-        self.memory.borrow().run_template(self, template);
+        self.memory.borrow_mut().run_template(self, template);
     }
 }

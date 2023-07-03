@@ -132,7 +132,6 @@ impl SummaryRoot {
 
         let template_database = TemplateDB::build(&vcp.templates);
         for (template_name, template_id) in template_database.indexes {
-            println!("==== {} ====", template_name);
             let mut signals = vec![];
 
             let mut signals_data: Vec<(String, usize)> = template_database.signals_id[template_id].clone().into_iter().collect();

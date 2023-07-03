@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use super::ir_interface::*;
 use crate::hir::very_concrete_program::*;
 use crate::intermediate_representation::log_bucket::LogBucketArg;
@@ -7,6 +8,7 @@ use program_structure::ast::*;
 use program_structure::file_definition::FileLibrary;
 use program_structure::utils::environment::VarEnvironment;
 use std::collections::{HashMap, BTreeMap, HashSet};
+use code_producers::llvm_elements::IndexMapping;
 use program_structure::ast::AssignOp;
 
 use crate::intermediate_representation::constraint_bucket::ConstraintBucket;
@@ -18,8 +20,8 @@ pub type E = VarEnvironment<SymbolInfo>;
 pub type FieldTracker = ConstantTracker<String>;
 #[derive(Clone)]
 pub struct SymbolInfo {
-    access_instruction: InstructionPointer,
-    dimensions: Vec<Length>,
+    pub access_instruction: InstructionPointer,
+    pub dimensions: Vec<Length>,
     is_component: bool,
 }
 
@@ -91,6 +93,87 @@ impl TemplateDB {
     }
 }
 
+struct Counter {
+    value: usize
+}
+
+impl Counter {
+    pub fn init() -> Self {
+        Counter {
+            value: 0
+        }
+    }
+
+    pub fn get_and_inc(&mut self) -> usize {
+        let v = self.value;
+        self.value += 1;
+        v
+    }
+}
+
+pub type SSA = (String, usize);
+
+pub struct SSANamesCollector {
+    counter: RefCell<Counter>,
+    vars: RefCell<HashMap<SSA, (usize, Vec<usize>)>>,
+    signals: RefCell<HashMap<SSA, (usize, Vec<usize>)>>,
+    components: ()
+}
+
+impl SSANamesCollector {
+    pub fn new() -> Self {
+        SSANamesCollector {
+            counter: RefCell::new(Counter::init()),
+            vars: Default::default(),
+            signals: Default:: default(),
+            components: Default::default()
+        }
+    }
+
+    pub fn insert_var(&self, name: &String, addr: usize, lengths: &Vec<usize>) {
+        let ssa_name = (name.clone(), self.counter.borrow_mut().get_and_inc());
+        self.vars.borrow_mut().insert(ssa_name, (addr, lengths.clone()));
+    }
+
+    pub fn dump_vars(&self) -> IndexMapping {
+        let mut mapping = HashMap::new();
+        for (addr, lengths) in self.vars.borrow().values() {
+            let size = lengths.iter().fold(1, |acc, i| acc * i);
+            let range = (*addr)..(addr + size);
+            for i in range.clone() {
+                mapping.insert(i, range.clone());
+            }
+        }
+        mapping
+    }
+
+    pub fn insert_signal(&self, name: &String, addr: usize, lengths: &Vec<usize>) {
+        let ssa_name = (name.clone(), self.counter.borrow_mut().get_and_inc());
+        self.signals.borrow_mut().insert(ssa_name, (addr, lengths.clone()));
+    }
+
+    pub fn dump_signals(&self) -> IndexMapping {
+        let mut mapping = HashMap::new();
+        for (addr, lengths) in self.signals.borrow().values() {
+            let size = lengths.iter().fold(1, |acc, i| acc * i);
+            let range = (*addr)..(addr + size);
+            for i in range.clone() {
+                mapping.insert(i, range.clone());
+            }
+        }
+        mapping
+    }
+
+    pub fn insert_component(&self, name: &String, addr: usize, lengths: &Vec<usize>) {
+        let ssa_name = (name.clone(), self.counter.borrow_mut().get_and_inc());
+        todo!()
+    }
+
+    pub fn dump_components(&self) -> IndexMapping {
+        todo!()
+    }
+}
+
 struct State {
     field_tracker: FieldTracker,
     environment: E,
@@ -107,6 +190,7 @@ struct State {
     code: InstructionList,
     // string_table
     string_table: HashMap<String, usize>,
+    ssa: SSANamesCollector
 }
 
 impl State {
@@ -132,6 +216,7 @@ impl State {
             max_stack_depth: 0,
             code: vec![],
             string_table : HashMap::new(),
+            ssa: SSANamesCollector::new()
         }
     }
     fn reserve(fresh: &mut usize, size: usize) -> usize {
@@ -266,6 +351,7 @@ fn initialize_signals(state: &mut State, signals: Vec<Signal>, stmt: &Statement)
             op_aux_no: 0,
         }
         .allocate();
+        state.ssa.insert_signal(&signal.name, address, &signal.lengths);
         let info = SymbolInfo { access_instruction: instruction, dimensions: signal.lengths, is_component:false };
         state.environment.add_variable(&signal.name, info);
         state.signal_to_type.insert(signal.name.clone(), signal.xtype);
@@ -286,6 +372,7 @@ fn initialize_components(state: &mut State, components: Vec<Component>, stmt: &S
             op_aux_no: 0,
         }
         .allocate();
+        state.ssa.insert_component(&component.name, address, &component.lengths);
         let info = SymbolInfo { access_instruction: instruction, dimensions: component.lengths, is_component: true };
         state.environment.add_variable(&component.name, info);
     }
@@ -595,6 +682,7 @@ fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) 
             op_aux_no: 0,
         }
         .allocate();
+        state.ssa.insert_var(&name, address, &dimensions);
         let info = SymbolInfo { access_instruction: instruction, dimensions, is_component: false };
         state.environment.add_variable(&name, info);
     } else {
@@ -1363,6 +1451,7 @@ pub struct CodeOutput {
     pub code: InstructionList,
     pub constant_tracker: FieldTracker,
     pub string_table: HashMap<String, usize>,
+    pub ssa: SSANamesCollector
 }
 
 pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
@@ -1404,6 +1493,7 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         stack_depth: state.max_stack_depth,
         signal_depth: state.signal_stack,
         constant_tracker: state.field_tracker,
-        string_table : state.string_table
+        string_table : state.string_table,
+        ssa: state.ssa
     }
 }

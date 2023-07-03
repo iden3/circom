@@ -40,7 +40,7 @@ pub trait CircuitTransformationPass {
         Circuit {
             wasm_producer: circuit.wasm_producer.clone(),
             c_producer: circuit.c_producer.clone(),
-            llvm_data: LLVMCircuitData { field_tracking, io_map: circuit.llvm_data.io_map.clone() },
+            llvm_data: circuit.llvm_data.clone_with_new_field_tracking(field_tracking),
             templates,
             functions: circuit.functions.iter().map(|f| self.transform_function(f)).collect(),
         }

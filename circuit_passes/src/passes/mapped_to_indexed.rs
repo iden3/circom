@@ -21,14 +21,14 @@ pub struct MappedToIndexedPass {
 
 impl MappedToIndexedPass {
     pub fn new(prime: &String) -> Self {
-        MappedToIndexedPass { memory: PassMemory::new_cell(prime, "".to_string(), Default::default()), replacements: Default::default() }
+        MappedToIndexedPass { memory: PassMemory::new_cell(prime, "".to_string(), Default::default(), todo!(), todo!()), replacements: Default::default() }
     }
 
     fn transform_mapped_loc_to_indexed_loc(&self,
         cmp_address: &InstructionPointer, indexes: &Vec<InstructionPointer>, signal_code: usize, env: &Env) -> LocationRule {
 
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(&mem.current_scope, &mem.prime, &mem.constant_fields, self, &mem.io_map);
+        let interpreter = mem.build_interpreter(self);
 
         let (resolved_addr, acc_env) = interpreter.execute_instruction(cmp_address, env.clone(), false);
 
@@ -179,6 +179,6 @@ impl CircuitTransformationPass for MappedToIndexedPass {
     }
 
     fn pre_hook_template(&self, template: &TemplateCode) {
-        self.memory.borrow().run_template(self, template);
+        self.memory.borrow_mut().run_template(self, template);
     }
 }

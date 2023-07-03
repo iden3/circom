@@ -2,8 +2,11 @@ pub mod value;
 pub mod env;
 pub mod observer;
 
+use std::collections::HashMap;
+use std::ops::{Range, RangeInclusive};
 use code_producers::components::TemplateInstanceIOMap;
-use compiler::intermediate_representation::{Instruction, InstructionPointer};
+use code_producers::llvm_elements::IndexMapping;
+use compiler::intermediate_representation::{Instruction, InstructionList, InstructionPointer};
 use compiler::intermediate_representation::ir_interface::{AddressType, AssertBucket, BlockBucket, BranchBucket, CallBucket, ComputeBucket, ConstraintBucket, CreateCmpBucket, InputInformation, LoadBucket, LocationRule, LogBucket, LogBucketArg, LoopBucket, NopBucket, OperatorType, ReturnBucket, ReturnType, StatusInput, StoreBucket, ValueBucket, ValueType};
 use compiler::num_bigint::BigInt;
 use observer::InterpreterObserver;
@@ -18,7 +21,9 @@ pub struct BucketInterpreter<'a> {
     pub constant_fields: &'a Vec<String>,
     observer: &'a dyn InterpreterObserver,
     io_map: &'a TemplateInstanceIOMap,
-    p: Value
+    p: Value,
+    signal_index_mapping: &'a IndexMapping,
+    variables_index_mapping: &'a IndexMapping
 }
 
 pub type R<'a> = (Option<Value>, Env<'a>);
@@ -39,13 +44,16 @@ impl JoinSemiLattice for R<'_> {
     }
 }
 
+
 impl<'a> BucketInterpreter<'a> {
     pub fn init(
         scope: &'a String,
         prime: &'a String,
         constant_fields: &'a Vec<String>,
         observer: &'a dyn InterpreterObserver,
-        io_map: &'a TemplateInstanceIOMap
+        io_map: &'a TemplateInstanceIOMap,
+        signal_index_mapping: &'a IndexMapping,
+        variables_index_mapping: &'a IndexMapping
     ) -> Self {
         BucketInterpreter {
             scope,
@@ -53,12 +61,123 @@ impl<'a> BucketInterpreter<'a> {
             constant_fields,
             observer,
             io_map,
-            p: KnownBigInt(UsefulConstants::new(prime).get_p().clone())
+            p: KnownBigInt(UsefulConstants::new(prime).get_p().clone()),
+            signal_index_mapping,
+            variables_index_mapping
         }
     }
 
+    fn get_id_from_indexed_location(&self, location: &LocationRule, env: &Env) -> usize {
+        match location {
+            LocationRule::Indexed { location, .. } => {
+                let (idx, _) = self.execute_instruction(location, env.clone(), false);
+                idx.expect("LocationRule must produce a value!").get_u32()
+            }
+            LocationRule::Mapped { .. } => unreachable!()
+        }
+    }
+
+    fn get_write_operations_in_store_bucket(&self, bucket: &StoreBucket,
+                                            vars: &mut Vec<usize>,
+                                            signals: &mut Vec<usize>,
+                                            subcmps: &mut Vec<(usize, usize)>,
+                                            env: &Env) {
+        match bucket.dest_address_type {
+            AddressType::Variable => {
+                let idx = self.get_id_from_indexed_location(&bucket.dest, env);
+                let indices = self.variables_index_mapping[&idx].clone();
+                for index in indices {
+                    vars.push(index);
+                }
+            }
+            AddressType::Signal => {
+                let idx = self.get_id_from_indexed_location(&bucket.dest, env);
+                let indices = self.signal_index_mapping[&idx].clone();
+                for index in indices {
+                    signals.push(index);
+                }
+            }
+            AddressType::SubcmpSignal { .. } => {
+                todo!()
+            }
+        };
+        // 1. Evaluate what indexing are we doing here:
+        //    What index are we trying to write into?
+        //    What kind? Var, signal or subcmp signal
+        // 2. Get the name of the thing we are trying to write into
+        // 3. Get all the possible indices for that thing
+        // 4. For each index that correspond to a possible offset of the thing write it in the list
+    }
+
+    fn get_write_operations_in_inst_rec(
+        &self,
+        inst: &Instruction,
+        vars: &mut Vec<usize>,
+        signals: &mut Vec<usize>,
+        subcmps: &mut Vec<(usize, usize)>,
+        env: &Env
+    ) {
+        match inst {
+            Instruction::Value(_) => {} // Cannot write
+            Instruction::Load(_) => {} // Should not have a StoreBucket inside
+            Instruction::Store(bucket) => {
+                self.get_write_operations_in_store_bucket(bucket, vars, signals, subcmps, env)
+            }
+            Instruction::Compute(_) => {} // Should not have a StoreBucket inside
+            Instruction::Call(_) => {} // Should not have a StoreBucket as argument
+            Instruction::Branch(bucket) => {
+                self.get_write_operations_in_body_rec(&bucket.if_branch, vars, signals, subcmps, env);
+                self.get_write_operations_in_body_rec(&bucket.else_branch, vars, signals, subcmps, env);
+            }
+            Instruction::Return(_) => {} // Should not have a StoreBucket in the return expression
+            Instruction::Assert(_) => {} // Should not have a StoreBucket inside
+            Instruction::Log(_) => {} // Should not have a StoreBucket inside
+            Instruction::Loop(bucket) => {
+                self.get_write_operations_in_body_rec(&bucket.body, vars, signals, subcmps, env)
+            }
+            Instruction::CreateCmp(_) => {} // Should not have a StoreBucket inside
+            Instruction::Constraint(bucket) => {
+                self.get_write_operations_in_inst_rec(match bucket {
+                    ConstraintBucket::Substitution(i) => i,
+                    ConstraintBucket::Equality(i) => i
+                }, vars, signals, subcmps, env)
+            }
+            Instruction::Block(bucket) => {
+                self.get_write_operations_in_body_rec(&bucket.body, vars, signals, subcmps, env)
+            }
+            Instruction::Nop(_) => {} // Should not have a StoreBucket inside
+        }
+    }
+
+    fn get_write_operations_in_body_rec(
+        &self,
+        body: &InstructionList,
+        vars: &mut Vec<usize>,
+        signals: &mut Vec<usize>,
+        subcmps: &mut Vec<(usize, usize)>,
+        env: &Env
+    ) {
+        for inst in body {
+            self.get_write_operations_in_inst_rec(inst, vars, signals, subcmps, env);
+        }
+    }
+
+    /// Returns a triple with a list of indices for each
+    /// 0: Indices of variables
+    /// 1: Indices of signals
+    /// 2: Indices of subcmps
+    fn get_write_operations_in_body(&self, body: &InstructionList, env: &Env) -> (Vec<usize>, Vec<usize>, Vec<(usize, usize)>) {
+        let mut vars = vec![];
+        let mut signals = vec![];
+        let mut subcmps = vec![];
+
+        self.get_write_operations_in_body_rec(body, &mut vars, &mut signals, &mut subcmps, env);
+
+        return (vars, signals, subcmps);
+    }
+
     pub fn clone_in_new_scope(interpreter: &Self, new_scope: &'a String) -> BucketInterpreter<'a> {
-        Self::init(new_scope, interpreter.prime, interpreter.constant_fields, interpreter.observer, interpreter.io_map)
+        Self::init(new_scope, interpreter.prime, interpreter.constant_fields, interpreter.observer, interpreter.io_map, &interpreter.signal_index_mapping, &interpreter.variables_index_mapping)
     }
 
     pub fn execute_value_bucket<'env>(&self, bucket: &ValueBucket, env: Env<'env>, _observe: bool) -> R<'env> {
@@ -423,6 +542,8 @@ impl<'a> BucketInterpreter<'a> {
     //     }
     // }
 
+
+
     /// Executes the loop many times. If the result of the loop condition is unknown
     /// the interpreter assumes that the result of the loop is unknown.
     /// In this case of unknown condition the loop is executed twice.
@@ -449,13 +570,17 @@ impl<'a> BucketInterpreter<'a> {
             loop_env = new_env;
             match cond {
                 None => {
-                    let (value, _, loop_env) = self.execute_conditional_bucket(
-                        &bucket.continue_condition,
-                        &bucket.body,
-                        &[],
-                        loop_env,
-                        observe,
-                    );
+                    let (vars, signals, subcmps) = self.get_write_operations_in_body(&bucket.body, &loop_env);
+
+                    for var in vars {
+                        loop_env = loop_env.set_var(var, Unknown);
+                    }
+                    for signal in signals {
+                        loop_env = loop_env.set_signal(signal, Unknown);
+                    }
+                    for (subcmp_id, subcmp_signal) in subcmps {
+                        loop_env = loop_env.set_subcmp_signal(subcmp_id, subcmp_signal, Unknown);
+                    }
                     break (value, loop_env);
                 }
                 Some(false) => {

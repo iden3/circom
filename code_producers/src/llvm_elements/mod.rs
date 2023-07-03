@@ -1,5 +1,7 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::ops::Range;
 use std::rc::Rc;
 use ansi_term::Colour;
 
@@ -18,6 +20,7 @@ pub use inkwell::types::AnyType;
 use crate::components::TemplateInstanceIOMap;
 use crate::llvm_elements::instructions::create_alloca;
 pub use inkwell::values::{AnyValue, AnyValueEnum, InstructionOpcode};
+use program_structure::environment::VarEnvironment;
 
 pub mod stdlib;
 pub mod template;
@@ -49,10 +52,28 @@ pub trait LLVMIRProducer<'a> {
     fn get_template_mem_arg(&self, run_fn: FunctionValue<'a>) -> ArrayValue<'a>;
 }
 
+pub type IndexMapping = HashMap<usize, Range<usize>>;
+
+
 #[derive(Default, Eq, PartialEq, Debug)]
 pub struct LLVMCircuitData {
     pub field_tracking: Vec<String>,
-    pub io_map: TemplateInstanceIOMap
+    pub io_map: TemplateInstanceIOMap,
+    pub signal_index_mapping: HashMap<String, IndexMapping>,
+    pub variable_index_mapping: HashMap<String, IndexMapping>,
+    pub component_index_mapping: HashMap<String, IndexMapping>
+}
+
+impl LLVMCircuitData {
+    pub fn clone_with_new_field_tracking(&self, field_tracking: Vec<String>) -> Self {
+        LLVMCircuitData {
+            field_tracking,
+            io_map: self.io_map.clone(),
+            signal_index_mapping: self.signal_index_mapping.clone(),
+            variable_index_mapping: self.variable_index_mapping.clone(),
+            component_index_mapping: self.component_index_mapping.clone(),
+        }
+    }
 }
 
 pub struct TopLevelLLVMIRProducer<'a> {

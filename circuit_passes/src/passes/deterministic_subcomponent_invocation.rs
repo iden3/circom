@@ -26,7 +26,7 @@ pub struct DeterministicSubCmpInvokePass {
 impl DeterministicSubCmpInvokePass {
     pub fn new(prime: &String) -> Self {
         DeterministicSubCmpInvokePass {
-            memory: PassMemory::new_cell(prime, "".to_string(), Default::default()),
+            memory: PassMemory::new_cell(prime, "".to_string(), Default::default(), todo!(), todo!()),
             replacements: Default::default(),
         }
     }
@@ -44,7 +44,7 @@ impl InterpreterObserver for DeterministicSubCmpInvokePass {
     fn on_store_bucket(&self, bucket: &StoreBucket, env: &Env) -> bool {
         let env = env.clone();
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(&mem.current_scope, &mem.prime, &mem.constant_fields, self, &mem.io_map);
+        let interpreter = mem.build_interpreter(self);
         // If the address of the subcomponent input information is unk, then
         // If executing this store bucket would result in calling the subcomponent we replace it with Last
         //    Will result in calling if the counter is at one because after the execution it will be 0
@@ -128,7 +128,7 @@ impl CircuitTransformationPass for DeterministicSubCmpInvokePass {
     }
 
     fn pre_hook_template(&self, template: &TemplateCode) {
-        self.memory.borrow().run_template(self, template);
+        self.memory.borrow_mut().run_template(self, template);
     }
 
     fn get_updated_field_constants(&self) -> Vec<String> {

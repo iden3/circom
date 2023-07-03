@@ -23,7 +23,7 @@ pub struct ConditionalFlattening {
 impl ConditionalFlattening {
     pub fn new(prime: &String) -> Self {
         ConditionalFlattening {
-            memory: PassMemory::new_cell(prime, "".to_string(), Default::default()),
+            memory: PassMemory::new_cell(prime, "".to_string(), Default::default(), todo!(), todo!()),
             replacements: Default::default(),
         }
     }
@@ -80,7 +80,7 @@ impl InterpreterObserver for ConditionalFlattening {
 
     fn on_branch_bucket(&self, bucket: &BranchBucket, env: &Env) -> bool {
         let mem = self.memory.borrow();
-        let interpreter = BucketInterpreter::init(&mem.current_scope, &mem.prime, &mem.constant_fields, self, &mem.io_map);
+        let interpreter = mem.build_interpreter(self);
         let (_, cond_result, _) = interpreter.execute_conditional_bucket(
             &bucket.cond,
             &bucket.if_branch,
@@ -117,7 +117,7 @@ impl CircuitTransformationPass for ConditionalFlattening {
     }
 
     fn pre_hook_template(&self, template: &TemplateCode) {
-        self.memory.borrow().run_template(self, template);
+        self.memory.borrow_mut().run_template(self, template);
     }
 
     fn get_updated_field_constants(&self) -> Vec<String> {
