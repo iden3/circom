@@ -23,13 +23,13 @@ In this context, the most preferable NIZK proofs are **zk-SNARK** proofs (Zero-k
 
 ## Arithmetic circuits <a id="arithmetic-circuits"></a>
 
-Like most ZKPs, zk-SNARKs permits proving **computational statements**, but they cannot be applied to the computational problem directly, the statement first needs to be converted into the right form. Specifically, zk-SNARKs requires the computational statement to be modeled with an arithmetic circuit. Although it may not always be obvious how to do this conversion, most computational problems we care about can easily be converted into arithmetic circuits.
+Like most ZKPs, zk-SNARKs permit proving **computational statements**, but they cannot be applied to the computational problem directly, the statement first needs to be converted into the right form. Specifically, zk-SNARKs require the computational statement to be modeled with an arithmetic circuit. Although it may not always be obvious how to do this conversion, most computational problems we care about can easily be converted into arithmetic circuits.
 
 An **`F_p`-arithmetic circuit** is a circuit consisting of set of wires that carry values from the field `F_p` and connect them to addition and multiplication gates `modulo p`.
 
 👉 Remember that given a prime number `p`, the **finite field** **`F_p`** consists of the set of numbers `{0,...,p-1}`on which we can add and multiply these numbers modulo `p`.
 
-For example, the finite field `F_7` consists of the set of numbers `{0,...,6}`on which we can add and multiply numbers modulo `7`. An easy way to understand how operating modulo `7` works, is to **think of a clock of 7 hours** in which we do not care about how many times the hands have turned the clock, only what time they mark. In other words, we only care about the reminder of dividing by 7. For instance:
+For example, the finite field `F_7` consists of the set of numbers `{0,...,6}`on which we can add and multiply numbers modulo `7`. An easy way to understand how operating modulo `7` works, is to **think of a clock of 7 hours** in which we do not care about how many times the hands have turned the clock, only what time they mark. In other words, we only care about the remainder of dividing by 7. For instance:
 
 * `15 modulo 7 = 1`, since `15 = 7 + 7 + 1`
 * `7 modulo 7 = 0`
@@ -37,7 +37,7 @@ For example, the finite field `F_7` consists of the set of numbers `{0,...,6}`on
 
 ## Signals of a circuit <a id="signals-of-a-circuit"></a>
 
-So, an arithmetic circuit takes some **input signals** that are values between `0,...,p-1` and performs additions and multiplications between them modulo the prime `p`. The output of every addition and multiplication gate is considered an **intermediate signal**, except for the last gate of the circuit, the output of which**,** is the **output signal** of the circuit.
+So, an arithmetic circuit takes some **input signals** that are values between `0,...,p-1` and performs additions and multiplications between them modulo the prime `p`. The output of every addition and multiplication gate is considered an **intermediate signal**, except for the last gate of the circuit, the output of which is the **output signal** of the circuit.
 
 To generate and validate zk-SNARK proofs in **Ethereum**, we need to work with `F_p`-arithmetic circuits, taking the prime:
 
@@ -66,7 +66,7 @@ If we have an arithmetic circuit with signals `s_1,...,s_n`, then we define a **
 
 `(a_1*s_1 + ... + a_n*s_n) * (b_1*s_1 + ... + b_n*s_n) + (c_1*s_1 + ... + c_n*s_n) = 0`
 
-Note that constraint **must be quadratic, linear or constant equations**, and sometimes, by doing small modifications (like a change of variable or gathering two constraints), it is possible to reduce the number of constraints or variables. In general, circuits will have several constraints (typically, one per multiplicative gate). The set of constraints describing the circuit is called **rank-1 constraint system** (R1CS):
+Note that constraints **must be quadratic, linear or constant equations**, and sometimes, by doing small modifications (like a change of variable or gathering two constraints), it is possible to reduce the number of constraints or variables. In general, circuits will have several constraints (typically, one per multiplicative gate). The set of constraints describing the circuit is called **rank-1 constraint system** (R1CS):
 
 `(a_11*s_1 + ... + a_1n*s_n)*(b_11*s_1 + ... + b_1n*s_n) + (c_11*s_1 + ... + c_1n*s_n) = 0 `
 
@@ -95,11 +95,11 @@ The nice thing about circuits, is that although most **zero-knowledge protocols 
 
 👉 With `circom`, you design your own circuits with your own constraints, and the compiler outputs the R1CS representation that you will need for your zero-knowledge proof.
 
-Zero-knowledge permits proving **circuit satisfiability**. What this means is, that you can prove that you know a set of signals that satisfy the circuit, or in other words, that you know a solution to the R1CS. This set of signals is called **witness**.
+Zero-knowledge permits proving **circuit satisfiability**. What this means is, that you can prove that you know a set of signals that satisfy the circuit, or in other words, that you know a solution to the R1CS. This set of signals is called the **witness**.
 
 ## Witness <a id="witness"></a>
 
-Given a set of inputs, the calculation of the intermediate and output signals is pretty straightforward. So, given any set of inputs, we can always calculate the rest of signals. So, why should we talk about circuit satisfiability? The key aspect of zero-knowledge proofs, is that it allows you to compute these circuits without revealing information about the signals.
+Given a set of inputs, the calculation of the intermediate and output signals is pretty straightforward. So, given any set of inputs, we can always calculate the rest of the signals. So, why should we talk about circuit satisfiability? The key aspect of zero-knowledge proofs is that it allows you to compute these circuits without revealing information about the signals.
 
 For instance, imagine that in the previous circuit, the input `a` is a private key and the input `b` is the corresponding public key. You may be okay with revealing `b` but you certainly do not want to reveal `a`. If we define `a` as a private input, `b`, `c` as public inputs and `out` as a public output, with zero-knowledge we are able to prove, without revealing its value, that we know a private input `a` such that, for certain public values `b`, `c` and `out`, the equation `a*b + c = out mod 7` holds.
 
