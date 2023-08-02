@@ -15,8 +15,11 @@ fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis, prime: &String) ->
             let field = program_structure::constants::UsefulConstants::new(prime).get_p().clone();
             let empty_block = Box::new(Block { meta: meta.clone(), stmts: vec![] });
             let if_case_empty = clean_dead_code(if_case, analysis, prime);
-            let else_case_empty =
-                if let Some(case) = else_case { clean_dead_code(case, analysis, prime) } else { true };
+            let else_case_empty = if let Some(case) = else_case {
+                clean_dead_code(case, analysis, prime)
+            } else {
+                true
+            };
             if else_case_empty {
                 *else_case = None;
             }
@@ -90,7 +93,7 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
         }
         LogCall { args, .. } => {
             for arglog in args {
-                if let LogArgument::LogExp(arg) = arglog{
+                if let LogArgument::LogExp(arg) = arglog {
                     *arg = computed_or_original(analysis, arg);
                     apply_computed_expr(arg, analysis);
                 }
@@ -100,10 +103,10 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
             *arg = computed_or_original(analysis, arg);
             apply_computed_expr(arg, analysis);
         }
-        UnderscoreSubstitution {  rhe, .. } => {
+        UnderscoreSubstitution { rhe, .. } => {
             *rhe = computed_or_original(analysis, rhe);
             apply_computed_expr(rhe, analysis);
-        },
+        }
     }
 }
 
@@ -185,10 +188,12 @@ fn apply_computed_expr(expr: &mut Expression, analysis: &Analysis) {
             apply_computed_expr(value, analysis);
             apply_computed_expr(dimension, analysis);
         }
-        ParallelOp {rhe, .. } => {
+        ParallelOp { rhe, .. } => {
             *rhe = Box::new(computed_or_original(analysis, rhe));
             apply_computed_expr(rhe, analysis);
         }
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }

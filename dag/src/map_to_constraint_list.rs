@@ -13,7 +13,7 @@ fn map_tree(
     tree: &Tree,
     witness: &mut Vec<usize>,
     c_holder: &mut CHolder,
-    forbidden: &mut HashSet<usize>
+    forbidden: &mut HashSet<usize>,
 ) -> usize {
     let mut no_constraints = 0;
 

@@ -40,7 +40,7 @@ fn infer_type_stmt(stmt: &Statement, state: &State, context: &mut SearchInfo) ->
         Option::None
     } else if stmt.is_assert() {
         Option::None
-    } else{
+    } else {
         unreachable!()
     }
 }
@@ -141,7 +141,7 @@ fn infer_type_expresion(expr: &Expression, state: &State, context: &mut SearchIn
         Option::Some(VCT::with_capacity(0))
     } else if expr.is_prefix() {
         Option::Some(VCT::with_capacity(0))
-    } else if expr.is_parallel(){
+    } else if expr.is_parallel() {
         infer_type_parallel(expr, state, context)
     } else if expr.is_number() {
         Option::Some(VCT::with_capacity(0))

@@ -4,13 +4,13 @@ use program_structure::error_definition::{Report, ReportCollection};
 
 pub fn custom_gate_analysis(
     custom_gate_name: &str,
-    custom_gate_body: &Statement
+    custom_gate_body: &Statement,
 ) -> Result<ReportCollection, ReportCollection> {
     fn custom_gate_analysis(
         custom_gate_name: &str,
         stmt: &Statement,
         errors: &mut ReportCollection,
-        warnings: &mut ReportCollection
+        warnings: &mut ReportCollection,
     ) {
         use Statement::*;
         match stmt {
@@ -34,32 +34,30 @@ pub fn custom_gate_analysis(
                     Signal(SignalType::Intermediate, _) => {
                         let mut warning = Report::warning(
                             String::from("Intermediate signal inside custom template"),
-                            ReportCode::CustomGateIntermediateSignalWarning
+                            ReportCode::CustomGateIntermediateSignalWarning,
                         );
                         warning.add_primary(
                             meta.location.clone(),
                             meta.file_id.unwrap(),
                             format!(
                                 "Intermediate signal {} declared in custom template {}",
-                                name,
-                                custom_gate_name
-                            )
+                                name, custom_gate_name
+                            ),
                         );
                         warnings.push(warning);
                     }
                     Component | AnonymousComponent => {
                         let mut error = Report::error(
                             String::from("Component inside custom template"),
-                            ReportCode::CustomGateSubComponentError
+                            ReportCode::CustomGateSubComponentError,
                         );
                         error.add_primary(
                             meta.location.clone(),
                             meta.file_id.unwrap(),
                             format!(
                                 "Component {} declared in custom template {}",
-                                name,
-                                custom_gate_name
-                            )
+                                name, custom_gate_name
+                            ),
                         );
                         errors.push(error);
                     }
@@ -72,12 +70,12 @@ pub fn custom_gate_analysis(
                     AssignConstraintSignal => {
                         let mut error = Report::error(
                             String::from("Added constraint inside custom template"),
-                            ReportCode::CustomGateConstraintError
+                            ReportCode::CustomGateConstraintError,
                         );
                         error.add_primary(
                             meta.location.clone(),
                             meta.file_id.unwrap(),
-                            String::from("Added constraint")
+                            String::from("Added constraint"),
                         );
                         errors.push(error);
                     }
@@ -87,12 +85,12 @@ pub fn custom_gate_analysis(
             ConstraintEquality { meta, .. } => {
                 let mut error = Report::error(
                     String::from("Added constraint inside custom template"),
-                    ReportCode::CustomGateConstraintError
+                    ReportCode::CustomGateConstraintError,
                 );
                 error.add_primary(
                     meta.location.clone(),
                     meta.file_id.unwrap(),
-                    String::from("Added constraint")
+                    String::from("Added constraint"),
                 );
                 errors.push(error);
             }
@@ -107,12 +105,12 @@ pub fn custom_gate_analysis(
                     AssignConstraintSignal => {
                         let mut error = Report::error(
                             String::from("Added constraint inside custom template"),
-                            ReportCode::CustomGateConstraintError
+                            ReportCode::CustomGateConstraintError,
                         );
                         error.add_primary(
                             meta.location.clone(),
                             meta.file_id.unwrap(),
-                            String::from("Added constraint")
+                            String::from("Added constraint"),
                         );
                         errors.push(error);
                     }

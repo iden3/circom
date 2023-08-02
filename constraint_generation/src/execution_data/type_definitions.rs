@@ -3,7 +3,6 @@ use super::Constraint as ConstraintGen;
 use std::collections::BTreeMap;
 use num_bigint_dig::BigInt;
 
-
 pub type NodePointer = usize;
 pub type Constraint = ConstraintGen<String>;
 pub type ParameterContext = BTreeMap<String, AExpressionSlice>;

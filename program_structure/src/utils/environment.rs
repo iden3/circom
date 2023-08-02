@@ -234,7 +234,7 @@ where
         assert!(self.has_component(symbol), "Method call in file {} line {}", file, line);
         self.components.get_mut(symbol).unwrap()
     }
-    pub fn get_components_ref(&self)-> &HashMap<String, CC>{
+    pub fn get_components_ref(&self) -> &HashMap<String, CC> {
         &self.components
     }
 }

@@ -68,23 +68,23 @@ pub fn prefix_sub(elem: &BigInt, field: &BigInt) -> BigInt {
     mul(elem, &minus_one, field)
 }
 
-pub fn multi_inv(values: &Vec<BigInt>, field: &BigInt) -> Vec<BigInt>{
-    let one : BigInt = BigInt::from(1);
-    let mut partials : Vec<BigInt> = Vec::new();
+pub fn multi_inv(values: &Vec<BigInt>, field: &BigInt) -> Vec<BigInt> {
+    let one: BigInt = BigInt::from(1);
+    let mut partials: Vec<BigInt> = Vec::new();
     partials.push(one.clone());
-    for i in 0..values.len(){
-        partials.push(mul(partials.get(partials.len()-1).unwrap(),
-                                          values.get(i).unwrap(),
-                                          &field));
+    for i in 0..values.len() {
+        partials.push(mul(
+            partials.get(partials.len() - 1).unwrap(),
+            values.get(i).unwrap(),
+            &field,
+        ));
     }
-    let mut inverse = div(&one,
-                   partials.get(partials.len()-1).unwrap(),
-                   &field).ok().unwrap();
-    let mut outputs : Vec<BigInt> = vec![BigInt::from(0); partials.len()];
+    let mut inverse = div(&one, partials.get(partials.len() - 1).unwrap(), &field).ok().unwrap();
+    let mut outputs: Vec<BigInt> = vec![BigInt::from(0); partials.len()];
     let mut i = values.len();
-    while i > 0{
-        outputs[i-1] = mul(partials.get(i-1).unwrap(), &inverse, &field);
-        inverse = mul(&inverse, values.get(i-1).unwrap(), &field);
+    while i > 0 {
+        outputs[i - 1] = mul(partials.get(i - 1).unwrap(), &inverse, &field);
+        inverse = mul(&inverse, values.get(i - 1).unwrap(), &field);
         i = i - 1;
     }
     return outputs;

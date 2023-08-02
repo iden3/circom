@@ -67,7 +67,7 @@ pub struct Trigger {
 #[derive(Clone)]
 pub enum ClusterType {
     Mixed { tmp_name: String },
-    Uniform { offset_jump: usize, component_offset_jump:usize, instance_id: usize, header: String },
+    Uniform { offset_jump: usize, component_offset_jump: usize, instance_id: usize, header: String },
 }
 #[derive(Clone)]
 pub struct TriggerCluster {
