@@ -56,7 +56,7 @@ pub struct WASMProducer {
     create_loop_offset_tag: String,
     create_loop_counter_tag: String,
     merror_tag: String,
-    string_table:  Vec<String>,
+    string_table: Vec<String>,
 }
 
 impl Default for WASMProducer {
@@ -77,7 +77,7 @@ impl Default for WASMProducer {
             number_of_main_outputs: 0, //2,
             number_of_main_inputs: 0,  // 4,
             main_input_list: [("in1".to_string(), 1, 1), ("in2".to_string(), 2, 1)].to_vec(), //("inpair".to_string(),2),
-            signals_in_witness: 0,                                                      //20,
+            signals_in_witness: 0,                                                            //20,
             witness_to_signal_list: [].to_vec(), //[0,1,2,3,4,5,6,12,16,19,24,27,33,42,46,50,51,65,78,79].to_vec(),
             message_list: [].to_vec(), //["Main".to_string(),"Hola Herme".to_string(),"Hola Albert".to_string()].to_vec(),
             total_number_of_signals: 0, //80,
@@ -117,7 +117,7 @@ impl Default for WASMProducer {
             create_loop_sub_cmp_tag: "$createloopsubcmp".to_string(),
             create_loop_offset_tag: "$createloopoffset".to_string(),
             create_loop_counter_tag: "$createloopcounter".to_string(),
-	        merror_tag: "$merror".to_string(),
+            merror_tag: "$merror".to_string(),
             string_table: Vec::new(),
         }
     }
@@ -324,7 +324,7 @@ impl WASMProducer {
     pub fn get_constant_numbers_start(&self) -> usize {
         self.get_string_list_start() + self.size_of_message_in_bytes * self.string_table.len()
     }
-    
+
     pub fn get_var_stack_memory_start(&self) -> usize {
         self.get_constant_numbers_start() + (self.size_32_bit + 2) * 4 * self.field_tracking.len()
     }
@@ -401,9 +401,9 @@ impl WASMProducer {
         &self.create_loop_counter_tag
     }
     pub fn get_merror_tag(&self) -> &str {
-	&self.merror_tag
+        &self.merror_tag
     }
-    pub fn needs_comments(&self) -> bool{
+    pub fn needs_comments(&self) -> bool {
         self.wat_flag
     }
 

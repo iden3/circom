@@ -98,10 +98,9 @@ impl CheckCompute for Instruction {
     fn has_compute_in(&self) -> bool {
         use Instruction::*;
         match self {
-	    Load(_v) => {true
-	    },
-	    Compute(_) => true,
-	    _ => false,
+            Load(_v) => true,
+            Compute(_) => true,
+            _ => false,
         }
     }
 }

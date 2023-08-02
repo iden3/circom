@@ -42,7 +42,7 @@ impl FileStack {
                 }
             }
         }
-        Result::Err( produce_report_with_message(ReportCode::IncludeNotFound, name))
+        Result::Err(produce_report_with_message(ReportCode::IncludeNotFound, name))
     }
 
     pub fn take_next(f_stack: &mut FileStack) -> Option<PathBuf> {
@@ -91,7 +91,7 @@ impl IncludesGraph {
         let mut crr = PathBuf::new();
         crr.push(old_path.clone());
         let path = std::fs::canonicalize(crr)
-            .map_err(|_e| produce_report_with_message(ReportCode::FileOs,old_path))?;
+            .map_err(|_e| produce_report_with_message(ReportCode::FileOs, old_path))?;
         let edges = self.adjacency.entry(path).or_insert(vec![]);
         edges.push(self.nodes.len() - 1);
         Ok(())

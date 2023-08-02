@@ -10,7 +10,7 @@ pub struct IODef {
 // It is an array that contains (name, start position, size)
 pub type InputList = Vec<(String, usize, usize)>;
 pub type TemplateList = Vec<String>;
-pub struct InfoParallel{
+pub struct InfoParallel {
     pub name: String,
     pub is_parallel: bool,
     pub is_not_parallel: bool,

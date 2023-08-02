@@ -29,14 +29,8 @@ pub fn build_inline_switch_op(
     }
 }
 
-pub fn build_parallel_op(
-    meta: Meta,
-    rhe: Expression,
-)-> Expression {
-    ParallelOp{
-        meta,
-        rhe: Box::new(rhe),
-    }
+pub fn build_parallel_op(meta: Meta, rhe: Expression) -> Expression {
+    ParallelOp { meta, rhe: Box::new(rhe) }
 }
 
 pub fn build_variable(meta: Meta, name: String, access: Vec<Access>) -> Expression {
@@ -51,7 +45,14 @@ pub fn build_call(meta: Meta, id: String, args: Vec<Expression>) -> Expression {
     Call { meta, id, args }
 }
 
-pub fn build_anonymous_component(meta: Meta, id: String, params: Vec<Expression>, signals: Vec<Expression>, names: Option<Vec<(AssignOp, String)>>, is_parallel: bool) -> Expression {
+pub fn build_anonymous_component(
+    meta: Meta,
+    id: String,
+    params: Vec<Expression>,
+    signals: Vec<Expression>,
+    names: Option<Vec<(AssignOp, String)>>,
+    is_parallel: bool,
+) -> Expression {
     AnonymousComp { meta, id, params, signals, names, is_parallel }
 }
 pub fn build_array_in_line(meta: Meta, values: Vec<Expression>) -> Expression {
@@ -66,10 +67,12 @@ pub fn build_uniform_array(meta: Meta, value: Expression, dimension: Expression)
     UniformArray { meta, value: Box::new(value), dimension: Box::new(dimension) }
 }
 
-pub fn unzip_3(vec : Vec<(String, AssignOp, Expression)>) -> (Vec<(AssignOp, String)>, Vec<Expression>){
+pub fn unzip_3(
+    vec: Vec<(String, AssignOp, Expression)>,
+) -> (Vec<(AssignOp, String)>, Vec<Expression>) {
     let mut op_name = Vec::new();
     let mut exprs = Vec::new();
-    for i in vec{
+    for i in vec {
         op_name.push((i.1, i.0));
         exprs.push(i.2);
     }

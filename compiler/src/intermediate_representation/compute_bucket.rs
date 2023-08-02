@@ -43,7 +43,7 @@ impl OperatorType {
     pub fn is_multiple_eq(&self) -> bool {
         match self {
             OperatorType::Eq(n) => *n > 1,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -51,39 +51,39 @@ impl OperatorType {
 impl ToString for OperatorType {
     fn to_string(&self) -> String {
         use OperatorType::*;
-	if let Eq(n) = self {
-	    format!("EQ({})", n)
-	} else {
-        match self {
-            Mul => "MUL",
-            Div => "DIV",
-            Add => "ADD",
-            Sub => "SUB",
-            Pow => "POW",
-            IntDiv => "INT_DIV",
-            Mod => "MOD",
-            ShiftL => "SHIFT_L",
-            ShiftR => "SHIFT_R",
-            LesserEq => "LESSER_EQ",
-            GreaterEq => "GREATER_EQ",
-            Lesser => "LESSER",
-            Greater => "GREATER",
-            NotEq => "NOT_EQ",
-            BoolOr => "BOOL_OR",
-            BoolAnd => "BOOL_AND",
-            BitOr => "BITOR",
-            BitAnd => "BITAND",
-            BitXor => "BITXOR",
-            PrefixSub => "PREFIX_SUB",
-            BoolNot => "BOOL_NOT",
-            Complement => "COMPLEMENT",
-            ToAddress => "TO_ADDRESS",
-            MulAddress => "MUL_ADDRESS",
-            AddAddress => "ADD_ADDRESS",
-	    _ => "",
+        if let Eq(n) = self {
+            format!("EQ({})", n)
+        } else {
+            match self {
+                Mul => "MUL",
+                Div => "DIV",
+                Add => "ADD",
+                Sub => "SUB",
+                Pow => "POW",
+                IntDiv => "INT_DIV",
+                Mod => "MOD",
+                ShiftL => "SHIFT_L",
+                ShiftR => "SHIFT_R",
+                LesserEq => "LESSER_EQ",
+                GreaterEq => "GREATER_EQ",
+                Lesser => "LESSER",
+                Greater => "GREATER",
+                NotEq => "NOT_EQ",
+                BoolOr => "BOOL_OR",
+                BoolAnd => "BOOL_AND",
+                BitOr => "BITOR",
+                BitAnd => "BITAND",
+                BitXor => "BITXOR",
+                PrefixSub => "PREFIX_SUB",
+                BoolNot => "BOOL_NOT",
+                Complement => "COMPLEMENT",
+                ToAddress => "TO_ADDRESS",
+                MulAddress => "MUL_ADDRESS",
+                AddAddress => "ADD_ADDRESS",
+                _ => "",
+            }
+            .to_string()
         }
-        .to_string()
-	}
     }
 }
 
@@ -139,7 +139,7 @@ impl WriteWasm for ComputeBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; compute bucket".to_string());
-	}
+        }
         match &self.op {
             OperatorType::AddAddress => {}
             OperatorType::MulAddress => {}
@@ -158,7 +158,7 @@ impl WriteWasm for ComputeBucket {
         }
         if producer.needs_comments() {
             instructions.push(format!(";; OP({})", self.op.to_string()));
-	}
+        }
         match &self.op {
             OperatorType::AddAddress => {
                 instructions.push(add32());
@@ -211,13 +211,13 @@ impl WriteWasm for ComputeBucket {
                         instructions.push(call("$Fr_gt"));
                     }
                     OperatorType::Eq(n) => {
-			assert!(n != 0);
-			if n == 1 {
+                        assert!(n != 0);
+                        if n == 1 {
                             instructions.push(call("$Fr_eq"));
                         } else {
                             instructions.push(set_local(producer.get_aux_2_tag()));
-			    instructions.push(set_local(producer.get_aux_1_tag()));
-			    instructions.push(set_local(producer.get_aux_0_tag()));
+                            instructions.push(set_local(producer.get_aux_1_tag()));
+                            instructions.push(set_local(producer.get_aux_0_tag()));
                             instructions.push(set_constant(&n.to_string()));
                             instructions.push(set_local(producer.get_counter_tag()));
                             instructions.push(add_block());
@@ -229,7 +229,7 @@ impl WriteWasm for ComputeBucket {
                             instructions.push(get_local(producer.get_aux_0_tag()));
                             instructions.push(call("$Fr_isTrue"));
                             instructions.push(eqz32());
-			    instructions.push(br_if("1"));
+                            instructions.push(br_if("1"));
                             instructions.push(get_local(producer.get_counter_tag()));
                             instructions.push(set_constant("1"));
                             instructions.push(sub32());
@@ -287,7 +287,7 @@ impl WriteWasm for ComputeBucket {
         }
         if producer.needs_comments() {
             instructions.push(";; end of compute bucket".to_string());
-	}
+        }
         instructions
     }
 }
@@ -351,24 +351,34 @@ impl WriteC for ComputeBucket {
                 let mut arguments = vec![result_ref.clone()];
                 let operands_copy = operands.clone();
                 arguments.append(&mut operands);
-                compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+                compute_c.push(format!(
+                    "{}; // line circom {}",
+                    build_call(operator.clone(), arguments),
+                    self.line.to_string()
+                ));
                 if *n > 1 {
                     compute_c.push(format!("{} = 1;", index_multiple_eq()));
-                    compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), n, result_ref));
+                    compute_c.push(format!(
+                        "while({} < {} && Fr_isTrue({})) {{",
+                        index_multiple_eq(),
+                        n,
+                        result_ref
+                    ));
                     operands = vec![];
                     arguments = vec![result_ref.clone()];
                     for operand in &operands_copy {
                         operands.push(format!("{} + {}", operand, index_multiple_eq()));
                     }
                     arguments.append(&mut operands);
-                    compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+                    compute_c.push(format!(
+                        "{}; // line circom {}",
+                        build_call(operator.clone(), arguments),
+                        self.line.to_string()
+                    ));
                     compute_c.push(format!("{}++;", index_multiple_eq()));
                     compute_c.push(format!("}}"));
-                    
                 }
                 result = result_ref;
-
-                
             }
 
             _ => {
@@ -378,13 +388,17 @@ impl WriteC for ComputeBucket {
                 let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
                 let mut arguments = vec![result_ref.clone()];
                 arguments.append(&mut operands);
-                compute_c.push(format!("{}; // line circom {}", build_call(operator, arguments),self.line.to_string()));
+                compute_c.push(format!(
+                    "{}; // line circom {}",
+                    build_call(operator, arguments),
+                    self.line.to_string()
+                ));
 
                 //value address
                 result = result_ref;
             }
         }
-	//compute_c.push(format!("// end of compute with result {}",result));
+        //compute_c.push(format!("// end of compute with result {}",result));
         (compute_c, result)
     }
 }

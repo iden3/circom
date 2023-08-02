@@ -126,7 +126,7 @@ impl CProducer {
         &self.prime
     }
     pub fn get_number_of_main_outputs(&self) -> usize {
-        self.number_of_main_outputs+1
+        self.number_of_main_outputs + 1
     }
     pub fn get_number_of_main_inputs(&self) -> usize {
         self.number_of_main_inputs

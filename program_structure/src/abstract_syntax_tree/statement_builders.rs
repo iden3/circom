@@ -57,8 +57,12 @@ pub fn build_log_call(meta: Meta, args: Vec<LogArgument>) -> Statement {
     let mut new_args = Vec::new();
     for arg in args {
         match arg {
-            LogArgument::LogExp(..) => { new_args.push(arg);}
-            LogArgument::LogStr(str) => { new_args.append(&mut split_string(str));}
+            LogArgument::LogExp(..) => {
+                new_args.push(arg);
+            }
+            LogArgument::LogStr(str) => {
+                new_args.append(&mut split_string(str));
+            }
         }
     }
     LogCall { meta, args: new_args }
@@ -80,10 +84,20 @@ pub fn build_assert(meta: Meta, arg: Expression) -> Statement {
     Assert { meta, arg }
 }
 
-pub fn build_mult_substitution(meta: Meta, lhe: Expression, op : AssignOp, rhe: Expression) -> Statement {
+pub fn build_mult_substitution(
+    meta: Meta,
+    lhe: Expression,
+    op: AssignOp,
+    rhe: Expression,
+) -> Statement {
     MultSubstitution { meta: meta.clone(), lhe, op, rhe }
 }
 
 pub fn build_anonymous_component_statement(meta: Meta, arg: Expression) -> Statement {
-    MultSubstitution { meta: meta.clone(), lhe: crate::expression_builders::build_tuple(meta, Vec::new()), op: AssignOp::AssignConstraintSignal, rhe: arg }
+    MultSubstitution {
+        meta: meta.clone(),
+        lhe: crate::expression_builders::build_tuple(meta, Vec::new()),
+        op: AssignOp::AssignConstraintSignal,
+        rhe: arg,
+    }
 }

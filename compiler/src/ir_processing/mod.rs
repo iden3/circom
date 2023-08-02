@@ -20,7 +20,6 @@ pub fn set_arena_size_in_calls(
     set_arena_size::visit_list(code, function_to_arena_size);
 }
 
-pub fn build_inputs_info(code: &mut InstructionList){
-    build_inputs_info::visit_list(code, &mut HashSet::new(), &mut HashSet::new(),false, false);
+pub fn build_inputs_info(code: &mut InstructionList) {
+    build_inputs_info::visit_list(code, &mut HashSet::new(), &mut HashSet::new(), false, false);
 }
-

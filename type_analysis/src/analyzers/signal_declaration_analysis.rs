@@ -41,7 +41,7 @@ fn treat_statement(
             }
         }
         InitializationBlock { meta, xtype, .. } => match xtype {
-            VariableType::Signal(_, _) | VariableType::Component  => {
+            VariableType::Signal(_, _) | VariableType::Component => {
                 if !signal_declaration_allowed {
                     let mut report = Report::error(
                         "Signal or component declaration inside While scope. Signal and component can only be defined in the initial scope or in If scopes with known condition".to_string(),

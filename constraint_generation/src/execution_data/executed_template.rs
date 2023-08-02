@@ -8,7 +8,6 @@ use std::collections::{HashMap, HashSet};
 use crate::execution_data::AExpressionSlice;
 use crate::execution_data::TagInfo;
 
-
 struct Connexion {
     full_name: String,
     inspect: SubComponentData,
@@ -24,7 +23,7 @@ pub struct PreExecutedTemplate {
     pub parameter_instances: Vec<AExpressionSlice>,
     pub inputs: HashMap<String, HashSet<String>>,
     pub outputs: HashMap<String, HashSet<String>>,
-} 
+}
 
 impl PreExecutedTemplate {
     pub fn new(
@@ -33,19 +32,14 @@ impl PreExecutedTemplate {
         inputs: HashMap<String, HashSet<String>>,
         outputs: HashMap<String, HashSet<String>>,
     ) -> PreExecutedTemplate {
-        PreExecutedTemplate {
-            template_name: name,
-            parameter_instances: instance,
-            inputs,
-            outputs,
-        }
+        PreExecutedTemplate { template_name: name, parameter_instances: instance, inputs, outputs }
     }
 
     pub fn template_name(&self) -> &String {
         &self.template_name
     }
 
-    pub fn parameter_instances(&self) -> &Vec<AExpressionSlice>{
+    pub fn parameter_instances(&self) -> &Vec<AExpressionSlice> {
         &self.parameter_instances
     }
 
@@ -57,8 +51,6 @@ impl PreExecutedTemplate {
         &self.outputs
     }
 }
-
-
 
 pub struct ExecutedTemplate {
     pub code: Statement,
@@ -91,7 +83,7 @@ impl ExecutedTemplate {
         tag_instances: TagContext,
         code: Statement,
         is_parallel: bool,
-        is_custom_gate: bool
+        is_custom_gate: bool,
     ) -> ExecutedTemplate {
         let public_inputs: HashSet<_> = public.iter().cloned().collect();
         ExecutedTemplate {
@@ -117,16 +109,27 @@ impl ExecutedTemplate {
         }
     }
 
-    pub fn is_equal(&self, name: &str, context: &ParameterContext, tag_context: &TagContext) -> bool {
-        self.template_name == name 
+    pub fn is_equal(
+        &self,
+        name: &str,
+        context: &ParameterContext,
+        tag_context: &TagContext,
+    ) -> bool {
+        self.template_name == name
             && self.parameter_instances == *context
             && self.tag_instances == *tag_context
     }
 
     pub fn add_arrow(&mut self, component_name: String, data: SubComponentData) {
-        let cnn =
-            Connexion { full_name: component_name, inspect: data, dag_offset: 0, dag_component_offset: 0, dag_jump: 0, dag_component_jump: 0};
-            self.connexions.push(cnn);
+        let cnn = Connexion {
+            full_name: component_name,
+            inspect: data,
+            dag_offset: 0,
+            dag_component_offset: 0,
+            dag_jump: 0,
+            dag_component_jump: 0,
+        };
+        self.connexions.push(cnn);
     }
 
     pub fn add_input(&mut self, input_name: &str, dimensions: &[usize]) {
@@ -151,7 +154,11 @@ impl ExecutedTemplate {
                 let mut index = 0;
                 while index < dimensions[current] {
                     let new_name = format!("{}[{}]", symbol_name, index);
-                    generated_symbols.append(&mut generate_symbols(new_name, current + 1, dimensions));
+                    generated_symbols.append(&mut generate_symbols(
+                        new_name,
+                        current + 1,
+                        dimensions,
+                    ));
                     index += 1;
                 }
                 generated_symbols
@@ -162,9 +169,9 @@ impl ExecutedTemplate {
         }
     }
 
-    pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>){
+    pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>) {
         let tags_signal = self.signal_to_tags.get_mut(signal_name);
-        if tags_signal.is_none(){
+        if tags_signal.is_none() {
             let mut new_tags_signal = TagInfo::new();
             new_tags_signal.insert(tag_name.to_string(), value);
             self.signal_to_tags.insert(signal_name.to_string(), new_tags_signal);
@@ -227,7 +234,7 @@ impl ExecutedTemplate {
             parameters,
             self.ordered_signals.clone(), // pensar si calcularlo en este momento para no hacer clone
             self.is_parallel,
-            self.is_custom_gate
+            self.is_custom_gate,
         );
         self.build_signals(dag);
         self.build_connexions(dag);
@@ -279,19 +286,19 @@ impl ExecutedTemplate {
             cnn.dag_component_offset = dag.get_entry().unwrap().get_out_component();
             dag.add_edge(cnn.inspect.goes_to, &cnn.full_name, cnn.inspect.is_parallel);
             cnn.dag_jump = dag.get_entry().unwrap().get_out() - cnn.dag_offset;
-            cnn.dag_component_jump = dag.get_entry().unwrap().get_out_component() - cnn.dag_component_offset;
+            cnn.dag_component_jump =
+                dag.get_entry().unwrap().get_out_component() - cnn.dag_component_offset;
         }
         self.has_parallel_sub_cmp = dag.nodes[dag.main_id()].has_parallel_sub_cmp();
         dag.set_number_of_subcomponents_indexes(self.number_of_components);
     }
     fn build_constraints(&self, dag: &mut DAG) {
-        
         for c in &self.constraints {
             let correspondence = dag.get_main().unwrap().correspondence();
             let cc = Constraint::apply_correspondence(c, correspondence);
             dag.add_constraint(cc);
         }
-        for s in &self.underscored_signals{
+        for s in &self.underscored_signals {
             let correspondence = dag.get_main().unwrap().correspondence();
             let new_s = correspondence.get(s).unwrap().clone();
             dag.add_underscored_signal(new_s);
@@ -359,7 +366,7 @@ impl ExecutedTemplate {
             has_parallel_sub_cmp: self.has_parallel_sub_cmp,
             code: self.code,
             name: self.template_name,
-            number_of_components : self.number_of_components,
+            number_of_components: self.number_of_components,
             signals_to_tags: self.signal_to_tags,
         };
 
@@ -377,25 +384,25 @@ impl ExecutedTemplate {
         let mut local_id = 0;
         let mut dag_local_id = 1;
         for (name, lengths) in self.outputs {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Output};
+            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Output };
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
         for (name, lengths) in public {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input};
+            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input };
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
         for (name, lengths) in not_public {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input};
+            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input };
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
         for (name, lengths) in self.intermediates {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Intermediate};
+            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Intermediate };
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
@@ -535,13 +542,18 @@ fn build_clusters(tmp: &ExecutedTemplate, instances: &[TemplateInstance]) -> Vec
                 end += 1;
             }
         }
-        
+
         let cluster = TriggerCluster {
             slice: start..end,
             length: end - start,
             defined_positions: defined_positions,
             cmp_name: cnn_data.name.clone(),
-            xtype: ClusterType::Uniform { offset_jump, component_offset_jump, instance_id, header: sub_cmp_header },
+            xtype: ClusterType::Uniform {
+                offset_jump,
+                component_offset_jump,
+                instance_id,
+                header: sub_cmp_header,
+            },
         };
         cmp_data.insert(cnn_data.name.clone(), cluster);
         index = end;

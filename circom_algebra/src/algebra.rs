@@ -234,12 +234,12 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
         field: &BigInt,
     ) -> Result<(), ArithmeticError> {
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
-        let inverse_constant = modular_arithmetic::div(
-            &BigInt::from(1),
-            constant,
-            &field
-        )?;
-        ArithmeticExpression::multiply_coefficients_by_constant(&inverse_constant, coefficients, field);
+        let inverse_constant = modular_arithmetic::div(&BigInt::from(1), constant, &field)?;
+        ArithmeticExpression::multiply_coefficients_by_constant(
+            &inverse_constant,
+            coefficients,
+            field,
+        );
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
         Result::Ok(())
     }
@@ -534,12 +534,12 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 let value = modular_arithmetic::pow(value_0, value_1, field);
                 Number { value }
             }
-            (Signal { symbol }, Number { value }) if *value == BigInt::from(2) => {      
+            (Signal { symbol }, Number { value }) if *value == BigInt::from(2) => {
                 let left = Signal { symbol: symbol.clone() };
                 let right = Signal { symbol: symbol.clone() };
                 ArithmeticExpression::mul(&left, &right, field)
             }
-            (Linear { coefficients }, Number {value}) if *value == BigInt::from(2) => {
+            (Linear { coefficients }, Number { value }) if *value == BigInt::from(2) => {
                 let left = Linear { coefficients: coefficients.clone() };
                 let right = Linear { coefficients: coefficients.clone() };
                 ArithmeticExpression::mul(&left, &right, field)
@@ -763,8 +763,8 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
         use ArithmeticExpression::*;
         match expr {
             Linear { coefficients } => {
-               raw_substitution(coefficients, substitution, field);
-               *coefficients = remove_zero_value_coefficients(std::mem::take(coefficients));
+                raw_substitution(coefficients, substitution, field);
+                *coefficients = remove_zero_value_coefficients(std::mem::take(coefficients));
             }
             Signal { symbol } if *symbol == substitution.from => {
                 *expr = Linear { coefficients: substitution.to.clone() };
@@ -1071,8 +1071,9 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
     ) -> (BigInt, Substitution<C>) {
         debug_assert!(Constraint::is_linear(&constraint));
         debug_assert!(constraint.c.contains_key(signal));
-        let (coefficient, raw_expression) = Constraint::clear_signal_not_normalized(constraint.c, &signal, field);
-        (coefficient, Substitution {from: signal.clone(), to: raw_expression})
+        let (coefficient, raw_expression) =
+            Constraint::clear_signal_not_normalized(constraint.c, &signal, field);
+        (coefficient, Substitution { from: signal.clone(), to: raw_expression })
     }
 
     pub fn take_cloned_signals(&self) -> HashSet<C> {
@@ -1185,14 +1186,15 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         signal_equals_constant(&self.a, &self.b, &self.c)
     }
 
-    pub fn into_arithmetic_expressions(self) -> (ArithmeticExpression<C>, ArithmeticExpression<C>, ArithmeticExpression<C>) {
+    pub fn into_arithmetic_expressions(
+        self,
+    ) -> (ArithmeticExpression<C>, ArithmeticExpression<C>, ArithmeticExpression<C>) {
         (
             ArithmeticExpression::Linear { coefficients: self.a },
             ArithmeticExpression::Linear { coefficients: self.b },
-            ArithmeticExpression::Linear { coefficients: self.c }
+            ArithmeticExpression::Linear { coefficients: self.c },
         )
     }
-
 }
 
 impl<C: Default + Clone + Display + Hash + Eq + std::cmp::Ord> Constraint<C> {
@@ -1210,7 +1212,6 @@ impl<C: Default + Clone + Display + Hash + Eq + std::cmp::Ord> Constraint<C> {
         signals.remove(&Constraint::constant_coefficient());
         signals
     }
-
 }
 
 impl Constraint<usize> {
@@ -1366,9 +1367,8 @@ where
     let cq: C = ArithmeticExpression::constant_coefficient();
     HashMap::is_empty(a)
         && HashMap::is_empty(b)
-        && 
-        	((HashMap::contains_key(c, &cq) && HashMap::len(c) == 2) ||
-        	(!HashMap::contains_key(c, &cq) && HashMap::len(c) == 1))
+        && ((HashMap::contains_key(c, &cq) && HashMap::len(c) == 2)
+            || (!HashMap::contains_key(c, &cq) && HashMap::len(c) == 1))
 }
 
 fn is_constant_expression<C>(expr: &RawExpr<C>) -> bool

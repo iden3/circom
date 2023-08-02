@@ -53,7 +53,7 @@ impl WriteWasm for ValueBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; value bucket".to_string());
-	}
+        }
         match &self.parse_as {
             ValueType::U32 => {
                 instructions.push(set_constant(&self.value.to_string()));
@@ -67,7 +67,7 @@ impl WriteWasm for ValueBucket {
         }
         if producer.needs_comments() {
             instructions.push(";; end of value bucket".to_string());
-	}
+        }
         instructions
     }
 }

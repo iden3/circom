@@ -91,7 +91,11 @@ fn analyze_main(program: &ProgramArchive) -> Result<(), Vec<Report>> {
         &environment,
     );
 
-    if reports.is_empty() { Ok(()) } else { Err(reports) }
+    if reports.is_empty() {
+        Ok(())
+    } else {
+        Err(reports)
+    }
 }
 
 pub fn analyze_symbols(
@@ -227,7 +231,14 @@ fn analyze_statement(
         Statement::LogCall { args, .. } => {
             for logarg in args {
                 if let LogArgument::LogExp(arg) = logarg {
-                    analyze_expression(arg, file_id, function_info, template_info, reports, environment);
+                    analyze_expression(
+                        arg,
+                        file_id,
+                        function_info,
+                        template_info,
+                        reports,
+                        environment,
+                    );
                 }
             }
         }
@@ -396,15 +407,8 @@ fn analyze_expression(
                 );
             }
         }
-        Expression::UniformArray{ value, dimension, .. } => {
-            analyze_expression(
-                value,
-                file_id,
-                function_info,
-                template_info,
-                reports,
-                environment,
-            );
+        Expression::UniformArray { value, dimension, .. } => {
+            analyze_expression(value, file_id, function_info, template_info, reports, environment);
             analyze_expression(
                 dimension,
                 file_id,
@@ -413,7 +417,7 @@ fn analyze_expression(
                 reports,
                 environment,
             );
-        },
+        }
         _ => {}
     }
 }

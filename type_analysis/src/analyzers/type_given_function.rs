@@ -290,13 +290,11 @@ fn look_for_type_in_expression(
                 function_info,
                 value,
             );
-            if value_type.is_some(){
+            if value_type.is_some() {
                 Option::Some(value_type.unwrap() + 1)
-            }
-            else{
+            } else {
                 None
             }
-            
         }
         Expression::Call { id, args, .. } => {
             if explored_functions.contains(id) {
@@ -317,6 +315,8 @@ fn look_for_type_in_expression(
             let has_type = start(id, explored_functions, function_info, &params_types);
             has_type
         }
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }

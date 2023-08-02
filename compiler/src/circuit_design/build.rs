@@ -3,7 +3,9 @@ use crate::circuit_design::function::FunctionCodeInfo;
 use crate::circuit_design::template::TemplateCodeInfo;
 use crate::hir::very_concrete_program::*;
 use crate::intermediate_representation::translate;
-use crate::intermediate_representation::translate::{CodeInfo, FieldTracker, TemplateDB, ParallelClusters};
+use crate::intermediate_representation::translate::{
+    CodeInfo, FieldTracker, TemplateDB, ParallelClusters,
+};
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use program_structure::file_definition::FileLibrary;
@@ -25,8 +27,7 @@ fn build_template_instances(
     c_info: &CircuitInfo,
     ti: Vec<TemplateInstance>,
     mut field_tracker: FieldTracker,
-) -> (FieldTracker, HashMap<String,usize>) {
-
+) -> (FieldTracker, HashMap<String, usize>) {
     fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
         let mut jump = 0;
         let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
@@ -55,31 +56,34 @@ fn build_template_instances(
             cmp_to_type.insert(name, xtype);
         }
         circuit.wasm_producer.message_list.push(msg);
-        circuit.c_producer.has_parallelism |= template.is_parallel || template.is_parallel_component;
+        circuit.c_producer.has_parallelism |=
+            template.is_parallel || template.is_parallel_component;
 
         let mut component_to_parallel: HashMap<String, ParallelClusters> = HashMap::new();
-        for trigger in &template.triggers{
-            match component_to_parallel.get_mut(&trigger.component_name){
+        for trigger in &template.triggers {
+            match component_to_parallel.get_mut(&trigger.component_name) {
                 Some(parallel_info) => {
-                    parallel_info.positions_to_parallel.insert(trigger.indexed_with.clone(), trigger.is_parallel);
-                    if parallel_info.uniform_parallel_value.is_some(){
-                        if parallel_info.uniform_parallel_value.unwrap() != trigger.is_parallel{
+                    parallel_info
+                        .positions_to_parallel
+                        .insert(trigger.indexed_with.clone(), trigger.is_parallel);
+                    if parallel_info.uniform_parallel_value.is_some() {
+                        if parallel_info.uniform_parallel_value.unwrap() != trigger.is_parallel {
                             parallel_info.uniform_parallel_value = None;
                         }
                     }
-                },
+                }
                 None => {
                     let mut positions_to_parallel = BTreeMap::new();
-                        positions_to_parallel.insert(trigger.indexed_with.clone(), trigger.is_parallel);
+                    positions_to_parallel.insert(trigger.indexed_with.clone(), trigger.is_parallel);
                     let new_parallel_info = ParallelClusters {
                         positions_to_parallel,
                         uniform_parallel_value: Some(trigger.is_parallel),
                     };
                     component_to_parallel.insert(trigger.component_name.clone(), new_parallel_info);
-                },
+                }
             }
         }
-        
+
         let code_info = CodeInfo {
             cmp_to_type,
             field_tracker,
@@ -96,7 +100,7 @@ fn build_template_instances(
             fresh_cmp_id: cmp_id,
             components: template.components,
             template_database: &c_info.template_database,
-            string_table : string_table,
+            string_table: string_table,
             signals_to_tags: template.signals_to_tags,
         };
         let mut template_info = TemplateCodeInfo {
@@ -133,7 +137,7 @@ fn build_function_instances(
     c_info: &CircuitInfo,
     instances: Vec<VCF>,
     mut field_tracker: FieldTracker,
-    mut string_table : HashMap<String,usize>
+    mut string_table: HashMap<String, usize>,
 ) -> (FieldTracker, HashMap<String, usize>, HashMap<String, usize>) {
     let mut function_to_arena_size = HashMap::new();
     for instance in instances {
@@ -160,7 +164,7 @@ fn build_function_instances(
             cmp_to_type: HashMap::with_capacity(0),
             component_to_parallel: HashMap::with_capacity(0),
             template_database: &c_info.template_database,
-            string_table : string_table,
+            string_table: string_table,
             signals_to_tags: BTreeMap::new(),
         };
         let mut function_info = FunctionCodeInfo {
@@ -184,7 +188,12 @@ fn build_function_instances(
 }
 
 // WASM producer builder
-fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, version: &str) -> WASMProducer {
+fn initialize_wasm_producer(
+    vcp: &VCP,
+    database: &TemplateDB,
+    wat_flag: bool,
+    version: &str,
+) -> WASMProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
     let prime = UsefulConstants::new(&vcp.prime).get_p().clone();
@@ -194,18 +203,19 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
     producer.main_signal_offset = 1;
     producer.prime = prime.to_str_radix(10);
     producer.prime_str = vcp.prime.clone();
-    producer.fr_memory_size = match vcp.prime.as_str(){
+    producer.fr_memory_size = match vcp.prime.as_str() {
         "goldilocks" => 412,
         "bn128" => 1948,
         "bls12381" => 1948,
         "grumpkin" => 1948,
         "pallas" => 1948,
         "vesta" => 1948,
-        _ => unreachable!()
+        _ => unreachable!(),
     };
     //producer.fr_memory_size = 412 if goldilocks and 1948 for bn128 and bls12381
     // for each created component we store three u32, for each son we store a u32 in its father
-    producer.size_of_component_tree = stats.all_created_components * 3 + stats.all_needed_subcomponents_indexes;
+    producer.size_of_component_tree =
+        stats.all_created_components * 3 + stats.all_needed_subcomponents_indexes;
     producer.total_number_of_signals = stats.all_signals + 1;
     producer.size_32_bit = prime.bits() / 32 + if prime.bits() % 32 != 0 { 1 } else { 0 };
     producer.size_32_shift = 0;
@@ -225,7 +235,8 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
     producer.template_instance_list = build_template_list(vcp);
     producer.field_tracking.clear();
     producer.wat_flag = wat_flag;
-    (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
+    (producer.major_version, producer.minor_version, producer.patch_version) =
+        get_number_version(version);
     producer
 }
 
@@ -239,7 +250,8 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
     producer.main_signal_offset = 1;
     producer.prime = prime.to_str_radix(10);
     producer.prime_str = vcp.prime.clone();
-    producer.size_of_component_tree = stats.all_created_components * 3 + stats.all_needed_subcomponents_indexes;
+    producer.size_of_component_tree =
+        stats.all_created_components * 3 + stats.all_needed_subcomponents_indexes;
     producer.total_number_of_signals = stats.all_signals + 1;
     producer.size_32_bit = prime.bits() / 32 + if prime.bits() % 32 != 0 { 1 } else { 0 };
     producer.size_32_shift = 0;
@@ -254,11 +266,12 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
     producer.signals_in_witness = producer.witness_to_signal_list.len();
     producer.number_of_main_inputs = vcp.templates[initial_node].number_of_inputs;
     producer.number_of_main_outputs = vcp.templates[initial_node].number_of_outputs;
-    producer.main_input_list = main_input_list(&vcp.templates[initial_node]);   
+    producer.main_input_list = main_input_list(&vcp.templates[initial_node]);
     producer.io_map = build_io_map(vcp, database);
     producer.template_instance_list = build_template_list_parallel(vcp);
     producer.field_tracking.clear();
-    (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
+    (producer.major_version, producer.minor_version, producer.patch_version) =
+        get_number_version(version);
     producer
 }
 
@@ -284,8 +297,8 @@ fn build_template_list(vcp: &VCP) -> TemplateList {
 fn build_template_list_parallel(vcp: &VCP) -> TemplateListParallel {
     let mut tmp_list = TemplateListParallel::new();
     for instance in &vcp.templates {
-        tmp_list.push(InfoParallel{
-            name: instance.template_header.clone(), 
+        tmp_list.push(InfoParallel {
+            name: instance.template_header.clone(),
             is_parallel: instance.is_parallel || instance.is_parallel_component,
             is_not_parallel: !instance.is_parallel && instance.is_not_parallel_component,
         });
@@ -365,7 +378,8 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
     }
     let template_database = TemplateDB::build(&vcp.templates);
     let mut circuit = Circuit::default();
-    circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
+    circuit.wasm_producer =
+        initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
     circuit.c_producer = initialize_c_producer(&vcp, &template_database, version);
 
     let field_tracker = FieldTracker::new();
@@ -377,8 +391,13 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
 
     let (field_tracker, string_table) =
         build_template_instances(&mut circuit, &circuit_info, vcp.templates, field_tracker);
-    let (field_tracker, function_to_arena_size, table_string_to_usize) =
-        build_function_instances(&mut circuit, &circuit_info, vcp.functions, field_tracker,string_table);
+    let (field_tracker, function_to_arena_size, table_string_to_usize) = build_function_instances(
+        &mut circuit,
+        &circuit_info,
+        vcp.functions,
+        field_tracker,
+        string_table,
+    );
 
     let table_usize_to_string = create_table_usize_to_string(table_string_to_usize);
     circuit.wasm_producer.set_string_table(table_usize_to_string.clone());
@@ -398,12 +417,12 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
     circuit
 }
 
-pub fn create_table_usize_to_string( string_table : HashMap<String,usize>) -> Vec<String> {
+pub fn create_table_usize_to_string(string_table: HashMap<String, usize>) -> Vec<String> {
     let size = string_table.len();
-    let mut table_usize_to_string =  vec![String::new(); size];
+    let mut table_usize_to_string = vec![String::new(); size];
 
     for (string, us) in string_table {
         table_usize_to_string[us] = string;
-    } 
+    }
     table_usize_to_string
 }
