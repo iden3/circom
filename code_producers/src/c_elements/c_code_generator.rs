@@ -914,6 +914,7 @@ pub fn generate_make_file(
     c_folder: &PathBuf,
     run_name: &str,
     producer: &CProducer,
+    split: bool,
 ) -> std::io::Result<()> {
     use std::io::BufWriter;
 
@@ -926,6 +927,7 @@ pub fn generate_make_file(
             &json!({
                 "run_name": run_name,
                 "has_parallelism": producer.has_parallelism,
+                "split": split,
             }),
         )
         .expect("must render");

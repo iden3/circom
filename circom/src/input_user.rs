@@ -15,6 +15,7 @@ pub struct Input {
     pub out_sym: PathBuf,
     //pub field: &'static str,
     pub c_flag: bool,
+    pub split_flag: bool,
     pub wasm_flag: bool,
     pub wat_flag: bool,
     pub r1cs_flag: bool,
@@ -70,10 +71,10 @@ impl Input {
             out_r1cs: Input::build_output(&output_path, &file_name, R1CS),
             out_wat_code: Input::build_output(&output_js_path, &file_name, WAT),
             out_wasm_code: Input::build_output(&output_js_path, &file_name, WASM),
-	        out_js_folder: output_js_path.clone(),
-	        out_wasm_name: file_name.clone(),
-	        out_c_folder: output_c_path.clone(),
-	        out_c_run_name: file_name.clone(),
+            out_js_folder: output_js_path.clone(),
+            out_wasm_name: file_name.clone(),
+            out_c_folder: output_c_path.clone(),
+            out_c_run_name: file_name.clone(),
             out_c_code: Input::build_output(&output_c_path, &file_name, CPP),
             out_c_dat: Input::build_output(&output_c_path, &file_name, DAT),
             out_sym: Input::build_output(&output_path, &file_name, SYM),
@@ -84,7 +85,8 @@ impl Input {
             ),
             wat_flag:input_processing::get_wat(&matches),
             wasm_flag: input_processing::get_wasm(&matches),
-            c_flag: c_flag,
+            c_flag: input_processing::get_c(&matches),
+            split_flag: input_processing::get_split(&matches),
             r1cs_flag: input_processing::get_r1cs(&matches),
             sym_flag: input_processing::get_sym(&matches),
             main_inputs_flag: input_processing::get_main_inputs_log(&matches),
@@ -105,9 +107,9 @@ impl Input {
 
     fn build_folder(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
         let mut file = output_path.clone();
-	    let folder_name = format!("{}_{}",filename,ext);
-	    file.push(folder_name);
-	    file
+        let folder_name = format!("{}_{}",filename,ext);
+        file.push(folder_name);
+        file
     }
     
     fn build_output(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
@@ -166,6 +168,9 @@ impl Input {
     }
     pub fn c_flag(&self) -> bool {
         self.c_flag
+    }
+    pub fn split_flag(&self) -> bool {
+        self.split_flag
     }
     pub fn unsimplified_flag(&self) -> bool {
         self.fast_flag
@@ -286,6 +291,10 @@ mod input_processing {
 
     pub fn get_c(matches: &ArgMatches) -> bool {
         matches.is_present("print_c")
+    }
+
+    pub fn get_split(matches: &ArgMatches) -> bool {
+        matches.is_present("split_c")
     }
 
     pub fn get_main_inputs_log(matches: &ArgMatches) -> bool {
@@ -460,6 +469,14 @@ mod input_processing {
                     .takes_value(false)
                     .display_order(150)
                     .help("Compiles the circuit to c"),
+            )
+            .arg(
+                Arg::with_name("split_c")
+                    .long("split")
+                    .short("s")
+                    .takes_value(false)
+                    .display_order(700)
+                    .help("Compiles the circuit to c and split the code in several files"),
             )
             .arg(
                 Arg::with_name("parallel_simplification")
