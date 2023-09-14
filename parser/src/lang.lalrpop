@@ -346,6 +346,23 @@ ParseSubstitution : Statement = {
 
     <s:@L> <variable: ParseVariable>  "--" <e:@R>
      => ast_shortcuts::subsub(Meta::new(s,e),variable),
+
+    <s:@L> "++"  <variable: ParseVariable> <e:@R>
+    => {
+        let mut report = Report::error(format!("illegal expression: circom language does not admit the ++{} operator, use {}++ instead", variable.0, variable.0), ReportCode::IllegalExpression);
+        report.add_primary(s..e, file_id, "here".to_string());
+        errors.push(report);
+        build_block(Meta::new(s,e), Vec::new())
+    },
+
+    <s:@L>  "--"  <variable: ParseVariable> <e:@R>
+    => {
+        let mut report = Report::error(format!("illegal expression: circom language does not admit the --{} operator, use {}-- instead", variable.0, variable.0), ReportCode::IllegalExpression);
+        report.add_primary(s..e, file_id, "here".to_string());
+        errors.push(report);
+        build_block(Meta::new(s,e), Vec::new())
+    },
+
 };
 
 ParseBlock : Statement = {
