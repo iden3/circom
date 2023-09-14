@@ -6,7 +6,7 @@ use crate::ast::Meta;
 
 pub struct ComponentRepresentation {
     pub node_pointer: Option<NodePointer>,
-    is_parallel: bool,
+    pub is_parallel: bool,
     pub meta: Option<Meta>,
     unassigned_inputs: HashMap<String, SliceCapacity>,
     unassigned_tags: HashSet<String>,
