@@ -26,48 +26,6 @@ pub struct CompilerConfig {
 }
 
 pub fn compile(config: CompilerConfig) -> Result<(), ()> {
-
-    let circuit = compiler_interface::run_compiler(
-        config.vcp.clone(),
-        Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
-        VERSION
-    )?;
-
-    if config.c_flag {
-        if config.split_flag {
-	    compiler_interface::write_c_split(&circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
-            println!(
-                "{} {},{}.hpp,temp*.cpp and {}",
-                Colour::Green.paint("Written successfully:"),
-                config.c_file,
-                config.c_run_name,
-                config.dat_file
-            );
-        }
-	else {
-            compiler_interface::write_c(&circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
-            println!(
-                "{} {} and {}",
-                Colour::Green.paint("Written successfully:"),
-                config.c_file,
-                config.dat_file
-            );
-	}
-        println!(
-            "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
-            Colour::Green.paint("Written successfully:"),
-	    &config.c_folder,
-            "main.cpp".to_string(),
-            "circom.hpp".to_string(),
-            "calcwit.hpp".to_string(),
-            "calcwit.cpp".to_string(),
-            "fr.hpp".to_string(),
-            "fr.cpp".to_string(),
-            "fr.asm".to_string(),
-            "Makefile".to_string()
-        );
-    }
-
     if config.c_flag || config.wat_flag || config.wasm_flag{
         let circuit = compiler_interface::run_compiler(
             config.vcp,
@@ -76,13 +34,25 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
         )?;
     
         if config.c_flag {
-            compiler_interface::write_c(&circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
-            println!(
-                "{} {} and {}",
-                Colour::Green.paint("Written successfully:"),
-                config.c_file,
-                config.dat_file
-            );
+            if config.split_flag {
+    	    compiler_interface::write_c_split(&circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
+                println!(
+                    "{} {},{}.hpp,temp*.cpp and {}",
+                    Colour::Green.paint("Written successfully:"),
+                    config.c_file,
+                    config.c_run_name,
+                    config.dat_file
+                );
+            }
+            else {
+                compiler_interface::write_c(&circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
+                println!(
+                    "{} {} and {}",
+                    Colour::Green.paint("Written successfully:"),
+                    config.c_file,
+                    config.dat_file
+                );
+	    }
             println!(
                 "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
                 Colour::Green.paint("Written successfully:"),
