@@ -1200,8 +1200,7 @@ fn perform_assign(
                     runtime,
                     flags,
                 )?;
-                
-                let (node_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(result, line!());
+                let (node_pointer, _is_parallel) = safe_unwrap_to_valid_node_pointer(result, line!());
                 
                 let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
                 let component_slice = treat_result_with_environment_error(
@@ -1242,7 +1241,7 @@ fn perform_assign(
                 if let Option::Some(actual_node) = actual_node {
                     let data = SubComponentData {
                         name: symbol.to_string(),
-                        is_parallel,
+                        is_parallel: component.is_parallel,
                         goes_to: node_pointer,
                         indexed_with: accessing_information.before_signal.clone(),
                     };
@@ -1291,7 +1290,7 @@ fn perform_assign(
                     flags,
                 )?;
                 
-                let (node_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(folded_result, line!());
+                let (node_pointer, _is_parallel) = safe_unwrap_to_valid_node_pointer(folded_result, line!());
                 
                 let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
                 let component_slice = treat_result_with_environment_error(
@@ -1333,7 +1332,7 @@ fn perform_assign(
                     let data = SubComponentData {
                         name: symbol.to_string(),
                         goes_to: node_pointer,
-                        is_parallel,
+                        is_parallel: component.is_parallel,
                         indexed_with: accessing_information.before_signal.clone(),
                     };
                     let component_symbol = create_component_symbol(symbol, &accessing_information);
