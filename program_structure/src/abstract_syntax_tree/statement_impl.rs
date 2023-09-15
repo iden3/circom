@@ -130,7 +130,11 @@ impl Statement {
         use Statement::*;
         match self {
             IfThenElse { cond, if_case, else_case, .. } => {
-                cond.contains_anonymous_comp() || if_case.contains_anonymous_comp() || else_case.as_ref().unwrap().contains_anonymous_comp()
+                if else_case.is_none(){
+                    cond.contains_anonymous_comp() || if_case.contains_anonymous_comp()
+                } else{
+                    cond.contains_anonymous_comp() || if_case.contains_anonymous_comp() || else_case.as_ref().unwrap().contains_anonymous_comp()
+                }
             }
             While { cond, stmt, .. } => {
                 cond.contains_anonymous_comp() || stmt.contains_anonymous_comp()
