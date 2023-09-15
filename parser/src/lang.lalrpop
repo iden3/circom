@@ -423,7 +423,7 @@ ParseStatement2 : Statement = {
     <s:@L> "assert" "(" <arg: ParseExpression> ")" Semicolon <e:@R>
     => build_assert(Meta::new(s,e),arg),
 
-    <s:@L> <lhe: ParseExpression> Semicolon <e:@R>
+    <s:@L> <lhe: ExpressionAnonymous> Semicolon <e:@R>
     => build_anonymous_component_statement(Meta::new(s,e), lhe),
 
     ParseBlock
@@ -607,8 +607,7 @@ Expression3 = InfixOpTier<ParseExp,Expression2>;
 // ops: Unary - ! ~
 Expression2 = PrefixOpTier<ParseExpressionPrefixOpcode,Expression1>;
 
-// function call, array inline, anonymous component call
-Expression1: Expression = {
+ExpressionAnonymous: Expression = {
     <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" "(" <args2: ListableAnon?> ")"  <e:@R>
     => {let params = match args {
         None => Vec::new(),
@@ -619,7 +618,11 @@ Expression1: Expression = {
         Some(a) => a
     };
     build_anonymous_component(Meta::new(s,e),id,params,signals,names,false)}
-    ,
+}
+
+// function call, array inline, anonymous component call
+Expression1: Expression = {
+    ExpressionAnonymous,
     
     <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R>
     => match args {
