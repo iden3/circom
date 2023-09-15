@@ -56,6 +56,7 @@ pub fn build_call(bucket: &mut CallBucket, mut fresh: usize) -> usize {
 }
 
 pub fn build_compute(bucket: &mut ComputeBucket, mut fresh: usize) -> usize {
+    use crate::ir_processing::build_stack::OperatorType::{AddAddress, MulAddress};
     let consumes = if bucket.op.is_address_op() { 0 } else { 1 };
     bucket.op_aux_no = if bucket.op.is_address_op() { 0 } else { fresh };
     let mut max_stack = fresh + consumes;
@@ -63,6 +64,11 @@ pub fn build_compute(bucket: &mut ComputeBucket, mut fresh: usize) -> usize {
         fresh += consumes;
         let depth = build_instruction(i, fresh);
         max_stack = std::cmp::max(max_stack, depth);
+
+        // in case it is an addition or multiplication between addresses the number of new fresh vars is the number of ToAddress inside the operand
+        if bucket.op == AddAddress || bucket.op == MulAddress{
+            fresh += get_num_to_address_inside_compute_address(i);
+        }
     }
     max_stack
 }
@@ -133,4 +139,26 @@ pub fn build_address_type(xtype: &mut AddressType, fresh: usize) -> usize {
         max = std::cmp::max(max, cmp_stack);
     }
     max
+}
+
+
+pub fn get_num_to_address_inside_compute_address(instruction: &Instruction) -> usize {
+    use Instruction::*;
+    match instruction {
+        Compute(b) =>{
+            match b.op{
+                OperatorType::ToAddress => 1,
+                OperatorType::AddAddress | OperatorType::MulAddress{} =>{
+                    let mut num_to_address = 0;
+                    for i in &b.stack{
+                        num_to_address += get_num_to_address_inside_compute_address(i);
+                    }
+                    num_to_address
+                },
+                _ => unreachable!(),
+            }
+        },
+        Value(_) => 0,
+        _ => unreachable!()
+    }
 }
