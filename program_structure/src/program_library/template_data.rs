@@ -92,6 +92,7 @@ impl TemplateData {
     pub fn get_file_id(&self) -> FileID {
         self.file_id
     }
+    
     pub fn get_body(&self) -> &Statement {
         &self.body
     }
@@ -109,6 +110,9 @@ impl TemplateData {
             Statement::Block { stmts, .. } => stmts,
             _ => panic!("Function body should be a block"),
         }
+    }
+    pub fn set_body(&mut self, body: Statement){
+        self.body = body;
     }
     pub fn get_num_of_params(&self) -> usize {
         self.num_of_params
