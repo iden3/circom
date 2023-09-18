@@ -42,7 +42,7 @@ component main = A(5);
 
 since the condition `i < n` is known at compilation time, and then the declaration of signal `out` is allowed. However, if the condition was `in < n`, since it is not known at compilation time, it would output an error message because the declaration in that case is not allowed. 
 
-In any case, we apply a static scoping like in C++ or Rust, and a signal declared inside an if block is only visible inside the block it is declared.
+In any case, we apply a static scoping like in C++ or Rust, and a signal declared inside an `if` block is only visible inside the block it is declared.
 
 Regarding visibility of signals of subcomponent, a signal `x` of component `c` is also visible in the template `t` that has declared `c`, using the notation `c.x`, if `x` is an input or and output of `c`. No access to intermediate signals of sub-components or signals of nested sub-components is allowed. For instance, if `c` is built using another component `d`, the signals of `d` cannot be accessed from `t`.  This can be seen in the next code:
 
