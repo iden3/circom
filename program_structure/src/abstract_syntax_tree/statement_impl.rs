@@ -125,6 +125,82 @@ impl Statement {
             false
         }
     }
+
+    pub fn contains_anonymous_comp(&self) -> bool {
+        use Statement::*;
+        match self {
+            IfThenElse { cond, if_case, else_case, .. } => {
+                if else_case.is_none(){
+                    cond.contains_anonymous_comp() || if_case.contains_anonymous_comp()
+                } else{
+                    cond.contains_anonymous_comp() || if_case.contains_anonymous_comp() || else_case.as_ref().unwrap().contains_anonymous_comp()
+                }
+            }
+            While { cond, stmt, .. } => {
+                cond.contains_anonymous_comp() || stmt.contains_anonymous_comp()
+            },
+            Return { value, .. } => {
+                value.contains_anonymous_comp()
+            }
+            InitializationBlock { initializations, .. } => {
+                for init in initializations{
+                    if init.contains_anonymous_comp() {
+                        return true;
+                    }
+                }
+                false
+            }
+            Declaration {dimensions, .. } => {
+                for dim in dimensions{
+                    if dim.contains_anonymous_comp() {
+                        return true;
+                    }
+                }
+                false
+            }
+            Substitution { access, rhe, .. } => {
+                for acc in access{
+                    match acc {
+                        Access::ComponentAccess(_) => {},
+                        Access::ArrayAccess( exp ) => if exp.contains_anonymous_comp() {return true;},
+                    }
+                }
+                rhe.contains_anonymous_comp()
+            }
+            MultSubstitution { lhe, rhe, .. }
+            => {
+                lhe.contains_anonymous_comp() || rhe.contains_anonymous_comp()
+            }
+            ConstraintEquality { lhe, rhe, .. } => {
+                lhe.contains_anonymous_comp() || rhe.contains_anonymous_comp()
+            }
+            LogCall { args, .. } => {
+                use crate::abstract_syntax_tree::statement_impl::LogArgument::*;
+                for arg in args{
+                    match arg {
+                        LogStr(_) => {},
+                        LogExp(exp) => if exp.contains_anonymous_comp() {return true;},
+                    }
+                }
+                false
+            }
+            Block { stmts, .. } => {
+                for init in stmts{
+                    if init.contains_anonymous_comp() {
+                        return true;
+                    }
+                }
+                false
+            }
+            Assert {  arg, .. } => {
+                arg.contains_anonymous_comp() 
+            }
+            UnderscoreSubstitution { rhe, .. } => {
+                rhe.contains_anonymous_comp() 
+            },
+            
+        }
+    }
 }
 
 impl FillMeta for Statement {

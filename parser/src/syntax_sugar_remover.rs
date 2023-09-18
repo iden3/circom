@@ -1,29 +1,28 @@
 use program_structure::ast::*;
 use program_structure::statement_builders::{build_block, build_substitution};
-use program_structure::error_definition::{Report};
+use program_structure::error_definition::Report;
 use program_structure::expression_builders::{build_call, build_tuple, build_parallel_op};
 use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
-use program_structure::statement_builders::{build_declaration, build_log_call, build_assert, build_return, build_constraint_equality, build_initialization_block};
-use program_structure::template_data::{TemplateData};
+use program_structure::statement_builders::{build_declaration, build_log_call, build_initialization_block};
+use program_structure::template_data::TemplateData;
 use std::collections::HashMap;
 use num_bigint::BigInt;
 
 
 
 pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<(), Report> {
-    let mut new_templates : HashMap<String, TemplateData> = HashMap::new();
     if program_archive.get_main_expression().is_anonymous_comp() {
         return Result::Err(anonymous_general_error(program_archive.get_main_expression().get_meta().clone(),"The main component cannot contain an anonymous call  ".to_string()));
      
     }
-    for temp in program_archive.templates.clone() {
-        let t = temp.1.clone();
-        let body = t.get_body().clone();
-        check_anonymous_components_statement(&body)?;
-        let (new_body, initializations) = remove_anonymous_from_statement(&mut program_archive.templates, &program_archive.file_library, body, &None)?;
+    let old_templates = program_archive.templates.clone();
+
+    for (_name, t) in &mut program_archive.templates {
+        let old_body = t.get_body().clone();
+        check_anonymous_components_statement(&old_body)?;
+        let (new_body, component_decs, variable_decs, mut substitutions) = remove_anonymous_from_statement(&old_templates, &program_archive.file_library, old_body, &None)?;
         if let Statement::Block { meta, mut stmts } = new_body {
-            let (component_decs, variable_decs, mut substitutions) = separate_declarations_in_comp_var_subs(initializations);
             let mut init_block = vec![
                 build_initialization_block(meta.clone(), VariableType::Var, variable_decs),
                 build_initialization_block(meta.clone(), VariableType::Component, component_decs)];
@@ -32,14 +31,23 @@ pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<(
             let new_body_with_inits = build_block(meta, init_block);
             check_tuples_statement(&new_body_with_inits)?;
             let new_body = remove_tuples_from_statement(new_body_with_inits)?;
-            let t2 = TemplateData::copy(t.get_name().to_string(), t.get_file_id(), new_body, t.get_num_of_params(), t.get_name_of_params().clone(),
-                                t.get_param_location(), t.get_inputs().clone(), t.get_outputs().clone(), t.is_parallel(), t.is_custom_gate(), t.get_declaration_inputs().clone(), t.get_declaration_outputs().clone());
-            new_templates.insert(temp.0.clone(), t2);            
+            t.set_body(new_body);
         } else{
             unreachable!()
         }
     }
-    program_archive.templates = new_templates;
+
+
+    for (_, t) in &mut program_archive.functions {
+        let old_body = t.get_body().clone();
+        if old_body.contains_anonymous_comp(){
+            return Result::Err(anonymous_general_error(old_body.get_meta().clone(),"Functions cannot contain calls to anonymous templates".to_string()));
+        } else{
+            check_tuples_statement(&old_body)?;
+            let new_body = remove_tuples_from_statement(old_body)?;
+            t.set_body(new_body);
+        }            
+    }
     Result::Ok(())
 }
 
@@ -259,48 +267,55 @@ pub fn check_anonymous_components_expression(
 }
 
 
+// (Body, init_components, init_variables, substitutions)
+pub type UpdatedStatement = (Statement, Vec<Statement>, Vec<Statement>, Vec<Statement>);
+
+// (init_components, substitutions, expression)
+pub type UpdatedExpression = (Vec<Statement>, Vec<Statement>, Expression);
+
 fn remove_anonymous_from_statement(
     templates : &HashMap<String, TemplateData>, 
     file_lib : &FileLibrary,  
     stm : Statement,
     var_access: &Option<Expression>
-) -> Result<(Statement, Vec<Statement>),Report>{
+) -> Result< UpdatedStatement, Report>{
     match stm {
         Statement::MultSubstitution { meta, lhe, op, rhe } => {
 
-            let (mut stmts, declarations, new_rhe) = remove_anonymous_from_expression(templates, file_lib, rhe, var_access)?;
+            let (comp_declarations, mut substitutions, new_rhe) = remove_anonymous_from_expression(templates, file_lib, rhe, var_access)?;
             let subs = Statement::MultSubstitution { meta: meta.clone(), lhe: lhe, op: op, rhe: new_rhe };
-            let mut substs = Vec::new(); 
-            if stmts.is_empty(){
-                Result::Ok((subs, declarations))
+            if substitutions.is_empty(){
+                Result::Ok((subs, comp_declarations, Vec::new(), Vec::new()))
             }else{
-                substs.append(&mut stmts);
-                substs.push(subs);
-                Result::Ok((Statement::Block { meta : meta, stmts : substs}, declarations))   
+                substitutions.push(subs);
+                Result::Ok((Statement::Block { meta : meta, stmts : substitutions}, comp_declarations, Vec::new(), Vec::new()))   
             }
         },
         Statement::IfThenElse { meta, cond, if_case, else_case } 
         => { 
 
-            let (if_ok,mut declarations) = remove_anonymous_from_statement(templates, file_lib, *if_case, var_access)?;
-            let b_if = Box::new(if_ok);
+            let (if_body, mut if_comp_dec, mut if_var_dec, mut if_subs) = remove_anonymous_from_statement(templates, file_lib, *if_case, var_access)?;
+            let b_if = Box::new(if_body);
             if else_case.is_none(){
-                Result::Ok((Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::None},declarations))
+                Result::Ok((Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::None}, if_comp_dec, if_var_dec, if_subs))
             }else {
                 let else_c = *(else_case.unwrap());
-                let (else_ok, mut declarations2) = remove_anonymous_from_statement(templates, file_lib, else_c, var_access)?;
-                let b_else = Box::new(else_ok);
-                declarations.append(&mut declarations2);
-                Result::Ok((Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::Some(b_else)},declarations))
+                let (else_body, mut else_comp_dec, mut else_var_dec, mut else_subs) = remove_anonymous_from_statement(templates, file_lib, else_c, var_access)?;
+                let b_else = Box::new(else_body);
+                if_comp_dec.append(&mut else_comp_dec);
+                if_var_dec.append(&mut else_var_dec);
+                if_subs.append(&mut else_subs);
+                Result::Ok((Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::Some(b_else)}, if_comp_dec, if_var_dec, if_subs))
             }
         }
         Statement::While { meta, cond, stmt }   => {
             let id_var_while = "anon_var_".to_string() + &file_lib.get_line(meta.start, meta.get_file_id()).unwrap().to_string() + "_" + &meta.start.to_string();
             let var_access = Expression::Variable{meta: meta.clone(), name: id_var_while.clone(), access: Vec::new()};
-            let mut declarations = vec![];
-            let (while_ok, mut declarations2) = remove_anonymous_from_statement(templates, file_lib, *stmt, &Some(var_access.clone()))?;
-            let b_while = if !declarations2.is_empty(){
-                declarations.push(
+            let mut var_declarations = vec![];
+            let mut subs_out = vec![];
+            let (body, comp_dec, mut var_dec, mut subs) = remove_anonymous_from_statement(templates, file_lib, *stmt, &Some(var_access.clone()))?;
+            let b_while = if !comp_dec.is_empty(){
+                var_declarations.push(
                     build_declaration(
                         meta.clone(), 
                         VariableType::Var, 
@@ -308,7 +323,7 @@ fn remove_anonymous_from_statement(
                         Vec::new(),
                     )
                 );
-                declarations.push(
+                subs.push(
                     build_substitution(
                         meta.clone(), 
                         id_var_while.clone(), 
@@ -317,7 +332,8 @@ fn remove_anonymous_from_statement(
                         Expression::Number(meta.clone(), BigInt::from(0))
                     )
                 );
-                declarations.append(&mut declarations2);
+                var_declarations.append(&mut var_dec);
+                subs_out.append(&mut subs);
                 let next_access = Expression::InfixOp{
                     meta: meta.clone(),
                     infix_op: ExpressionInfixOpcode::Add,
@@ -334,74 +350,69 @@ fn remove_anonymous_from_statement(
                     
                 let new_block = Statement::Block{
                     meta: meta.clone(),
-                    stmts: vec![while_ok, subs_access],
+                    stmts: vec![body, subs_access],
                 };
                 Box::new(new_block)
             } else{
-                Box::new(while_ok)
+                Box::new(body)
             };
-            Result::Ok((Statement::While { meta: meta, cond: cond, stmt: b_while}, declarations))
+            Result::Ok((Statement::While { meta: meta, cond: cond, stmt: b_while}, comp_dec, var_declarations, subs_out))
         },     
-        Statement::LogCall {meta, args } => {
-            Result::Ok((build_log_call(meta, args),Vec::new()))
-        }  
-        Statement::Assert { meta, arg}   => { 
-            Result::Ok((build_assert(meta, arg),Vec::new()))
-        }
-        Statement::Return {  meta, value: arg}=> {
-            Result::Ok((build_return(meta, arg),Vec::new()))
-        }
-        Statement::ConstraintEquality {meta, lhe, rhe } => {
-            Result::Ok((build_constraint_equality(meta, lhe, rhe),Vec::new()))
-        }
-        Statement::Declaration { meta , xtype , name ,
-                                 dimensions, .. } => {
-            Result::Ok((build_declaration(meta, xtype, name, dimensions),Vec::new()))
-        }
+
         Statement::InitializationBlock { meta, xtype, initializations } =>
         {
             let mut new_inits = Vec::new();
-            let mut declarations = Vec::new();
+            let mut comp_inits = Vec::new();
+            let mut var_inits = Vec::new();
+            let mut subs = Vec::new();
+
             for stmt in initializations {
-                let (stmt_ok, mut declaration) = remove_anonymous_from_statement(templates, file_lib, stmt, var_access)?;
+                let (stmt_ok, mut comps, mut vars, mut sub) = remove_anonymous_from_statement(templates, file_lib, stmt, var_access)?;
                 new_inits.push(stmt_ok);
-                declarations.append(&mut declaration)
+                comp_inits.append(&mut comps);
+                var_inits.append(&mut vars);
+                subs.append(&mut sub);
             }
-            Result::Ok((Statement::InitializationBlock { meta: meta, xtype: xtype, initializations: new_inits }, declarations))
+            Result::Ok((Statement::InitializationBlock { meta: meta, xtype: xtype, initializations: new_inits }, comp_inits, var_inits, subs))
         }
         Statement::Block { meta, stmts } => { 
             let mut new_stmts = Vec::new();
-            let mut declarations  = Vec::new();
+            let mut comp_inits = Vec::new();
+            let mut var_inits = Vec::new();
+            let mut subs = Vec::new();
             for stmt in stmts {
-                let (stmt_ok, mut declaration) = remove_anonymous_from_statement(templates, file_lib, stmt, var_access)?;
+                let (stmt_ok, mut comps, mut vars, mut sub) = remove_anonymous_from_statement(templates, file_lib, stmt, var_access)?;
                 new_stmts.push(stmt_ok);
-                declarations.append(&mut declaration);
+                comp_inits.append(&mut comps);
+                var_inits.append(&mut vars);
+                subs.append(&mut sub);
             }
-            Result::Ok((Statement::Block { meta : meta, stmts: new_stmts},declarations))
+            Result::Ok((Statement::Block { meta, stmts: new_stmts}, comp_inits, var_inits, subs))
         }
         Statement::Substitution {  meta, var, op, rhe, access} => {
-            let (mut stmts, declarations, new_rhe) = remove_anonymous_from_expression(templates, file_lib, rhe, var_access)?;
+            let (comp_declarations, mut stmts, new_rhe) = remove_anonymous_from_expression(templates, file_lib, rhe, var_access)?;
             let subs = Statement::Substitution { meta: meta.clone(), var: var, access: access, op: op, rhe: new_rhe };
-            let mut substs = Vec::new(); 
             if stmts.is_empty(){
-                Result::Ok((subs, declarations))
+                Result::Ok((subs, comp_declarations, Vec::new(), Vec::new()))
             }else{
-                substs.append(&mut stmts);
-                substs.push(subs);
-                Result::Ok((Statement::Block { meta : meta, stmts : substs}, declarations))   
+                stmts.push(subs);
+                Result::Ok((Statement::Block { meta, stmts}, comp_declarations, Vec::new(), Vec::new()))   
             }
         }
         Statement::UnderscoreSubstitution { .. } => unreachable!(),
+        _ => {
+            Result::Ok((stm, Vec::new(), Vec::new(), Vec::new()))
+        }
     }
 }
 
-// returns a block with the substitutions, the declarations and finally the output expression
+// returns a block with the component declarations, the substitutions and finally the output expression
 pub fn remove_anonymous_from_expression(
     templates : &HashMap<String, TemplateData>, 
     file_lib : &FileLibrary,
     exp : Expression,
     var_access: &Option<Expression>, // in case the call is inside a loop, variable used to control the access
-) -> Result<(Vec<Statement>, Vec<Statement>, Expression),Report>{
+) -> Result<UpdatedExpression,Report>{
     use Expression::*;
     match exp {
         AnonymousComp { meta, id, params, signals, names,  is_parallel } => {
@@ -411,7 +422,7 @@ pub fn remove_anonymous_from_expression(
             // get the template we are calling to
             let template = templates.get(&id);
             if template.is_none(){
-                return Result::Err(anonymous_general_error(meta.clone(),"The template does not exist ".to_string()));
+                return Result::Err(anonymous_general_error(meta.clone(),format!("The template {} does not exist", id)));
             }
             let id_anon_temp = id.to_string() + "_" + &file_lib.get_line(meta.start, meta.get_file_id()).unwrap().to_string() + "_" + &meta.start.to_string();
             
@@ -502,7 +513,7 @@ pub fn remove_anonymous_from_expression(
                     vec![build_array_access(var_access.as_ref().unwrap().clone())]
                 };
                 acc.push(Access::ComponentAccess(name_signal.clone()));
-                let  (mut stmts, mut declarations2, new_exp) = remove_anonymous_from_expression(
+                let  (mut declarations2, mut stmts,new_exp) = remove_anonymous_from_expression(
                         templates, 
                         file_lib, 
                         expr,
@@ -526,7 +537,7 @@ pub fn remove_anonymous_from_expression(
 
                 acc.push(Access::ComponentAccess(output.clone()));
                 let out_exp = Expression::Variable { meta: meta.clone(), name: id_anon_temp, access: acc };
-                Result::Ok((vec![Statement::Block { meta: meta.clone(), stmts: seq_substs }], declarations, out_exp))
+                Result::Ok((declarations, vec![Statement::Block { meta: meta.clone(), stmts: seq_substs }], out_exp))
 
              } else{
                 let mut new_values = Vec::new(); 
@@ -541,7 +552,7 @@ pub fn remove_anonymous_from_expression(
                     new_values.push(out_exp);
                 }
                 let out_exp = Tuple {meta : meta.clone(), values : new_values};
-                Result::Ok((vec![Statement::Block { meta: meta.clone(), stmts: seq_substs }], declarations, out_exp))
+                Result::Ok((declarations, vec![Statement::Block { meta: meta.clone(), stmts: seq_substs }], out_exp))
 
             }
         },
@@ -552,7 +563,7 @@ pub fn remove_anonymous_from_expression(
             for val in values{
                 let result = remove_anonymous_from_expression(templates, file_lib, val, var_access);
                 match result {
-                    Ok((mut stm, mut declaration, val2)) => {
+                    Ok((mut declaration, mut stm, val2)) => {
                         new_stmts.append(&mut stm);
                         new_values.push(val2);
                         declarations.append(&mut declaration);
@@ -560,7 +571,7 @@ pub fn remove_anonymous_from_expression(
                     Err(er) => {return Result::Err(er);},
                 }
             }
-            Result::Ok((new_stmts, declarations, build_tuple(meta.clone(), new_values)))
+            Result::Ok((declarations, new_stmts, build_tuple(meta.clone(), new_values)))
         },
         ParallelOp { meta, rhe } => {
             if rhe.is_anonymous_comp(){
@@ -576,30 +587,6 @@ pub fn remove_anonymous_from_expression(
     }
 }
 
-pub fn separate_declarations_in_comp_var_subs(declarations: Vec<Statement>) -> (Vec<Statement>, Vec<Statement>, Vec<Statement>){
-    let mut components_dec = Vec::new();
-    let mut variables_dec = Vec::new();
-    let mut substitutions = Vec::new();
-    for dec in declarations {
-        if let Statement::Declaration {  ref xtype, .. } = dec {
-            if VariableType::Component.eq(&xtype) || VariableType::AnonymousComponent.eq(&xtype){
-                components_dec.push(dec);
-            }
-            else if VariableType::Var.eq(&xtype) {
-                variables_dec.push(dec);
-            }
-            else {
-                unreachable!();
-            }
-        }
-        else if let Statement::Substitution {.. } = dec {
-            substitutions.push(dec);
-        } else{
-            unreachable!();
-        }
-    }
-    (components_dec, variables_dec, substitutions)
-}
 
 fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
     match stm{
