@@ -1,4 +1,4 @@
-use program_structure::ast::{Access, Expression, Meta, Statement, LogArgument};
+use program_structure::ast::{Access, Expression, LogArgument, Meta, Statement};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::{self, FileID, FileLocation};
@@ -68,7 +68,7 @@ fn analyze_main(program: &ProgramArchive) -> Result<(), Vec<Report>> {
             for signal in signals {
                 if !inputs.contains_key(signal) {
                     let mut report = Report::error(
-                        format!("Invalid public list"),
+                        "Invalid public list".to_string(),
                         ReportCode::SameSymbolDeclaredTwice,
                     );
                     report.add_primary(
@@ -91,7 +91,11 @@ fn analyze_main(program: &ProgramArchive) -> Result<(), Vec<Report>> {
         &environment,
     );
 
-    if reports.is_empty() { Ok(()) } else { Err(reports) }
+    if reports.is_empty() {
+        Ok(())
+    } else {
+        Err(reports)
+    }
 }
 
 pub fn analyze_symbols(
@@ -111,12 +115,14 @@ pub fn analyze_symbols(
         param_name_collision = param_name_collision || !success;
     }
     if param_name_collision {
-        let mut report =
-            Report::error(format!("Symbol declared twice"), ReportCode::SameSymbolDeclaredTwice);
+        let mut report = Report::error(
+            "Symbol declared twice".to_string(),
+            ReportCode::SameSymbolDeclaredTwice,
+        );
         report.add_primary(
-            param_location.clone(),
-            file_id.clone(),
-            format!("Declaring same symbol twice"),
+            param_location,
+            file_id,
+            "Declaring same symbol twice".to_string(),
         );
         reports.push(report);
     }
@@ -165,14 +171,39 @@ fn analyze_statement(
 ) {
     match stmt {
         Statement::MultSubstitution { .. } => unreachable!(),
-        Statement::Return { value, .. } => {
-            analyze_expression(value, file_id, function_info, template_info, reports, environment)
-        }
+        Statement::Return { value, .. } => analyze_expression(
+            value,
+            file_id,
+            function_info,
+            template_info,
+            reports,
+            environment,
+        ),
         Statement::UnderscoreSubstitution { rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
+            analyze_expression(
+                rhe,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
         }
-        Statement::Substitution { meta, var, access, rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
+        Statement::Substitution {
+            meta,
+            var,
+            access,
+            rhe,
+            ..
+        } => {
+            analyze_expression(
+                rhe,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
             treat_variable(
                 meta,
                 var,
@@ -185,10 +216,26 @@ fn analyze_statement(
             );
         }
         Statement::ConstraintEquality { lhe, rhe, .. } => {
-            analyze_expression(lhe, file_id, function_info, template_info, reports, environment);
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
+            analyze_expression(
+                lhe,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+            analyze_expression(
+                rhe,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
         }
-        Statement::InitializationBlock { initializations, .. } => {
+        Statement::InitializationBlock {
+            initializations, ..
+        } => {
             for initialization in initializations.iter() {
                 analyze_statement(
                     initialization,
@@ -200,7 +247,12 @@ fn analyze_statement(
                 );
             }
         }
-        Statement::Declaration { meta, name, dimensions, .. } => {
+        Statement::Declaration {
+            meta,
+            name,
+            dimensions,
+            ..
+        } => {
             for index in dimensions {
                 analyze_expression(
                     index,
@@ -213,13 +265,13 @@ fn analyze_statement(
             }
             if !add_symbol_to_block(environment, name) {
                 let mut report = Report::error(
-                    format!("Symbol declared twice"),
+                    "Symbol declared twice".to_string(),
                     ReportCode::SameSymbolDeclaredTwice,
                 );
                 report.add_primary(
                     meta.location.clone(),
-                    file_id.clone(),
-                    format!("Declaring same symbol twice"),
+                    file_id,
+                    "Declaring same symbol twice".to_string(),
                 );
                 reports.push(report);
             }
@@ -227,13 +279,25 @@ fn analyze_statement(
         Statement::LogCall { args, .. } => {
             for logarg in args {
                 if let LogArgument::LogExp(arg) = logarg {
-                    analyze_expression(arg, file_id, function_info, template_info, reports, environment);
+                    analyze_expression(
+                        arg,
+                        file_id,
+                        function_info,
+                        template_info,
+                        reports,
+                        environment,
+                    );
                 }
             }
         }
-        Statement::Assert { arg, .. } => {
-            analyze_expression(arg, file_id, function_info, template_info, reports, environment)
-        }
+        Statement::Assert { arg, .. } => analyze_expression(
+            arg,
+            file_id,
+            function_info,
+            template_info,
+            reports,
+            environment,
+        ),
         Statement::Block { stmts, .. } => {
             environment.push(Block::new());
             for block_stmt in stmts.iter() {
@@ -249,12 +313,45 @@ fn analyze_statement(
             environment.pop();
         }
         Statement::While { stmt, cond, .. } => {
-            analyze_expression(cond, file_id, function_info, template_info, reports, environment);
-            analyze_statement(stmt, file_id, function_info, template_info, reports, environment);
+            analyze_expression(
+                cond,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+            analyze_statement(
+                stmt,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
         }
-        Statement::IfThenElse { cond, if_case, else_case, .. } => {
-            analyze_expression(cond, file_id, function_info, template_info, reports, environment);
-            analyze_statement(if_case, file_id, function_info, template_info, reports, environment);
+        Statement::IfThenElse {
+            cond,
+            if_case,
+            else_case,
+            ..
+        } => {
+            analyze_expression(
+                cond,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+            analyze_statement(
+                if_case,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
             if let Option::Some(else_stmt) = else_case {
                 analyze_statement(
                     else_stmt,
@@ -280,17 +377,24 @@ fn treat_variable(
     environment: &Environment,
 ) {
     if !symbol_in_environment(environment, name) {
-        let mut report = Report::error(format!("Undeclared symbol"), ReportCode::NonExistentSymbol);
+        let mut report = Report::error("Undeclared symbol".to_string(), ReportCode::NonExistentSymbol);
         report.add_primary(
             file_definition::generate_file_location(meta.get_start(), meta.get_end()),
-            file_id.clone(),
-            format!("Using unknown symbol"),
+            file_id,
+            "Using unknown symbol".to_string(),
         );
         reports.push(report);
     }
     for acc in access.iter() {
         if let Access::ArrayAccess(index) = acc {
-            analyze_expression(index, file_id, function_info, template_info, reports, environment);
+            analyze_expression(
+                index,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
         }
     }
 }
@@ -305,17 +409,53 @@ fn analyze_expression(
 ) {
     match expression {
         Expression::InfixOp { lhe, rhe, .. } => {
-            analyze_expression(lhe, file_id, function_info, template_info, reports, environment);
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
+            analyze_expression(
+                lhe,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
+            analyze_expression(
+                rhe,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
         }
-        Expression::PrefixOp { rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment)
-        }
-        Expression::ParallelOp { rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment)
-        }
-        Expression::InlineSwitchOp { cond, if_true, if_false, .. } => {
-            analyze_expression(cond, file_id, function_info, template_info, reports, environment);
+        Expression::PrefixOp { rhe, .. } => analyze_expression(
+            rhe,
+            file_id,
+            function_info,
+            template_info,
+            reports,
+            environment,
+        ),
+        Expression::ParallelOp { rhe, .. } => analyze_expression(
+            rhe,
+            file_id,
+            function_info,
+            template_info,
+            reports,
+            environment,
+        ),
+        Expression::InlineSwitchOp {
+            cond,
+            if_true,
+            if_false,
+            ..
+        } => {
+            analyze_expression(
+                cond,
+                file_id,
+                function_info,
+                template_info,
+                reports,
+                environment,
+            );
             analyze_expression(
                 if_true,
                 file_id,
@@ -333,7 +473,9 @@ fn analyze_expression(
                 environment,
             );
         }
-        Expression::Variable { meta, name, access, .. } => treat_variable(
+        Expression::Variable {
+            meta, name, access, ..
+        } => treat_variable(
             meta,
             name,
             access,
@@ -346,11 +488,11 @@ fn analyze_expression(
         Expression::Call { meta, id, args, .. } => {
             if !function_info.contains_key(id) && !template_info.contains_key(id) {
                 let mut report =
-                    Report::error(format!("Calling symbol"), ReportCode::NonExistentSymbol);
+                    Report::error("Calling symbol".to_string(), ReportCode::NonExistentSymbol);
                 report.add_primary(
                     file_definition::generate_file_location(meta.get_start(), meta.get_end()),
-                    file_id.clone(),
-                    format!("Calling unknown symbol"),
+                    file_id,
+                    "Calling unknown symbol".to_string(),
                 );
                 reports.push(report);
                 return;
@@ -362,13 +504,17 @@ fn analyze_expression(
             };
             if args.len() != expected_num_of_params {
                 let mut report = Report::error(
-                    format!("Calling function with wrong number of arguments"),
+                    "Calling function with wrong number of arguments".to_string(),
                     ReportCode::FunctionWrongNumberOfArguments,
                 );
                 report.add_primary(
                     file_definition::generate_file_location(meta.get_start(), meta.get_end()),
-                    file_id.clone(),
-                    format!("Got {} params, {} where expected", args.len(), expected_num_of_params),
+                    file_id,
+                    format!(
+                        "Got {} params, {} where expected",
+                        args.len(),
+                        expected_num_of_params
+                    ),
                 );
                 reports.push(report);
                 return;
@@ -396,7 +542,9 @@ fn analyze_expression(
                 );
             }
         }
-        Expression::UniformArray{ value, dimension, .. } => {
+        Expression::UniformArray {
+            value, dimension, ..
+        } => {
             analyze_expression(
                 value,
                 file_id,
@@ -413,7 +561,7 @@ fn analyze_expression(
                 reports,
                 environment,
             );
-        },
+        }
         _ => {}
     }
 }

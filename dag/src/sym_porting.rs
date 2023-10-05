@@ -19,7 +19,12 @@ fn visit_tree(tree: &Tree, dot_sym: &mut SymFile) -> Result<(), ()> {
         let original = signal.as_();
         let witness = original;
         let node_id = tree.node_id.as_();
-        let sym_elem = SymElem { original, witness, node_id, symbol };
+        let sym_elem = SymElem {
+            original,
+            witness,
+            node_id,
+            symbol,
+        };
         SymFile::write_sym_elem(dot_sym, sym_elem)?;
     }
     for edge in Tree::get_edges(tree) {

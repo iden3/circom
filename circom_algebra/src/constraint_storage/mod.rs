@@ -21,7 +21,10 @@ pub struct ConstraintStorage {
 
 impl ConstraintStorage {
     pub fn new() -> ConstraintStorage {
-        ConstraintStorage { field_tracker: FieldTracker::new(), constraints: Vec::new() }
+        ConstraintStorage {
+            field_tracker: FieldTracker::new(),
+            constraints: Vec::new(),
+        }
     }
 
     pub fn add_constraint(&mut self, constraint: C) -> ConstraintID {
@@ -33,7 +36,10 @@ impl ConstraintStorage {
 
     pub fn read_constraint(&self, id: ConstraintID) -> Option<C> {
         if id < self.constraints.len() {
-            Some(logic::decode_constraint(&self.constraints[id], &self.field_tracker))
+            Some(logic::decode_constraint(
+                &self.constraints[id],
+                &self.field_tracker,
+            ))
         } else {
             None
         }

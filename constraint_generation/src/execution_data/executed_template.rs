@@ -1,13 +1,12 @@
 use super::type_definitions::*;
+use crate::execution_data::AExpressionSlice;
+use crate::execution_data::TagInfo;
 use circom_algebra::algebra::ArithmeticExpression;
 use compiler::hir::very_concrete_program::*;
 use dag::DAG;
 use num_bigint::BigInt;
 use program_structure::ast::{SignalType, Statement};
 use std::collections::{HashMap, HashSet};
-use crate::execution_data::AExpressionSlice;
-use crate::execution_data::TagInfo;
-
 
 struct Connexion {
     full_name: String,
@@ -24,7 +23,7 @@ pub struct PreExecutedTemplate {
     pub parameter_instances: Vec<AExpressionSlice>,
     pub inputs: HashMap<String, HashSet<String>>,
     pub outputs: HashMap<String, HashSet<String>>,
-} 
+}
 
 impl PreExecutedTemplate {
     pub fn new(
@@ -45,7 +44,7 @@ impl PreExecutedTemplate {
         &self.template_name
     }
 
-    pub fn parameter_instances(&self) -> &Vec<AExpressionSlice>{
+    pub fn parameter_instances(&self) -> &Vec<AExpressionSlice> {
         &self.parameter_instances
     }
 
@@ -57,8 +56,6 @@ impl PreExecutedTemplate {
         &self.outputs
     }
 }
-
-
 
 pub struct ExecutedTemplate {
     pub code: Statement,
@@ -91,7 +88,7 @@ impl ExecutedTemplate {
         tag_instances: TagContext,
         code: Statement,
         is_parallel: bool,
-        is_custom_gate: bool
+        is_custom_gate: bool,
     ) -> ExecutedTemplate {
         let public_inputs: HashSet<_> = public.iter().cloned().collect();
         ExecutedTemplate {
@@ -100,7 +97,7 @@ impl ExecutedTemplate {
             is_parallel,
             has_parallel_sub_cmp: false,
             is_custom_gate,
-            code: code.clone(),
+            code,
             template_name: name,
             parameter_instances: instance,
             signal_to_tags: tag_instances.clone(),
@@ -117,28 +114,42 @@ impl ExecutedTemplate {
         }
     }
 
-    pub fn is_equal(&self, name: &str, context: &ParameterContext, tag_context: &TagContext) -> bool {
-        self.template_name == name 
+    pub fn is_equal(
+        &self,
+        name: &str,
+        context: &ParameterContext,
+        tag_context: &TagContext,
+    ) -> bool {
+        self.template_name == name
             && self.parameter_instances == *context
             && self.tag_instances == *tag_context
     }
 
     pub fn add_arrow(&mut self, component_name: String, data: SubComponentData) {
-        let cnn =
-            Connexion { full_name: component_name, inspect: data, dag_offset: 0, dag_component_offset: 0, dag_jump: 0, dag_component_jump: 0};
-            self.connexions.push(cnn);
+        let cnn = Connexion {
+            full_name: component_name,
+            inspect: data,
+            dag_offset: 0,
+            dag_component_offset: 0,
+            dag_jump: 0,
+            dag_component_jump: 0,
+        };
+        self.connexions.push(cnn);
     }
 
     pub fn add_input(&mut self, input_name: &str, dimensions: &[usize]) {
-        self.inputs.push((input_name.to_string(), dimensions.to_vec()));
+        self.inputs
+            .push((input_name.to_string(), dimensions.to_vec()));
     }
 
     pub fn add_output(&mut self, output_name: &str, dimensions: &[usize]) {
-        self.outputs.push((output_name.to_string(), dimensions.to_vec()));
+        self.outputs
+            .push((output_name.to_string(), dimensions.to_vec()));
     }
 
     pub fn add_intermediate(&mut self, intermediate_name: &str, dimensions: &[usize]) {
-        self.intermediates.push((intermediate_name.to_string(), dimensions.to_vec()));
+        self.intermediates
+            .push((intermediate_name.to_string(), dimensions.to_vec()));
     }
 
     pub fn add_ordered_signal(&mut self, signal_name: &str, dimensions: &[usize]) {
@@ -151,7 +162,11 @@ impl ExecutedTemplate {
                 let mut index = 0;
                 while index < dimensions[current] {
                     let new_name = format!("{}[{}]", symbol_name, index);
-                    generated_symbols.append(&mut generate_symbols(new_name, current + 1, dimensions));
+                    generated_symbols.append(&mut generate_symbols(
+                        new_name,
+                        current + 1,
+                        dimensions,
+                    ));
                     index += 1;
                 }
                 generated_symbols
@@ -162,19 +177,21 @@ impl ExecutedTemplate {
         }
     }
 
-    pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>){
+    pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>) {
         let tags_signal = self.signal_to_tags.get_mut(signal_name);
-        if tags_signal.is_none(){
+        if tags_signal.is_none() {
             let mut new_tags_signal = TagInfo::new();
             new_tags_signal.insert(tag_name.to_string(), value);
-            self.signal_to_tags.insert(signal_name.to_string(), new_tags_signal);
+            self.signal_to_tags
+                .insert(signal_name.to_string(), new_tags_signal);
         } else {
             tags_signal.unwrap().insert(tag_name.to_string(), value);
         }
     }
 
     pub fn add_component(&mut self, component_name: &str, dimensions: &[usize]) {
-        self.components.push((component_name.to_string(), dimensions.to_vec()));
+        self.components
+            .push((component_name.to_string(), dimensions.to_vec()));
         self.number_of_components += dimensions.iter().fold(1, |p, c| p * (*c));
     }
 
@@ -227,7 +244,7 @@ impl ExecutedTemplate {
             parameters,
             self.ordered_signals.clone(), // pensar si calcularlo en este momento para no hacer clone
             self.is_parallel,
-            self.is_custom_gate
+            self.is_custom_gate,
         );
         self.build_signals(dag);
         self.build_connexions(dag);
@@ -236,27 +253,55 @@ impl ExecutedTemplate {
 
     fn build_signals(&self, dag: &mut DAG) {
         for (name, dim) in self.outputs() {
-            let state = State { name: name.clone(), dim: 0 };
-            let config = SignalConfig { signal_type: 1, dimensions: dim, is_public: false };
+            let state = State {
+                name: name.clone(),
+                dim: 0,
+            };
+            let config = SignalConfig {
+                signal_type: 1,
+                dimensions: dim,
+                is_public: false,
+            };
             generate_symbols(dag, state, &config);
         }
         for (name, dim) in self.inputs() {
             if self.public_inputs.contains(name) {
-                let state = State { name: name.clone(), dim: 0 };
-                let config = SignalConfig { signal_type: 0, dimensions: dim, is_public: true };
+                let state = State {
+                    name: name.clone(),
+                    dim: 0,
+                };
+                let config = SignalConfig {
+                    signal_type: 0,
+                    dimensions: dim,
+                    is_public: true,
+                };
                 generate_symbols(dag, state, &config);
             }
         }
         for (name, dim) in self.inputs() {
             if !self.public_inputs.contains(name) {
-                let state = State { name: name.clone(), dim: 0 };
-                let config = SignalConfig { signal_type: 0, dimensions: dim, is_public: false };
+                let state = State {
+                    name: name.clone(),
+                    dim: 0,
+                };
+                let config = SignalConfig {
+                    signal_type: 0,
+                    dimensions: dim,
+                    is_public: false,
+                };
                 generate_symbols(dag, state, &config);
             }
         }
         for (name, dim) in self.intermediates() {
-            let state = State { name: name.clone(), dim: 0 };
-            let config = SignalConfig { signal_type: 2, dimensions: dim, is_public: false };
+            let state = State {
+                name: name.clone(),
+                dim: 0,
+            };
+            let config = SignalConfig {
+                signal_type: 2,
+                dimensions: dim,
+                is_public: false,
+            };
             generate_symbols(dag, state, &config);
         }
     }
@@ -279,21 +324,21 @@ impl ExecutedTemplate {
             cnn.dag_component_offset = dag.get_entry().unwrap().get_out_component();
             dag.add_edge(cnn.inspect.goes_to, &cnn.full_name, cnn.inspect.is_parallel);
             cnn.dag_jump = dag.get_entry().unwrap().get_out() - cnn.dag_offset;
-            cnn.dag_component_jump = dag.get_entry().unwrap().get_out_component() - cnn.dag_component_offset;
+            cnn.dag_component_jump =
+                dag.get_entry().unwrap().get_out_component() - cnn.dag_component_offset;
         }
         self.has_parallel_sub_cmp = dag.nodes[dag.main_id()].has_parallel_sub_cmp();
         dag.set_number_of_subcomponents_indexes(self.number_of_components);
     }
     fn build_constraints(&self, dag: &mut DAG) {
-        
         for c in &self.constraints {
             let correspondence = dag.get_main().unwrap().correspondence();
             let cc = Constraint::apply_correspondence(c, correspondence);
             dag.add_constraint(cc);
         }
-        for s in &self.underscored_signals{
+        for s in &self.underscored_signals {
             let correspondence = dag.get_main().unwrap().correspondence();
-            let new_s = correspondence.get(s).unwrap().clone();
+            let new_s = *correspondence.get(s).unwrap();
             dag.add_underscored_signal(new_s);
         }
     }
@@ -337,7 +382,11 @@ impl ExecutedTemplate {
             let mut arguments = vec![];
             for (name, data) in parameter_instances {
                 let (dim, value) = data.destruct();
-                let argument = Argument { name, lengths: dim, values: as_big_int(value) };
+                let argument = Argument {
+                    name,
+                    lengths: dim,
+                    values: as_big_int(value),
+                };
                 arguments.push(argument);
             }
             arguments
@@ -359,7 +408,7 @@ impl ExecutedTemplate {
             has_parallel_sub_cmp: self.has_parallel_sub_cmp,
             code: self.code,
             name: self.template_name,
-            number_of_components : self.number_of_components,
+            number_of_components: self.number_of_components,
             signals_to_tags: self.signal_to_tags,
         };
 
@@ -377,25 +426,49 @@ impl ExecutedTemplate {
         let mut local_id = 0;
         let mut dag_local_id = 1;
         for (name, lengths) in self.outputs {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Output};
+            let signal = Signal {
+                name,
+                lengths,
+                local_id,
+                dag_local_id,
+                xtype: Output,
+            };
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
         for (name, lengths) in public {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input};
+            let signal = Signal {
+                name,
+                lengths,
+                local_id,
+                dag_local_id,
+                xtype: Input,
+            };
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
         for (name, lengths) in not_public {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input};
+            let signal = Signal {
+                name,
+                lengths,
+                local_id,
+                dag_local_id,
+                xtype: Input,
+            };
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
         for (name, lengths) in self.intermediates {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Intermediate};
+            let signal = Signal {
+                name,
+                lengths,
+                local_id,
+                dag_local_id,
+                xtype: Intermediate,
+            };
             local_id += signal.size();
             dag_local_id += signal.size();
             instance.add_signal(signal);
@@ -426,8 +499,10 @@ fn generate_symbols(dag: &mut DAG, state: State, config: &SignalConfig) {
     } else {
         let mut index = 0;
         while index < config.dimensions[state.dim] {
-            let new_state =
-                State { name: format!("{}[{}]", state.name, index), dim: state.dim + 1 };
+            let new_state = State {
+                name: format!("{}[{}]", state.name, index),
+                dim: state.dim + 1,
+            };
             generate_symbols(dag, new_state, config);
             index += 1;
         }
@@ -457,7 +532,7 @@ fn filter_used_components(tmp: &ExecutedTemplate) -> (ComponentCollector, usize)
     for cmp in &tmp.components {
         if used.contains(&cmp.0) {
             filtered.push(cmp.clone());
-            number_of_components = number_of_components + compute_number_cmp(&cmp.1);
+            number_of_components += compute_number_cmp(&cmp.1);
         }
     }
     (filtered, number_of_components)
@@ -535,13 +610,18 @@ fn build_clusters(tmp: &ExecutedTemplate, instances: &[TemplateInstance]) -> Vec
                 end += 1;
             }
         }
-        
+
         let cluster = TriggerCluster {
             slice: start..end,
             length: end - start,
-            defined_positions: defined_positions,
+            defined_positions,
             cmp_name: cnn_data.name.clone(),
-            xtype: ClusterType::Uniform { offset_jump, component_offset_jump, instance_id, header: sub_cmp_header },
+            xtype: ClusterType::Uniform {
+                offset_jump,
+                component_offset_jump,
+                instance_id,
+                header: sub_cmp_header,
+            },
         };
         cmp_data.insert(cnn_data.name.clone(), cluster);
         index = end;

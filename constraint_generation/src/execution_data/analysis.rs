@@ -9,7 +9,10 @@ pub struct Analysis {
 }
 impl Analysis {
     pub fn new(id_max: usize) -> Analysis {
-        Analysis { reached: vec![false; id_max], computed_values: vec![ValuePOS::Bottom; id_max] }
+        Analysis {
+            reached: vec![false; id_max],
+            computed_values: vec![ValuePOS::Bottom; id_max],
+        }
     }
 
     pub fn reached(analysis: &mut Analysis, id: usize) {

@@ -1,5 +1,7 @@
 use super::{Constraint, Edge, Node, SimplificationFlags, Tree, DAG};
-use constraint_list::{ConstraintList, DAGEncoding, EncodingEdge, EncodingNode, SignalInfo, Simplifier};
+use constraint_list::{
+    ConstraintList, DAGEncoding, EncodingEdge, EncodingNode, SignalInfo, Simplifier,
+};
 use program_structure::utils::constants::UsefulConstants;
 use std::collections::{HashSet, LinkedList};
 #[derive(Default)]
@@ -13,7 +15,7 @@ fn map_tree(
     tree: &Tree,
     witness: &mut Vec<usize>,
     c_holder: &mut CHolder,
-    forbidden: &mut HashSet<usize>
+    forbidden: &mut HashSet<usize>,
 ) -> usize {
     let mut no_constraints = 0;
 
@@ -65,7 +67,12 @@ fn produce_encoding(
         }
         Vec::push(&mut adjacency, encoded);
     }
-    DAGEncoding { init, no_constraints, nodes, adjacency }
+    DAGEncoding {
+        init,
+        no_constraints,
+        nodes,
+        adjacency,
+    }
 }
 
 fn map_node_to_encoding(id: usize, node: Node) -> EncodingNode {
@@ -104,7 +111,11 @@ fn map_node_to_encoding(id: usize, node: Node) -> EncodingNode {
 }
 
 fn map_edge_to_encoding(edge: Edge) -> EncodingEdge {
-    EncodingEdge { goes_to: edge.goes_to, path: edge.label, offset: edge.in_number }
+    EncodingEdge {
+        goes_to: edge.goes_to,
+        path: edge.label,
+        offset: edge.in_number,
+    }
 }
 
 pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
@@ -120,7 +131,12 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
     let mut forbidden = dag.get_main().unwrap().forbidden_if_main.clone();
     let mut c_holder = CHolder::default();
     let mut signal_map = vec![0];
-    let no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut forbidden);
+    let no_constraints = map_tree(
+        &Tree::new(&dag),
+        &mut signal_map,
+        &mut c_holder,
+        &mut forbidden,
+    );
     let max_signal = Vec::len(&signal_map);
     let name_encoding = produce_encoding(no_constraints, init_id, dag.nodes, dag.adjacency);
     let _dur = now.elapsed().unwrap().as_millis();

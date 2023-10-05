@@ -15,7 +15,10 @@ where
     C: Eq + Hash + Clone,
 {
     pub fn new() -> ConstantTracker<C> {
-        ConstantTracker { lookup: HashMap::new(), constants: Vec::new() }
+        ConstantTracker {
+            lookup: HashMap::new(),
+            constants: Vec::new(),
+        }
     }
 
     pub fn get_id(&self, constant: &C) -> Option<CID> {

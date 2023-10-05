@@ -7,11 +7,11 @@ use constraint_writers::ConstraintExporter;
 
 mod constraint_simplification;
 mod json_porting;
+mod non_linear_simplification;
 mod non_linear_utils;
 mod r1cs_porting;
 mod state_utils;
 mod sym_porting;
-mod non_linear_simplification;
 
 type C = circom_algebra::algebra::Constraint<usize>;
 type S = circom_algebra::algebra::Substitution<usize>;
@@ -58,7 +58,11 @@ impl IteratorSignal {
         let original = signal.id;
         let name = signal.name;
         let witness = HashMap::get(map, &original).map_or(map.len(), |s| *s);
-        IteratorSignal { original, name, witness }
+        IteratorSignal {
+            original,
+            name,
+            witness,
+        }
     }
 }
 
@@ -101,7 +105,10 @@ impl<'a> EncodingIterator<'a> {
     }
 
     pub fn take(iter: &mut EncodingIterator) -> (Vec<SignalInfo>, LinkedList<C>) {
-        let ret = (std::mem::take(&mut iter.signals), std::mem::take(&mut iter.non_linear));
+        let ret = (
+            std::mem::take(&mut iter.signals),
+            std::mem::take(&mut iter.non_linear),
+        );
         state_utils::clear_encoding_iterator(iter);
         ret
     }

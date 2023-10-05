@@ -10,14 +10,19 @@ pub enum StatusInput {
 #[derive(Clone)]
 pub enum InputInformation {
     NoInput,
-    Input {status: StatusInput},
+    Input { status: StatusInput },
 }
 
 #[derive(Clone)]
 pub enum AddressType {
     Variable,
     Signal,
-    SubcmpSignal { cmp_address: InstructionPointer, uniform_parallel_value: Option<bool>, is_output: bool, input_information: InputInformation },
+    SubcmpSignal {
+        cmp_address: InstructionPointer,
+        uniform_parallel_value: Option<bool>,
+        is_output: bool,
+        input_information: InputInformation,
+    },
 }
 
 impl ToString for AddressType {

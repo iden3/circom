@@ -42,13 +42,13 @@ pub fn _handle_template_constants(template: &mut TemplateData) -> ReportCollecti
 fn statement_constant_inference(stmt: &mut Statement, environment: &mut Constants) {
     use Statement::*;
     match stmt {
-        IfThenElse { if_case, else_case, .. } => {
-            if_then_else_constant_inference(if_case, else_case, environment)
-        }
+        IfThenElse {
+            if_case, else_case, ..
+        } => if_then_else_constant_inference(if_case, else_case, environment),
         Substitution { var, .. } => substitution_constant_inference(var, environment),
-        InitializationBlock { initializations, .. } => {
-            initialization_block_constant_inference(initializations, environment)
-        }
+        InitializationBlock {
+            initializations, ..
+        } => initialization_block_constant_inference(initializations, environment),
         While { stmt, .. } => while_stmt_constant_inference(stmt, environment),
         Block { stmts, .. } => block_constant_inference(stmts, environment),
         _ => {}
@@ -75,7 +75,13 @@ fn initialization_block_constant_inference(
         }
     }
     for s in initializations {
-        if let Declaration { name, xtype, dimensions, .. } = s {
+        if let Declaration {
+            name,
+            xtype,
+            dimensions,
+            ..
+        } = s
+        {
             let constant_tag = dimensions.is_empty()
                 && initialized_signals.contains(name)
                 && (*xtype == VariableType::Var);
@@ -110,7 +116,10 @@ fn apply_inference(stmts: &mut [Statement], environment: &mut Constants) {
         }
     }
     for s in stmts.iter_mut() {
-        if let Declaration { name, is_constant, .. } = s {
+        if let Declaration {
+            name, is_constant, ..
+        } = s
+        {
             let constant_indeed = *environment.get_variable_or_break(name, file!(), line!());
             *is_constant = constant_indeed;
         }
@@ -124,7 +133,10 @@ fn block_constant_inference(stmts: &mut [Statement], environment: &mut Constants
         statement_constant_inference(stmt, environment);
     }
     for stmt in stmts.iter_mut() {
-        if let InitializationBlock { initializations, .. } = stmt {
+        if let InitializationBlock {
+            initializations, ..
+        } = stmt
+        {
             apply_inference(initializations, environment);
         }
     }
@@ -135,12 +147,12 @@ fn block_constant_inference(stmts: &mut [Statement], environment: &mut Constants
 fn statement_invariant_check(stmt: &Statement, environment: &mut Constants) -> ReportCollection {
     use Statement::*;
     match stmt {
-        InitializationBlock { initializations, .. } => {
-            initialization_invariant_check(initializations, environment)
-        }
-        IfThenElse { if_case, else_case, .. } => {
-            if_then_else_invariant_check(if_case, else_case, environment)
-        }
+        InitializationBlock {
+            initializations, ..
+        } => initialization_invariant_check(initializations, environment),
+        IfThenElse {
+            if_case, else_case, ..
+        } => if_then_else_invariant_check(if_case, else_case, environment),
         While { stmt, .. } => while_invariant_check(stmt, environment),
         Block { stmts, .. } => block_invariant_check(stmts, environment),
         MultSubstitution { .. } => unreachable!(),
@@ -174,7 +186,10 @@ fn initialization_invariant_check(
         }
     }
     for init in initializations {
-        if let Declaration { name, is_constant, .. } = init {
+        if let Declaration {
+            name, is_constant, ..
+        } = init
+        {
             environment.add_variable(name, *is_constant);
         }
     }
@@ -218,13 +233,18 @@ fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
         InfixOp { lhe, rhe, .. } => infix_op(lhe, rhe, environment),
         PrefixOp { rhe, .. } => prefix_op(rhe, environment),
         ParallelOp { rhe, .. } => parallel_op(rhe, environment),
-        InlineSwitchOp { cond, if_false, if_true, .. } => {
-            inline_switch(cond, if_true, if_false, environment)
-        }
+        InlineSwitchOp {
+            cond,
+            if_false,
+            if_true,
+            ..
+        } => inline_switch(cond, if_true, if_false, environment),
         Variable { name, .. } => variable(name, environment),
         ArrayInLine { .. } => array_inline(),
         UniformArray { .. } => uniform_array(),
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }
 
@@ -277,14 +297,17 @@ fn parallel_op(rhe: &Expression, environment: &Constants) -> bool {
 fn expand_statement(stmt: &mut Statement, environment: &mut ExpressionHolder) {
     use Statement::*;
     match stmt {
-        IfThenElse { cond, if_case, else_case, .. } => {
-            expand_if_then_else(cond, if_case, else_case, environment)
-        }
+        IfThenElse {
+            cond,
+            if_case,
+            else_case,
+            ..
+        } => expand_if_then_else(cond, if_case, else_case, environment),
         While { cond, stmt, .. } => expand_while(cond, stmt, environment),
         Return { value, .. } => expand_return(value, environment),
-        InitializationBlock { initializations, .. } => {
-            expand_initialization_block(initializations, environment)
-        }
+        InitializationBlock {
+            initializations, ..
+        } => expand_initialization_block(initializations, environment),
         Declaration { dimensions, .. } => expand_declaration(dimensions, environment),
         Substitution { access, rhe, .. } => expand_substitution(access, rhe, environment),
         ConstraintEquality { lhe, rhe, .. } => expand_constraint_equality(lhe, rhe, environment),
@@ -328,7 +351,10 @@ fn expand_initialization_block(
         expand_statement(s, environment);
     }
     for s in initializations.iter_mut() {
-        if let Declaration { name, is_constant, .. } = s {
+        if let Declaration {
+            name, is_constant, ..
+        } = s
+        {
             if *is_constant {
                 constants.insert(name.clone());
             }
@@ -363,10 +389,7 @@ fn expand_substitution(
     }
 }
 
-fn expand_underscore_substitution(
-    rhe: &mut Expression,
-    environment: &ExpressionHolder,
-) {
+fn expand_underscore_substitution(rhe: &mut Expression, environment: &ExpressionHolder) {
     *rhe = expand_expression(rhe.clone(), environment);
 }
 
@@ -404,18 +427,34 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
     match expr {
         Number(meta, value) => expand_number(meta, value),
         ArrayInLine { meta, values } => expand_array(meta, values, environment),
-        UniformArray { meta, value, dimension} => expand_uniform_array(meta, *value, *dimension, environment),
+        UniformArray {
+            meta,
+            value,
+            dimension,
+        } => expand_uniform_array(meta, *value, *dimension, environment),
         Call { id, meta, args } => expand_call(id, meta, args, environment),
-        InfixOp { meta, lhe, rhe, infix_op } => {
-            expand_infix(meta, *lhe, infix_op, *rhe, environment)
-        }
-        PrefixOp { meta, prefix_op, rhe } => expand_prefix(meta, prefix_op, *rhe, environment),
+        InfixOp {
+            meta,
+            lhe,
+            rhe,
+            infix_op,
+        } => expand_infix(meta, *lhe, infix_op, *rhe, environment),
+        PrefixOp {
+            meta,
+            prefix_op,
+            rhe,
+        } => expand_prefix(meta, prefix_op, *rhe, environment),
         ParallelOp { meta, rhe } => expand_parallel(meta, *rhe, environment),
-        InlineSwitchOp { meta, cond, if_true, if_false } => {
-            expand_inline_switch_op(meta, *cond, *if_true, *if_false, environment)
-        }
+        InlineSwitchOp {
+            meta,
+            cond,
+            if_true,
+            if_false,
+        } => expand_inline_switch_op(meta, *cond, *if_true, *if_false, environment),
         Variable { meta, name, access } => expand_variable(meta, name, access, environment),
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }
 
@@ -483,11 +522,7 @@ fn expand_prefix(
     build_prefix(meta, prefix_op, rhe)
 }
 
-fn expand_parallel(
-    meta: Meta,
-    old_rhe: Expression,
-    environment: &ExpressionHolder,
-) -> Expression {
+fn expand_parallel(meta: Meta, old_rhe: Expression, environment: &ExpressionHolder) -> Expression {
     let rhe = expand_expression(old_rhe, environment);
     build_parallel_op(meta, rhe)
 }
@@ -514,8 +549,11 @@ fn expand_variable(
     use Access::*;
     let is_constant = environment.get_variable_res(&name).is_ok();
     if is_constant && old_access.is_empty() {
-        let mut expr = environment.get_variable_or_break(&name, file!(), line!()).clone();
-        expr.get_mut_meta().change_location(meta.location.clone(), meta.file_id);
+        let mut expr = environment
+            .get_variable_or_break(&name, file!(), line!())
+            .clone();
+        expr.get_mut_meta()
+            .change_location(meta.location.clone(), meta.file_id);
         expr
     } else {
         let mut access = Vec::new();

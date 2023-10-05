@@ -1,5 +1,6 @@
 use crate::environment_utils::environment::ExecutionEnvironment as EE;
-use crate::environment_utils::slice_types::{TagInfo, AExpressionSlice};
+use crate::environment_utils::slice_types::{AExpressionSlice, TagInfo};
+use crate::FlagsExecution;
 use circom_algebra::algebra::ArithmeticExpression;
 use compiler::hir::very_concrete_program::{Argument, TemplateInstance};
 use num_bigint::BigInt;
@@ -8,7 +9,6 @@ use program_structure::ast::{Expression, Meta, Statement};
 use program_structure::error_definition::ReportCollection;
 use program_structure::program_archive::ProgramArchive;
 use std::collections::HashMap;
-use crate::FlagsExecution;
 
 type CCResult = Result<(), ReportCollection>;
 
@@ -18,14 +18,21 @@ struct Context<'a> {
     program_archive: &'a ProgramArchive,
 }
 
-pub fn manage_functions(program_archive: &mut ProgramArchive, flags: FlagsExecution, prime: &String) -> CCResult {
+pub fn manage_functions(
+    program_archive: &mut ProgramArchive,
+    flags: FlagsExecution,
+    prime: &String,
+) -> CCResult {
     let mut reports = vec![];
     let mut processed = HashMap::new();
     for (name, data) in program_archive.get_functions() {
         let mut code = data.get_body().clone();
         let environment = EE::new();
-        let context =
-            Context { program_archive, inside_template: false, environment: &environment };
+        let context = Context {
+            program_archive,
+            inside_template: false,
+            environment: &environment,
+        };
         treat_statement(&mut code, &context, &mut reports, flags, prime);
         processed.insert(name.clone(), code);
     }
@@ -43,12 +50,16 @@ pub fn compute_vct(
     instances: &mut Vec<TemplateInstance>,
     program_archive: &ProgramArchive,
     flags: FlagsExecution,
-    prime: &String
+    prime: &String,
 ) -> CCResult {
     let mut reports = vec![];
     for instance in instances {
         let environment = transform_header_into_environment(&instance.header);
-        let context = Context { program_archive, inside_template: true, environment: &environment };
+        let context = Context {
+            program_archive,
+            inside_template: true,
+            environment: &environment,
+        };
         treat_statement(&mut instance.code, &context, &mut reports, flags, prime);
     }
     if reports.is_empty() {
@@ -70,13 +81,22 @@ fn transform_header_into_environment(header: &[Argument]) -> EE {
 
 fn argument_into_slice(argument: &Argument) -> AExpressionSlice {
     use ArithmeticExpression::Number;
-    let arithmetic_expressions: Vec<ArithmeticExpression<String>> =
-        argument.values.iter().map(|v| Number { value: v.clone() }).collect();
+    let arithmetic_expressions: Vec<ArithmeticExpression<String>> = argument
+        .values
+        .iter()
+        .map(|v| Number { value: v.clone() })
+        .collect();
     let dimensions = argument.lengths.clone();
     AExpressionSlice::new_array(dimensions, arithmetic_expressions)
 }
 
-fn treat_statement(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flags: FlagsExecution, prime: &String) {
+fn treat_statement(
+    stmt: &mut Statement,
+    context: &Context,
+    reports: &mut ReportCollection,
+    flags: FlagsExecution,
+    prime: &String,
+) {
     if stmt.is_initialization_block() {
         treat_init_block(stmt, context, reports, flags, prime)
     } else if stmt.is_block() {
@@ -85,15 +105,24 @@ fn treat_statement(stmt: &mut Statement, context: &Context, reports: &mut Report
         treat_conditional(stmt, context, reports, flags, prime)
     } else if stmt.is_while() {
         treat_while(stmt, context, reports, flags, prime)
-    } else if stmt.is_declaration(){
+    } else if stmt.is_declaration() {
         treat_declaration(stmt, context, reports, flags, prime)
     } else {
     }
 }
 
-fn treat_init_block(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flags: FlagsExecution, prime: &String) {
+fn treat_init_block(
+    stmt: &mut Statement,
+    context: &Context,
+    reports: &mut ReportCollection,
+    flags: FlagsExecution,
+    prime: &String,
+) {
     use Statement::InitializationBlock;
-    if let InitializationBlock { initializations, .. } = stmt {
+    if let InitializationBlock {
+        initializations, ..
+    } = stmt
+    {
         for init in initializations {
             if init.is_declaration() {
                 treat_declaration(init, context, reports, flags, prime)
@@ -104,7 +133,13 @@ fn treat_init_block(stmt: &mut Statement, context: &Context, reports: &mut Repor
     }
 }
 
-fn treat_block(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flags: FlagsExecution, prime: &String) {
+fn treat_block(
+    stmt: &mut Statement,
+    context: &Context,
+    reports: &mut ReportCollection,
+    flags: FlagsExecution,
+    prime: &String,
+) {
     use Statement::Block;
     if let Block { stmts, .. } = stmt {
         for s in stmts {
@@ -115,7 +150,13 @@ fn treat_block(stmt: &mut Statement, context: &Context, reports: &mut ReportColl
     }
 }
 
-fn treat_while(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flags: FlagsExecution, prime: &String) {
+fn treat_while(
+    stmt: &mut Statement,
+    context: &Context,
+    reports: &mut ReportCollection,
+    flags: FlagsExecution,
+    prime: &String,
+) {
     use Statement::While;
     if let While { stmt, .. } = stmt {
         treat_statement(stmt, context, reports, flags, prime);
@@ -124,9 +165,18 @@ fn treat_while(stmt: &mut Statement, context: &Context, reports: &mut ReportColl
     }
 }
 
-fn treat_conditional(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flags: FlagsExecution, prime: &String) {
+fn treat_conditional(
+    stmt: &mut Statement,
+    context: &Context,
+    reports: &mut ReportCollection,
+    flags: FlagsExecution,
+    prime: &String,
+) {
     use Statement::IfThenElse;
-    if let IfThenElse { if_case, else_case, .. } = stmt {
+    if let IfThenElse {
+        if_case, else_case, ..
+    } = stmt
+    {
         treat_statement(if_case, context, reports, flags, prime);
         if let Option::Some(s) = else_case {
             treat_statement(s, context, reports, flags, prime);
@@ -136,15 +186,28 @@ fn treat_conditional(stmt: &mut Statement, context: &Context, reports: &mut Repo
     }
 }
 
-fn treat_declaration(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flags: FlagsExecution, prime: &String) {
-    use Statement::Declaration;
+fn treat_declaration(
+    stmt: &mut Statement,
+    context: &Context,
+    reports: &mut ReportCollection,
+    flags: FlagsExecution,
+    prime: &String,
+) {
     use program_structure::ast::VariableType::AnonymousComponent;
-    if let Declaration { meta, dimensions, xtype, .. } = stmt {
+    use Statement::Declaration;
+    if let Declaration {
+        meta,
+        dimensions,
+        xtype,
+        ..
+    } = stmt
+    {
         let mut concrete_dimensions = vec![];
-        match  xtype {
+        match xtype {
             AnonymousComponent => {
-                meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
-            },
+                meta.get_mut_memory_knowledge()
+                    .set_concrete_dimensions(vec![]);
+            }
             _ => {
                 for d in dimensions.iter_mut() {
                     let execution_response = treat_dimension(d, context, reports, flags, prime);
@@ -154,7 +217,8 @@ fn treat_declaration(stmt: &mut Statement, context: &Context, reports: &mut Repo
                         report_invalid_dimension(meta, reports);
                     }
                 }
-                meta.get_mut_memory_knowledge().set_concrete_dimensions(concrete_dimensions);
+                meta.get_mut_memory_knowledge()
+                    .set_concrete_dimensions(concrete_dimensions);
             }
         }
     } else {
@@ -166,7 +230,7 @@ fn treat_dimension(
     dim: &Expression,
     context: &Context,
     reports: &mut ReportCollection,
-    flags: FlagsExecution, 
+    flags: FlagsExecution,
     prime: &String,
 ) -> Option<usize> {
     use crate::execute::execute_constant_expression;

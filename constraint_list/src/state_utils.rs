@@ -19,8 +19,10 @@ pub fn build_encoding_iterator(mut iterator: EncodingIterator) -> EncodingIterat
     let mut non_linear = LinkedList::new();
     let mut signals = Vec::new();
     for signal in &encoding.nodes[node_id].signals {
-        let new_signal =
-            SignalInfo { id: signal.id + offset, name: format!("{}.{}", path, signal.name) };
+        let new_signal = SignalInfo {
+            id: signal.id + offset,
+            name: format!("{}.{}", path, signal.name),
+        };
         Vec::push(&mut signals, new_signal);
     }
 

@@ -34,7 +34,7 @@ pub struct BuildConfig {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct FlagsExecution{
+pub struct FlagsExecution {
     pub verbose: bool,
     pub inspect: bool,
 }
@@ -43,7 +43,7 @@ pub type ConstraintWriter = Box<dyn ConstraintExporter>;
 type BuildResponse = Result<(ConstraintWriter, VCP), ()>;
 pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildResponse {
     let files = program.file_library.clone();
-    let flags = FlagsExecution{
+    let flags = FlagsExecution {
         verbose: config.flag_verbose,
         inspect: config.inspect_constraints,
     };
@@ -67,23 +67,27 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
 }
 
 type InstantiationResponse = Result<(ExecutedProgram, ReportCollection), ReportCollection>;
-fn instantiation(program: &ProgramArchive, flags: FlagsExecution, prime: &String) -> InstantiationResponse {
-    let execution_result = execute::constraint_execution(&program, flags, prime);
+fn instantiation(
+    program: &ProgramArchive,
+    flags: FlagsExecution,
+    prime: &String,
+) -> InstantiationResponse {
+    let execution_result = execute::constraint_execution(program, flags, prime);
     match execution_result {
         Ok((program_exe, warnings)) => {
             let no_nodes = program_exe.number_of_nodes();
             let success = Colour::Green.paint("template instances");
             let nodes_created = format!("{}: {}", success, no_nodes);
             println!("{}", &nodes_created);
-            InstantiationResponse::Ok((program_exe,warnings))
+            InstantiationResponse::Ok((program_exe, warnings))
         }
         Err(reports) => InstantiationResponse::Err(reports),
     }
 }
 
 fn export(exe: ExecutedProgram, program: ProgramArchive, flags: FlagsExecution) -> ExportResult {
-    let exported = exe.export(program, flags);
-    exported
+    
+    exe.export(program, flags)
 }
 
 fn sync_dag_and_vcp(vcp: &mut VCP, dag: &mut DAG) {
@@ -99,7 +103,7 @@ fn simplification_process(vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> Cons
         port_substitution: config.flag_json_sub,
         no_rounds: config.no_rounds,
         flag_old_heuristics: config.flag_old_heuristics,
-        prime : config.prime.clone(),
+        prime: config.prime.clone(),
     };
     let list = DAG::map_to_list(dag, flags);
     VCP::add_witness_list(vcp, Rc::new(list.get_witness_as_vec()));

@@ -13,7 +13,12 @@ pub fn type_given_function(
     params_types: &[Type],
 ) -> Option<Type> {
     let mut explored_functions = NodeRegister::new();
-    start(function_name, &mut explored_functions, function_info, params_types)
+    start(
+        function_name,
+        &mut explored_functions,
+        function_info,
+        params_types,
+    )
 }
 
 fn add_variable_to_environment(
@@ -23,7 +28,7 @@ fn add_variable_to_environment(
     has_type: &Type,
 ) {
     let last = environment.last_mut().unwrap();
-    last.insert(var_name.to_string(), has_type.clone());
+    last.insert(var_name.to_string(), *has_type);
 }
 
 fn get_type(function_name: &str, environment: &Environment, var_name: &str) -> Type {
@@ -34,7 +39,7 @@ fn get_type(function_name: &str, environment: &Environment, var_name: &str) -> T
         }
     }
     match var_type {
-        Option::Some(v) => v.clone(),
+        Option::Some(v) => *v,
         Option::None => panic!(
             "in get_type variable {:?} not found in the environment of the function {:?}",
             var_name, function_name
@@ -52,8 +57,12 @@ fn start(
     let mut environment = Environment::new();
     let mut initial_block = Block::new();
     explored_functions.insert(function_name.to_string());
-    for (name, t) in function_data.get_name_of_params().iter().zip(params_types.iter()) {
-        initial_block.insert(name.clone(), t.clone());
+    for (name, t) in function_data
+        .get_name_of_params()
+        .iter()
+        .zip(params_types.iter())
+    {
+        initial_block.insert(name.clone(), *t);
     }
     environment.push(initial_block);
     look_for_return_value(
@@ -97,7 +106,9 @@ fn look_for_return_in_statement(
     stmt: &Statement,
 ) -> Option<Type> {
     match stmt {
-        Statement::IfThenElse { if_case, else_case, .. } => {
+        Statement::IfThenElse {
+            if_case, else_case, ..
+        } => {
             let ret1 = look_for_return_in_statement(
                 function_name,
                 environment,
@@ -109,7 +120,8 @@ fn look_for_return_in_statement(
             if ret1.is_some() {
                 return ret1;
             }
-            let ret2 = match else_case {
+            
+            match else_case {
                 Option::Some(s) => look_for_return_in_statement(
                     function_name,
                     environment,
@@ -119,8 +131,7 @@ fn look_for_return_in_statement(
                     s,
                 ),
                 Option::None => Option::None,
-            };
-            ret2
+            }
         }
         Statement::While { stmt, .. } => look_for_return_in_statement(
             function_name,
@@ -138,7 +149,9 @@ fn look_for_return_in_statement(
             function_info,
             value,
         ),
-        Statement::InitializationBlock { initializations, .. } => {
+        Statement::InitializationBlock {
+            initializations, ..
+        } => {
             for initialization in initializations {
                 look_for_return_in_statement(
                     function_name,
@@ -151,7 +164,9 @@ fn look_for_return_in_statement(
             }
             Option::None
         }
-        Statement::Declaration { name, dimensions, .. } => {
+        Statement::Declaration {
+            name, dimensions, ..
+        } => {
             add_variable_to_environment(function_name, environment, name, &dimensions.len());
             Option::None
         }
@@ -215,15 +230,15 @@ fn look_for_type_in_expression(
             if lhe_type.is_some() {
                 return lhe_type;
             }
-            let rhe_type = look_for_type_in_expression(
+            
+            look_for_type_in_expression(
                 function_name,
                 environment,
                 explored_functions,
                 function_data,
                 function_info,
                 rhe,
-            );
-            rhe_type
+            )
         }
         Expression::PrefixOp { rhe, .. } => look_for_type_in_expression(
             function_name,
@@ -241,7 +256,9 @@ fn look_for_type_in_expression(
             function_info,
             rhe,
         ),
-        Expression::InlineSwitchOp { if_true, if_false, .. } => {
+        Expression::InlineSwitchOp {
+            if_true, if_false, ..
+        } => {
             let if_true_type = look_for_type_in_expression(
                 function_name,
                 environment,
@@ -253,15 +270,15 @@ fn look_for_type_in_expression(
             if if_true_type.is_some() {
                 return if_true_type;
             }
-            let if_false_type = look_for_type_in_expression(
+            
+            look_for_type_in_expression(
                 function_name,
                 environment,
                 explored_functions,
                 function_data,
                 function_info,
                 if_false,
-            );
-            if_false_type
+            )
         }
         Expression::Variable { name, access, .. } => {
             let var_type = get_type(function_name, environment, name);
@@ -290,13 +307,11 @@ fn look_for_type_in_expression(
                 function_info,
                 value,
             );
-            if value_type.is_some(){
+            if value_type.is_some() {
                 Option::Some(value_type.unwrap() + 1)
-            }
-            else{
+            } else {
                 None
             }
-            
         }
         Expression::Call { id, args, .. } => {
             if explored_functions.contains(id) {
@@ -314,9 +329,11 @@ fn look_for_type_in_expression(
                 )?;
                 params_types.push(arg_type);
             }
-            let has_type = start(id, explored_functions, function_info, &params_types);
-            has_type
+            
+            start(id, explored_functions, function_info, &params_types)
         }
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }

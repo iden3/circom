@@ -4,8 +4,8 @@ use super::function_data::{FunctionData, FunctionInfo};
 use super::program_merger::Merger;
 use super::template_data::{TemplateData, TemplateInfo};
 use crate::abstract_syntax_tree::ast::FillMeta;
-use std::collections::HashSet;
 use crate::error_definition::Report;
+use std::collections::HashSet;
 
 type Contents = Vec<(FileID, Vec<Definition>)>;
 
@@ -64,7 +64,6 @@ impl ProgramArchive {
         } else {
             Err((file_library, reports))
         }
-
     }
     //file_id_main
     pub fn get_file_id_main(&self) -> &FileID {

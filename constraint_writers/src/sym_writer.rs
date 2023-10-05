@@ -9,7 +9,10 @@ pub struct SymElem {
 }
 impl ToString for SymElem {
     fn to_string(&self) -> String {
-        format!("{},{},{},{}", self.original, self.witness, self.node_id, self.symbol)
+        format!(
+            "{},{},{},{}",
+            self.original, self.witness, self.node_id, self.symbol
+        )
     }
 }
 
@@ -25,13 +28,15 @@ impl SymFile {
     }
 
     pub fn write_sym_elem(sym: &mut SymFile, elem: SymElem) -> Result<(), ()> {
-        sym.writer.write_all(elem.to_string().as_bytes()).map_err(|_err| {})?;
+        sym.writer
+            .write_all(elem.to_string().as_bytes())
+            .map_err(|_err| {})?;
         sym.writer.write_all(b"\n").map_err(|_err| {}) //?;
-        //sym.writer.flush().map_err(|_err| {})
+                                                       //sym.writer.flush().map_err(|_err| {})
     }
-    
+
     pub fn finish_writing(mut sym: SymFile) -> Result<(), ()> {
-	sym.writer.flush().map_err(|_err| {})
+        sym.writer.flush().map_err(|_err| {})
     }
 
     // pub fn close(_sym: SymFile) {}

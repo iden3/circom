@@ -28,17 +28,16 @@ pub fn reduce_instruction(instr: Instruction) -> Instruction {
 pub fn reduce_compute(mut bucket: ComputeBucket) -> Instruction {
     use OperatorType::*;
     bucket.stack = reduce_list(bucket.stack);
-    if !bucket.op.is_address_op() || bucket.op == ToAddress { 
+    if !bucket.op.is_address_op() || bucket.op == ToAddress {
         return IntoInstruction::into_instruction(bucket);
     }
-    
+
     let op0 = *bucket.stack[0].clone();
     let op1 = *bucket.stack[1].clone();
-    let res = reduce_operands(op0, op1)
-    .map(|(a, b)| match bucket.op {
+    let res = reduce_operands(op0, op1).map(|(a, b)| match bucket.op {
         MulAddress => a * b,
         AddAddress => a + b,
-        _ => unreachable!()
+        _ => unreachable!(),
     });
     if let Some(value) = res {
         let v_bucket = ValueBucket {
@@ -81,21 +80,19 @@ pub fn reduce_loop(mut bucket: LoopBucket) -> Instruction {
 }
 
 pub fn reduce_log(mut bucket: LogBucket) -> Instruction {
-    let mut new_args_prints : Vec<LogBucketArg> = Vec::new();
+    let mut new_args_prints: Vec<LogBucketArg> = Vec::new();
     for print in bucket.argsprint {
         match print {
-            LogBucketArg::LogExp(exp)=> {
+            LogBucketArg::LogExp(exp) => {
                 let print_aux = Allocate::allocate(reduce_instruction(*exp));
                 new_args_prints.push(LogBucketArg::LogExp(print_aux));
-
-            },
+            }
             LogBucketArg::LogStr(s) => {
                 new_args_prints.push(LogBucketArg::LogStr(s));
-            },
+            }
         }
-        
     }
-    
+
     bucket.argsprint = new_args_prints;
     IntoInstruction::into_instruction(bucket)
 }
@@ -145,9 +142,19 @@ pub fn reduce_address_type(at: AddressType) -> AddressType {
     match at {
         Variable => Variable,
         Signal => Signal,
-        SubcmpSignal { cmp_address, uniform_parallel_value, is_output, input_information } => {
+        SubcmpSignal {
+            cmp_address,
+            uniform_parallel_value,
+            is_output,
+            input_information,
+        } => {
             let cmp_address = Allocate::allocate(reduce_instruction(*cmp_address));
-            SubcmpSignal { cmp_address, uniform_parallel_value, is_output, input_information }
+            SubcmpSignal {
+                cmp_address,
+                uniform_parallel_value,
+                is_output,
+                input_information,
+            }
         }
     }
 }
@@ -155,11 +162,20 @@ pub fn reduce_address_type(at: AddressType) -> AddressType {
 pub fn reduce_location_rule(lc: LocationRule) -> LocationRule {
     use LocationRule::*;
     match lc {
-        Indexed { location, template_header } => {
+        Indexed {
+            location,
+            template_header,
+        } => {
             let location = Allocate::allocate(reduce_instruction(*location));
-            Indexed { location, template_header }
+            Indexed {
+                location,
+                template_header,
+            }
         }
-        Mapped { signal_code, indexes } => {
+        Mapped {
+            signal_code,
+            indexes,
+        } => {
             let no_indexes = InstructionList::len(&indexes);
             let work = indexes;
             let mut indexes = InstructionList::with_capacity(no_indexes);
@@ -167,7 +183,10 @@ pub fn reduce_location_rule(lc: LocationRule) -> LocationRule {
                 let index = Allocate::allocate(reduce_instruction(*index));
                 InstructionList::push(&mut indexes, index);
             }
-            Mapped { signal_code, indexes }
+            Mapped {
+                signal_code,
+                indexes,
+            }
         }
     }
 }

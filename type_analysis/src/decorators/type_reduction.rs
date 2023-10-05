@@ -25,24 +25,31 @@ pub fn reduce_template(template_data: &mut TemplateData) {
 fn reduce_types_in_statement(stmt: &mut Statement, environment: &mut Environment) {
     use Statement::*;
     match stmt {
-        Substitution { var, access, rhe, meta, .. } => {
-            reduce_types_in_substitution(var, access, environment, rhe, meta)
-        }
-        Declaration { name, xtype, dimensions, .. } => {
-            reduce_types_in_declaration(xtype, name, dimensions, environment)
-        }
+        Substitution {
+            var,
+            access,
+            rhe,
+            meta,
+            ..
+        } => reduce_types_in_substitution(var, access, environment, rhe, meta),
+        Declaration {
+            name,
+            xtype,
+            dimensions,
+            ..
+        } => reduce_types_in_declaration(xtype, name, dimensions, environment),
         While { cond, stmt, .. } => reduce_types_in_while(cond, stmt, environment),
         Block { stmts, .. } => reduce_types_in_vec_of_statements(stmts, environment),
-        InitializationBlock { initializations, .. } => {
-            reduce_types_in_vec_of_statements(initializations, environment)
-        }
-        IfThenElse { cond, if_case, else_case, .. } => {
-            reduce_types_in_conditional(cond, if_case, else_case, environment)
-        }
-        LogCall { args, .. } => {
-                reduce_types_in_log_call(args, environment)
-            
-        },
+        InitializationBlock {
+            initializations, ..
+        } => reduce_types_in_vec_of_statements(initializations, environment),
+        IfThenElse {
+            cond,
+            if_case,
+            else_case,
+            ..
+        } => reduce_types_in_conditional(cond, if_case, else_case, environment),
+        LogCall { args, .. } => reduce_types_in_log_call(args, environment),
         Assert { arg, .. } => reduce_types_in_expression(arg, environment),
         Return { value, .. } => reduce_types_in_expression(value, environment),
         ConstraintEquality { lhe, rhe, .. } => {
@@ -51,11 +58,11 @@ fn reduce_types_in_statement(stmt: &mut Statement, environment: &mut Environment
         MultSubstitution { .. } => unreachable!(),
         UnderscoreSubstitution { rhe, .. } => {
             reduce_types_in_expression(rhe, environment);
-        },
+        }
     }
 }
 
-fn reduce_types_in_log_call(args: &mut Vec<LogArgument>, environment: &Environment){
+fn reduce_types_in_log_call(args: &mut Vec<LogArgument>, environment: &Environment) {
     for arg in args {
         if let LogArgument::LogExp(exp) = arg {
             reduce_types_in_expression(exp, environment);
@@ -66,23 +73,30 @@ fn reduce_types_in_log_call(args: &mut Vec<LogArgument>, environment: &Environme
 fn reduce_types_in_expression(expression: &mut Expression, environment: &Environment) {
     use Expression::*;
     match expression {
-        Variable { name, access, meta, .. } => {
-            reduce_types_in_variable(name, environment, access, meta)
-        }
+        Variable {
+            name, access, meta, ..
+        } => reduce_types_in_variable(name, environment, access, meta),
         InfixOp { lhe, rhe, .. } => reduce_types_in_infix(lhe, rhe, environment),
         PrefixOp { rhe, .. } => reduce_types_in_expression(rhe, environment),
         ParallelOp { rhe, .. } => reduce_types_in_expression(rhe, environment),
-        InlineSwitchOp { cond, if_true, if_false, .. } => {
-            reduce_types_in_inline_switch(cond, if_true, if_false, environment)
-        }
+        InlineSwitchOp {
+            cond,
+            if_true,
+            if_false,
+            ..
+        } => reduce_types_in_inline_switch(cond, if_true, if_false, environment),
         Call { args, .. } => reduce_types_in_vec_of_expressions(args, environment),
         ArrayInLine { values, .. } => reduce_types_in_vec_of_expressions(values, environment),
-        UniformArray { value, dimension, .. } => {
+        UniformArray {
+            value, dimension, ..
+        } => {
             reduce_types_in_expression(value, environment);
             reduce_types_in_expression(dimension, environment);
         }
         Number(..) => {}
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }
 
@@ -170,7 +184,7 @@ fn reduce_types_in_variable(
     for acc in access {
         if let ArrayAccess(exp) = acc {
             reduce_types_in_expression(exp, environment)
-        } else if reduction == Signal{
+        } else if reduction == Signal {
             reduction = Tag;
         } else {
             reduction = Signal;

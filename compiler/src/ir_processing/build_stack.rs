@@ -66,7 +66,7 @@ pub fn build_compute(bucket: &mut ComputeBucket, mut fresh: usize) -> usize {
         max_stack = std::cmp::max(max_stack, depth);
 
         // in case it is an addition or multiplication between addresses the number of new fresh vars is the number of ToAddress inside the operand
-        if bucket.op == AddAddress || bucket.op == MulAddress{
+        if bucket.op == AddAddress || bucket.op == MulAddress {
             fresh += get_num_to_address_inside_compute_address(i);
         }
     }
@@ -75,8 +75,8 @@ pub fn build_compute(bucket: &mut ComputeBucket, mut fresh: usize) -> usize {
 
 pub fn build_load(bucket: &mut LoadBucket, fresh: usize) -> usize {
     let v0 = build_address_type(&mut bucket.address_type, fresh);
-    let v1 = build_location(&mut bucket.src, v0);
-    v1
+    
+    build_location(&mut bucket.src, v0)
 }
 
 pub fn build_create_cmp(bucket: &mut CreateCmpBucket, fresh: usize) -> usize {
@@ -141,24 +141,21 @@ pub fn build_address_type(xtype: &mut AddressType, fresh: usize) -> usize {
     max
 }
 
-
 pub fn get_num_to_address_inside_compute_address(instruction: &Instruction) -> usize {
     use Instruction::*;
     match instruction {
-        Compute(b) =>{
-            match b.op{
-                OperatorType::ToAddress => 1,
-                OperatorType::AddAddress | OperatorType::MulAddress{} =>{
-                    let mut num_to_address = 0;
-                    for i in &b.stack{
-                        num_to_address += get_num_to_address_inside_compute_address(i);
-                    }
-                    num_to_address
-                },
-                _ => unreachable!(),
+        Compute(b) => match b.op {
+            OperatorType::ToAddress => 1,
+            OperatorType::AddAddress | OperatorType::MulAddress {} => {
+                let mut num_to_address = 0;
+                for i in &b.stack {
+                    num_to_address += get_num_to_address_inside_compute_address(i);
+                }
+                num_to_address
             }
+            _ => unreachable!(),
         },
         Value(_) => 0,
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }

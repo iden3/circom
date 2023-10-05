@@ -37,7 +37,10 @@ impl ToString for ReturnBucket {
         let line = self.line.to_string();
         let template_id = self.message_id.to_string();
         let value = self.value.to_string();
-        format!("RETURN(line: {},template_id: {},value: {})", line, template_id, value)
+        format!(
+            "RETURN(line: {},template_id: {},value: {})",
+            line, template_id, value
+        )
     }
 }
 
@@ -47,7 +50,7 @@ impl WriteWasm for ReturnBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; return bucket".to_string());
-	}
+        }
         if self.with_size == 1 {
             instructions.push(get_local(producer.get_result_address_tag())); //result address
             let mut instructions_value = self.value.produce_wasm(producer);
@@ -84,11 +87,11 @@ impl WriteWasm for ReturnBucket {
         }
         let mut free_stack_code = free_stack(producer);
         instructions.append(&mut free_stack_code);
-        instructions.push(set_constant("0"));	
+        instructions.push(set_constant("0"));
         instructions.push(add_return());
         if producer.needs_comments() {
             instructions.push(";; end of return bucket".to_string());
-	}
+        }
         instructions
     }
 }
@@ -101,12 +104,21 @@ impl WriteC for ReturnBucket {
         let (mut instructions_value, src) = self.value.produce_c(producer, parallel);
         instructions.append(&mut instructions_value);
         if self.with_size > 1 {
-            let copy_arguments =
-                vec![FUNCTION_DESTINATION.to_string(), src, FUNCTION_DESTINATION_SIZE.to_string()];
-            instructions.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
+            let copy_arguments = vec![
+                FUNCTION_DESTINATION.to_string(),
+                src,
+                FUNCTION_DESTINATION_SIZE.to_string(),
+            ];
+            instructions.push(format!(
+                "{};",
+                build_call("Fr_copyn".to_string(), copy_arguments)
+            ));
         } else {
             let copy_arguments = vec![FUNCTION_DESTINATION.to_string(), src];
-            instructions.push(format!("{};", build_call("Fr_copy".to_string(), copy_arguments)));
+            instructions.push(format!(
+                "{};",
+                build_call("Fr_copy".to_string(), copy_arguments)
+            ));
         }
         instructions.push(add_return());
         (instructions, "".to_string())

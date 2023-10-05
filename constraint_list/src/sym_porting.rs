@@ -22,7 +22,11 @@ pub fn signal_iteration(
         let signal = IteratorSignal::new(signal, map);
         let sym_elem = SymElem {
             original: signal.original.as_(),
-            witness: if signal.witness == map.len() { -1 } else { signal.witness.as_() },
+            witness: if signal.witness == map.len() {
+                -1
+            } else {
+                signal.witness.as_()
+            },
             node_id: iter.node_id.as_(),
             symbol: signal.name.clone(),
         };

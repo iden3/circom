@@ -1,8 +1,8 @@
 use super::analysis_utilities::*;
 use super::very_concrete_program::*;
+use num_traits::ToPrimitive;
 use program_structure::ast::*;
 use std::collections::HashSet;
-use num_traits::{ToPrimitive};
 
 struct SearchInfo {
     environment: E,
@@ -11,7 +11,10 @@ struct SearchInfo {
 
 pub fn infer_function_result(id: &str, params: Vec<Param>, state: &State) -> VCT {
     let body = &state.generic_functions.get(id).unwrap().body;
-    let mut context = SearchInfo { environment: E::new(), open_calls: HashSet::new() };
+    let mut context = SearchInfo {
+        environment: E::new(),
+        open_calls: HashSet::new(),
+    };
     context.open_calls.insert(id.to_string());
     for p in params {
         context.environment.add_variable(&p.name, p.length);
@@ -40,7 +43,7 @@ fn infer_type_stmt(stmt: &Statement, state: &State, context: &mut SearchInfo) ->
         Option::None
     } else if stmt.is_assert() {
         Option::None
-    } else{
+    } else {
         unreachable!()
     }
 }
@@ -61,7 +64,10 @@ fn infer_type_declaration(
 ) -> Option<VCT> {
     use Statement::Declaration;
     if let Declaration { meta, name, .. } = stmt {
-        let has_type = meta.get_memory_knowledge().get_concrete_dimensions().to_vec();
+        let has_type = meta
+            .get_memory_knowledge()
+            .get_concrete_dimensions()
+            .to_vec();
         context.environment.add_variable(name, has_type);
         Option::None
     } else {
@@ -88,7 +94,10 @@ fn infer_type_block(stmt: &Statement, state: &State, context: &mut SearchInfo) -
 
 fn infer_type_init_block(stmt: &Statement, state: &State, context: &mut SearchInfo) -> Option<VCT> {
     use Statement::InitializationBlock;
-    if let InitializationBlock { initializations, .. } = stmt {
+    if let InitializationBlock {
+        initializations, ..
+    } = stmt
+    {
         for s in initializations {
             if s.is_declaration() {
                 infer_type_declaration(s, state, context);
@@ -106,7 +115,10 @@ fn infer_type_conditional(
     context: &mut SearchInfo,
 ) -> Option<VCT> {
     use Statement::IfThenElse;
-    if let IfThenElse { if_case, else_case, .. } = stmt {
+    if let IfThenElse {
+        if_case, else_case, ..
+    } = stmt
+    {
         let mut returns = infer_type_stmt(if_case, state, context);
         if let Option::Some(s) = else_case {
             if returns.is_none() {
@@ -141,7 +153,7 @@ fn infer_type_expresion(expr: &Expression, state: &State, context: &mut SearchIn
         Option::Some(VCT::with_capacity(0))
     } else if expr.is_prefix() {
         Option::Some(VCT::with_capacity(0))
-    } else if expr.is_parallel(){
+    } else if expr.is_parallel() {
         infer_type_parallel(expr, state, context)
     } else if expr.is_number() {
         Option::Some(VCT::with_capacity(0))
@@ -152,7 +164,10 @@ fn infer_type_expresion(expr: &Expression, state: &State, context: &mut SearchIn
 
 fn infer_type_switch(expr: &Expression, state: &State, context: &mut SearchInfo) -> Option<VCT> {
     use Expression::InlineSwitchOp;
-    if let InlineSwitchOp { if_true, if_false, .. } = expr {
+    if let InlineSwitchOp {
+        if_true, if_false, ..
+    } = expr
+    {
         let casts_to = infer_type_expresion(if_true, state, context);
         if casts_to.is_none() {
             infer_type_expresion(if_false, state, context)
@@ -202,14 +217,17 @@ fn infer_type_array(expr: &Expression, state: &State, context: &mut SearchInfo) 
             lengths.append(&mut l);
             lengths
         })
-    } else if let UniformArray { value, dimension, .. } = expr {
-        let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
+    } else if let UniformArray {
+        value, dimension, ..
+    } = expr
+    {
+        let usable_dimension = if let Option::Some(dimension) = cast_dimension(dimension) {
             dimension
         } else {
             unreachable!()
         };
         let mut lengths = vec![usable_dimension];
-        let with_type = infer_type_expresion(&value, state, context);
+        let with_type = infer_type_expresion(value, state, context);
         with_type.map(|mut l| {
             lengths.append(&mut l);
             lengths
@@ -231,9 +249,7 @@ fn infer_type_call(expr: &Expression, state: &State, context: &mut SearchInfo) -
             let body = &state.generic_functions.get(id).unwrap().body;
             let names = &state.generic_functions.get(id).unwrap().params_names;
             let arg_types = infer_args(args, state, context);
-            if arg_types.is_none() {
-                return Option::None;
-            }
+            arg_types.as_ref()?;
             let arg_types = arg_types.unwrap();
             for arg_type in arg_types {
                 context.environment.add_variable(&names[index], arg_type);

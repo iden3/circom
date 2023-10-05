@@ -1,5 +1,5 @@
-fn_args_layout = "Tall"
-use_small_heuristics = "Max"
-max_width = 100
-reorder_modules = false
-reorder_imports = false
+edition                  = "2021"    # Rust edition
+newline_style            = "Unix"    # never allow Windows' \n\r newlines
+
+use_field_init_shorthand = true      # replace Foo { x: x } with Foo { x }
+use_try_shorthand        = true      # replace try! with ?

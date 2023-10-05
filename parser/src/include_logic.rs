@@ -14,7 +14,11 @@ impl FileStack {
     pub fn new(src: PathBuf) -> FileStack {
         let mut location = src.clone();
         location.pop();
-        FileStack { current_location: location, black_paths: HashSet::new(), stack: vec![src] }
+        FileStack {
+            current_location: location,
+            black_paths: HashSet::new(),
+            stack: vec![src],
+        }
     }
 
     pub fn add_include(
@@ -42,7 +46,10 @@ impl FileStack {
                 }
             }
         }
-        Result::Err( produce_report_with_message(ReportCode::IncludeNotFound, name))
+        Result::Err(produce_report_with_message(
+            ReportCode::IncludeNotFound,
+            name,
+        ))
     }
 
     pub fn take_next(f_stack: &mut FileStack) -> Option<PathBuf> {
@@ -81,7 +88,10 @@ impl IncludesGraph {
     }
 
     pub fn add_node(&mut self, path: PathBuf, custom_gates_pragma: bool, custom_gates_usage: bool) {
-        self.nodes.push(IncludesNode { path, custom_gates_pragma });
+        self.nodes.push(IncludesNode {
+            path,
+            custom_gates_pragma,
+        });
         if custom_gates_usage {
             self.custom_gates_nodes.push(self.nodes.len() - 1);
         }
@@ -91,7 +101,7 @@ impl IncludesGraph {
         let mut crr = PathBuf::new();
         crr.push(old_path.clone());
         let path = std::fs::canonicalize(crr)
-            .map_err(|_e| produce_report_with_message(ReportCode::FileOs,old_path))?;
+            .map_err(|_e| produce_report_with_message(ReportCode::FileOs, old_path))?;
         let edges = self.adjacency.entry(path).or_insert(vec![]);
         edges.push(self.nodes.len() - 1);
         Ok(())
@@ -117,7 +127,7 @@ impl IncludesGraph {
             (&node.path, node.custom_gates_pragma)
         };
         let new_path = {
-            let mut new_path = path.clone();
+            let mut new_path = path;
             new_path.push(from_path.clone());
             new_path
         };
@@ -149,11 +159,11 @@ impl IncludesGraph {
             .iter()
             .map(|file| -> String {
                 let file = format!("{}", file.display());
-                let (_, file) = file.rsplit_once("/").unwrap();
+                let (_, file) = file.rsplit_once('/').unwrap();
                 file.clone().to_string()
             })
             .collect::<Vec<String>>();
-        let mut path_covered = format!("{}", path[0]);
+        let mut path_covered = path[0].to_string();
         for file in &path[1..] {
             path_covered = format!("{} -> {}", path_covered, file);
         }

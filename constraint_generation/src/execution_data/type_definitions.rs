@@ -1,8 +1,7 @@
 use super::AExpressionSlice;
 use super::Constraint as ConstraintGen;
-use std::collections::BTreeMap;
 use num_bigint_dig::BigInt;
-
+use std::collections::BTreeMap;
 
 pub type NodePointer = usize;
 pub type Constraint = ConstraintGen<String>;

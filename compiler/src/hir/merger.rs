@@ -2,10 +2,9 @@ use super::analysis_utilities::*;
 use super::component_preprocess;
 use super::sugar_cleaner;
 use super::very_concrete_program::*;
+use num_traits::ToPrimitive;
 use program_structure::ast::*;
 use program_structure::program_archive::ProgramArchive;
-use num_traits::{ToPrimitive};
-
 
 pub fn run_preprocessing(vcp: &mut VCP, program_archive: ProgramArchive) {
     let mut state = build_function_knowledge(program_archive);
@@ -29,7 +28,7 @@ fn produce_vcf(vcp: &VCP, state: &mut State) {
     let mut index = 0;
     while index < state.vcf_collector.len() {
         state.external_signals = build_component_info(&vec![]);
-        let mut env = build_environment(&vec![], &state.vcf_collector[index].params_types);
+        let mut env = build_environment(&[], &state.vcf_collector[index].params_types);
         let body = state.vcf_collector[index].body.clone();
         produce_vcf_stmt(&body, state, &mut env);
         index += 1;
@@ -38,7 +37,7 @@ fn produce_vcf(vcp: &VCP, state: &mut State) {
 
 fn link_circuit(vcp: &mut VCP, state: &mut State) {
     for node in &mut vcp.templates {
-        let mut env = build_environment(&node.header, &vec![]);
+        let mut env = build_environment(&node.header, &[]);
         state.external_signals = build_component_info(&node.triggers);
         link_stmt(&mut node.code, state, &mut env);
     }
@@ -65,9 +64,16 @@ fn add_instance(name: &str, args: Vec<Param>, state: &mut State) {
             return_type: inferred,
             body,
         };
-        state.quick_knowledge.insert(new_vcf.header.clone(), new_vcf.return_type.clone());
+        state
+            .quick_knowledge
+            .insert(new_vcf.header.clone(), new_vcf.return_type.clone());
         state.vcf_collector.push(new_vcf);
-        state.generic_functions.get_mut(name).unwrap().concrete_instances.push(id);
+        state
+            .generic_functions
+            .get_mut(name)
+            .unwrap()
+            .concrete_instances
+            .push(id);
     }
 }
 
@@ -131,7 +137,7 @@ fn produce_vcf_expr(expr: &Expression, state: &mut State, environment: &E) {
         produce_vcf_call(expr, state, environment);
     } else if expr.is_array() {
         produce_vcf_array(expr, state, environment);
-    } else if expr.is_parallel(){
+    } else if expr.is_parallel() {
         produce_vcf_parallel(expr, state, environment);
     } else {
         unreachable!();
@@ -162,8 +168,8 @@ fn produce_vcf_log_call(stmt: &Statement, state: &mut State, environment: &E) {
         for arglog in args {
             if let LogArgument::LogExp(arg) = arglog {
                 produce_vcf_expr(arg, state, environment);
-            }
-            else {}// unimplemented!(); }
+            } else {
+            } // unimplemented!(); }
         }
     } else {
         unreachable!();
@@ -196,11 +202,20 @@ fn produce_vcf_substitution(stmt: &Statement, state: &mut State, environment: &E
 
 fn produce_vcf_declaration(stmt: &Statement, state: &mut State, environment: &mut E) {
     use Statement::Declaration;
-    if let Declaration { name, dimensions, meta, .. } = stmt {
+    if let Declaration {
+        name,
+        dimensions,
+        meta,
+        ..
+    } = stmt
+    {
         for d in dimensions {
             produce_vcf_expr(d, state, environment);
         }
-        let with_type = meta.get_memory_knowledge().get_concrete_dimensions().to_vec();
+        let with_type = meta
+            .get_memory_knowledge()
+            .get_concrete_dimensions()
+            .to_vec();
         environment.add_variable(name, with_type);
     } else {
         unreachable!();
@@ -222,7 +237,10 @@ fn produce_vcf_block(stmt: &Statement, state: &mut State, environment: &mut E) {
 
 fn produce_vcf_init_block(stmt: &Statement, state: &mut State, environment: &mut E) {
     use Statement::InitializationBlock;
-    if let InitializationBlock { initializations, .. } = stmt {
+    if let InitializationBlock {
+        initializations, ..
+    } = stmt
+    {
         for s in initializations {
             produce_vcf_stmt(s, state, environment);
         }
@@ -243,7 +261,13 @@ fn produce_vcf_while(stmt: &Statement, state: &mut State, environment: &mut E) {
 
 fn produce_vcf_conditional(stmt: &Statement, state: &mut State, environment: &mut E) {
     use Statement::IfThenElse;
-    if let IfThenElse { cond, if_case, else_case, .. } = stmt {
+    if let IfThenElse {
+        cond,
+        if_case,
+        else_case,
+        ..
+    } = stmt
+    {
         produce_vcf_expr(cond, state, environment);
         produce_vcf_stmt(if_case, state, environment);
         if let Option::Some(s) = else_case {
@@ -258,7 +282,10 @@ fn produce_vcf_array(expr: &Expression, state: &mut State, environment: &E) {
         for v in values {
             produce_vcf_expr(v, state, environment);
         }
-    } else if let UniformArray { value, dimension, .. } = expr {
+    } else if let UniformArray {
+        value, dimension, ..
+    } = expr
+    {
         produce_vcf_expr(value, state, environment);
         produce_vcf_expr(dimension, state, environment);
     } else {
@@ -296,7 +323,10 @@ fn produce_vcf_variable(expr: &Expression, state: &mut State, environment: &E) {
 
 fn produce_vcf_switch(expr: &Expression, state: &mut State, environment: &E) {
     use Expression::InlineSwitchOp;
-    if let InlineSwitchOp { if_true, if_false, .. } = expr {
+    if let InlineSwitchOp {
+        if_true, if_false, ..
+    } = expr
+    {
         produce_vcf_expr(if_true, state, environment);
         produce_vcf_expr(if_false, state, environment);
     } else {
@@ -383,7 +413,10 @@ fn link_block(stmt: &mut Statement, state: &State, env: &mut E) {
 
 fn link_initialization_block(stmt: &mut Statement, state: &State, env: &mut E) {
     use Statement::InitializationBlock;
-    if let InitializationBlock { initializations, .. } = stmt {
+    if let InitializationBlock {
+        initializations, ..
+    } = stmt
+    {
         for i in initializations {
             link_stmt(i, state, env);
         }
@@ -394,7 +427,13 @@ fn link_initialization_block(stmt: &mut Statement, state: &State, env: &mut E) {
 
 fn link_conditional(stmt: &mut Statement, state: &State, env: &mut E) {
     use Statement::IfThenElse;
-    if let IfThenElse { cond, if_case, else_case, .. } = stmt {
+    if let IfThenElse {
+        cond,
+        if_case,
+        else_case,
+        ..
+    } = stmt
+    {
         link_expression(cond, state, env);
         link_stmt(if_case, state, env);
         if let Option::Some(s) = else_case {
@@ -419,10 +458,10 @@ fn link_log_call(stmt: &mut Statement, state: &State, env: &mut E) {
     use Statement::LogCall;
     if let LogCall { args, .. } = stmt {
         for arglog in args {
-            if let LogArgument::LogExp(arg) = arglog{
+            if let LogArgument::LogExp(arg) = arglog {
                 link_expression(arg, state, env);
             }
-        }   
+        }
     } else {
         unreachable!();
     }
@@ -458,11 +497,20 @@ fn link_constraint_eq(stmt: &mut Statement, state: &State, env: &mut E) {
 
 fn link_declaration(stmt: &mut Statement, state: &State, env: &mut E) {
     use Statement::Declaration;
-    if let Declaration { name, dimensions, meta, .. } = stmt {
+    if let Declaration {
+        name,
+        dimensions,
+        meta,
+        ..
+    } = stmt
+    {
         for d in dimensions {
             link_expression(d, state, env);
         }
-        let has_type = meta.get_memory_knowledge().get_concrete_dimensions().to_vec();
+        let has_type = meta
+            .get_memory_knowledge()
+            .get_concrete_dimensions()
+            .to_vec();
         env.add_variable(name, has_type);
     } else {
         unreachable!();
@@ -496,13 +544,15 @@ fn link_expression(expr: &mut Expression, state: &State, env: &E) {
         link_infix(expr, state, env);
     } else if expr.is_prefix() {
         link_prefix(expr, state, env);
-    } else if expr.is_parallel(){
+    } else if expr.is_parallel() {
         link_parallel(expr, state, env);
     } else {
         unreachable!();
     }
     let has_type = cast_type_expression(expr, state, env);
-    expr.get_mut_meta().get_mut_memory_knowledge().set_concrete_dimensions(has_type);
+    expr.get_mut_meta()
+        .get_mut_memory_knowledge()
+        .set_concrete_dimensions(has_type);
 }
 
 fn link_call(expr: &mut Expression, state: &State, env: &E) {
@@ -527,7 +577,10 @@ fn link_array(expr: &mut Expression, state: &State, env: &E) {
         for v in values {
             link_expression(v, state, env)
         }
-    } else if let UniformArray { value, dimension, .. } = expr {
+    } else if let UniformArray {
+        value, dimension, ..
+    } = expr
+    {
         link_expression(value, state, env);
         link_expression(dimension, state, env);
     } else {
@@ -550,7 +603,10 @@ fn link_variable(expr: &mut Expression, state: &State, env: &E) {
 
 fn link_switch(expr: &mut Expression, state: &State, env: &E) {
     use Expression::InlineSwitchOp;
-    if let InlineSwitchOp { if_true, if_false, .. } = expr {
+    if let InlineSwitchOp {
+        if_true, if_false, ..
+    } = expr
+    {
         link_expression(if_true, state, env);
         link_expression(if_false, state, env);
     } else {
@@ -615,7 +671,13 @@ fn cast_type_variable(expr: &Expression, state: &State, environment: &E) -> VCT 
                     xtype.pop();
                 }
                 Access::ComponentAccess(signal) => {
-                    xtype = state.external_signals.get(name).unwrap().get(signal).unwrap().clone();
+                    xtype = state
+                        .external_signals
+                        .get(name)
+                        .unwrap()
+                        .get(signal)
+                        .unwrap()
+                        .clone();
                     xtype.reverse();
                 }
             }
@@ -637,7 +699,6 @@ fn cast_dimension(ae_index: &Expression) -> Option<usize> {
     }
 }
 
-
 fn cast_type_array(expr: &Expression, state: &State, environment: &E) -> VCT {
     use Expression::{ArrayInLine, UniformArray};
     if let ArrayInLine { values, .. } = expr {
@@ -645,8 +706,11 @@ fn cast_type_array(expr: &Expression, state: &State, environment: &E) -> VCT {
         let mut inner_type = cast_type_expression(&values[0], state, environment);
         result.append(&mut inner_type);
         result
-    } else if let UniformArray { value, dimension, .. } = expr {
-        let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
+    } else if let UniformArray {
+        value, dimension, ..
+    } = expr
+    {
+        let usable_dimension = if let Option::Some(dimension) = cast_dimension(dimension) {
             dimension
         } else {
             unreachable!()
@@ -687,7 +751,11 @@ fn cast_type_switch(expr: &Expression, state: &State, environment: &E) -> VCT {
 
 fn map_to_params(function_id: &str, args: &[Expression], state: &State, env: &E) -> Vec<Param> {
     let mut params = vec![];
-    let names = &state.generic_functions.get(function_id).unwrap().params_names;
+    let names = &state
+        .generic_functions
+        .get(function_id)
+        .unwrap()
+        .params_names;
     let mut index = 0;
     while index < args.len() {
         let param = Param {

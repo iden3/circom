@@ -14,8 +14,8 @@ impl Statement {
             | Assert { meta, .. }
             | ConstraintEquality { meta, .. }
             | InitializationBlock { meta, .. } => meta,
-            | MultSubstitution { meta, ..} => meta,
-            | UnderscoreSubstitution { meta, .. } => meta,
+            MultSubstitution { meta, .. } => meta,
+            UnderscoreSubstitution { meta, .. } => meta,
         }
     }
     pub fn get_mut_meta(&mut self) -> &mut Meta {
@@ -31,8 +31,8 @@ impl Statement {
             | Assert { meta, .. }
             | ConstraintEquality { meta, .. }
             | InitializationBlock { meta, .. } => meta,
-            | MultSubstitution { meta, ..} => meta,
-            | UnderscoreSubstitution { meta, .. } => meta,
+            MultSubstitution { meta, .. } => meta,
+            UnderscoreSubstitution { meta, .. } => meta,
         }
     }
 
@@ -129,29 +129,36 @@ impl Statement {
     pub fn contains_anonymous_comp(&self) -> bool {
         use Statement::*;
         match self {
-            IfThenElse { cond, if_case, else_case, .. } => {
-                if else_case.is_none(){
+            IfThenElse {
+                cond,
+                if_case,
+                else_case,
+                ..
+            } => {
+                if else_case.is_none() {
                     cond.contains_anonymous_comp() || if_case.contains_anonymous_comp()
-                } else{
-                    cond.contains_anonymous_comp() || if_case.contains_anonymous_comp() || else_case.as_ref().unwrap().contains_anonymous_comp()
+                } else {
+                    cond.contains_anonymous_comp()
+                        || if_case.contains_anonymous_comp()
+                        || else_case.as_ref().unwrap().contains_anonymous_comp()
                 }
             }
             While { cond, stmt, .. } => {
                 cond.contains_anonymous_comp() || stmt.contains_anonymous_comp()
-            },
-            Return { value, .. } => {
-                value.contains_anonymous_comp()
             }
-            InitializationBlock { initializations, .. } => {
-                for init in initializations{
+            Return { value, .. } => value.contains_anonymous_comp(),
+            InitializationBlock {
+                initializations, ..
+            } => {
+                for init in initializations {
                     if init.contains_anonymous_comp() {
                         return true;
                     }
                 }
                 false
             }
-            Declaration {dimensions, .. } => {
-                for dim in dimensions{
+            Declaration { dimensions, .. } => {
+                for dim in dimensions {
                     if dim.contains_anonymous_comp() {
                         return true;
                     }
@@ -159,16 +166,19 @@ impl Statement {
                 false
             }
             Substitution { access, rhe, .. } => {
-                for acc in access{
+                for acc in access {
                     match acc {
-                        Access::ComponentAccess(_) => {},
-                        Access::ArrayAccess( exp ) => if exp.contains_anonymous_comp() {return true;},
+                        Access::ComponentAccess(_) => {}
+                        Access::ArrayAccess(exp) => {
+                            if exp.contains_anonymous_comp() {
+                                return true;
+                            }
+                        }
                     }
                 }
                 rhe.contains_anonymous_comp()
             }
-            MultSubstitution { lhe, rhe, .. }
-            => {
+            MultSubstitution { lhe, rhe, .. } => {
                 lhe.contains_anonymous_comp() || rhe.contains_anonymous_comp()
             }
             ConstraintEquality { lhe, rhe, .. } => {
@@ -176,29 +186,28 @@ impl Statement {
             }
             LogCall { args, .. } => {
                 use crate::abstract_syntax_tree::statement_impl::LogArgument::*;
-                for arg in args{
+                for arg in args {
                     match arg {
-                        LogStr(_) => {},
-                        LogExp(exp) => if exp.contains_anonymous_comp() {return true;},
+                        LogStr(_) => {}
+                        LogExp(exp) => {
+                            if exp.contains_anonymous_comp() {
+                                return true;
+                            }
+                        }
                     }
                 }
                 false
             }
             Block { stmts, .. } => {
-                for init in stmts{
+                for init in stmts {
                     if init.contains_anonymous_comp() {
                         return true;
                     }
                 }
                 false
             }
-            Assert {  arg, .. } => {
-                arg.contains_anonymous_comp() 
-            }
-            UnderscoreSubstitution { rhe, .. } => {
-                rhe.contains_anonymous_comp() 
-            },
-            
+            Assert { arg, .. } => arg.contains_anonymous_comp(),
+            UnderscoreSubstitution { rhe, .. } => rhe.contains_anonymous_comp(),
         }
     }
 }
@@ -209,22 +218,27 @@ impl FillMeta for Statement {
         self.get_mut_meta().elem_id = *element_id;
         *element_id += 1;
         match self {
-            IfThenElse { meta, cond, if_case, else_case, .. } => {
-                fill_conditional(meta, cond, if_case, else_case, file_id, element_id)
-            }
+            IfThenElse {
+                meta,
+                cond,
+                if_case,
+                else_case,
+                ..
+            } => fill_conditional(meta, cond, if_case, else_case, file_id, element_id),
             While { meta, cond, stmt } => fill_while(meta, cond, stmt, file_id, element_id),
             Return { meta, value } => fill_return(meta, value, file_id, element_id),
-            InitializationBlock { meta, initializations, .. } => {
-                fill_initialization(meta, initializations, file_id, element_id)
-            }
-            Declaration { meta, dimensions, .. } => {
-                fill_declaration(meta, dimensions, file_id, element_id)
-            }
-            Substitution { meta, access, rhe, .. } => {
-                fill_substitution(meta, access, rhe, file_id, element_id)
-            }
-            MultSubstitution { meta, lhe, rhe, .. }
-            => {
+            InitializationBlock {
+                meta,
+                initializations,
+                ..
+            } => fill_initialization(meta, initializations, file_id, element_id),
+            Declaration {
+                meta, dimensions, ..
+            } => fill_declaration(meta, dimensions, file_id, element_id),
+            Substitution {
+                meta, access, rhe, ..
+            } => fill_substitution(meta, access, rhe, file_id, element_id),
+            MultSubstitution { meta, lhe, rhe, .. } => {
                 fill_mult_substitution(meta, lhe, rhe, file_id, element_id);
             }
             ConstraintEquality { meta, lhe, rhe } => {
@@ -235,12 +249,10 @@ impl FillMeta for Statement {
             Assert { meta, arg, .. } => fill_assert(meta, arg, file_id, element_id),
             UnderscoreSubstitution { meta, rhe, .. } => {
                 fill_underscore_substitution(meta, rhe, file_id, element_id);
-            },
-            
+            }
         }
     }
 }
-
 
 fn fill_conditional(
     meta: &mut Meta,
@@ -324,7 +336,7 @@ fn fill_mult_substitution(
 ) {
     meta.set_file_id(file_id);
     rhe.fill(file_id, element_id);
-    lhe.fill(file_id,element_id);
+    lhe.fill(file_id, element_id);
 }
 
 fn fill_constraint_equality(
@@ -339,7 +351,12 @@ fn fill_constraint_equality(
     rhe.fill(file_id, element_id);
 }
 
-fn fill_log_call(meta: &mut Meta, args: &mut Vec<LogArgument>, file_id: usize, element_id: &mut usize) {
+fn fill_log_call(
+    meta: &mut Meta,
+    args: &mut Vec<LogArgument>,
+    file_id: usize,
+    element_id: &mut usize,
+) {
     meta.set_file_id(file_id);
     for arg in args {
         if let LogArgument::LogExp(e) = arg {
@@ -360,8 +377,12 @@ fn fill_assert(meta: &mut Meta, arg: &mut Expression, file_id: usize, element_id
     arg.fill(file_id, element_id);
 }
 
-fn fill_underscore_substitution(meta: &mut Meta, rhe: &mut Expression, file_id: usize, element_id: &mut usize) {
+fn fill_underscore_substitution(
+    meta: &mut Meta,
+    rhe: &mut Expression,
+    file_id: usize,
+    element_id: &mut usize,
+) {
     meta.set_file_id(file_id);
     rhe.fill(file_id, element_id);
-
 }

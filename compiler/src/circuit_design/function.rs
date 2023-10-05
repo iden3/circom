@@ -37,7 +37,7 @@ impl WriteWasm for FunctionCodeInfo {
         instructions.push(funcdef);
         instructions.push(format!("(param {} i32)", producer.get_result_address_tag()));
         instructions.push(format!("(param {} i32)", producer.get_result_size_tag()));
-	instructions.push("(result i32)".to_string()); //state 0 = OK; > 0 error
+        instructions.push("(result i32)".to_string()); //state 0 = OK; > 0 error
         instructions.push(format!("(local {} i32)", producer.get_cstack_tag()));
         instructions.push(format!("(local {} i32)", producer.get_lvar_tag()));
         instructions.push(format!("(local {} i32)", producer.get_expaux_tag()));
@@ -75,14 +75,14 @@ impl WriteWasm for FunctionCodeInfo {
         instructions.append(&mut reserve_stack_fr_code); //gives value to $cstack
         if producer.needs_comments() {
             instructions.push(";; start of the function code".to_string());
-	}
+        }
         //generate code
 
         for t in &self.body {
             let mut instructions_body = t.produce_wasm(producer);
             instructions.append(&mut instructions_body);
         }
-        instructions.push(set_constant("0"));	
+        instructions.push(set_constant("0"));
         instructions.push(")".to_string());
         instructions
     }
@@ -101,8 +101,14 @@ impl WriteC for FunctionCodeInfo {
         ];
         let mut body = vec![];
         body.push(format!("{};", declare_circuit_constants()));
-        body.push(format!("{};", declare_expaux(self.max_number_of_ops_in_expression)));
-        body.push(format!("{};", declare_my_template_name_function(&self.name)));
+        body.push(format!(
+            "{};",
+            declare_expaux(self.max_number_of_ops_in_expression)
+        ));
+        body.push(format!(
+            "{};",
+            declare_my_template_name_function(&self.name)
+        ));
         body.push(format!("u64 {} = {};", my_id(), component_father()));
         for t in &self.body {
             let (mut instructions_body, _) = t.produce_c(producer, Some(false));

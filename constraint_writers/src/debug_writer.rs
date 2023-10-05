@@ -6,7 +6,9 @@ pub struct DebugWriter {
 }
 impl DebugWriter {
     pub fn new(c: String) -> Result<DebugWriter, ()> {
-        Result::Ok(DebugWriter { json_constraints: c })
+        Result::Ok(DebugWriter {
+            json_constraints: c,
+        })
     }
 
     pub fn build_constraints_file(&self) -> Result<ConstraintJSON, ()> {

@@ -30,5 +30,9 @@ pub fn decode_expr(c_expr: &CompressedExpr, tracker: &FieldTracker) -> HashMap<S
 
 pub fn decode_constraint(constraint: &CompressedConstraint, tracker: &FieldTracker) -> C {
     let (a, b, c) = constraint;
-    C { a: decode_expr(a, tracker), b: decode_expr(b, tracker), c: decode_expr(c, tracker) }
+    C {
+        a: decode_expr(a, tracker),
+        b: decode_expr(b, tracker),
+        c: decode_expr(c, tracker),
+    }
 }

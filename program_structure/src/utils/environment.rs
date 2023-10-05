@@ -170,7 +170,12 @@ where
         }
     }
     pub fn get_variable_or_break(&self, symbol: &str, file: &str, line: u32) -> &VC {
-        assert!(self.has_variable(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_variable(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         if let Result::Ok(v) = self.get_variable_res(symbol) {
             v
         } else {
@@ -189,7 +194,12 @@ where
         }
     }
     pub fn get_mut_variable_or_break(&mut self, symbol: &str, file: &str, line: u32) -> &mut VC {
-        assert!(self.has_variable(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_variable(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         if let Result::Ok(v) = self.get_mut_variable_mut(symbol) {
             v
         } else {
@@ -218,23 +228,37 @@ where
         self.components.get_mut(symbol)
     }
     pub fn get_component_res(&self, symbol: &str) -> Result<&CC, CircomEnvironmentError> {
-        self.components.get(symbol).ok_or_else(|| CircomEnvironmentError::NonExistentSymbol)
+        self.components
+            .get(symbol)
+            .ok_or(CircomEnvironmentError::NonExistentSymbol)
     }
     pub fn get_component_or_break(&self, symbol: &str, file: &str, line: u32) -> &CC {
-        assert!(self.has_component(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_component(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         self.components.get(symbol).unwrap()
     }
     pub fn get_mut_component_res(
         &mut self,
         symbol: &str,
     ) -> Result<&mut CC, CircomEnvironmentError> {
-        self.components.get_mut(symbol).ok_or_else(|| CircomEnvironmentError::NonExistentSymbol)
+        self.components
+            .get_mut(symbol)
+            .ok_or(CircomEnvironmentError::NonExistentSymbol)
     }
     pub fn get_mut_component_or_break(&mut self, symbol: &str, file: &str, line: u32) -> &mut CC {
-        assert!(self.has_component(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_component(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         self.components.get_mut(symbol).unwrap()
     }
-    pub fn get_components_ref(&self)-> &HashMap<String, CC>{
+    pub fn get_components_ref(&self) -> &HashMap<String, CC> {
         &self.components
     }
 }
@@ -256,7 +280,8 @@ where
         self.outputs.remove(output_name);
     }
     pub fn add_intermediate(&mut self, intermediate_name: &str, content: SC) {
-        self.intermediates.insert(intermediate_name.to_string(), content);
+        self.intermediates
+            .insert(intermediate_name.to_string(), content);
     }
     pub fn remove_intermediate(&mut self, intermediate_name: &str) {
         self.intermediates.remove(intermediate_name);
@@ -280,17 +305,31 @@ where
         self.inputs.get_mut(symbol)
     }
     pub fn get_input_res(&self, symbol: &str) -> Result<&SC, CircomEnvironmentError> {
-        self.inputs.get(symbol).ok_or_else(|| CircomEnvironmentError::NonExistentSymbol)
+        self.inputs
+            .get(symbol)
+            .ok_or(CircomEnvironmentError::NonExistentSymbol)
     }
     pub fn get_input_or_break(&self, symbol: &str, file: &str, line: u32) -> &SC {
-        assert!(self.has_input(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_input(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         self.inputs.get(symbol).unwrap()
     }
     pub fn get_mut_input_res(&mut self, symbol: &str) -> Result<&mut SC, CircomEnvironmentError> {
-        self.inputs.get_mut(symbol).ok_or_else(|| CircomEnvironmentError::NonExistentSymbol)
+        self.inputs
+            .get_mut(symbol)
+            .ok_or(CircomEnvironmentError::NonExistentSymbol)
     }
     pub fn get_mut_input_or_break(&mut self, symbol: &str, file: &str, line: u32) -> &mut SC {
-        assert!(self.has_input(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_input(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         self.inputs.get_mut(symbol).unwrap()
     }
 
@@ -301,17 +340,31 @@ where
         self.outputs.get_mut(symbol)
     }
     pub fn get_output_res(&self, symbol: &str) -> Result<&SC, CircomEnvironmentError> {
-        self.outputs.get(symbol).ok_or_else(|| CircomEnvironmentError::NonExistentSymbol)
+        self.outputs
+            .get(symbol)
+            .ok_or(CircomEnvironmentError::NonExistentSymbol)
     }
     pub fn get_output_or_break(&self, symbol: &str, file: &str, line: u32) -> &SC {
-        assert!(self.has_output(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_output(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         self.outputs.get(symbol).unwrap()
     }
     pub fn get_mut_output_res(&mut self, symbol: &str) -> Result<&mut SC, CircomEnvironmentError> {
-        self.outputs.get_mut(symbol).ok_or_else(|| CircomEnvironmentError::NonExistentSymbol)
+        self.outputs
+            .get_mut(symbol)
+            .ok_or(CircomEnvironmentError::NonExistentSymbol)
     }
     pub fn get_mut_output_or_break(&mut self, symbol: &str, file: &str, line: u32) -> &mut SC {
-        assert!(self.has_output(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_output(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         self.outputs.get_mut(symbol).unwrap()
     }
 
@@ -322,17 +375,26 @@ where
         self.intermediates.get_mut(symbol)
     }
     pub fn get_intermediate_res(&self, symbol: &str) -> Result<&SC, CircomEnvironmentError> {
-        self.intermediates.get(symbol).ok_or_else(|| CircomEnvironmentError::NonExistentSymbol)
+        self.intermediates
+            .get(symbol)
+            .ok_or(CircomEnvironmentError::NonExistentSymbol)
     }
     pub fn get_intermediate_or_break(&self, symbol: &str, file: &str, line: u32) -> &SC {
-        assert!(self.has_intermediate(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_intermediate(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         self.intermediates.get(symbol).unwrap()
     }
     pub fn get_mut_intermediate_res(
         &mut self,
         symbol: &str,
     ) -> Result<&mut SC, CircomEnvironmentError> {
-        self.intermediates.get_mut(symbol).ok_or_else(|| CircomEnvironmentError::NonExistentSymbol)
+        self.intermediates
+            .get_mut(symbol)
+            .ok_or(CircomEnvironmentError::NonExistentSymbol)
     }
     pub fn get_mut_intermediate_or_break(
         &mut self,
@@ -340,7 +402,12 @@ where
         file: &str,
         line: u32,
     ) -> &mut SC {
-        assert!(self.has_intermediate(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_intermediate(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         self.intermediates.get_mut(symbol).unwrap()
     }
 
@@ -378,7 +445,12 @@ where
         }
     }
     pub fn get_signal_or_break(&self, symbol: &str, file: &str, line: u32) -> &SC {
-        assert!(self.has_signal(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_signal(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         if let Result::Ok(v) = self.get_signal_res(symbol) {
             v
         } else {
@@ -397,7 +469,12 @@ where
         }
     }
     pub fn get_mut_signal_or_break(&mut self, symbol: &str, file: &str, line: u32) -> &mut SC {
-        assert!(self.has_signal(symbol), "Method call in file {} line {}", file, line);
+        assert!(
+            self.has_signal(symbol),
+            "Method call in file {} line {}",
+            file,
+            line
+        );
         if let Result::Ok(v) = self.get_mut_signal_res(symbol) {
             v
         } else {
@@ -412,7 +489,9 @@ struct VariableBlock<VC> {
 }
 impl<VC> Default for VariableBlock<VC> {
     fn default() -> Self {
-        VariableBlock { variables: HashMap::new() }
+        VariableBlock {
+            variables: HashMap::new(),
+        }
     }
 }
 impl<VC> VariableBlock<VC> {
@@ -444,7 +523,9 @@ impl<VC> VariableBlock<VC> {
         let left_block = left.variables;
         let right_block = right.variables;
         let result_block = hashmap_union(left_block, right_block, using);
-        VariableBlock { variables: result_block }
+        VariableBlock {
+            variables: result_block,
+        }
     }
 }
 

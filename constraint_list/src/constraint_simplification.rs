@@ -3,7 +3,7 @@ use super::{ConstraintStorage, EncodingIterator, SEncoded, Simplifier, A, C, S};
 use crate::SignalMap;
 use circom_algebra::num_bigint::BigInt;
 use constraint_writers::json_writer::SubstitutionJSON;
-use std::collections::{HashMap, HashSet, LinkedList, BTreeSet};
+use std::collections::{BTreeSet, HashMap, HashSet, LinkedList};
 use std::sync::Arc;
 
 const SUB_LOG: &str = "./log_substitution.json";
@@ -21,7 +21,7 @@ fn log_substitutions(substitutions: &LinkedList<S>, writer: &mut Option<Substitu
 #[derive(Default, Clone)]
 struct Cluster {
     constraints: LinkedList<C>,
-    num_signals: usize
+    num_signals: usize,
 }
 impl Cluster {
     pub fn new(constraint: C, num_signals: usize) -> Cluster {
@@ -63,8 +63,8 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
     fn arena_merge(arena: &mut ClusterArena, c_to_c: &mut ClusterPath, src: usize, dest: usize) {
         let current_dest = shrink_jumps_and_find(c_to_c, dest);
         let current_src = shrink_jumps_and_find(c_to_c, src);
-        let c0 = std::mem::replace(&mut arena[current_dest], None).unwrap_or_default();
-        let c1 = std::mem::replace(&mut arena[current_src], None).unwrap_or_default();
+        let c0 = arena[current_dest].take().unwrap_or_default();
+        let c1 = arena[current_src].take().unwrap_or_default();
         let merged = Cluster::merge(c0, c1);
         arena[current_dest] = Some(merged);
         c_to_c[current_src] = current_dest;
@@ -75,7 +75,7 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
     let mut cluster_to_current = ClusterPath::with_capacity(no_linear);
     let mut signal_to_cluster = vec![no_linear; no_vars];
     for constraint in linear {
-        if !constraint.is_empty(){
+        if !constraint.is_empty() {
             let signals = C::take_cloned_signals(&constraint);
             let dest = ClusterArena::len(&arena);
             ClusterArena::push(&mut arena, Some(Cluster::new(constraint, signals.len())));
@@ -101,10 +101,10 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
 }
 
 fn rebuild_witness(
-    max_signal: usize, 
-    deleted: HashSet<usize>, 
-    forbidden: &HashSet<usize>, 
-    non_linear_map: SignalToConstraints, 
+    max_signal: usize,
+    deleted: HashSet<usize>,
+    forbidden: &HashSet<usize>,
+    non_linear_map: SignalToConstraints,
     remove_unused: bool,
 ) -> SignalMap {
     let mut map = SignalMap::with_capacity(max_signal);
@@ -112,7 +112,10 @@ fn rebuild_witness(
     for signal in 0..max_signal {
         if deleted.contains(&signal) {
             free.push_back(signal);
-        } else if remove_unused && !forbidden.contains(&signal) && !non_linear_map.contains_key(&signal){
+        } else if remove_unused
+            && !forbidden.contains(&signal)
+            && !non_linear_map.contains_key(&signal)
+        {
             free.push_back(signal);
         } else if let Some(new_pos) = free.pop_front() {
             map.insert(signal, new_pos);
@@ -133,7 +136,10 @@ fn eq_cluster_simplification(
         let mut substitutions = LinkedList::new();
         let mut constraints = LinkedList::new();
         let constraint = LinkedList::pop_back(&mut cluster.constraints).unwrap();
-        let signals: Vec<_> = C::take_cloned_signals_ordered(&constraint).iter().cloned().collect();
+        let signals: Vec<_> = C::take_cloned_signals_ordered(&constraint)
+            .iter()
+            .cloned()
+            .collect();
         let s_0 = signals[0];
         let s_1 = signals[1];
         if HashSet::contains(forbidden, &s_0) && HashSet::contains(forbidden, &s_1) {
@@ -150,7 +156,10 @@ fn eq_cluster_simplification(
             );
         } else {
             let (l, r) = if s_0 > s_1 { (s_0, s_1) } else { (s_1, s_0) };
-            LinkedList::push_back(&mut substitutions, S::new(l, A::Signal { symbol: r }).unwrap());
+            LinkedList::push_back(
+                &mut substitutions,
+                S::new(l, A::Signal { symbol: r }).unwrap(),
+            );
         }
         (substitutions, constraints)
     } else {
@@ -160,7 +169,7 @@ fn eq_cluster_simplification(
         let (mut remove, mut min_remove) = (HashSet::new(), None);
         for c in cluster.constraints {
             for signal in C::take_cloned_signals_ordered(&c) {
-                if HashSet::contains(&forbidden, &signal) {
+                if HashSet::contains(forbidden, &signal) {
                     BTreeSet::insert(&mut remains, signal);
                     min_remains = Some(min_remains.map_or(signal, |s| std::cmp::min(s, signal)));
                 } else {
@@ -260,9 +269,12 @@ fn constant_eq_simplification(
     let mut cons = LinkedList::new();
     let mut subs = LinkedList::new();
     for constraint in c_eq {
-        let mut signals: Vec<_> = C::take_cloned_signals_ordered(&constraint).iter().cloned().collect();
+        let mut signals: Vec<_> = C::take_cloned_signals_ordered(&constraint)
+            .iter()
+            .cloned()
+            .collect();
         let signal = signals.pop().unwrap();
-        if HashSet::contains(&forbidden, &signal) {
+        if HashSet::contains(forbidden, &signal) {
             LinkedList::push_back(&mut cons, constraint);
         } else {
             let sub = C::clear_signal_from_linear(constraint, &signal, field);
@@ -368,7 +380,7 @@ fn apply_substitution_to_map(
             }
             storage.replace(c_id, constraint);
             for signal in &signals {
-                if let Some(list) = map.get_mut(&signal) {
+                if let Some(list) = map.get_mut(signal) {
                     list.push_back(c_id);
                 } else {
                     let mut new = LinkedList::new();
@@ -410,7 +422,7 @@ fn build_relevant_set(
                 None
             }
         };
-        SEncoded::get(map, &signal).map_or(None, f)
+        SEncoded::get(map, &signal).and_then(f)
     }
 
     let (_, non_linear) = EncodingIterator::take(&mut iter);
@@ -432,7 +444,7 @@ fn build_relevant_set(
 fn remove_not_relevant(substitutions: &mut SEncoded, relevant: &HashSet<usize>) {
     let signals: Vec<_> = substitutions.keys().cloned().collect();
     for signal in signals {
-        if !HashSet::contains(&relevant, &signal) {
+        if !HashSet::contains(relevant, &signal) {
             SEncoded::remove(substitutions, &signal);
         }
     }
@@ -444,17 +456,23 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     use circom_algebra::simplification_utils::fast_encoded_constraint_substitution;
     use std::time::SystemTime;
 
-    let mut substitution_log =
-        if smp.port_substitution { Some(SubstitutionJSON::new(SUB_LOG).unwrap()) } else { None };
+    let mut substitution_log = if smp.port_substitution {
+        Some(SubstitutionJSON::new(SUB_LOG).unwrap())
+    } else {
+        None
+    };
     let apply_linear = !smp.flag_s;
     let use_old_heuristics = smp.flag_old_heuristics;
     let field = smp.field.clone();
-    let forbidden = Arc::new(std::mem::replace(&mut smp.forbidden, HashSet::with_capacity(0)));
+    let forbidden = Arc::new(std::mem::replace(
+        &mut smp.forbidden,
+        HashSet::with_capacity(0),
+    ));
     let no_labels = Simplifier::no_labels(smp);
-    let equalities = std::mem::replace(&mut smp.equalities, LinkedList::new());
+    let equalities = std::mem::take(&mut smp.equalities);
     let max_signal = smp.max_signal;
-    let mut cons_equalities = std::mem::replace(&mut smp.cons_equalities, LinkedList::new());
-    let mut linear = std::mem::replace(&mut smp.linear, LinkedList::new());
+    let mut cons_equalities = std::mem::take(&mut smp.cons_equalities);
+    let mut linear = std::mem::take(&mut smp.linear);
     let mut deleted = HashSet::new();
     let mut lconst = LinkedList::new();
     let mut no_rounds = smp.no_rounds;
@@ -487,12 +505,12 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         LinkedList::append(&mut lconst, &mut cons);
         let mut substitutions = build_encoded_fast_substitutions(subs);
         for constraint in &mut linear {
-            if fast_encoded_constraint_substitution(constraint, &substitutions, &field){
+            if fast_encoded_constraint_substitution(constraint, &substitutions, &field) {
                 C::fix_constraint(constraint, &field);
             }
         }
         for constraint in &mut cons_equalities {
-            if fast_encoded_constraint_substitution(constraint, &substitutions, &field){
+            if fast_encoded_constraint_substitution(constraint, &substitutions, &field) {
                 C::fix_constraint(constraint, &field);
             }
         }
@@ -513,7 +531,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         LinkedList::append(&mut lconst, &mut cons);
         let substitutions = build_encoded_fast_substitutions(subs);
         for constraint in &mut linear {
-            if fast_encoded_constraint_substitution(constraint, &substitutions, &field){
+            if fast_encoded_constraint_substitution(constraint, &substitutions, &field) {
                 C::fix_constraint(constraint, &field);
             }
         }
@@ -530,7 +548,12 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         let now = SystemTime::now();
         let mut relevant = HashSet::new();
         let iter = EncodingIterator::new(&smp.dag_encoding);
-        build_relevant_set(iter, &mut relevant, &single_substitutions, &cons_substitutions);
+        build_relevant_set(
+            iter,
+            &mut relevant,
+            &single_substitutions,
+            &cons_substitutions,
+        );
         let _dur = now.elapsed().unwrap().as_millis();
         // println!("Relevant built: {} ms", dur);
         relevant
@@ -562,7 +585,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
         // println!("End of cluster simplification: {} ms", dur);
         LinkedList::append(&mut lconst, &mut cons);
         for constraint in &mut lconst {
-            if fast_encoded_constraint_substitution(constraint, &substitutions, &field){
+            if fast_encoded_constraint_substitution(constraint, &substitutions, &field) {
                 C::fix_constraint(constraint, &field);
             }
         }
@@ -640,7 +663,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
 
     for constraint in linear {
         if remove_unused {
-            let signals =  C::take_cloned_signals(&constraint);
+            let signals = C::take_cloned_signals(&constraint);
             let c_id = constraint_storage.add_constraint(constraint);
             for signal in signals {
                 if let Some(list) = non_linear_map.get_mut(&signal) {
@@ -651,15 +674,14 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
                     non_linear_map.insert(signal, new);
                 }
             }
-        }
-        else{
+        } else {
             constraint_storage.add_constraint(constraint);
         }
     }
     for mut constraint in lconst {
-        if remove_unused{
+        if remove_unused {
             C::fix_constraint(&mut constraint, &field);
-            let signals =  C::take_cloned_signals(&constraint);
+            let signals = C::take_cloned_signals(&constraint);
             let c_id = constraint_storage.add_constraint(constraint);
             for signal in signals {
                 if let Some(list) = non_linear_map.get_mut(&signal) {
@@ -670,18 +692,14 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
                     non_linear_map.insert(signal, new);
                 }
             }
-        }
-        else{
+        } else {
             C::fix_constraint(&mut constraint, &field);
             constraint_storage.add_constraint(constraint);
         }
     }
 
-    let erased = crate::non_linear_simplification::simplify(
-        &mut constraint_storage,
-        &forbidden,
-        &field
-    );
+    let erased =
+        crate::non_linear_simplification::simplify(&mut constraint_storage, &forbidden, &field);
 
     for signal in erased {
         deleted.insert(signal);
@@ -692,7 +710,13 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     let signal_map = {
         // println!("Rebuild witness");
         let now = SystemTime::now();
-        let signal_map = rebuild_witness(max_signal, deleted, &forbidden, non_linear_map, remove_unused);
+        let signal_map = rebuild_witness(
+            max_signal,
+            deleted,
+            &forbidden,
+            non_linear_map,
+            remove_unused,
+        );
         let _dur = now.elapsed().unwrap().as_millis();
         // println!("End of rebuild witness: {} ms", dur);
         signal_map
@@ -704,6 +728,3 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
     // println!("NO CONSTANTS: {}", constraint_storage.no_constants());
     (constraint_storage, signal_map)
 }
-
-
-

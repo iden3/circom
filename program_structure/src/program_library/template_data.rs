@@ -2,7 +2,7 @@ use super::ast;
 use super::ast::{FillMeta, Statement};
 use super::file_definition::FileID;
 use crate::file_definition::FileLocation;
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub type TemplateInfo = HashMap<String, TemplateData>;
 pub type TagInfo = HashSet<String>;
@@ -41,9 +41,15 @@ impl TemplateData {
         body.fill(file_id, elem_id);
         let mut input_signals = SignalInfo::new();
         let mut output_signals = SignalInfo::new();
-        let mut input_declarations =  SignalDeclarationOrder::new();
+        let mut input_declarations = SignalDeclarationOrder::new();
         let mut output_declarations = SignalDeclarationOrder::new();
-        fill_inputs_and_outputs(&body, &mut input_signals, &mut output_signals, &mut input_declarations, &mut output_declarations);
+        fill_inputs_and_outputs(
+            &body,
+            &mut input_signals,
+            &mut output_signals,
+            &mut input_declarations,
+            &mut output_declarations,
+        );
         TemplateData {
             name,
             file_id,
@@ -56,7 +62,7 @@ impl TemplateData {
             is_parallel,
             is_custom_gate,
             input_declarations,
-            output_declarations
+            output_declarations,
         }
     }
 
@@ -71,8 +77,8 @@ impl TemplateData {
         output_signals: SignalInfo,
         is_parallel: bool,
         is_custom_gate: bool,
-        input_declarations :SignalDeclarationOrder,
-        output_declarations : SignalDeclarationOrder
+        input_declarations: SignalDeclarationOrder,
+        output_declarations: SignalDeclarationOrder,
     ) -> TemplateData {
         TemplateData {
             name,
@@ -86,13 +92,13 @@ impl TemplateData {
             is_parallel,
             is_custom_gate,
             input_declarations,
-            output_declarations
+            output_declarations,
         }
     }
     pub fn get_file_id(&self) -> FileID {
         self.file_id
     }
-    
+
     pub fn get_body(&self) -> &Statement {
         &self.body
     }
@@ -111,7 +117,7 @@ impl TemplateData {
             _ => panic!("Function body should be a block"),
         }
     }
-    pub fn set_body(&mut self, body: Statement){
+    pub fn set_body(&mut self, body: Statement) {
         self.body = body;
     }
     pub fn get_num_of_params(&self) -> usize {
@@ -136,7 +142,7 @@ impl TemplateData {
         &self.output_signals
     }
     pub fn get_declaration_inputs(&self) -> &SignalDeclarationOrder {
-        &&self.input_declarations
+        &self.input_declarations
     }
     pub fn get_declaration_outputs(&self) -> &SignalDeclarationOrder {
         &self.output_declarations
@@ -156,46 +162,85 @@ fn fill_inputs_and_outputs(
     template_statement: &Statement,
     input_signals: &mut SignalInfo,
     output_signals: &mut SignalInfo,
-    input_declarations : &mut SignalDeclarationOrder,
-    output_declarations : &mut SignalDeclarationOrder
+    input_declarations: &mut SignalDeclarationOrder,
+    output_declarations: &mut SignalDeclarationOrder,
 ) {
     match template_statement {
-        Statement::IfThenElse { if_case, else_case, .. } => {
-            fill_inputs_and_outputs(if_case, input_signals, output_signals, input_declarations, output_declarations);
+        Statement::IfThenElse {
+            if_case, else_case, ..
+        } => {
+            fill_inputs_and_outputs(
+                if_case,
+                input_signals,
+                output_signals,
+                input_declarations,
+                output_declarations,
+            );
             if let Option::Some(else_value) = else_case {
-                fill_inputs_and_outputs(else_value, input_signals, output_signals, input_declarations, output_declarations);
+                fill_inputs_and_outputs(
+                    else_value,
+                    input_signals,
+                    output_signals,
+                    input_declarations,
+                    output_declarations,
+                );
             }
         }
         Statement::Block { stmts, .. } => {
             for stmt in stmts.iter() {
-                fill_inputs_and_outputs(stmt, input_signals, output_signals, input_declarations, output_declarations);
+                fill_inputs_and_outputs(
+                    stmt,
+                    input_signals,
+                    output_signals,
+                    input_declarations,
+                    output_declarations,
+                );
             }
         }
         Statement::While { stmt, .. } => {
-            fill_inputs_and_outputs(stmt, input_signals, output_signals, input_declarations, output_declarations);
+            fill_inputs_and_outputs(
+                stmt,
+                input_signals,
+                output_signals,
+                input_declarations,
+                output_declarations,
+            );
         }
-        Statement::InitializationBlock { initializations, .. } => {
+        Statement::InitializationBlock {
+            initializations, ..
+        } => {
             for initialization in initializations.iter() {
-                fill_inputs_and_outputs(initialization, input_signals, output_signals, input_declarations, output_declarations);
+                fill_inputs_and_outputs(
+                    initialization,
+                    input_signals,
+                    output_signals,
+                    input_declarations,
+                    output_declarations,
+                );
             }
         }
-        Statement::Declaration { xtype, name, dimensions, .. } => {
+        Statement::Declaration {
+            xtype,
+            name,
+            dimensions,
+            ..
+        } => {
             if let ast::VariableType::Signal(stype, tag_list) = xtype {
                 let signal_name = name.clone();
                 let dim = dimensions.len();
                 let mut tag_info = HashSet::new();
-                for tag in tag_list{
+                for tag in tag_list {
                     tag_info.insert(tag.clone());
                 }
 
                 match stype {
                     ast::SignalType::Input => {
                         input_signals.insert(signal_name.clone(), (dim, tag_info));
-                        input_declarations.push((signal_name,dim));
+                        input_declarations.push((signal_name, dim));
                     }
                     ast::SignalType::Output => {
                         output_signals.insert(signal_name.clone(), (dim, tag_info));
-                        output_declarations.push((signal_name,dim));
+                        output_declarations.push((signal_name, dim));
                     }
                     _ => {} //no need to deal with intermediate signals
                 }

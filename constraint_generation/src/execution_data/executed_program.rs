@@ -1,7 +1,7 @@
 use super::analysis::Analysis;
-use crate::FlagsExecution;
 use super::executed_template::{ExecutedTemplate, PreExecutedTemplate};
 use super::type_definitions::*;
+use crate::FlagsExecution;
 use compiler::hir::very_concrete_program::{Stats, VCPConfig, VCP};
 use dag::DAG;
 use program_structure::program_archive::ProgramArchive;
@@ -20,7 +20,7 @@ pub struct ExecutedProgram {
 
 impl ExecutedProgram {
     pub fn new(prime: &String) -> ExecutedProgram {
-        ExecutedProgram{
+        ExecutedProgram {
             model: Vec::new(),
             template_to_nodes: HashMap::new(),
             prime: prime.clone(),
@@ -28,7 +28,12 @@ impl ExecutedProgram {
         }
     }
 
-    pub fn identify_node(&self, name: &str, context: &ParameterContext, tag_context: &TagContext) -> Option<NodePointer> {
+    pub fn identify_node(
+        &self,
+        name: &str,
+        context: &ParameterContext,
+        tag_context: &TagContext,
+    ) -> Option<NodePointer> {
         if !self.template_to_nodes.contains_key(name) {
             return Option::None;
         }
@@ -65,10 +70,7 @@ impl ExecutedProgram {
         Option::Some(self.model_pretemplates[node_pointer].clone())
     }
 
-    pub fn add_prenode_to_scheme(
-        &mut self,
-        node: PreExecutedTemplate,
-    ) -> NodePointer {
+    pub fn add_prenode_to_scheme(&mut self, node: PreExecutedTemplate) -> NodePointer {
         // Insert pretemplate
         let node_index = self.model_pretemplates.len();
         self.model_pretemplates.push(node);
@@ -86,15 +88,20 @@ impl ExecutedProgram {
         apply_computed(&mut node.code, &analysis);
         // Insert template
         let possible_index = self.identify_node(
-            node.template_name(), 
+            node.template_name(),
             node.parameter_instances(),
             node.tag_instances(),
         );
         if let Option::Some(index) = possible_index {
             return index;
         }
-        self.template_to_nodes.entry(node.template_name().clone()).or_insert_with(|| vec![]);
-        let nodes_for_template = self.template_to_nodes.get_mut(node.template_name()).unwrap();
+        self.template_to_nodes
+            .entry(node.template_name().clone())
+            .or_insert_with(std::vec::Vec::new);
+        let nodes_for_template = self
+            .template_to_nodes
+            .get_mut(node.template_name())
+            .unwrap();
         let node_index = self.model.len();
         self.model.push(node);
         nodes_for_template.push(node_index);
@@ -134,7 +141,7 @@ impl ExecutedProgram {
 
         temp_instances[dag.main_id()].is_not_parallel_component = true;
         dag.clean_constraints();
-        if flags.inspect{
+        if flags.inspect {
             let mut w = dag.constraint_analysis()?;
             warnings.append(&mut w);
         }
@@ -179,7 +186,8 @@ fn produce_dags_stats(dag: &DAG) -> Stats {
         all_needed_subcomponents_indexes[index] += node.number_of_subcomponents_indexes();
         for c in dag.get_edges(index).unwrap() {
             all_created_cmp[index] += all_created_cmp[c.get_goes_to()];
-            all_needed_subcomponents_indexes[index] += all_needed_subcomponents_indexes[c.get_goes_to()];
+            all_needed_subcomponents_indexes[index] +=
+                all_needed_subcomponents_indexes[c.get_goes_to()];
             all_signals[index] += all_signals[c.get_goes_to()];
             all_io[index] += all_io[c.get_goes_to()];
         }

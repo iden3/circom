@@ -17,7 +17,9 @@ pub struct TypeRegister<Type> {
 }
 impl<Type: Default> Default for TypeRegister<Type> {
     fn default() -> Self {
-        TypeRegister { id_to_instances: HashMap::new() }
+        TypeRegister {
+            id_to_instances: HashMap::new(),
+        }
     }
 }
 impl<Type: Default + Eq> TypeRegister<Type> {
@@ -29,12 +31,7 @@ impl<Type: Default + Eq> TypeRegister<Type> {
             return Option::None;
         }
         let instances = self.id_to_instances.get(id).unwrap();
-        for instance in instances {
-            if instance.arguments() == look_for {
-                return Option::Some(&instance);
-            }
-        }
-        Option::None
+        instances.iter().find(|&instance| instance.arguments() == look_for)
     }
     pub fn add_instance(
         &mut self,
@@ -49,7 +46,10 @@ impl<Type: Default + Eq> TypeRegister<Type> {
             self.id_to_instances.insert(id.to_string(), Vec::new());
         }
         if let Option::Some(instances) = self.id_to_instances.get_mut(id) {
-            let instance = TypeInstance { argument_dimensions, returned_dimension };
+            let instance = TypeInstance {
+                argument_dimensions,
+                returned_dimension,
+            };
             instances.push(instance);
         }
     }

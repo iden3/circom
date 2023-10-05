@@ -19,7 +19,9 @@ fn analyse_statement(stmt: &Statement) -> bool {
     match stmt {
         Statement::Return { .. } => true,
         Statement::While { .. } => false,
-        Statement::IfThenElse { if_case, else_case, .. } => {
+        Statement::IfThenElse {
+            if_case, else_case, ..
+        } => {
             let else_returns = match else_case {
                 Option::Some(s) => analyse_statement(s),
                 _ => false,

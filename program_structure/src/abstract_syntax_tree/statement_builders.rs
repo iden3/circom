@@ -7,11 +7,20 @@ pub fn build_conditional_block(
     if_case: Statement,
     else_case: Option<Statement>,
 ) -> Statement {
-    IfThenElse { meta, cond, else_case: else_case.map(|s| Box::new(s)), if_case: Box::new(if_case) }
+    IfThenElse {
+        meta,
+        cond,
+        else_case: else_case.map(Box::new),
+        if_case: Box::new(if_case),
+    }
 }
 
 pub fn build_while_block(meta: Meta, cond: Expression, stmt: Statement) -> Statement {
-    While { meta, cond, stmt: Box::new(stmt) }
+    While {
+        meta,
+        cond,
+        stmt: Box::new(stmt),
+    }
 }
 
 pub fn build_initialization_block(
@@ -19,7 +28,11 @@ pub fn build_initialization_block(
     xtype: VariableType,
     initializations: Vec<Statement>,
 ) -> Statement {
-    InitializationBlock { meta, xtype, initializations }
+    InitializationBlock {
+        meta,
+        xtype,
+        initializations,
+    }
 }
 pub fn build_block(meta: Meta, stmts: Vec<Statement>) -> Statement {
     Block { meta, stmts }
@@ -36,7 +49,13 @@ pub fn build_declaration(
     dimensions: Vec<Expression>,
 ) -> Statement {
     let is_constant = true;
-    Declaration { meta, xtype, name, dimensions, is_constant }
+    Declaration {
+        meta,
+        xtype,
+        name,
+        dimensions,
+        is_constant,
+    }
 }
 
 pub fn build_substitution(
@@ -46,7 +65,13 @@ pub fn build_substitution(
     op: AssignOp,
     rhe: Expression,
 ) -> Statement {
-    Substitution { meta, var, access, op, rhe }
+    Substitution {
+        meta,
+        var,
+        access,
+        op,
+        rhe,
+    }
 }
 
 pub fn build_constraint_equality(meta: Meta, lhe: Expression, rhe: Expression) -> Statement {
@@ -57,11 +82,18 @@ pub fn build_log_call(meta: Meta, args: Vec<LogArgument>) -> Statement {
     let mut new_args = Vec::new();
     for arg in args {
         match arg {
-            LogArgument::LogExp(..) => { new_args.push(arg);}
-            LogArgument::LogStr(str) => { new_args.append(&mut split_string(str));}
+            LogArgument::LogExp(..) => {
+                new_args.push(arg);
+            }
+            LogArgument::LogStr(str) => {
+                new_args.append(&mut split_string(str));
+            }
         }
     }
-    LogCall { meta, args: new_args }
+    LogCall {
+        meta,
+        args: new_args,
+    }
 }
 
 fn split_string(str: String) -> Vec<LogArgument> {
@@ -80,10 +112,25 @@ pub fn build_assert(meta: Meta, arg: Expression) -> Statement {
     Assert { meta, arg }
 }
 
-pub fn build_mult_substitution(meta: Meta, lhe: Expression, op : AssignOp, rhe: Expression) -> Statement {
-    MultSubstitution { meta: meta.clone(), lhe, op, rhe }
+pub fn build_mult_substitution(
+    meta: Meta,
+    lhe: Expression,
+    op: AssignOp,
+    rhe: Expression,
+) -> Statement {
+    MultSubstitution {
+        meta,
+        lhe,
+        op,
+        rhe,
+    }
 }
 
 pub fn build_anonymous_component_statement(meta: Meta, arg: Expression) -> Statement {
-    MultSubstitution { meta: meta.clone(), lhe: crate::expression_builders::build_tuple(meta, Vec::new()), op: AssignOp::AssignConstraintSignal, rhe: arg }
+    MultSubstitution {
+        meta: meta.clone(),
+        lhe: crate::expression_builders::build_tuple(meta, Vec::new()),
+        op: AssignOp::AssignConstraintSignal,
+        rhe: arg,
+    }
 }

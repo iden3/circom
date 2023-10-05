@@ -26,7 +26,14 @@ impl FunctionData {
         elem_id: &mut usize,
     ) -> FunctionData {
         body.fill(file_id, elem_id);
-        FunctionData { name, file_id, body, name_of_params, param_location, num_of_params }
+        FunctionData {
+            name,
+            file_id,
+            body,
+            name_of_params,
+            param_location,
+            num_of_params,
+        }
     }
     pub fn get_file_id(&self) -> FileID {
         self.file_id
@@ -43,7 +50,7 @@ impl FunctionData {
     pub fn get_mut_body(&mut self) -> &mut Statement {
         &mut self.body
     }
-    pub fn set_body(&mut self, body: Statement){
+    pub fn set_body(&mut self, body: Statement) {
         self.body = body;
     }
     pub fn replace_body(&mut self, new: Statement) -> Statement {

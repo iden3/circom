@@ -28,7 +28,12 @@ fn analyse_statement(
     let file_id = stmt.get_meta().get_file_id();
     match stmt {
         MultSubstitution { .. } => unreachable!(),
-        IfThenElse { cond, if_case, else_case, .. } => {
+        IfThenElse {
+            cond,
+            if_case,
+            else_case,
+            ..
+        } => {
             analyse_expression(cond, function_names, reports);
             analyse_statement(if_case, function_names, reports);
             if let Option::Some(else_block) = else_case {
@@ -44,7 +49,11 @@ fn analyse_statement(
                 analyse_statement(stmt, function_names, reports);
             }
         }
-        InitializationBlock { meta, xtype, initializations } => {
+        InitializationBlock {
+            meta,
+            xtype,
+            initializations,
+        } => {
             if let VariableType::Signal(..) = xtype {
                 let mut report = Report::error(
                     "Template elements declared inside the function".to_string(),
@@ -60,7 +69,12 @@ fn analyse_statement(
                 analyse_statement(initialization, function_names, reports);
             }
         }
-        Declaration { meta, xtype, dimensions, .. } => {
+        Declaration {
+            meta,
+            xtype,
+            dimensions,
+            ..
+        } => {
             if let VariableType::Var = xtype {
                 for dimension in dimensions.iter() {
                     analyse_expression(dimension, function_names, reports);
@@ -76,7 +90,13 @@ fn analyse_statement(
                 reports.push(report);
             }
         }
-        Substitution { meta, op, access, rhe, .. } => {
+        Substitution {
+            meta,
+            op,
+            access,
+            rhe,
+            ..
+        } => {
             if op.is_signal_operator() {
                 let mut report = Report::error(
                     "Function uses template operators".to_string(),
@@ -92,12 +112,16 @@ fn analyse_statement(
         }
         ConstraintEquality { meta, lhe, rhe, .. } => {
             let mut report = Report::error(
-                format!("Function uses template operators"),
+                "Function uses template operators".to_string(),
                 ReportCode::UndefinedFunction,
             );
             let location =
                 file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id.clone(), format!("Template operator found"));
+            report.add_primary(
+                location,
+                file_id,
+                "Template operator found".to_string(),
+            );
             reports.push(report);
             analyse_expression(lhe, function_names, reports);
             analyse_expression(rhe, function_names, reports);
@@ -127,7 +151,7 @@ fn analyse_statement(
                 reports.push(report);
             }
             analyse_expression(rhe, function_names, reports);
-        },
+        }
     }
 }
 
@@ -143,12 +167,16 @@ fn analyse_access(
             analyse_expression(index, function_names, reports);
         } else {
             let mut report = Report::error(
-                format!("Function uses component operators"),
+                "Function uses component operators".to_string(),
                 ReportCode::UndefinedFunction,
             );
             let location =
                 file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id.clone(), format!("Template operator found"));
+            report.add_primary(
+                location,
+                file_id,
+                "Template operator found".to_string(),
+            );
             reports.push(report);
         }
     }
@@ -169,10 +197,15 @@ fn analyse_expression(
         PrefixOp { rhe, .. } => {
             analyse_expression(rhe, function_names, reports);
         }
-        ParallelOp{ rhe, ..} =>{
+        ParallelOp { rhe, .. } => {
             analyse_expression(rhe, function_names, reports);
         }
-        InlineSwitchOp { cond, if_true, if_false, .. } => {
+        InlineSwitchOp {
+            cond,
+            if_true,
+            if_false,
+            ..
+        } => {
             analyse_expression(cond, function_names, reports);
             analyse_expression(if_true, function_names, reports);
             analyse_expression(if_false, function_names, reports);
@@ -182,12 +215,12 @@ fn analyse_expression(
         Call { meta, id, args, .. } => {
             if !function_names.contains(id) {
                 let mut report = Report::error(
-                    format!("Unknown call in function"),
+                    "Unknown call in function".to_string(),
                     ReportCode::UndefinedFunction,
                 );
                 let location =
                     file_definition::generate_file_location(meta.get_start(), meta.get_end());
-                report.add_primary(location, file_id.clone(), format!("Is not a function call"));
+                report.add_primary(location, file_id, "Is not a function call".to_string());
                 reports.push(report);
             }
             for arg in args.iter() {
@@ -199,12 +232,14 @@ fn analyse_expression(
                 analyse_expression(value, function_names, reports);
             }
         }
-        UniformArray {value, dimension, .. } => {
+        UniformArray {
+            value, dimension, ..
+        } => {
             analyse_expression(value, function_names, reports);
             analyse_expression(dimension, function_names, reports);
-
-
         }
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }

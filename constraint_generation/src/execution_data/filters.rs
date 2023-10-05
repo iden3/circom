@@ -11,12 +11,25 @@ fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis, prime: &String) ->
     match stmt {
         While { stmt, .. } => clean_dead_code(stmt, analysis, prime),
         MultSubstitution { .. } => unreachable!(),
-        IfThenElse { if_case, else_case, cond, meta } => {
-            let field = program_structure::constants::UsefulConstants::new(prime).get_p().clone();
-            let empty_block = Box::new(Block { meta: meta.clone(), stmts: vec![] });
+        IfThenElse {
+            if_case,
+            else_case,
+            cond,
+            meta,
+        } => {
+            let field = program_structure::constants::UsefulConstants::new(prime)
+                .get_p()
+                .clone();
+            let empty_block = Box::new(Block {
+                meta: meta.clone(),
+                stmts: vec![],
+            });
             let if_case_empty = clean_dead_code(if_case, analysis, prime);
-            let else_case_empty =
-                if let Some(case) = else_case { clean_dead_code(case, analysis, prime) } else { true };
+            let else_case_empty = if let Some(case) = else_case {
+                clean_dead_code(case, analysis, prime)
+            } else {
+                true
+            };
             if else_case_empty {
                 *else_case = None;
             }
@@ -51,7 +64,12 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
     use Statement::*;
     match stmt {
         MultSubstitution { .. } => unreachable!(),
-        IfThenElse { cond, if_case, else_case, .. } => {
+        IfThenElse {
+            cond,
+            if_case,
+            else_case,
+            ..
+        } => {
             *cond = computed_or_original(analysis, cond);
             apply_computed_expr(cond, analysis);
             apply_computed(if_case, analysis);
@@ -67,7 +85,9 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
         Block { stmts, .. } => {
             apply_computed_stmt_vec(stmts, analysis);
         }
-        InitializationBlock { initializations, .. } => {
+        InitializationBlock {
+            initializations, ..
+        } => {
             apply_computed_stmt_vec(initializations, analysis);
         }
         Return { value, .. } => {
@@ -90,7 +110,7 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
         }
         LogCall { args, .. } => {
             for arglog in args {
-                if let LogArgument::LogExp(arg) = arglog{
+                if let LogArgument::LogExp(arg) = arglog {
                     *arg = computed_or_original(analysis, arg);
                     apply_computed_expr(arg, analysis);
                 }
@@ -100,10 +120,10 @@ pub fn apply_computed(stmt: &mut Statement, analysis: &Analysis) {
             *arg = computed_or_original(analysis, arg);
             apply_computed_expr(arg, analysis);
         }
-        UnderscoreSubstitution {  rhe, .. } => {
+        UnderscoreSubstitution { rhe, .. } => {
             *rhe = computed_or_original(analysis, rhe);
             apply_computed_expr(rhe, analysis);
-        },
+        }
     }
 }
 
@@ -161,7 +181,12 @@ fn apply_computed_expr(expr: &mut Expression, analysis: &Analysis) {
             *rhe = Box::new(computed_or_original(analysis, rhe));
             apply_computed_expr(rhe, analysis);
         }
-        InlineSwitchOp { if_true, if_false, cond, .. } => {
+        InlineSwitchOp {
+            if_true,
+            if_false,
+            cond,
+            ..
+        } => {
             *if_true = Box::new(computed_or_original(analysis, if_true));
             *if_false = Box::new(computed_or_original(analysis, if_false));
             *cond = Box::new(computed_or_original(analysis, cond));
@@ -179,16 +204,20 @@ fn apply_computed_expr(expr: &mut Expression, analysis: &Analysis) {
         ArrayInLine { values, .. } => {
             apply_computed_expr_vec(values, analysis);
         }
-        UniformArray { value, dimension, .. } => {
+        UniformArray {
+            value, dimension, ..
+        } => {
             *value = Box::new(computed_or_original(analysis, value));
             *dimension = Box::new(computed_or_original(analysis, dimension));
             apply_computed_expr(value, analysis);
             apply_computed_expr(dimension, analysis);
         }
-        ParallelOp {rhe, .. } => {
+        ParallelOp { rhe, .. } => {
             *rhe = Box::new(computed_or_original(analysis, rhe));
             apply_computed_expr(rhe, analysis);
         }
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }

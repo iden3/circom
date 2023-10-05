@@ -7,10 +7,10 @@ pub use super::create_component_bucket::CreateCmpBucket;
 pub use super::load_bucket::LoadBucket;
 pub use super::location_rule::LocationRule;
 pub use super::log_bucket::LogBucket;
+pub use super::log_bucket::LogBucketArg;
 pub use super::loop_bucket::LoopBucket;
 pub use super::return_bucket::ReturnBucket;
 pub use super::store_bucket::StoreBucket;
-pub use super::log_bucket::LogBucketArg;
 pub use super::types::{InstrContext, ValueType};
 pub use super::value_bucket::ValueBucket;
 
@@ -98,10 +98,9 @@ impl CheckCompute for Instruction {
     fn has_compute_in(&self) -> bool {
         use Instruction::*;
         match self {
-	    Load(_v) => {true
-	    },
-	    Compute(_) => true,
-	    _ => false,
+            Load(_v) => true,
+            Compute(_) => true,
+            _ => false,
         }
     }
 }
