@@ -133,7 +133,7 @@ If `n != m`, then the compiler reports an error, since both arrays have not the 
 template Ex(n,m){ 
    signal input in[n];
    signal output out[m];
-   while(i < 4){ 
+   while(i < n){ 
       out[i] <== in[i];
       i += 1;
    }
