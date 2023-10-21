@@ -98,13 +98,17 @@ pub fn visit_call(
     use ReturnType::*;
 
     if let Final(data) = &mut bucket.return_info {
-        visit_address_type(
-            &mut data.dest_address_type, 
-            known_last_component,
-            unknown_last_component,
-            found_unknown_address,
-            inside_loop
-        )
+        if data.context.size > 0{
+            visit_address_type(
+                &mut data.dest_address_type, 
+                known_last_component,
+                unknown_last_component,
+                found_unknown_address,
+                inside_loop
+            )
+        } else{
+            found_unknown_address
+        }
     }
     else{
         found_unknown_address
@@ -212,13 +216,17 @@ pub fn visit_store(
     found_unknown_address: bool,
     inside_loop: bool
 )-> bool{
-    visit_address_type(
-        &mut bucket.dest_address_type, 
-        known_last_component,
-        unknown_last_component,
-        found_unknown_address,
-        inside_loop
-    )
+    if bucket.context.size > 0{
+        visit_address_type(
+            &mut bucket.dest_address_type, 
+            known_last_component,
+            unknown_last_component,
+            found_unknown_address,
+            inside_loop
+        )
+    } else{
+        found_unknown_address
+    }
 }
 
 
