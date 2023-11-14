@@ -54,15 +54,24 @@ pub fn build_component_info(triggers: &Vec<Trigger>) -> HashMap<String, HashMap<
             Some(old) => max_vct(signals, old),
         };
         external_signals.insert(trigger.component_name.clone(), signals);
+
     }
     external_signals
 }
 fn max_vct(l: HashMap<String, VCT>, mut r: HashMap<String, VCT>) -> HashMap<String, VCT> {
     let mut result = HashMap::new();
+
     for (s, tl) in l {
-        let tr = r.remove(&s).unwrap();
-        let max = std::cmp::max(tl, tr);
-        result.insert(s, max);
+        if r.contains_key(&s) {
+            let tr = r.remove(&s).unwrap();
+            let max = std::cmp::max(tl, tr);
+            result.insert(s, max);
+        } else{
+            result.insert(s, tl);
+        }
+    }
+    for (s, tr) in r{
+        result.insert(s, tr);
     }
     result
 }
