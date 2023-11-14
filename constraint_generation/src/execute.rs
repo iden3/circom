@@ -2229,9 +2229,9 @@ fn treat_result_with_memory_error_void(
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
                 },
-                MemoryError::AssignmentMissingTags(tag) => Report::error(
-                    format!("Invalid assignment: missing tags required by input signal. \n Missing tag: {}",
-                            tag),
+                MemoryError::AssignmentMissingTags(signal, tag) => Report::error(
+                    format!("Invalid assignment: missing tags required by input signal. \n Missing tag: input signal {} requires tag {}",
+                            signal, tag),
                     RuntimeError,
                 ),
                 MemoryError::AssignmentTagAfterInit => Report::error(
@@ -2242,9 +2242,9 @@ fn treat_result_with_memory_error_void(
                     "Invalid assignment: this tag already got a value".to_string(),
                     RuntimeError,
                 ),
-                MemoryError::AssignmentTagInputTwice(tag) => Report::error(
-                    format!("Invalid assignment: tags required by the input signal always have to have the same value. \n Problematic tag: {}",
-                        tag),
+                MemoryError::AssignmentTagInputTwice(signal, tag) => Report::error(
+                    format!("Invalid assignment: tags required by the input signal always have to have the same value. \n Problematic tag: input signal {} already has a different value for tag {}",
+                        signal, tag),
                     RuntimeError,
                 ),
                 MemoryError::AssignmentTagInput => Report::error(
@@ -2315,9 +2315,9 @@ fn treat_result_with_memory_error<C>(
                         },
                     }
                 },
-                MemoryError::AssignmentMissingTags(tag) => Report::error(
-                    format!("Invalid assignment: missing tags required by input signal. \n Missing tag: {}",
-                            tag),
+                MemoryError::AssignmentMissingTags(signal, tag) => Report::error(
+                    format!("Invalid assignment: missing tags required by input signal. \n Missing tag: input signal {} requires tag {}",
+                            signal, tag),
                     RuntimeError,
                 ),
                 MemoryError::AssignmentTagAfterInit => Report::error(
@@ -2328,9 +2328,9 @@ fn treat_result_with_memory_error<C>(
                     "Invalid assignment: this tag already got a value".to_string(),
                     RuntimeError,
                 ),
-                MemoryError::AssignmentTagInputTwice(tag) => Report::error(
-                    format!("Invalid assignment: tags required by the input signal always have to have the same value. \n Problematic tag: {}",
-                        tag),
+                MemoryError::AssignmentTagInputTwice(signal, tag) => Report::error(
+                    format!("Invalid assignment: tags required by the input signal always have to have the same value. \n Problematic tag: input signal {} already has a different value for tag {}",
+                        signal, tag),
                     RuntimeError,
                 ),
                 MemoryError::AssignmentTagInput => Report::error(
