@@ -20,10 +20,10 @@ pub enum MemoryError {
     UnknownSizeDimension,
     MismatchedDimensions(usize, usize),
     MismatchedDimensionsWeak(usize, usize),
-    AssignmentMissingTags(String),
+    AssignmentMissingTags(String, String),
     AssignmentTagAfterInit,
     AssignmentTagTwice,
-    AssignmentTagInputTwice(String),
+    AssignmentTagInputTwice(String, String),
     AssignmentTagInput,
     TagValueNotInitializedAccess,
     MissingInputs(String)

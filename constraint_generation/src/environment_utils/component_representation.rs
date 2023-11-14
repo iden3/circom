@@ -262,7 +262,7 @@ impl ComponentRepresentation {
 
         for (t, value) in tags_input{
             if !tags.contains_key(t){
-                return Result::Err(MemoryError::AssignmentMissingTags(t.clone()));
+                return Result::Err(MemoryError::AssignmentMissingTags(signal_name.to_string(), t.clone()));
             } else{
                 if is_first_assignment_signal{
                     *value = tags.get(t).unwrap().clone();
@@ -270,7 +270,7 @@ impl ComponentRepresentation {
                 else{
                     // already given a value, check that it is the same
                     if value != tags.get(t).unwrap(){
-                        return Result::Err(MemoryError::AssignmentTagInputTwice(t.clone()));
+                        return Result::Err(MemoryError::AssignmentTagInputTwice(signal_name.to_string(), t.clone()));
                     }
                 }
             }
@@ -294,13 +294,13 @@ impl ComponentRepresentation {
         let tags_input = component.inputs_tags.get_mut(signal_name).unwrap();
         for (t, value) in tags_input{
             if !tags.contains_key(t){
-                return Result::Err(MemoryError::AssignmentMissingTags(t.clone()));
+                return Result::Err(MemoryError::AssignmentMissingTags(signal_name.to_string(), t.clone()));
             } else{            
                 // We are in the case where the component is initialized, so we 
                 // assume that all tags already have their value and check if it is
                 // the same as the one we are receiving
                 if value != tags.get(t).unwrap(){
-                    return Result::Err(MemoryError::AssignmentTagInputTwice(t.clone()));
+                    return Result::Err(MemoryError::AssignmentTagInputTwice(signal_name.to_string(), t.clone()));
                 }
             }
         }
