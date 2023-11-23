@@ -9103,7 +9103,7 @@
         get_local $px
         i32.const 8
         i32.add
-        call $Fr_F1m_isZero
+        call $Fr_int_isZero ;; it was $Fr_F1m_isZero, but it does not exists
         i32.eqz
         return
     end
