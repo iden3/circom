@@ -87,7 +87,10 @@ fn treat_statement(stmt: &mut Statement, context: &Context, reports: &mut Report
         treat_while(stmt, context, reports, flags, prime)
     } else if stmt.is_declaration(){
         treat_declaration(stmt, context, reports, flags, prime)
-    } else {
+    } else if stmt.is_substitution(){
+        treat_substitution(stmt, context, reports, flags, prime)
+    } else{
+
     }
 }
 
@@ -97,6 +100,9 @@ fn treat_init_block(stmt: &mut Statement, context: &Context, reports: &mut Repor
         for init in initializations {
             if init.is_declaration() {
                 treat_declaration(init, context, reports, flags, prime)
+            }
+            if init.is_substitution(){
+                treat_substitution(init, context, reports, flags, prime)
             }
         }
     } else {
@@ -159,6 +165,33 @@ fn treat_declaration(stmt: &mut Statement, context: &Context, reports: &mut Repo
         }
     } else {
         unreachable!()
+    }
+}
+
+fn treat_substitution(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flags: FlagsExecution, prime: &String) {
+    use Statement::Substitution;
+
+    if let Substitution{rhe, ..} = stmt{
+        treat_expression(rhe, context, reports, flags, prime);
+    } else{
+        unreachable!()
+    }
+
+}
+
+fn treat_expression(
+    expr: &mut Expression, context: &Context, reports: &mut ReportCollection, flags: FlagsExecution, prime: &String
+){
+    use Expression::{Number, UniformArray};
+    if let UniformArray {meta, value, dimension} = expr{
+        let execution_response = treat_dimension(&dimension, context, reports, flags, prime);
+        if let Option::Some(v) = execution_response {
+            **dimension = Number(meta.clone(), BigInt::from(v));
+        } else {
+            report_invalid_dimension(meta, reports);
+        }
+        treat_expression(value, context, reports, flags, prime)
+    } else{
     }
 }
 
