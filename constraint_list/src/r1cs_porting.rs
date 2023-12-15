@@ -12,6 +12,7 @@ pub fn port_r1cs(list: &ConstraintList, output: &str, custom_gates: bool) -> Res
     log.no_labels = ConstraintList::no_labels(list);
     log.no_wires = ConstraintList::no_wires(list);
     log.no_private_inputs = list.no_private_inputs;
+    log.no_private_inputs_witness = list.no_private_inputs_witness;
     log.no_public_inputs = list.no_public_inputs;
     log.no_public_outputs = list.no_public_outputs;
 
