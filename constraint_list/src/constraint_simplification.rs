@@ -102,7 +102,7 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
 
 fn rebuild_witness(
     max_signal: usize, 
-    deleted: HashSet<usize>, 
+    deleted: &mut HashSet<usize>, 
     forbidden: &HashSet<usize>, 
     non_linear_map: SignalToConstraints, 
     remove_unused: bool,
@@ -113,6 +113,7 @@ fn rebuild_witness(
         if deleted.contains(&signal) {
             free.push_back(signal);
         } else if remove_unused && !forbidden.contains(&signal) && !non_linear_map.contains_key(&signal){
+            deleted.insert(signal);
             free.push_back(signal);
         } else if let Some(new_pos) = free.pop_front() {
             map.insert(signal, new_pos);
@@ -438,7 +439,9 @@ fn remove_not_relevant(substitutions: &mut SEncoded, relevant: &HashSet<usize>) 
     }
 }
 
-pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
+
+// returns the constraints, the assignment of the witness and the number of inputs in the witness
+pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, usize) {
     use super::non_linear_utils::obtain_and_simplify_non_linear;
     use circom_algebra::simplification_utils::build_encoded_fast_substitutions;
     use circom_algebra::simplification_utils::fast_encoded_constraint_substitution;
@@ -689,20 +692,37 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap) {
 
     let _trash = constraint_storage.extract_with(&|c| C::is_empty(c));
 
+
     let signal_map = {
         // println!("Rebuild witness");
         let now = SystemTime::now();
-        let signal_map = rebuild_witness(max_signal, deleted, &forbidden, non_linear_map, remove_unused);
+        let signal_map= rebuild_witness(
+            max_signal, 
+            &mut deleted, 
+            &forbidden, 
+            non_linear_map, 
+            remove_unused
+        );
         let _dur = now.elapsed().unwrap().as_millis();
         // println!("End of rebuild witness: {} ms", dur);
-        signal_map
+       signal_map
     };
+
+    // count the number of deleted inputs
+    let max_value_input = smp.no_public_outputs + smp.no_public_inputs + smp.no_private_inputs;
+    let mut deleted_inputs = 0;
+    for signal in &deleted{
+        if signal >= &(smp.no_public_outputs + 1) && signal <= &max_value_input{
+            deleted_inputs += 1;
+        }
+    }
+
 
     if let Some(w) = substitution_log {
         w.end().unwrap();
     }
     // println!("NO CONSTANTS: {}", constraint_storage.no_constants());
-    (constraint_storage, signal_map)
+    (constraint_storage, signal_map, smp.no_private_inputs - deleted_inputs)
 }
 
 
