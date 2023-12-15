@@ -568,6 +568,22 @@ pub fn generate_dat_constant_list(producer: &CProducer, constant_list: &Vec<Stri
     constant_list_data
 }
 
+pub fn generate_dat_constant_list_plain(producer: &CProducer, constant_list: &Vec<String>) -> Vec<u8> {
+    let mut constant_list_data = vec![];
+    for s in constant_list {
+	let n = s.parse::<BigInt>().unwrap();
+        let (sn, bn) = n.to_bytes_be();
+        assert_ne!(sn, Sign::Minus);
+        let mut v: Vec<u8> = bn.to_vec();
+        v.reverse();
+        constant_list_data.append(&mut v);
+        for _i in 0..(producer.get_size_32_bit() * 4) - bn.len() {
+            constant_list_data.push(0);
+        }
+    }
+    constant_list_data
+}
+
 pub fn generate_dat_io_signals_info(
     _producer: &CProducer,
     io_map: &TemplateInstanceIOMap,
@@ -657,6 +673,7 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     dat_file.write_all(&s)?;
     dat_file.flush()?;
     let s = generate_dat_constant_list(producer, producer.get_field_constant_list()); // list of bytes Fr
+    //let s = generate_dat_constant_list_plain(producer, producer.get_field_constant_list()); // list of bytes Fr
     dat_file.write_all(&s)?;
     dat_file.flush()?;
     //let ioml = producer.get_io_map().len() as u64;
