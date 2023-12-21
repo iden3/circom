@@ -1,11 +1,13 @@
-use super::slice_types::{MemoryError, SignalSlice, SliceCapacity,TagInfo};
+use super::slice_types::{MemoryError, TypeInvalidAccess, TypeAssignmentError, SignalSlice, SliceCapacity,TagInfo};
 use crate::execution_data::type_definitions::NodePointer;
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap, HashSet};
+use crate::ast::Meta;
 
 pub struct ComponentRepresentation {
     pub node_pointer: Option<NodePointer>,
     is_parallel: bool,
+    pub meta: Option<Meta>,
     unassigned_inputs: HashMap<String, SliceCapacity>,
     unassigned_tags: HashSet<String>,
     to_assign_inputs: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>)>,
@@ -29,6 +31,7 @@ impl Default for ComponentRepresentation {
             outputs: HashMap::new(),
             outputs_tags: BTreeMap::new(),
             is_initialized: false,
+            meta: Option::None,
         }
     }
 }
@@ -45,6 +48,7 @@ impl Clone for ComponentRepresentation {
             outputs: self.outputs.clone(),
             outputs_tags: self.outputs_tags.clone(),
             is_initialized: self.is_initialized,
+            meta : self.meta.clone(),
         }
     }
 }
@@ -56,9 +60,10 @@ impl ComponentRepresentation {
         prenode_pointer: NodePointer,
         scheme: &ExecutedProgram,
         is_anonymous_component: bool,
+        meta: &Meta,
     ) -> Result<(), MemoryError>{
         if !is_anonymous_component && component.is_preinitialized() {
-            return Result::Err(MemoryError::AssignmentError);
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
         }
         let possible_node = ExecutedProgram::get_prenode(scheme, prenode_pointer);
         assert!(possible_node.is_some());
@@ -97,6 +102,7 @@ impl ComponentRepresentation {
             outputs: HashMap::new(),
             is_initialized: false,
             is_parallel,
+            meta: Some(meta.clone()),
         };
         Result::Ok(())
     }
@@ -123,16 +129,26 @@ impl ComponentRepresentation {
 
         for (symbol, route) in node.outputs() {
             component.outputs.insert(symbol.clone(), SignalSlice::new_with_route(route, &true));
+            
             let tags_output = node.signal_to_tags.get(symbol);
-            if tags_output.is_some(){
-                component.outputs_tags.insert(symbol.to_string(), tags_output.unwrap().clone());
+            let component_tags_output = component.outputs_tags.get_mut(symbol);
+            if tags_output.is_some() && component_tags_output.is_some(){
+                let result_tags_output = tags_output.unwrap();
+                let result_component_tags_output = component_tags_output.unwrap();
+                for (tag, value) in result_tags_output{
+                    // only update the output tag in case it contains the tag in the definition
+                    if result_component_tags_output.contains_key(tag){
+                        result_component_tags_output.insert(tag.clone(), value.clone());
+                    }
+                }
             }
         }
         component.node_pointer = Option::Some(node_pointer);
         let to_assign = component.to_assign_inputs.clone();
 
         for s in to_assign{
-            ComponentRepresentation::assign_value_to_signal_init(component, &s.0, &s.1, &s.2)?;
+            let tags_input = component.inputs_tags.get(&s.0).unwrap();
+            ComponentRepresentation::assign_value_to_signal_init(component, &s.0, &s.1, &s.2, tags_input.clone())?;
         }
         Result::Ok(())
     }
@@ -170,14 +186,18 @@ impl ComponentRepresentation {
     pub fn get_signal(&self, signal_name: &str) -> Result<(&TagInfo, &SignalSlice), MemoryError> {
 
         if self.node_pointer.is_none() {
-            return Result::Err(MemoryError::InvalidAccess);
+            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent));
         }
         if self.outputs.contains_key(signal_name) && !self.unassigned_inputs.is_empty() {
-            return Result::Err(MemoryError::InvalidAccess);
+            // we return the name of an input that has not been assigned
+            let ex_signal = self.unassigned_inputs.iter().next().unwrap().0.clone();
+            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputs(ex_signal)));
         }
 
         if !self.is_initialized {
-            return Result::Err(MemoryError::InvalidAccess);
+            // we return the name of an input with tags that has not been assigned
+            let ex_signal = self.unassigned_tags.iter().next().unwrap().clone();
+            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputTags(ex_signal)));
         }
     
         let slice = if self.inputs.contains_key(signal_name) {
@@ -209,9 +229,17 @@ impl ComponentRepresentation {
                 signal_name, 
                 access, 
                 slice_route,
+                tags
             )
         }
     }
+
+    /*
+        Tags:
+        - If an input receives a value that does not contain a expected tag ==> error
+        - If an input receives a tag whose value is different to the expected (the one received earlier) ==> error
+    
+     */
 
     pub fn assign_value_to_signal_no_init(
         component: &mut ComponentRepresentation,
@@ -223,20 +251,26 @@ impl ComponentRepresentation {
 
         // We copy tags in any case, complete or incomplete assignment
         // The values of the tags must be the same than the ones stored before
+        if !component.inputs_tags.contains_key(signal_name){
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput));
+        }
+
         let tags_input = component.inputs_tags.get_mut(signal_name).unwrap();
+
+        let is_first_assignment_signal = component.unassigned_tags.contains(signal_name);
+        component.unassigned_tags.remove(signal_name);
 
         for (t, value) in tags_input{
             if !tags.contains_key(t){
-                return Result::Err(MemoryError::AssignmentMissingTags);
+                return Result::Err(MemoryError::AssignmentMissingTags(t.clone()));
             } else{
-                if component.unassigned_tags.contains(signal_name){
+                if is_first_assignment_signal{
                     *value = tags.get(t).unwrap().clone();
-                    component.unassigned_tags.remove(signal_name);
                 }
                 else{
                     // already given a value, check that it is the same
                     if value != tags.get(t).unwrap(){
-                        return Result::Err(MemoryError::AssignmentTagTwice);
+                        return Result::Err(MemoryError::AssignmentTagInputTwice(t.clone()));
                     }
                 }
             }
@@ -250,7 +284,26 @@ impl ComponentRepresentation {
         signal_name: &str,
         access: &[SliceCapacity],
         slice_route: &[SliceCapacity],
+        tags: TagInfo,
     ) -> Result<(), MemoryError> {
+        
+        if !component.inputs.contains_key(signal_name){
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput));
+        }
+
+        let tags_input = component.inputs_tags.get_mut(signal_name).unwrap();
+        for (t, value) in tags_input{
+            if !tags.contains_key(t){
+                return Result::Err(MemoryError::AssignmentMissingTags(t.clone()));
+            } else{            
+                // We are in the case where the component is initialized, so we 
+                // assume that all tags already have their value and check if it is
+                // the same as the one we are receiving
+                if value != tags.get(t).unwrap(){
+                    return Result::Err(MemoryError::AssignmentTagInputTwice(t.clone()));
+                }
+            }
+        }
 
         let inputs_response = component.inputs.get_mut(signal_name).unwrap();
         let signal_previous_value = SignalSlice::access_values(
@@ -270,7 +323,7 @@ impl ComponentRepresentation {
         for i in 0..SignalSlice::get_number_of_cells(&signal_previous_value){
             let signal_was_assigned = SignalSlice::access_value_by_index(&signal_previous_value, i)?;
             if signal_was_assigned {
-                return Result::Err(MemoryError::AssignmentError);
+                return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
             }
         }
         
@@ -300,6 +353,10 @@ impl ComponentRepresentation {
 
     pub fn is_ready_initialize(&self) -> bool {
         self.unassigned_tags.is_empty()
+    }
+
+    pub fn has_unassigned_inputs(&self) -> bool{
+        !self.unassigned_inputs.is_empty()
     }
 
 }

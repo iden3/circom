@@ -31,7 +31,7 @@ template B(n){
 }
 component main = B(2);
 ```
-Thanks to the use of anonymous components, we can easily write the next program, which is, equivalent to the previous one, but its code is much cleaner.
+Thanks to anonymous components, we can make the above program much cleaner.
 
 ```text
 template A(n){
@@ -55,7 +55,7 @@ Let us clarify two points:
 1. `arg1`, ..., `argN` are template arguments. We can use them as usual. They can be arithmetic operations expressions or constants. The important thing is its value must be known at compilation time. 
 2. `input1`, ..., `inputM` are input signals. We can pass another signals, (just like in the example) constants or other anonymous components (in a compositional way), if and only if, __such components only have 1 output signal__.
 
-The order of the signals in the anonymous component matters: the ith input signal receives the value of the ith signal passed as parameter. Since circom 2.1.1, it is also allowed to indicate the name of the input signal corresponding to each parameter, followed by `<==`or `<--` and, finally, the signal which gives the value). The only condition that must be satisfied is that all the subcomponent inputs must receive a value. Let us see this new feature in the previous example:
+The order of the signals in the anonymous component matters: the ith input signal receives the value of the ith signal passed as parameter. Since circom 2.1.1, it is also allowed to indicate the name of the input signal corresponding to each parameter, followed by `<==` and then the expression in R1CS format). In that case, we can uses any order in giving the inputs provided all the subcomponent inputs are given. Note that either we use the notation with `<==` for all inputs or none. Let us see this new feature in the previous example:
 
 ```text
 template A(n){
@@ -65,7 +65,7 @@ template A(n){
 }
 template B(n){
    signal input in[n];
-   signal out <== A(n)( a <== in[0], b <-- in[1]);
+   signal out <== A(n)(b <== in[1], a <== in[0]);
 }
 component main = B(2);
 ```
@@ -75,7 +75,7 @@ The value returned by the anonymous components depends on the number of template
 1. __If the template does not define any output signal__ (for instance, if it only defines constraints based on the input signals),  we can use the anonymous component like if it was an statement 
    `temp_name(arg1,...,argN)(inp1,...,inpM);`
 
-2. __If the template defines a single output signal__, we can use any of the well-known operators to collect the output signal. It is important to highlight that we can use with the anonymous components any of the operators `<--`, `<==`, `=`, `-->`and `==>` with the usual semantics. For instance,
+2. __If the template defines a single output signal__, we can use any of the well-known operators to collect the output signal. It is important to highlight that we can use with the anonymous components any of the operators `<==`, `==>` and `=`  with the usual semantics, but not `<--` and `-->`, since there is no way to add additional constraints including the signals of the anonymous components (which will end up in security issues in most of the cases). For instance,
 `signal out <== temp_name(a1,...,aN)(i1,...,iM);`
 
 1. __If the template defines more than an output signal__, we need to use a new kind of expression to collect all the outputs: __the tuples__, whose syntax is the usual in other programming languages.
@@ -95,7 +95,7 @@ Tuples are a typical expression in other programming languages, which allows us 
 
 We have introduced tuples because of the previous feature. When using templates with several outputs is necessary being able to collect all the outputs at the same time, since the component is anonymous and later cannot be accessed.
 
-Apart from the main use of the tuples, we can use this new kind of expressions with every kind of assignment  `<==`,`=` and `<--`. However, we discourage the use of the latter. Tuples can only be used in combination of any of these operators whenever there are tuples in both sides of the statement. In this case, the semantics of this multiple assignment is the element-wise assignment. 
+Apart from the main use of the tuples, we can use this new kind of expressions with every kind of assignment  `<==`,`=` and `<--`. However, the latter is not allowed when getting the result of an anonymous component and its use is in general discouraged. Tuples can only be used in combination of any of these operators whenever there are tuples in both sides of the statement. In this case, the semantics of this multiple assignment is the element-wise assignment. 
 
 Let us see a non-trivial example to illustrate the importance of the order of the tuple elements.
 
@@ -178,7 +178,7 @@ template A(n){
    signal input a, b, c;
    signal output d;
    d <== a*b+c;
-   a * b === c*c;
+   a * b === c;
 }
 template B(n){
    signal input in[n];
@@ -187,7 +187,7 @@ template B(n){
 component main = B(3);
 ```
 
-In the previous example, we are interesting in adding to the R1CS the constraint  `a * b = c * c`, but we can ignore the output signal `d`. 
+In the previous example, we are interested in adding the constraint  `a * b = c` to the R1CS, but we can ignore the output signal `d`. 
 
 In case the anonymous component has one more than one output, we can ignore the ones we are not interested. 
 

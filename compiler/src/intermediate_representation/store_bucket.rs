@@ -405,16 +405,20 @@ impl WriteC for StoreBucket {
         match &self.dest_address_type {
             AddressType::SubcmpSignal{ uniform_parallel_value, input_information, .. } => {
                 // if subcomponent input check if run needed
+                let sub_cmp_counter = format!(
+                    "{}->componentMemory[{}[{}]].inputCounter",
+                    CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref
+                );
                 let sub_cmp_counter_decrease = format!(
-                    "{}->componentMemory[{}[{}]].inputCounter -= {}",
-                    CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref, self.context.size
+                    "{} -= {}",
+                    sub_cmp_counter, self.context.size
                 );
 		if let InputInformation::Input{status} = input_information {
 		    if let StatusInput::NoLast = status {
 			// no need to run subcomponent
 			prologue.push("// no need to run sub component".to_string());
-			//prologue.push(format!("{};",sub_cmp_counter_decrease));
-			prologue.push(format!("assert({});",sub_cmp_counter_decrease));
+			prologue.push(format!("{};", sub_cmp_counter_decrease));
+			prologue.push(format!("assert({} > 0);", sub_cmp_counter));
 		    } else {
 			let sub_cmp_pos = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
 			let sub_cmp_call_arguments =
@@ -431,10 +435,10 @@ impl WriteC for StoreBucket {
                     let mut thread_call_instr = vec![];
                         
                         // parallelism
-                    thread_call_instr.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
-                    thread_call_instr.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
-                    thread_call_instr.push(format!("{}->numThread++;",CIRCOM_CALC_WIT));
-                    thread_call_instr.push(format!("{}->componentMemory[{}].sbct[{}] = std::thread({},{});",CIRCOM_CALC_WIT,CTX_INDEX,cmp_index_ref, sub_cmp_call_name, argument_list(sub_cmp_call_arguments)));
+                        thread_call_instr.push(format!("{}->componentMemory[{}].sbct[{}] = std::thread({},{});",CIRCOM_CALC_WIT,CTX_INDEX,cmp_index_ref, sub_cmp_call_name, argument_list(sub_cmp_call_arguments)));
+                        thread_call_instr.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
+                        thread_call_instr.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
+                        thread_call_instr.push(format!("ctx->numThread++;"));
                     thread_call_instr
 
                 }
@@ -458,7 +462,8 @@ impl WriteC for StoreBucket {
                     prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
                 } else {
                     prologue.push("// need to run sub component".to_string());
-                    prologue.push(format!("assert(!({}));",sub_cmp_counter_decrease));
+                    prologue.push(format!("{};", sub_cmp_counter_decrease));
+                    prologue.push(format!("assert(!({}));", sub_cmp_counter));
                     prologue.append(&mut call_instructions);
                 }
             }
@@ -478,10 +483,10 @@ impl WriteC for StoreBucket {
                 };
                 let mut call_instructions = vec![];  
                     // parallelism
-                call_instructions.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
-                call_instructions.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
-                call_instructions.push(format!("{}->numThread++;",CIRCOM_CALC_WIT));
-                call_instructions.push(format!("{}->componentMemory[{}].sbct[{}] = std::thread({},{});",CIRCOM_CALC_WIT,CTX_INDEX,cmp_index_ref, sub_cmp_call_name, argument_list(sub_cmp_call_arguments.clone())));
+                    call_instructions.push(format!("{}->componentMemory[{}].sbct[{}] = std::thread({},{});",CIRCOM_CALC_WIT,CTX_INDEX,cmp_index_ref, sub_cmp_call_name, argument_list(sub_cmp_call_arguments.clone())));
+                    call_instructions.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
+                    call_instructions.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
+                    call_instructions.push(format!("ctx->numThread++;"));
 
                 if let StatusInput::Unknown = status {
                     let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
@@ -491,7 +496,8 @@ impl WriteC for StoreBucket {
                     prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
                 } else {
                     prologue.push("// need to run sub component".to_string());
-                    prologue.push(format!("assert(!({}));",sub_cmp_counter_decrease));
+                    prologue.push(format!("{};", sub_cmp_counter_decrease));
+                    prologue.push(format!("assert(!({}));", sub_cmp_counter));
                     prologue.append(&mut call_instructions);
                 }
                 // end of case parallel
@@ -516,7 +522,8 @@ impl WriteC for StoreBucket {
                     prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
                 } else {
                     prologue.push("// need to run sub component".to_string());
-                    prologue.push(format!("assert(!({}));",sub_cmp_counter_decrease));
+                    prologue.push(format!("{};", sub_cmp_counter_decrease));
+                    prologue.push(format!("assert(!({}));", sub_cmp_counter));
                     prologue.append(&mut call_instructions);
                 }
                 // end of not parallel case

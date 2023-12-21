@@ -62,7 +62,7 @@ fn extend_statement(stmt: &mut Statement, state: &mut State, context: &Context) 
         extend_log_call(stmt, state, context)
     } else if stmt.is_assert() {
         extend_assert(stmt, state, context)
-    } else {
+    } else{
         unreachable!()
     }
 }
@@ -135,8 +135,21 @@ fn extend_substitution(
     context: &Context,
 ) -> Vec<Statement> {
     use Statement::Substitution;
-    if let Substitution { rhe, .. } = stmt {
-        extend_expression(rhe, state, context).initializations
+    if let Substitution { rhe, access, .. } = stmt {
+        let mut expands = extend_expression(rhe, state, context).initializations;
+        
+        let mut inits = vec![];
+        for acc in access {
+            if let Access::ArrayAccess(e) = acc {
+                let mut expand = extend_expression(e, state, context);
+                inits.append(&mut expand.initializations);
+                let mut expr = vec![e.clone()];
+                sugar_filter(&mut expr, state, &mut inits);
+                *e = expr.pop().unwrap();
+            }
+        }
+        expands.append(&mut inits);
+        expands
     } else {
         unreachable!()
     }
@@ -267,16 +280,61 @@ fn extend_parallel(expr: &mut Expression, state: &mut State, context: &Context) 
 }
 
 fn extend_infix(expr: &mut Expression, state: &mut State, context: &Context) -> ExtendedSyntax {
-    use Expression::InfixOp;
-    if let InfixOp { lhe, rhe, .. } = expr {
+    use program_structure::ast::Expression::Number;
+    use program_structure::ast::Expression::Variable;
+    use program_structure::ast::Expression::InfixOp;
+    use program_structure::ast::ExpressionInfixOpcode::Pow;
+    use program_structure::ast::ExpressionInfixOpcode::Add;
+    use num_bigint_dig::BigInt;
+    if let InfixOp { lhe, rhe, infix_op, .. } = expr {
         let mut lh_expand = extend_expression(lhe, state, context);
         let mut rh_expand = extend_expression(rhe, state, context);
         lh_expand.initializations.append(&mut rh_expand.initializations);
         let mut extended = lh_expand;
         let mut expr = vec![*lhe.clone(), *rhe.clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
-        *rhe = Box::new(expr.pop().unwrap());
-        *lhe = Box::new(expr.pop().unwrap());
+
+        let mut expr_rhe = expr.pop().unwrap();
+        let expr_lhe = expr.pop().unwrap();
+
+        // remove when fixed fr in wasm
+        if *infix_op == Pow{
+            match (&expr_rhe, &expr_lhe){
+                (Variable{name: name_1, ..}, Variable{name: name_2, ..})
+                        if name_1 == name_2 =>{
+                    expr_rhe = Expression::InfixOp{
+                        meta: rhe.get_meta().clone(),
+                        lhe: Box::new(Number(rhe.get_meta().clone(), BigInt::from(0))),
+                        rhe: Box::new(expr_rhe),
+                        infix_op: Add,
+                    };
+                }
+                (Number(_, value_1 ), Number(_, value_2))
+                        if value_1 == value_2 =>{
+                    expr_rhe = Expression::InfixOp{
+                        meta: rhe.get_meta().clone(),
+                        lhe: Box::new(Number(rhe.get_meta().clone(), BigInt::from(0))),
+                        rhe: Box::new(expr_rhe),
+                        infix_op: Add,
+                    };
+                }
+                _ =>{
+
+                }
+
+            }
+
+        *rhe = Box::new(expr_rhe);
+        *lhe = Box::new(expr_lhe);
+
+        
+        } else{
+            *rhe = Box::new(expr_rhe);
+            *lhe = Box::new(expr_lhe);
+        }
+
+        // just to solve the case of X ** X in wasm
+
         extended
     } else {
         unreachable!()
@@ -648,7 +706,7 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
                 stmts.push(ce);
             }
         }
-        else if let Variable { name, access, ..} = other_expr {
+        else if let Variable { meta: meta_var, name, access, ..} = other_expr {
             for i in 0..values_l.len() {
                 let mut index_meta = meta.clone();
                 index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
@@ -658,7 +716,7 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
                 accessed_with.push(as_access);
                 let ce = ConstraintEquality {
                     lhe: values_l[i].clone(),
-                    rhe: Variable {name: name.clone(), access: accessed_with, meta: meta.clone()},
+                    rhe: Variable {name: name.clone(), access: accessed_with, meta: meta_var.clone()},
                     meta: meta.clone(),
                 };
                 stmts.push(ce);

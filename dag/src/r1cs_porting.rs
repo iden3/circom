@@ -4,7 +4,11 @@ use constraint_writers::r1cs_writer::{ConstraintSection, CustomGatesAppliedData,
 
 pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
     let tree = Tree::new(dag);
-    let field_size = (tree.field.bits() / 64 + 1) * 8;
+    let field_size = if tree.field.bits() % 64 == 0 {
+        tree.field.bits() / 8
+    } else{
+        (tree.field.bits() / 64 + 1) * 8
+    };
     let mut log = Log::new();
     let r1cs = R1CSWriter::new(output.to_string(), field_size, custom_gates)?;
 
@@ -39,8 +43,10 @@ pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
         signal_section.write_signal_usize(signal)?;
     }
     let r1cs = signal_section.end_section()?;
-
-    if custom_gates {
+    
+    if !custom_gates {
+	R1CSWriter::finish_writing(r1cs)?;
+    } else {
         let mut custom_gates_used_section = R1CSWriter::start_custom_gates_used_section(r1cs)?;
         let (usage_data, occurring_order) = {
             let mut usage_data = vec![];
@@ -97,7 +103,8 @@ pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
             find_indexes(occurring_order, application_data)
         };
         custom_gates_applied_section.write_custom_gates_applications(application_data)?;
-        let _r1cs = custom_gates_applied_section.end_section()?;
+        let r1cs = custom_gates_applied_section.end_section()?;
+        R1CSWriter::finish_writing(r1cs)?;
     }
 
     Log::print(&log);

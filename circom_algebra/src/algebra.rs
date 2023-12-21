@@ -243,18 +243,6 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
         Result::Ok(())
     }
-    fn idivide_coefficients_by_constant(
-        constant: &BigInt,
-        coefficients: &mut HashMap<C, BigInt>,
-        field: &BigInt,
-    ) -> Result<(), ArithmeticError> {
-        debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
-        for value in coefficients.values_mut() {
-            *value = modular_arithmetic::idiv(value, constant, field)?;
-        }
-        debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
-        Result::Ok(())
-    }
 
     pub fn add(
         left: &ArithmeticExpression<C>,
@@ -519,39 +507,6 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 let value = modular_arithmetic::idiv(value_0, value_1, field)?;
                 Result::Ok(Number { value })
             }
-            (Signal { symbol }, Number { value }) => {
-                let mut coefficients = HashMap::new();
-                ArithmeticExpression::initialize_hashmap_for_expression(&mut coefficients);
-                ArithmeticExpression::add_symbol_to_coefficients(
-                    symbol,
-                    &BigInt::from(1),
-                    &mut coefficients,
-                    field,
-                );
-                ArithmeticExpression::idivide_coefficients_by_constant(
-                    value,
-                    &mut coefficients,
-                    field,
-                )?;
-                Result::Ok(Linear { coefficients })
-            }
-            (Linear { coefficients }, Number { value }) => {
-                let mut coefficients = coefficients.clone();
-                ArithmeticExpression::idivide_coefficients_by_constant(
-                    value,
-                    &mut coefficients,
-                    field,
-                )?;
-                Result::Ok(Linear { coefficients })
-            }
-            (Quadratic { a, b, c }, Number { value }) => {
-                let mut a = a.clone();
-                let b = b.clone();
-                let mut c = c.clone();
-                ArithmeticExpression::idivide_coefficients_by_constant(value, &mut a, field)?;
-                ArithmeticExpression::idivide_coefficients_by_constant(value, &mut c, field)?;
-                Result::Ok(Quadratic { a, b, c })
-            }
             _ => Result::Ok(NonQuadratic),
         }
     }
@@ -807,14 +762,20 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
     ) {
         use ArithmeticExpression::*;
         match expr {
-            Linear { coefficients } => raw_substitution(coefficients, substitution, field),
+            Linear { coefficients } => {
+               raw_substitution(coefficients, substitution, field);
+               *coefficients = remove_zero_value_coefficients(std::mem::take(coefficients));
+            }
             Signal { symbol } if *symbol == substitution.from => {
                 *expr = Linear { coefficients: substitution.to.clone() };
             }
             Quadratic { a, b, c } => {
                 raw_substitution(a, substitution, field);
+                *a = remove_zero_value_coefficients(std::mem::take(a));
                 raw_substitution(b, substitution, field);
+                *b = remove_zero_value_coefficients(std::mem::take(b));
                 raw_substitution(c, substitution, field);
+                *c = remove_zero_value_coefficients(std::mem::take(c));
             }
             _ => {}
         }
@@ -1182,7 +1143,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         raw_substitution(&mut constraint.a, substitution, field);
         raw_substitution(&mut constraint.b, substitution, field);
         raw_substitution(&mut constraint.c, substitution, field);
-        Constraint::fix_constraint(constraint, field);
+        //Constraint::fix_constraint(constraint, field);
     }
 
     pub fn remove_zero_value_coefficients(constraint: &mut Constraint<C>) {
@@ -1329,7 +1290,7 @@ fn raw_substitution<C>(
         ArithmeticExpression::multiply_coefficients_by_constant(&val, &mut coefficients, field);
         ArithmeticExpression::add_coefficients_to_coefficients(&coefficients, change, field);
     }
-    *change = remove_zero_value_coefficients(std::mem::take(change));
+    //*change = remove_zero_value_coefficients(std::mem::take(change));
 }
 
 fn remove_zero_value_coefficients<C>(raw_expression: HashMap<C, BigInt>) -> HashMap<C, BigInt>

@@ -9,7 +9,7 @@ type ReportLabel = Label<FileID>;
 type ReportNote = String;
 
 #[derive(Copy, Clone)]
-enum MessageCategory {
+pub enum MessageCategory {
     Error,
     Warning,
 }
@@ -66,7 +66,7 @@ impl Report {
             }
         }
     }
-    fn error_code_to_diagnostic_code(error_code: &ReportCode) -> DiagnosticCode {
+    pub fn error_code_to_diagnostic_code(error_code: &ReportCode) -> DiagnosticCode {
         error_code.to_string()
     }
     pub fn error(error_message: String, code: ReportCode) -> Report {
@@ -103,7 +103,7 @@ impl Report {
         self
     }
 
-    fn to_diagnostic(&self) -> Diagnostic<FileID> {
+    pub fn to_diagnostic(&self) -> Diagnostic<FileID> {
         let mut labels = self.get_primary().clone();
         let mut secondary = self.get_secondary().clone();
         labels.append(&mut secondary);
@@ -121,28 +121,28 @@ impl Report {
     pub fn is_warning(&self) -> bool {
         self.get_category().is_warning()
     }
-    fn get_category(&self) -> &MessageCategory {
+    pub fn get_category(&self) -> &MessageCategory {
         &self.category
     }
-    fn get_message(&self) -> &String {
+    pub fn get_message(&self) -> &String {
         &self.error_message
     }
-    fn get_code(&self) -> &ReportCode {
+    pub fn get_code(&self) -> &ReportCode {
         &self.error_code
     }
-    fn get_primary(&self) -> &Vec<ReportLabel> {
+    pub fn get_primary(&self) -> &Vec<ReportLabel> {
         &self.primary
     }
     fn get_mut_primary(&mut self) -> &mut Vec<ReportLabel> {
         &mut self.primary
     }
-    fn get_secondary(&self) -> &Vec<ReportLabel> {
+    pub fn get_secondary(&self) -> &Vec<ReportLabel> {
         &self.secondary
     }
     fn get_mut_secondary(&mut self) -> &mut Vec<ReportLabel> {
         &mut self.secondary
     }
-    fn get_notes(&self) -> &Vec<ReportNote> {
+    pub fn get_notes(&self) -> &Vec<ReportNote> {
         &self.notes
     }
     fn get_mut_notes(&mut self) -> &mut Vec<ReportNote> {

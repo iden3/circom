@@ -7,7 +7,8 @@ pub fn write(dag: &DAG, file_name: &str) -> Result<(), ()> {
     let tree = Tree::new(dag);
     let mut dot_sym = SymFile::new(file_name)?;
     visit_tree(&tree, &mut dot_sym)?;
-    SymFile::close(dot_sym);
+    SymFile::finish_writing(dot_sym)?;
+    //SymFile::close(dot_sym);
     Ok(())
 }
 

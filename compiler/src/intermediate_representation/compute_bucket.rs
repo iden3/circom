@@ -353,16 +353,16 @@ impl WriteC for ComputeBucket {
                 arguments.append(&mut operands);
                 compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
                 if *n > 1 {
-                    compute_c.push(format!("uint index = 1;"));
-                    compute_c.push(format!("while(index < {} && Fr_isTrue({})) {{", n, result_ref));
+                    compute_c.push(format!("{} = 1;", index_multiple_eq()));
+                    compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), n, result_ref));
                     operands = vec![];
                     arguments = vec![result_ref.clone()];
                     for operand in &operands_copy {
-                        operands.push(format!("{} + index", operand));
+                        operands.push(format!("{} + {}", operand, index_multiple_eq()));
                     }
                     arguments.append(&mut operands);
                     compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
-                    compute_c.push(format!("index++;"));
+                    compute_c.push(format!("{}++;", index_multiple_eq()));
                     compute_c.push(format!("}}"));
                     
                 }
