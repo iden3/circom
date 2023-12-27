@@ -1,4 +1,4 @@
-    (func $Fr_int_copy (type $_sig_i32i32)
+(func $Fr_int_copy (type $_sig_i32i32)
          (param $px i32)
          (param $pr i32)
         get_local $pr
@@ -3272,7 +3272,7 @@
          (local $np32 i64)
          (local $c i64)
          (local $m i64)
-        i64.const 4294967295
+        i64.const 3525653809
         set_local $np32
         i64.const 0
         set_local $c
@@ -4392,7 +4392,7 @@
          (local $y7 i64)
          (local $m7 i64)
          (local $q7 i64)
-        i64.const 4294967295
+        i64.const 3525653809
         set_local $np32
         get_local $c0
         i64.const 4294967295
@@ -6435,7 +6435,7 @@
          (local $x7 i64)
          (local $m7 i64)
          (local $q7 i64)
-        i64.const 4294967295
+        i64.const 3525653809
         set_local $np32
         i64.const 0
         set_local $c0
@@ -8917,7 +8917,7 @@
             call $Fr_int_zero
             return
         end
-        i32.const 32
+        i32.const 1
         set_local $m
         i32.const 928
         i32.const 1728
@@ -9103,7 +9103,7 @@
             get_local $px
             i32.const 8
             i32.add
-            call $Fr_int_isZero
+            call $Fr_int_isZero ;; it was $Fr_F1m_isZero, but it does not exists
             i32.eqz
             return
         end
@@ -10952,7 +10952,7 @@
         get_local $pA
         get_local $pA
         i64.load offset=32
-        i64.const 9223372036854775807
+        i64.const 18446744073709551615
         i64.and
         i64.store offset=32
         get_local $pA
