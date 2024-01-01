@@ -15,15 +15,15 @@ pub struct TemplateData {
     name: String,
     body: Statement,
     num_of_params: usize,
-    name_of_params: Vec<String>,
+    pub name_of_params: Vec<String>,
     param_location: FileLocation,
     input_signals: SignalInfo,
     output_signals: SignalInfo,
     is_parallel: bool,
     is_custom_gate: bool,
     /* Only used to know the order in which signals are declared.*/
-    input_declarations: SignalDeclarationOrder,
-    output_declarations: SignalDeclarationOrder,
+    pub input_declarations: SignalDeclarationOrder,
+    pub output_declarations: SignalDeclarationOrder,
 }
 
 impl TemplateData {

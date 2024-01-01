@@ -10,7 +10,7 @@ pub struct FunctionData {
     name: String,
     file_id: FileID,
     num_of_params: usize,
-    name_of_params: Vec<String>,
+    pub name_of_params: Vec<String>,
     param_location: FileLocation,
     body: Statement,
 }
