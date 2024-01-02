@@ -1,8 +1,8 @@
-mod compilation_user;
-mod execution_user;
-mod input_user;
-mod parser_user;
-mod type_analysis_user;
+pub mod compilation_user;
+pub mod execution_user;
+pub mod input_user;
+pub mod parser_user;
+pub mod type_analysis_user;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -42,7 +42,7 @@ fn start() -> Result<(), ()> {
         sym: user_input.sym_file().to_string(),
         r1cs: user_input.r1cs_file().to_string(),
         json_constraints: user_input.json_constraints_file().to_string(),
-        prime: user_input.prime(),        
+        prime: user_input.prime(),
     };
     let circuit = execution_user::execute_project(program_archive, config)?;
     let compilation_config = CompilerConfig {
