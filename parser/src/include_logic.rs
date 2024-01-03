@@ -145,18 +145,13 @@ impl IncludesGraph {
     }
 
     pub fn display_path(path: &Vec<PathBuf>) -> String {
-        let path = path
-            .iter()
-            .map(|file| -> String {
-                let file = format!("{}", file.display());
-                let (_, file) = file.rsplit_once("/").unwrap();
-                file.clone().to_string()
-            })
-            .collect::<Vec<String>>();
-        let mut path_covered = format!("{}", path[0]);
-        for file in &path[1..] {
-            path_covered = format!("{} -> {}", path_covered, file);
+        let mut res = String::new();
+        let mut sep = "";
+        for file in path.iter().map(|file| file.display().to_string()) {
+            res.push_str(sep);
+            res.push_str(file.rsplit_once("/").unwrap().1);
+            sep = " -> ";
         }
-        path_covered
+        res
     }
 }
