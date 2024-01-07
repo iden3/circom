@@ -9,7 +9,7 @@
   
 #### Fixed Bugs 
 - Fixing a panic produced when the two branches of an if instruction are not compatible.
-Fixing C++ code generated: input counter decrease inside assert => Moved outside the assert.
+- Fixing C++ code generated: input counter decrease inside assert => Moved outside the assert.
 - Fixing c++ code generated for macos with clang 14.0.0.
 - Fixing a bug in parallel definition at component level not working as expected.
 - Fixing a bug in parallel components not working as expected when considering assignments of the inputs given by names (A()(in_1 <== x, in_2 <== y)).
