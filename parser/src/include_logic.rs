@@ -21,6 +21,7 @@ impl FileStack {
         f_stack: &mut FileStack,
         name: String,
         libraries: &Vec<PathBuf>,
+        cache: &HashMap<PathBuf, String>
     ) -> Result<String, Report> {
         let mut libraries2 = Vec::new();
         libraries2.push(f_stack.current_location.clone());
@@ -29,11 +30,19 @@ impl FileStack {
             let mut path = PathBuf::new();
             path.push(lib);
             path.push(name.clone());
-            let path = std::fs::canonicalize(path);
+
+            let mut from_cache = false;  // ignore if path is real file in case of cache
+            let path = if cache.contains_key(&path) {
+                from_cache = true;
+                Ok(path)
+            } else {
+                std::fs::canonicalize(path)
+            };
+
             match path {
                 Err(_) => {}
                 Ok(path) => {
-                    if path.is_file() {
+                    if path.is_file() || from_cache {
                         if !f_stack.black_paths.contains(&path) {
                             f_stack.stack.push(path.clone());
                         }
@@ -87,11 +96,15 @@ impl IncludesGraph {
         }
     }
 
-    pub fn add_edge(&mut self, old_path: String) -> Result<(), Report> {
+    pub fn add_edge(&mut self, old_path: String, cache: &HashMap<PathBuf, String>) -> Result<(), Report> {
         let mut crr = PathBuf::new();
         crr.push(old_path.clone());
-        let path = std::fs::canonicalize(crr)
-            .map_err(|_e| produce_report_with_message(ReportCode::FileOs,old_path))?;
+        let path = if cache.contains_key(&crr) {
+            crr
+        } else {
+            std::fs::canonicalize(crr)
+                .map_err(|_e| produce_report_with_message(ReportCode::FileOs,old_path))?
+        };
         let edges = self.adjacency.entry(path).or_insert(vec![]);
         edges.push(self.nodes.len() - 1);
         Ok(())

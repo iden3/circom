@@ -22,6 +22,7 @@ use std::path::{PathBuf, Path};
 use syntax_sugar_remover::{apply_syntactic_sugar};
 
 use std::str::FromStr;
+use std::collections::HashMap;
 
 pub type Version = (usize, usize, usize);
 
@@ -59,7 +60,17 @@ pub fn find_file(
 pub fn run_parser(
     file: String,
     version: &str,
+    link_libraries: Vec<PathBuf>
+) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
+    run_parser_cached(file, version, link_libraries, &HashMap::new(), false)
+}
+
+pub fn run_parser_cached(
+    file: String,
+    version: &str,
     link_libraries: Vec<PathBuf>,
+    cache: &HashMap<PathBuf, String>,
+    cache_only: bool
 ) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
     let mut file_library = FileLibrary::new();
     let mut definitions = Vec::new();
@@ -71,8 +82,17 @@ pub fn run_parser(
     let mut ext_link_libraries = vec![Path::new("").to_path_buf()];
     ext_link_libraries.append(&mut link_libraries2);
     while let Some(crr_file) = FileStack::take_next(&mut file_stack) {
-        let (found, path, src, crr_str_file, reports) =
-            find_file(crr_file, ext_link_libraries.clone());
+        let (found, path, src, crr_str_file, reports) = match cache.get(&crr_file) {
+            Some(src) => {
+                (true, format!("{:?}", crr_file), src.clone(), crr_file, vec![])
+            },
+            None => if cache_only {
+                let report = Report::error(format!("Could not find {:?} in cache, cache only enabled", crr_file), ReportCode::CacheOnly);
+                return Result::Err((file_library.clone(), vec![report]))
+            } else {
+                find_file(crr_file, ext_link_libraries.clone())
+            }
+        };
         if !found {
             return Result::Err((file_library.clone(), reports));
         }
@@ -87,9 +107,9 @@ pub fn run_parser(
         definitions.push((file_id, program.definitions));
         for include in includes {
             let path_include =
-                FileStack::add_include(&mut file_stack, include.clone(), &link_libraries.clone())
+                FileStack::add_include(&mut file_stack, include.clone(), &link_libraries.clone(), cache)
                     .map_err(|e| (file_library.clone(), vec![e]))?;
-            includes_graph.add_edge(path_include).map_err(|e| (file_library.clone(), vec![e]))?;
+            includes_graph.add_edge(path_include, cache).map_err(|e| (file_library.clone(), vec![e]))?;
         }
         warnings.append(
             &mut check_number_version(
