@@ -15,7 +15,7 @@ pub fn build_instruction(instruction: &mut Instruction, fresh: usize) -> usize {
         Branch(b) => build_branch(b, fresh),
         Call(b) => build_call(b, fresh),
         Compute(b) => build_compute(b, fresh),
-        Load(b) => build_load(b, fresh),
+        Load(b) => build_load(b, fresh).0,
         Loop(b) => build_loop(b, fresh),
         Return(b) => build_return(b, fresh),
         Store(b) => build_store(b, fresh),
@@ -42,8 +42,8 @@ pub fn build_call(bucket: &mut CallBucket, mut fresh: usize) -> usize {
             fresh += 1;
         }
         Final(data) => {
-            let v_0 = build_address_type(&mut data.dest_address_type, fresh);
-            let v_1 = build_location(&mut data.dest, fresh);
+            let (v_0, _) = build_address_type(&mut data.dest_address_type, fresh);
+            let (v_1, _) = build_location(&mut data.dest, fresh);
             max_stack = std::cmp::max(v_0, v_1);
         }
     }
@@ -55,28 +55,46 @@ pub fn build_call(bucket: &mut CallBucket, mut fresh: usize) -> usize {
     max_stack
 }
 
-pub fn build_compute(bucket: &mut ComputeBucket, mut fresh: usize) -> usize {
-    use crate::ir_processing::build_stack::OperatorType::{AddAddress, MulAddress};
-    let consumes = if bucket.op.is_address_op() { 0 } else { 1 };
-    bucket.op_aux_no = if bucket.op.is_address_op() { 0 } else { fresh };
-    let mut max_stack = fresh + consumes;
-    for i in &mut bucket.stack {
-        fresh += consumes;
-        let depth = build_instruction(i, fresh);
-        max_stack = std::cmp::max(max_stack, depth);
+// returns the depth and the updated fresh variable to be used in the rest of the expression
+pub fn build_instruction_compute(instruction: &mut Instruction, fresh: usize) ->(usize, usize){
+    use Instruction::*;
+    match instruction {
+        Compute(b) =>
+             (build_compute(b, fresh), fresh + 1), // needs 1 expaux to store the result
+        Load(b) => 
+            build_load(b, fresh), // returns the number of expaux needed
+        Value(b) => 
+            (build_value(b, fresh), fresh + 1), // needs 1 expaux to store the result
+        _ => unreachable!(), // only possible instructions inside a compute
+    }
+}
 
-        // in case it is an addition or multiplication between addresses the number of new fresh vars is the number of ToAddress inside the operand
-        if bucket.op == AddAddress || bucket.op == MulAddress{
-            fresh += get_num_to_address_inside_compute_address(i);
-        }
+
+pub fn build_compute(bucket: &mut ComputeBucket, mut fresh: usize) -> usize {
+    
+    if bucket.op.is_address_op(){
+        println!("Bucket: {}", bucket.to_string());
+        unreachable!(); // just to check that addresses do not enter here
+    }
+
+    bucket.op_aux_no = fresh;
+    fresh += 1;
+    let mut max_stack = fresh;
+
+    for i in &mut bucket.stack {
+        let (depth, new_fresh) = build_instruction_compute(i, fresh);
+        max_stack = std::cmp::max(max_stack, depth);
+        fresh = new_fresh;
     }
     max_stack
 }
 
-pub fn build_load(bucket: &mut LoadBucket, fresh: usize) -> usize {
-    let v0 = build_address_type(&mut bucket.address_type, fresh);
-    let v1 = build_location(&mut bucket.src, v0);
-    v1
+
+
+pub fn build_load(bucket: &mut LoadBucket, fresh: usize) -> (usize, usize) {
+    let (_v0, f0) = build_address_type(&mut bucket.address_type, fresh);
+    let (v1, f1) = build_location(&mut bucket.src, f0);
+    (v1, f1)
 }
 
 pub fn build_create_cmp(bucket: &mut CreateCmpBucket, fresh: usize) -> usize {
@@ -94,7 +112,7 @@ pub fn build_return(bucket: &mut ReturnBucket, fresh: usize) -> usize {
 }
 
 pub fn build_log(bucket: &mut LogBucket, fresh: usize) -> usize {
-    let mut in_log = usize::min_value();
+    let mut in_log = 0;
     for arglog in &mut bucket.argsprint {
         match arglog {
             LogBucketArg::LogExp(_) => {
@@ -113,8 +131,8 @@ pub fn build_assert(bucket: &mut AssertBucket, fresh: usize) -> usize {
 
 pub fn build_store(bucket: &mut StoreBucket, fresh: usize) -> usize {
     let f_0 = build_instruction(&mut bucket.src, fresh);
-    let f_1 = build_location(&mut bucket.dest, fresh);
-    let f_2 = build_address_type(&mut bucket.dest_address_type, fresh);
+    let (f_1, _) = build_location(&mut bucket.dest, fresh);
+    let (f_2, _) = build_address_type(&mut bucket.dest_address_type, fresh);
     std::cmp::max(std::cmp::max(f_0, f_1), f_2)
 }
 
@@ -123,42 +141,72 @@ pub fn build_value(bucket: &mut ValueBucket, fresh: usize) -> usize {
     fresh + 1
 }
 
-pub fn build_location(bucket: &mut LocationRule, fresh: usize) -> usize {
+pub fn build_location(bucket: &mut LocationRule, mut fresh: usize) -> (usize, usize) {
     use LocationRule::*;
     match bucket {
-        Indexed { location, .. } => build_instruction(location, fresh),
-        Mapped { indexes, .. } => build_list(indexes, fresh),
+        Indexed { location, .. } => 
+            build_instruction_address(location, fresh),
+        Mapped { indexes, .. } => {
+            let mut max_stack = fresh;
+            for i in indexes{
+                let (depth, new_fresh) = build_instruction_address(i, fresh);
+                max_stack = std::cmp::max(max_stack, depth);
+                fresh = new_fresh;
+            }
+            (max_stack, fresh)
+        }
     }
 }
 
-pub fn build_address_type(xtype: &mut AddressType, fresh: usize) -> usize {
+pub fn build_address_type(xtype: &mut AddressType, mut fresh: usize) -> (usize, usize) {
     use AddressType::*;
     let mut max = fresh;
     if let SubcmpSignal { cmp_address, .. } = xtype {
-        let cmp_stack = build_instruction(cmp_address, fresh);
+        let (cmp_stack, new_fresh) = build_instruction_address(cmp_address, fresh);
         max = std::cmp::max(max, cmp_stack);
+        fresh = new_fresh
     }
-    max
+    (max, fresh)
 }
 
+//////////////////////////////////////////////////////////////////////////
+////////////////// INSTRUCTIONS FOR ADDRESSES OPERATIONS /////////////////
+//////////////////////////////////////////////////////////////////////////
 
-pub fn get_num_to_address_inside_compute_address(instruction: &Instruction) -> usize {
+
+// returns the depth and the updated fresh variable to be used in the rest of the expression
+pub fn build_instruction_address(instruction: &mut Instruction, fresh: usize) ->(usize, usize){
     use Instruction::*;
     match instruction {
-        Compute(b) =>{
-            match b.op{
-                OperatorType::ToAddress => 1,
-                OperatorType::AddAddress | OperatorType::MulAddress{} =>{
-                    let mut num_to_address = 0;
-                    for i in &b.stack{
-                        num_to_address += get_num_to_address_inside_compute_address(i);
-                    }
-                    num_to_address
-                },
-                _ => unreachable!(),
-            }
-        },
-        Value(_) => 0,
-        _ => unreachable!()
+        Instruction::Compute(b) => {
+            build_compute_address(b, fresh)
+        }
+        Value(_) =>{
+            // we do not need to update the stack and fresh
+            (0, fresh)
+        }
+        _ => unreachable!(),
     }
+}
+
+pub fn build_compute_address(bucket: &mut ComputeBucket, mut fresh: usize) -> (usize, usize) {
+    use crate::ir_processing::build_stack::OperatorType::{AddAddress, MulAddress, ToAddress};
+    let mut max_stack = fresh;
+    if bucket.op == AddAddress || bucket.op == MulAddress{ // in case it is ADD or MUL address
+        for i in &mut bucket.stack{
+            let (depth, new_fresh) = build_instruction_address(i, fresh);
+            max_stack = std::cmp::max(max_stack, depth);
+            fresh = new_fresh;
+        }
+    } else if bucket.op == ToAddress{
+        for i in &mut bucket.stack{
+            let (depth, new_fresh) = build_instruction_compute(i, fresh);
+            max_stack = std::cmp::max(max_stack, depth);
+            fresh = new_fresh;
+        }
+    } else{
+        unreachable!() // just to check that fr do not enter here
+    }
+    (max_stack, fresh)
+    
 }
