@@ -76,7 +76,7 @@ template A(){
    signal output out;
    
    if (in < 0){
-   // Error: There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase
+       // Error: There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase
        out <== 0;
    }
 }
@@ -96,7 +96,7 @@ template A(){
    signal output out;
    
    for (var i = 0; i < in; i++){
-   // Error: There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase
+       // Error: There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase
        out <== i;
    }
 }
