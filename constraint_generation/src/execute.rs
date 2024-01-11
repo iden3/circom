@@ -2214,6 +2214,10 @@ fn treat_result_with_memory_error_void(
                             Report::error("Exception caused by invalid assignment: trying to assign a value to an output signal of a component".to_string(),
                                 RuntimeError)
                         },
+                        TypeAssignmentError::NoInitializedComponent =>{
+                            Report::error("Exception caused by invalid assignment: trying to assign a value to a signal of a component that has not been initialized".to_string(),
+                                RuntimeError)
+                        }
                     }
                 },
                 MemoryError::OutOfBoundsError => {
@@ -2313,6 +2317,10 @@ fn treat_result_with_memory_error<C>(
                             Report::error("Exception caused by invalid assignment: trying to assign a value to an output signal of a component".to_string(),
                                 RuntimeError)
                         },
+                        TypeAssignmentError::NoInitializedComponent =>{
+                            Report::error("Exception caused by invalid assignment: trying to assign a value to a signal of a component that has not been initialized".to_string(),
+                                RuntimeError)
+                        }
                     }
                 },
                 MemoryError::AssignmentMissingTags(signal, tag) => Report::error(
