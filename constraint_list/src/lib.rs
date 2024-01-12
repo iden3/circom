@@ -125,16 +125,18 @@ pub struct Simplifier {
     pub flag_s: bool,
     pub flag_old_heuristics: bool,
     pub port_substitution: bool,
+    pub json_substitutions: String,
 }
 impl Simplifier {
     pub fn simplify_constraints(mut self) -> ConstraintList {
-        let (portable, map) = constraint_simplification::simplification(&mut self);
+        let (portable, map, private_inputs_witness) = constraint_simplification::simplification(&mut self);
         ConstraintList {
             field: self.field,
             dag_encoding: self.dag_encoding,
             no_public_outputs: self.no_public_outputs,
             no_public_inputs: self.no_public_inputs,
             no_private_inputs: self.no_private_inputs,
+            no_private_inputs_witness: private_inputs_witness,
             no_labels: self.max_signal,
             constraints: portable,
             signal_map: map,
@@ -156,6 +158,7 @@ pub struct ConstraintList {
     pub no_public_inputs: usize,
     pub no_public_outputs: usize,
     pub no_private_inputs: usize,
+    pub no_private_inputs_witness: usize,
     pub constraints: ConstraintStorage,
     pub no_labels: usize,
     //  Signals in [witness_len, Vec::len(&signal_map)) are the ones deleted

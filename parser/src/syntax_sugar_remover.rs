@@ -6,7 +6,7 @@ use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
 use program_structure::statement_builders::{build_declaration, build_log_call, build_initialization_block};
 use program_structure::template_data::TemplateData;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use num_bigint::BigInt;
 
 
@@ -469,7 +469,7 @@ pub fn remove_anonymous_from_expression(
 
             // assign the inputs
             // reorder the signals in new_signals (case names)
-            let mut inputs_to_assignments = HashMap::new();
+            let mut inputs_to_assignments = BTreeMap::new();
 
             if let Some(m) = names { // in case we have a list of names and assignments
                 let inputs = template.unwrap().get_inputs();

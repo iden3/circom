@@ -235,7 +235,7 @@ impl WASMProducer {
         let mut n = 0;
         for (_c, v) in &self.io_map {
             for s in v {
-                // since we take offset and all lenghts but last one
+                // since we take offset and all lengths but last one
                 if s.lengths.len() == 0 {
                     n += 1;
                 } else {

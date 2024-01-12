@@ -24,6 +24,7 @@ use std::rc::Rc;
 pub struct BuildConfig {
     pub no_rounds: usize,
     pub flag_json_sub: bool,
+    pub json_substitutions: String,
     pub flag_s: bool,
     pub flag_f: bool,
     pub flag_p: bool,
@@ -97,6 +98,7 @@ fn simplification_process(vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> Cons
         flag_s: config.flag_s,
         parallel_flag: config.flag_p,
         port_substitution: config.flag_json_sub,
+        json_substitutions: config.json_substitutions.clone(),
         no_rounds: config.no_rounds,
         flag_old_heuristics: config.flag_old_heuristics,
         prime : config.prime.clone(),

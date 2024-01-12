@@ -4,6 +4,7 @@ pub struct Input {
     pub input_program: PathBuf,
     pub out_r1cs: PathBuf,
     pub out_json_constraints: PathBuf,
+    pub out_json_substitutions: PathBuf,
     pub out_wat_code: PathBuf,
     pub out_wasm_code: PathBuf,
     pub out_wasm_name: String,
@@ -82,6 +83,11 @@ impl Input {
                 &format!("{}_constraints", file_name),
                 JSON,
             ),
+            out_json_substitutions: Input::build_output(
+                &output_path,
+                &format!("{}_substitutions", file_name),
+                JSON,
+            ),
             wat_flag:input_processing::get_wat(&matches),
             wasm_flag: input_processing::get_wasm(&matches),
             c_flag: c_flag,
@@ -157,6 +163,9 @@ impl Input {
     }
     pub fn json_constraints_file(&self) -> &str {
         self.out_json_constraints.to_str().unwrap()
+    }
+    pub fn json_substitutions_file(&self) -> &str {
+        self.out_json_substitutions.to_str().unwrap()
     }
     pub fn wasm_flag(&self) -> bool {
         self.wasm_flag
@@ -410,10 +419,9 @@ mod input_processing {
             )
             .arg(
                 Arg::with_name("print_json_sub")
-                    .long("jsons")
+                    .long("simplification_substitution")
                     .takes_value(false)
-                    .hidden(true)
-                    .display_order(100)
+                    .display_order(980)
                     .help("Outputs the substitution in json format"),
             )
             .arg(
