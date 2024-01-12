@@ -25,7 +25,7 @@ template Multiplier2(){
 
 component main {public [in1,in2]} = Multiplier2();
 ```
-Since circom 2.0.4, it is also allowed the initialization of intermediate and outputs signals right after their declaration. Then, the previous example can be rewritten as follows:
+Since circom 2.0.4, it is also allowed to initialize intermediate and outputs signals right after their declaration. Then, the previous example can be rewritten as follows:
 
 ```text
 pragma circom 2.0.0;

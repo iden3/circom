@@ -47,7 +47,7 @@ cargo build --release
 
 The installation takes around 3 minutes to be completed.
 When the command successfully finishes, it generates the `circom` binary in the directory `target/release`. 
-You can install this binary as follows:
+You can install this binary as follows (**Note**: Make sure you're still in the circom directory when running this command) :
 
 ```text
 cargo install --path circom
