@@ -251,6 +251,10 @@ impl ComponentRepresentation {
 
         // We copy tags in any case, complete or incomplete assignment
         // The values of the tags must be the same than the ones stored before
+        if !component.is_preinitialized() {
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::NoInitializedComponent));
+        }
+        
         if !component.inputs_tags.contains_key(signal_name){
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput));
         }
@@ -286,6 +290,10 @@ impl ComponentRepresentation {
         slice_route: &[SliceCapacity],
         tags: TagInfo,
     ) -> Result<(), MemoryError> {
+
+        if !component.is_preinitialized() {
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::NoInitializedComponent));
+        }
         
         if !component.inputs.contains_key(signal_name){
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput));

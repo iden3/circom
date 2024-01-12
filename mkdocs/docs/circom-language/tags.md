@@ -33,7 +33,7 @@ The input array `in` is declared with the tag `binary`. This tag means that each
 
 Then, whenever the previous template is instantiated, the compiler checks if the array  `a` assigned to the input array has the tag binary, since `in` has the tag `binary` in its declaration. If it does not, an error is reported. Notice that the compiler also checks if both arrays have the same size. 
 
-It is important to highlight that the compiler does never make any check about the validity of the tags. It is the programmer's responsability to include the constraints and executable code to guarantee that the inteded meaning of each signal is always true.
+It is important to highlight that the compiler does never make any check about the validity of the tags. It is the programmer's responsibility to include the constraints and executable code to guarantee that the inteded meaning of each signal is always true.
 
 When doing a substitution from a tagged signal to another signal, the tags are always inherited by it (even if it is not declared with it). For instance,
 

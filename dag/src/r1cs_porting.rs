@@ -31,6 +31,7 @@ pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
     log.no_public_inputs = dag.public_inputs();
     log.no_public_outputs = dag.public_outputs();
     log.no_private_inputs = dag.private_inputs();
+    log.no_private_inputs_witness = dag.private_inputs();
     log.no_labels = labels;
     log.no_wires = wires;
 

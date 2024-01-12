@@ -130,10 +130,11 @@ template Ex(n,m){
 If `n != m`, then the compiler reports an error, since both arrays have not the same size. Otherwise, the code is equivalent to:
 
 ```
-template Ex(n,m){ 
+template Ex(n, m){ 
    signal input in[n];
    signal output out[m];
-   while(i < 4){ 
+   var i = 0;
+   while(i < n) { 
       out[i] <== in[i];
       i += 1;
    }
