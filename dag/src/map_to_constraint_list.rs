@@ -141,6 +141,7 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
         parallel_flag: flags.parallel_flag,
         flag_old_heuristics: flags.flag_old_heuristics,
         port_substitution: flags.port_substitution,
+        json_substitutions: flags.json_substitutions,
     }
     .simplify_constraints()
 }
