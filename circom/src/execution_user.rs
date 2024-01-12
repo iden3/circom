@@ -9,6 +9,7 @@ pub struct ExecutionConfig {
     pub r1cs: String,
     pub sym: String,
     pub json_constraints: String,
+    pub json_substitutions: String,
     pub no_rounds: usize,
     pub flag_s: bool,
     pub flag_f: bool,
@@ -32,6 +33,7 @@ pub fn execute_project(
     let build_config = BuildConfig {
         no_rounds: config.no_rounds,
         flag_json_sub: config.json_substitution_flag,
+        json_substitutions: config.json_substitutions,
         flag_s: config.flag_s,
         flag_f: config.flag_f,
         flag_p: config.flag_p,
