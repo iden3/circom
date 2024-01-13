@@ -18,6 +18,7 @@ FLAGS:
         --inspect                              Does an additional check over the constraints produced
         --use_old_simplification_heuristics    Applies the old version of the heuristics when performing linear
                                                simplification
+        --simplification_substitution          Outputs the substitution in json format
     -h, --help                                 Prints help information
     -V, --version                              Prints version information
 
@@ -36,12 +37,13 @@ In the following, we explain these options.
 
 
 #####Flags and options related to the compiler's output
-* Flag ```--r1cs``` outputs the constraints in R1CS format.
-* Flag ```--sym``` outputs the witness in sym format.
+* Flag ```--r1cs``` outputs the constraints in binary R1CS format (see the detailed format [here](../circom-language/formats/r1cs)).
+* Flag ```--sym``` outputs for every signal of the circuit: the unique number given by the compiler, the circom qualified name, the number of the witness signal that contains it and the (unique) number of the component (given by the compiler) it belongs (see the detailed format and examples [here](../circom-language/formats/sym)).
+* Flag ```--simplification_substitution``` outputs the substitutions performed by the --O1 and --O2 (default) constraint simplification options in json format (see the detailed format [here](../circom-language/formats/simplification_json)).
 * Flag ```--wasm``` produces a WebAssembly program that receives the private and public inputs and generates the circuit witness.
 * Flag ```-c / --c``` produces a C++ program that receives the private and public inputs and generates the circuit witness.
 * Flag ```--wat``` compiles the circuit to wat.
-* Flag ```--json``` outputs the R1CS system in JSON format.
+* Flag ```--json``` outputs the R1CS system in JSON format (see the detailed format [here](../circom-language/formats/constraints_json)).
 * Option ```-o / --output <output>``` allows to indicate the path to the directory where the output will be written. By default the path is ```.```. 
 
 #####Flags and options related to the constraint generation process
