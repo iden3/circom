@@ -126,7 +126,7 @@ pub fn custom_gate_analysis(
     let mut warnings = vec![];
     let mut errors = vec![];
 
-    custom_gate_analysis(custom_gate_name, custom_gate_body, &mut warnings, &mut errors);
+    custom_gate_analysis(custom_gate_name, custom_gate_body, &mut errors, &mut warnings);
 
     if errors.is_empty() {
         Result::Ok(warnings)
