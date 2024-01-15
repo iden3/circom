@@ -576,7 +576,7 @@ impl Circuit {
     }
     pub fn produce_c<W: Write>(&self, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
 	use std::path::Path;
-	let c_folder_path = Path::new(c_folder.clone()).to_path_buf();
+	let c_folder_path = Path::new(c_folder).to_path_buf();
         c_code_generator::generate_main_cpp_file(&c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_circom_hpp_file(&c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_fr_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
@@ -590,7 +590,7 @@ impl Circuit {
     }
     pub fn produce_wasm<W: Write>(&self, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
 	use std::path::Path;
-	let js_folder_path = Path::new(js_folder.clone()).to_path_buf();
+	let js_folder_path = Path::new(js_folder).to_path_buf();
         wasm_code_generator::generate_generate_witness_js_file(&js_folder_path).map_err(|_err| {})?;
         wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path).map_err(|_err| {})?;
         self.write_wasm(writer, &self.wasm_producer)
