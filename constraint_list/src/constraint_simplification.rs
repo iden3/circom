@@ -6,8 +6,6 @@ use constraint_writers::json_writer::SubstitutionJSON;
 use std::collections::{HashMap, HashSet, LinkedList, BTreeSet};
 use std::sync::Arc;
 
-const SUB_LOG: &str = "./log_substitution.json";
-
 fn log_substitutions(substitutions: &LinkedList<S>, writer: &mut Option<SubstitutionJSON>) {
     use super::json_porting::port_substitution;
     if let Some(w) = writer {
@@ -448,7 +446,11 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
     use std::time::SystemTime;
 
     let mut substitution_log =
-        if smp.port_substitution { Some(SubstitutionJSON::new(SUB_LOG).unwrap()) } else { None };
+        if smp.port_substitution { 
+            Some(SubstitutionJSON::new(&smp.json_substitutions).unwrap()) 
+        } else {
+             None 
+        };
     let apply_linear = !smp.flag_s;
     let use_old_heuristics = smp.flag_old_heuristics;
     let field = smp.field.clone();

@@ -105,7 +105,7 @@ For instance, imagine that in the previous circuit, the input `a` is a private k
 
 > Note that we could easily deduce the value of `a` by isolating it from the other signals. It is important to design circuits that keep the privacy of the private inputs and prevent deducing them from the R1CS.
 
-An assignment of the signals is called a **witness**. For example, `{a = 2, b = 6, c = -1, out = 4}` would be a valid witness for the circuit. The assignment `{a = 1, b = 2, c = 1, out = 0}` would not be a valid witness, since it does not satisfy the equation `a*b - c = out`.
+An assignment of the signals is called a **witness**. For example, `{a = 2, b = 6, c = -1, out = 4}` would be a valid witness for the circuit. The assignment `{a = 1, b = 2, c = 1, out = 0}` would not be a valid witness, since it does not satisfy the equation `a*b - c = out mod 7`.
 
 ## Summary <a id="summary"></a>
 
