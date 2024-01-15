@@ -12,17 +12,17 @@ pub fn visit_list(
     inside_loop: bool
 )-> bool {
     let len_instructions = instructions.len();
-    let mut found_unkown_aux = found_unknown_address;
+    let mut found_unknown_aux = found_unknown_address;
     for i in 0..instructions.len(){
-        found_unkown_aux = visit_instruction(
+        found_unknown_aux = visit_instruction(
             &mut instructions[len_instructions - 1 - i],
             known_last_component,
             unknown_last_component, 
-            found_unkown_aux,
+            found_unknown_aux,
             inside_loop
         );
     }
-    found_unkown_aux
+    found_unknown_aux
 }
 
 pub fn visit_instruction(

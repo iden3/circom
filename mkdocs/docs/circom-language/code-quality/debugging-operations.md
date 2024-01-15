@@ -10,9 +10,9 @@ log(x==y);
 
 Since circom 2.0.6, operation `log` admits a list of non-conditional expressions and also strings written in the standard way. For instance:
 ```text
-log("The expected result is ",135," but the value of a is",a);
+log("The expected result is ", 135, " but the value of a is", a);
 ```
-Finally, this operations admits an empty list of expressions which is equivalent to print an end-of-line. The next two instructions are equivalent:
+Finally, this operation admits an empty list of expressions which is equivalent to printing an end-of-line. The next two instructions are equivalent:
 ```text
 log("");
 log();

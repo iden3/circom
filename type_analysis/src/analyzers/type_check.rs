@@ -1040,7 +1040,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         WrongTypesInAssignOperationOperatorNoSignal => {
             format!("The operator does not match the types of the assigned elements.\n Only assignments to signals allow the operators <== and <--, try using = instead")
         }
-        WrongTypesInAssignOperationArrayTemplates => "Assignee and assigned types do not match.\n All componentes of an array must be instances of the same template.".to_string(),
+        WrongTypesInAssignOperationArrayTemplates => "Assignee and assigned types do not match.\n All components of an array must be instances of the same template.".to_string(),
         WrongTypesInAssignOperationTemplate => "Assignee and assigned types do not match.\n Expected template found expression.".to_string(),
         WrongTypesInAssignOperationExpression => "Assignee and assigned types do not match.\n Expected expression found template.".to_string(),
         WrongTypesInAssignOperationDims(expected, found) => {
