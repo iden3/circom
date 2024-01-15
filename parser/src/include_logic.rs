@@ -149,7 +149,12 @@ impl IncludesGraph {
         let mut sep = "";
         for file in path.iter().map(|file| file.display().to_string()) {
             res.push_str(sep);
-            res.push_str(file.rsplit_once("/").unwrap().1);
+            let result_split = file.rsplit_once("/");
+            if result_split.is_some(){
+                res.push_str(result_split.unwrap().1);
+            } else{
+                res.push_str(&file);
+            }
             sep = " -> ";
         }
         res
