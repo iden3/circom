@@ -10,6 +10,17 @@ signal inter;
 
 This small example declares an input signal with identifier `in`, an N-dimension array of output signals with identifier `out` and an intermediate signal with identifier `inter`.
 
+## Types of Signal Assignments
+Signals can only be assigned using the operations `<--` or `<==` (with the signal to be assigned occurring on the left hand side operation) and `-->` or `==>` (with the signal to be assigned occurring on the right hand side). All these operations are translated into an assigment in the witness generation code produced by the compiler. However, the key difference between the 'double arrow' assigments `<==` and `==>` and the 'single arrow' assigments `<--` and `-->` is that only the former adds a constraint to the R1CS system stating that the signal is equal to the assigned expression. Hence, using `<--` and `-->` is considered dangerous and hardly discouraged for non expert circom programmers, as it is the most common source of programming buggy ZK-protocols using circom.
+
+The safe options for assignments are `<==` and `==>`, since the assigned value is the only solution to the constraint system. Using `<--` and `-->` should be avoided, and only used when the assigned expression cannot be included in an arithmetic constraint in R1CS, like in the following example.
+
+```text
+out[k] <-- (in >> k) & 1;
+```
+In such case, since `<--` and `-->` do not add any constraint to the R1CS system stating the relation between the signal and the assigned expresion, it is crucial to add other constraints expressing such relation. To this end, circom allows to add constraints to the system using the operation `===`, whose use is explained in more detailed [here](mkdocs/docs/circom-language/constraint-generation). 
+
+## Public and Private Signals
 Signals are always considered private. The programmer can distinguish between public and private signals only when defining the main component, by providing the list of public input signals. 
 
 ```text
