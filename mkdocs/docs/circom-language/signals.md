@@ -18,7 +18,7 @@ The safe options for assignments are `<==` and `==>`, since the assigned value i
 ```text
 out[k] <-- (in >> k) & 1;
 ```
-In such case, since `<--` and `-->` do not add any constraint to the R1CS system stating the relation between the signal and the assigned expresion, it is crucial to add other constraints expressing such relation. To this end, circom allows to add constraints to the system using the operation `===`, whose use is explained in more detailed [here](mkdocs/docs/circom-language/constraint-generation). 
+In such case, since `<--` and `-->` do not add any constraint to the R1CS system stating the relation between the signal and the assigned expresion, it is crucial to add other constraints expressing such relation. To this end, circom allows to add constraints to the system using the operation `===`, whose use is explained in more detailed [here](circom-language/constraint-generation). 
 
 ## Public and Private Signals
 Signals are always considered private. The programmer can distinguish between public and private signals only when defining the main component, by providing the list of public input signals. 
