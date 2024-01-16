@@ -12,10 +12,10 @@ The file contains a dictionary where the entries are the numbers of the simplifi
 "sig_num_n": lin_expr_n,
 }
 ```
-where the linear expression is represented by a dictionary with the signal numbers as strings occurring in the linear expression (with non-zero coefficient) as entries and its coefficients (as string) as values:
-{ "sig_num_l1": "coef_1", ... , "sig_num_lm": "coef_m"}
+where the linear expression is represented by a dictionary with the signal numbers as strings occurring in the linear expression (with non-zero coefficient) as entries and their coefficients (as string) as values:
+`{ "sig_num_l1": "coef_1", ... , "sig_num_lm": "coef_m"}`
 
-All signals occurring in the linear expression are signals that are not removed. Hence if you also include the ```--sym``` flag in the sym file all these signals are associated to a position in the witness list.
+All signals occurring in the linear expression are signals that are not removed. Hence, if you also include the ```--sym``` flag in the sym file all these signals are associated to a position in the witness list.
 
 Let us consider the following simple circuit in 'simplify.circom':
 
