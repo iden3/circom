@@ -76,8 +76,6 @@ impl SubstitutionJSON {
         let mut writer_substitutions = BufWriter::new(file_substitutions);
         writer_substitutions.write_all(b"{").map_err(|_err| {})?;
         writer_substitutions.flush().map_err(|_err| {})?;
-        writer_substitutions.write_all(b"\n\"substitution\": {").map_err(|_err| {})?;
-        writer_substitutions.flush().map_err(|_err| {})?;
         Result::Ok(SubstitutionJSON { writer_substitutions, first })
     }
     pub fn write_substitution(&mut self, signal: &str, substitution: &str) -> Result<(), ()> {
@@ -94,7 +92,7 @@ impl SubstitutionJSON {
         Result::Ok(())
     }
     pub fn end(mut self) -> Result<(), ()> {
-        self.writer_substitutions.write_all(b"\n}\n}").map_err(|_err| {})?;
+        self.writer_substitutions.write_all(b"\n}").map_err(|_err| {})?;
         self.writer_substitutions.flush().map_err(|_err| {})
     }
 }
