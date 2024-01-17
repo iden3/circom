@@ -1566,6 +1566,7 @@ pub fn fr_types(prime: &String) -> Vec<WasmInstruction> {
         "grumpkin" => include_str!("grumpkin/fr-types.wat"),
         "pallas" => include_str!("pallas/fr-types.wat"),
         "vesta" => include_str!("vesta/fr-types.wat"),
+        "secq256r1" => include_str!("secq256r1/fr-types.wat"),
         _ => unreachable!(),
     };    
     for line in file.lines() {
@@ -1583,6 +1584,7 @@ pub fn fr_data(prime: &String) -> Vec<WasmInstruction> {
         "grumpkin" => include_str!("grumpkin/fr-data.wat"),
         "pallas" => include_str!("pallas/fr-data.wat"),
         "vesta" => include_str!("vesta/fr-data.wat"),
+        "secq256r1" => include_str!("secq256r1/fr-data.wat"),
         _ => unreachable!(),
     };    
     for line in file.lines() {
@@ -1599,6 +1601,7 @@ pub fn fr_code(prime: &String) -> Vec<WasmInstruction> {
         "grumpkin" => include_str!("grumpkin/fr-code.wat"),
         "pallas" => include_str!("pallas/fr-code.wat"),
         "vesta" => include_str!("vesta/fr-code.wat"),
+        "secq256r1" => include_str!("secq256r1/fr-code.wat"),
         _ => unreachable!(),
     };    
     for line in file.lines() {
