@@ -11,7 +11,7 @@ The format provides a list of lines, where each line contains the information ab
 ```
 where
 * #s: a positive number. It is the unique number starting in 1 (0 is reserved to the signal holding the constant value 1) which is assigned by the circom compiler to each signal in the circuit.
-* #w: an integer larger than or equal to -1. It gives either the position in the witness where the signal occurs or -1 if the signal is not occurring in any constraint in the generated R1CS. Note that many signals do not appear in the final R1CS, because they have been replaced by a linear combination of other signals that was equivalent to it. In order to know the substitution applied to a removed signal one can add the flag --simplification_substitution to the circom call and check the generated json file. All witness positions except 0 (which is again reserved to the constant value 1) must occur once in the sym file. The length of the witness coincides with the number of (different) signals occurring in the generated R1CS plus one (for the constant 1).
+* #w: an integer larger than or equal to -1. It gives either the position in the witness where the signal occurs or -1 if the signal is not public and does not occur in any constraint in the generated R1CS. Note that many signals do not appear in the final R1CS because they have been replaced by a linear combination of other signals that is equivalent to it in the simplification phase. In order to know the substitution applied to a removed signal one can add the flag --simplification_substitution to the circom call and check the generated [json file](../simplification-json.md). All witness positions except 0 (which is again reserved to the constant value 1) must occur once in the sym file. The length of the witness coincides with the number of (different) signals occurring in the generated R1CS plus one (for the constant 1).
 * #c: a non-negative integer (starting in 0). It is the unique number given by the compiler to the component the signal belongs to. 
 * name: is a string containing the qualified name of the signal (including the complete component path).
 
@@ -31,7 +31,7 @@ template Main() {
    signal output out;
    component c = Internal ();
    c.in[0] <== in[0];
-   c.in[1] <== in[1]+1;
+   c.in[1] <== in[1]+2*in[0]+1;
    c.out ==> out;
 }
 ```
