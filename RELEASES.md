@@ -1,5 +1,21 @@
 # Release notes
 
+## Jan 17, 2024 circom 2.1.8
+
+#### Extensions
+- Adding flag --simplification_substitutions: outputs a .json file including information about the substitutions performed during the constraint simplifications
+- Adding the prime number secq256r1.
+- Removing non-determinism in R1CS generation: fixing assignment order of anonymous components inputs
+- improving error message: case assignment to signal of not initialized component
+- Removing unnecessary clones
+- Improving documentation: types of signal assignments, output-file format descriptions, compilation options,
+- Improving the README file with more community tools and projects. 
+
+#### Fixed bugs
+- printing errors and warnings in custom gates correctly
+- removing panic caused by edge case in function display_trace()
+
+  
 ## Dec 15, 2023 circom 2.1.7
 
 #### Extensions
