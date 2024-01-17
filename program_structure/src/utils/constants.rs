@@ -9,6 +9,7 @@ const P_GOLDILOCKS: &str =
 const P_GRUMPKIN: &str = "21888242871839275222246405745257275088696311157297823662689037894645226208583";
 const P_PALLAS: &str = "28948022309329048855892746252171976963363056481941560715954676764349967630337";
 const P_VESTA : &str = "28948022309329048855892746252171976963363056481941647379679742748393362948097";
+const P_SECQ256R1 : &str = "115792089210356248762697446949407573530086143415290314195533631308867097853951";
 //const P_STR: &str = "21888242871839275222246405745257275088548364400416034343698204186575808495617";
 
 pub struct UsefulConstants {
@@ -29,6 +30,7 @@ impl UsefulConstants {
           else if possible_prime.eq("grumpkin") { P_GRUMPKIN} 
           else if possible_prime.eq("pallas") { P_PALLAS} 
           else if possible_prime.eq("vesta") { P_VESTA} 
+          else if possible_prime.eq("secq256r1") { P_SECQ256R1}
           else {unreachable!()};
 
         UsefulConstants { p: BigInt::parse_bytes(prime_to_use.as_bytes(), 10).expect("can not parse p") }
