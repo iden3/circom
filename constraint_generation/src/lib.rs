@@ -60,9 +60,19 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
     }
     if config.flag_f {
         sync_dag_and_vcp(&mut vcp, &mut dag);
+        if config.flag_json_sub { 
+            use constraint_writers::json_writer::SubstitutionJSON;
+            let substitution_log = SubstitutionJSON::new(&config.json_substitutions).unwrap();
+            let _ = substitution_log.end();
+            println!("{} {}", Colour::Green.paint("Written successfully:"), config.json_substitutions);
+        };
+
         Result::Ok((Box::new(dag), vcp))
     } else {
         let list = simplification_process(&mut vcp, dag, &config);
+        if config.flag_json_sub { 
+            println!("{} {}", Colour::Green.paint("Written successfully:"), config.json_substitutions);
+        };
         Result::Ok((Box::new(list), vcp))
     }
 }
