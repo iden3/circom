@@ -5,10 +5,6 @@
 #include <string>
 #include <gmp.h>
 
-#ifdef __APPLE__
-#include <sys/types.h> // typedef unsigned int uint;
-#endif // __APPLE__
-
 #define Fr_N64 4
 #define Fr_SHORT 0x00000000
 #define Fr_LONG 0x80000000
@@ -72,7 +68,7 @@ extern "C" void Fr_fail();
 
 // Pending functions to convert
 
-void Fr_str2element(PFrElement pE, char const*s, uint base);
+void Fr_str2element(PFrElement pE, char const*s);
 char *Fr_element2str(PFrElement pE);
 void Fr_idiv(PFrElement r, PFrElement a, PFrElement b);
 void Fr_mod(PFrElement r, PFrElement a, PFrElement b);
@@ -84,7 +80,7 @@ class RawFr {
 
 public:
     const static int N64 = Fr_N64;
-    const static int MaxBits = 255;
+    const static int MaxBits = 256;
 
 
     struct Element {

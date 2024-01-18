@@ -53,9 +53,9 @@ bool Fr_init() {
     return true;
 }
 
-void Fr_str2element(PFrElement pE, char const *s, uint base) {
+void Fr_str2element(PFrElement pE, char const *s) {
     mpz_t mr;
-    mpz_init_set_str(mr, s, base);
+    mpz_init_set_str(mr, s, 10);
     mpz_fdiv_r(mr, mr, q);
     Fr_fromMpz(pE, mr);
     mpz_clear(mr);
@@ -297,7 +297,7 @@ int RawFr::toRprBE(const Element &element, uint8_t *data, int bytes)
   
     toMpz(r, element);
     
-    mpz_export(data, NULL, 1, 8, 1, 0, r);
+    mpz_export(data, NULL, 1, bytes, 1, 0, r);
   
     return Fr_N64 * 8;
 }

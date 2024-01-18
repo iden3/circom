@@ -363,6 +363,7 @@ Fr_longErr:
 
 
 Fr_rawMMul:
+    push rbp
     push r15
     push r14
     push r13
@@ -382,6 +383,8 @@ Fr_rawMMul:
     adcx r14,rax
     mov r15,r10
     adcx r15,r8
+    mov rbp,r10
+    adcx rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -399,10 +402,13 @@ Fr_rawMMul:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ; FirstLoop
     mov rdx,[rsi + 8]
-    mov r15,r10
+    mov rbp,r10
     mulx r8,rax,[rcx +0]
     adcx r11,rax
     adox r12,r8
@@ -416,6 +422,8 @@ Fr_rawMMul:
     adcx r14,rax
     adox r15,r8
     adcx r15,r10
+    adcx rbp,r10
+    adox rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -433,10 +441,13 @@ Fr_rawMMul:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ; FirstLoop
     mov rdx,[rsi + 16]
-    mov r15,r10
+    mov rbp,r10
     mulx r8,rax,[rcx +0]
     adcx r11,rax
     adox r12,r8
@@ -450,6 +461,8 @@ Fr_rawMMul:
     adcx r14,rax
     adox r15,r8
     adcx r15,r10
+    adcx rbp,r10
+    adox rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -467,10 +480,13 @@ Fr_rawMMul:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ; FirstLoop
     mov rdx,[rsi + 24]
-    mov r15,r10
+    mov rbp,r10
     mulx r8,rax,[rcx +0]
     adcx r11,rax
     adox r12,r8
@@ -484,6 +500,8 @@ Fr_rawMMul:
     adcx r14,rax
     adox r15,r8
     adcx r15,r10
+    adcx rbp,r10
+    adox rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -501,8 +519,13 @@ Fr_rawMMul:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ;comparison
+    test r15,r15
+jnz Fr_rawMMul_sq
     cmp r14,[q + 24]
     jc Fr_rawMMul_done
     jnz Fr_rawMMul_sq
@@ -529,8 +552,10 @@ Fr_rawMMul_done:
     pop r13
     pop r14
     pop r15
+    pop rbp
     ret
 Fr_rawMSquare:
+    push rbp
     push r15
     push r14
     push r13
@@ -550,6 +575,8 @@ Fr_rawMSquare:
     adcx r14,rax
     mov r15,r10
     adcx r15,r8
+    mov rbp,r10
+    adcx rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -567,10 +594,13 @@ Fr_rawMSquare:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ; FirstLoop
     mov rdx,[rsi + 8]
-    mov r15,r10
+    mov rbp,r10
     mulx r8,rax,[rsi +0]
     adcx r11,rax
     adox r12,r8
@@ -584,6 +614,8 @@ Fr_rawMSquare:
     adcx r14,rax
     adox r15,r8
     adcx r15,r10
+    adcx rbp,r10
+    adox rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -601,10 +633,13 @@ Fr_rawMSquare:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ; FirstLoop
     mov rdx,[rsi + 16]
-    mov r15,r10
+    mov rbp,r10
     mulx r8,rax,[rsi +0]
     adcx r11,rax
     adox r12,r8
@@ -618,6 +653,8 @@ Fr_rawMSquare:
     adcx r14,rax
     adox r15,r8
     adcx r15,r10
+    adcx rbp,r10
+    adox rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -635,10 +672,13 @@ Fr_rawMSquare:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ; FirstLoop
     mov rdx,[rsi + 24]
-    mov r15,r10
+    mov rbp,r10
     mulx r8,rax,[rsi +0]
     adcx r11,rax
     adox r12,r8
@@ -652,6 +692,8 @@ Fr_rawMSquare:
     adcx r14,rax
     adox r15,r8
     adcx r15,r10
+    adcx rbp,r10
+    adox rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -669,8 +711,13 @@ Fr_rawMSquare:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ;comparison
+    test r15,r15
+jnz Fr_rawMSquare_sq
     cmp r14,[q + 24]
     jc Fr_rawMSquare_done
     jnz Fr_rawMSquare_sq
@@ -697,8 +744,10 @@ Fr_rawMSquare_done:
     pop r13
     pop r14
     pop r15
+    pop rbp
     ret
 Fr_rawMMul1:
+    push rbp
     push r15
     push r14
     push r13
@@ -718,6 +767,8 @@ Fr_rawMMul1:
     adcx r14,rax
     mov r15,r10
     adcx r15,r8
+    mov rbp,r10
+    adcx rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -735,27 +786,11 @@ Fr_rawMMul1:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
-
     mov r15,r10
-; SecondLoop
-    mov rdx,r9
-    mulx rax,rdx,r11
-    mulx r8,rax,[q]
-    adcx rax,r11
-    mulx rax,r11,[q +8]
-    adcx r11,r8
-    adox r11,r12
-    mulx r8,r12,[q +16]
-    adcx r12,rax
-    adox r12,r13
-    mulx rax,r13,[q +24]
-    adcx r13,r8
-    adox r13,r14
-    mov r14,r10
-    adcx r14,rax
-    adox r14,r15
+    adcx r15,r10
+    adox r15,rbp
 
-    mov r15,r10
+    mov rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -773,8 +808,11 @@ Fr_rawMMul1:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
-    mov r15,r10
+    mov rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -792,8 +830,35 @@ Fr_rawMMul1:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
+
+    mov rbp,r10
+; SecondLoop
+    mov rdx,r9
+    mulx rax,rdx,r11
+    mulx r8,rax,[q]
+    adcx rax,r11
+    mulx rax,r11,[q +8]
+    adcx r11,r8
+    adox r11,r12
+    mulx r8,r12,[q +16]
+    adcx r12,rax
+    adox r12,r13
+    mulx rax,r13,[q +24]
+    adcx r13,r8
+    adox r13,r14
+    mov r14,r10
+    adcx r14,rax
+    adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ;comparison
+    test r15,r15
+jnz Fr_rawMMul1_sq
     cmp r14,[q + 24]
     jc Fr_rawMMul1_done
     jnz Fr_rawMMul1_sq
@@ -820,8 +885,10 @@ Fr_rawMMul1_done:
     pop r13
     pop r14
     pop r15
+    pop rbp
     ret
 Fr_rawFromMontgomery:
+    push rbp
     push r15
     push r14
     push r13
@@ -836,6 +903,7 @@ Fr_rawFromMontgomery:
     mov r13,[rsi +16]
     mov r14,[rsi +24]
     mov r15,r10
+    mov rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -853,27 +921,11 @@ Fr_rawFromMontgomery:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
-
     mov r15,r10
-; SecondLoop
-    mov rdx,r9
-    mulx rax,rdx,r11
-    mulx r8,rax,[q]
-    adcx rax,r11
-    mulx rax,r11,[q +8]
-    adcx r11,r8
-    adox r11,r12
-    mulx r8,r12,[q +16]
-    adcx r12,rax
-    adox r12,r13
-    mulx rax,r13,[q +24]
-    adcx r13,r8
-    adox r13,r14
-    mov r14,r10
-    adcx r14,rax
-    adox r14,r15
+    adcx r15,r10
+    adox r15,rbp
 
-    mov r15,r10
+    mov rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -891,8 +943,11 @@ Fr_rawFromMontgomery:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
-    mov r15,r10
+    mov rbp,r10
 ; SecondLoop
     mov rdx,r9
     mulx rax,rdx,r11
@@ -910,8 +965,35 @@ Fr_rawFromMontgomery:
     mov r14,r10
     adcx r14,rax
     adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
+
+    mov rbp,r10
+; SecondLoop
+    mov rdx,r9
+    mulx rax,rdx,r11
+    mulx r8,rax,[q]
+    adcx rax,r11
+    mulx rax,r11,[q +8]
+    adcx r11,r8
+    adox r11,r12
+    mulx r8,r12,[q +16]
+    adcx r12,rax
+    adox r12,r13
+    mulx rax,r13,[q +24]
+    adcx r13,r8
+    adox r13,r14
+    mov r14,r10
+    adcx r14,rax
+    adox r14,r15
+    mov r15,r10
+    adcx r15,r10
+    adox r15,rbp
 
 ;comparison
+    test r15,r15
+jnz Fr_rawFromMontgomery_sq
     cmp r14,[q + 24]
     jc Fr_rawFromMontgomery_done
     jnz Fr_rawFromMontgomery_sq
@@ -938,6 +1020,7 @@ Fr_rawFromMontgomery_done:
     pop r13
     pop r14
     pop r15
+    pop rbp
     ret
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -6546,7 +6629,7 @@ rawShr:
         cmp rdx, 0
         je Fr_rawCopy
 
-        cmp rdx, 255
+        cmp rdx, 256
         jae Fr_rawZero
 
 rawShr_nz:
@@ -6746,7 +6829,7 @@ rawShl:
         cmp rdx, 0
         je Fr_rawCopy
         
-        cmp rdx, 255
+        cmp rdx, 256
         jae Fr_rawZero
 
         mov r8, rdx
@@ -7099,7 +7182,7 @@ Fr_shr:
 
 tmp_113:
         mov rcx, [rdx + 8]
-        cmp rcx, 255
+        cmp rcx, 256
         jae  tmp_114
         xor rax, rax
         
@@ -7118,7 +7201,7 @@ tmp_113:
 tmp_114:
         mov rcx, [q]
         sub rcx, [rdx+8]
-        cmp rcx, 255
+        cmp rcx, 256
         jae  setzero
         mov rax, [q]
         sub rax, [rdx+8]
@@ -7141,13 +7224,13 @@ tmp_114:
 tmp_112:
         cmp ecx, 0
         jl  tmp_115
-        cmp ecx, 255
+        cmp ecx, 256
         jae  setzero
         movsx rdx, ecx 
         jmp do_shr
 tmp_115:
         neg ecx
-        cmp ecx, 255
+        cmp ecx, 256
         jae  setzero
         movsx rdx, ecx 
         jmp do_shl
@@ -7198,7 +7281,7 @@ Fr_shl:
 
 tmp_117:
         mov rcx, [rdx + 8]
-        cmp rcx, 255
+        cmp rcx, 256
         jae  tmp_118
         xor rax, rax
         
@@ -7217,7 +7300,7 @@ tmp_117:
 tmp_118:
         mov rcx, [q]
         sub rcx, [rdx+8]
-        cmp rcx, 255
+        cmp rcx, 256
         jae  setzero
         mov rax, [q]
         sub rax, [rdx+8]
@@ -7240,13 +7323,13 @@ tmp_118:
 tmp_116:
         cmp ecx, 0
         jl  tmp_119
-        cmp ecx, 255
+        cmp ecx, 256
         jae  setzero
         movsx rdx, ecx 
         jmp do_shl
 tmp_119:
         neg ecx
-        cmp ecx, 255
+        cmp ecx, 256
         jae  setzero
         movsx rdx, ecx 
         jmp do_shr
@@ -8781,14 +8864,14 @@ Fr_q:
         dd      0
         dd      0x80000000
 Fr_rawq:
-q       dq      0x992d30ed00000001,0x224698fc094cf91b,0x0000000000000000,0x4000000000000000
-half    dq      0xcc96987680000000,0x11234c7e04a67c8d,0x0000000000000000,0x2000000000000000
-R2      dq      0x8c78ecb30000000f,0xd7d30dbd8b0de0e7,0x7797a99bc3c95d18,0x096d41af7b9cb714
+q       dq      0xfffffffefffffc2f,0xffffffffffffffff,0xffffffffffffffff,0xffffffffffffffff
+half    dq      0xffffffff7ffffe17,0xffffffffffffffff,0xffffffffffffffff,0x7fffffffffffffff
+R2      dq      0x000007a2000e90a1,0x0000000000000001,0x0000000000000000,0x0000000000000000
 Fr_R3:
         dd      0
         dd      0x80000000
 Fr_rawR3:
-R3      dq      0xf185a5993a9e10f9,0xf6a68f3b6ac5b1d1,0xdf8d1014353fd42c,0x2ae309222d2d9910
-lboMask dq      0x7fffffffffffffff
-np      dq      0x992d30ecffffffff
+R3      dq      0x002bb1e33795f671,0x0000000100000b73,0x0000000000000000,0x0000000000000000
+lboMask dq      0xffffffffffffffff
+np      dq      0xd838091dd2253531
 
