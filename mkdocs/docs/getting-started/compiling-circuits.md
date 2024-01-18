@@ -26,13 +26,13 @@ circom --help
            --wat                                  Compiles the circuit to wat
        -c, --c                                    Compiles the circuit to c
            --O0                                   No simplification is applied
-           --O1                                   Only applies var to var and var to constant simplification
+           --O1                                   Only applies signal to signal and signal to constant simplification
            --O2                                   Full constraint simplification
            --verbose                              Shows logs during compilation
            --inspect                              Does an additional check over the constraints produced
            --use_old_simplification_heuristics    Applies the old version of the heuristics when performing linear
                                                   simplification
-           --simplification_substitution          Outputs the substitution in json format
+           --simplification_substitution          Outputs the substitution in the simplification phase in json format
        -h, --help                                 Prints help information
        -V, --version                              Prints version information
 

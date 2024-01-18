@@ -61,32 +61,40 @@ Now, you should be able to see all the options of the executable by using the `h
 ```console
 circom --help
 
-   Circom Compiler 2.0.0
-   IDEN3
-   Compiler for the Circom programming language
+circom compiler 2.1.7
+IDEN3
+Compiler for the circom programming language
 
-   USAGE:
-      circom [FLAGS] [OPTIONS] [input]
+USAGE:
+    circom [FLAGS] [OPTIONS] [--] [input]
 
-   FLAGS:
-      -h, --help       Prints help information
-         --inspect    Does an additional check over the constraints produced
-         --O0         No simplification is applied
-      -c, --c          Compiles the circuit to c
-         --json       outputs the constraints in json format
-         --r1cs       outputs the constraints in r1cs format
-         --sym        outputs witness in sym format
-         --wasm       Compiles the circuit to wasm
-         --wat        Compiles the circuit to wat
-         --O1         Only applies var to var and var to constant simplification
-      -V, --version    Prints version information
+FLAGS:
+        --r1cs                                 Outputs the constraints in r1cs format
+        --sym                                  Outputs witness in sym format
+        --wasm                                 Compiles the circuit to wasm
+        --json                                 Outputs the constraints in json format
+        --wat                                  Compiles the circuit to wat
+    -c, --c                                    Compiles the circuit to c
+        --O0                                   No simplification is applied
+        --O1                                   Only applies signal to signal and signal to constant simplification
+        --O2                                   Full constraint simplification
+        --verbose                              Shows logs during compilation
+        --inspect                              Does an additional check over the constraints produced
+        --use_old_simplification_heuristics    Applies the old version of the heuristics when performing linear
+                                               simplification
+        --simplification_substitution          Outputs the substitution applied in the simplification phase in json format
+    -h, --help                                 Prints help information
+    -V, --version                              Prints version information
 
-   OPTIONS:
-         --O2 <full_simplification>    Full constraint simplification [default: full]
-      -o, --output <output>             Path to the directory where the output will be written [default: .]
+OPTIONS:
+    -o, --output <output>                    Path to the directory where the output will be written [default: .]
+    -p, --prime <prime>                      To choose the prime number to use to generate the circuit. Receives the
+                                             name of the curve (bn128, bls12381, goldilocks, grumpkin, secq256r1, pallas, vesta) [default: bn128]
+    -l <link_libraries>...                   Adds directory to library search path
+        --O2round <simplification_rounds>    Maximum number of rounds of the simplification process
 
-   ARGS:
-      <input>    Path to a circuit with a main component [default: ./circuit.circom]
+ARGS:
+    <input>    Path to a circuit with a main component [default: ./circuit.circom]
 ```
 
 ## Installing snarkjs <a id="installing-the-tools"></a>
