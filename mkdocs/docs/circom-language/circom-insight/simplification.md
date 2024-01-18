@@ -1,6 +1,6 @@
 # Constraint simplification
 
-Constrain simplification is a key part of the `circom` compiler. Full simplification is activated by default, and its associated flag is `--O2` (see the [compilation options](../../compilation-options.md)). Simplification is not applied when the  `--O0` is activated, and a weaker (and faster) form of simplification is applied when using the flag `--O1`.
+Constraint simplification is a key part of the `circom` compiler. Full simplification is activated by default, and its associated flag is `--O2` (see the [compilation options](../../compilation-options.md)). Simplification is not applied when the  `--O0` is activated, and a weaker (and faster) form of simplification is applied when using the flag `--O1`.
 
 Let us explain the performed simplification in detail.
 
