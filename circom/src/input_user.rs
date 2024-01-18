@@ -368,7 +368,7 @@ mod input_processing {
                     .long("O1")
                     .hidden(false)
                     .takes_value(false)
-                    .help("Only applies var to var and var to constant simplification")
+                    .help("Only applies signal to signal and signal to constant simplification")
                     .display_order(460)
             )
             .arg(
@@ -423,7 +423,7 @@ mod input_processing {
                     .long("simplification_substitution")
                     .takes_value(false)
                     .display_order(980)
-                    .help("Outputs the substitution in json format"),
+                    .help("Outputs the substitution applied in the simplification phase in json format"),
             )
             .arg(
                 Arg::with_name("print_sym")
