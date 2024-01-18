@@ -10,7 +10,7 @@ As pointed out in Section 2.3 (Quadratic arithmetic programs) of the [Groth16 pa
 
 Note that since we can skip its calculation, it will not be part of the witness (the values of the signals that satisfy the arithmetic circuit (i.e. the quadratic constraints)
 
-This means that we can remove any constraint E === 0, if E is linear by choosing one of the signals in E, say x,  by  expressing E == 0 as x == E' and replacing x by E' in all other constraints. This way may skip the calculation of x since it is not in the resulting problem.
+This means that we can remove any constraint E = 0 if E is linear, by choosing one of the signals in E, say x, and expressing E = 0 as x = E' and replacing x by E' in all other constraints. This way may skip the calculation of x since it is not in the resulting problem.
 
 In the context of [Groth16] the statement to be proved is that given the public inputs and outputs and relation between them expressed by means of quadratic constrains of the form A*B-C = 0 (where A, B and C are linear expressions) we know a witness (an assignment to the signals that includes the given public inputs and outputs)  that satisfies the relation (i.e. the constraints for the given public inputs and outputs). Therefore, we cannot remove the public inputs and outputs (even if they occur in a linear constraints) but we can remove any other private signal if it equivalent to a linear combination of the other signals (i.e. just using addition), since `we can skip the computation of such signal` (because `addition gates are handled for free`) and we are not changing the relation between public inputs and outputs, i.e. the statement.
 
