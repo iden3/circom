@@ -29,3 +29,5 @@ Only one of these flags/options can be enabled in the compilation.
 In case we want to see the simplification applied we can use the flag [```--simplification_substitution```](../../compilation-options.md) to obtain a json file whose format is described [here](../formats/simplification-json.md).
 
 Note that, although the full simplification applied --O2 can significantly reduce the number of constraints and signals, which has a positive impact in the time and space needed to compute the proof, this is the most time and space consuming phase of the compilation process. Hence, with large circuits, say with millions of constraints, compilation can take long time (even minutes or hours) and can run in out-of-memory exceptions. In such cases, it is recommended to only use the --O2 flag in the final steps of the project development.
+
+[Groth16] Jens Groth. "On the Size of Pairing-Based Non-interactive Arguments". Advances in Cryptology -- EUROCRYPT 2016, pages 305--326. Springer Berlin Heidelberg, 2016.
