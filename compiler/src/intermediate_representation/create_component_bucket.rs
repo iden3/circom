@@ -212,7 +212,7 @@ impl WriteC for CreateCmpBucket {
         instructions.push("{".to_string());
         instructions.push(format!("uint aux_create = {};", scmp_idx));
         instructions.push(format!("int aux_cmp_num = {}+{}+1;", self.component_offset, CTX_INDEX));
-        instructions.push(format!("uint csoffset = {}+{};", MY_SIGNAL_START.to_string(), self.signal_offset));
+        instructions.push(format!("uint csoffset = {}+{};", MY_SIGNAL_START, self.signal_offset));
         if self.number_of_cmp > 1{
             instructions.push(format!("uint aux_dimensions[{}] = {};", self.dimensions.len(), set_list(self.dimensions.clone())));
         }
@@ -228,7 +228,7 @@ impl WriteC for CreateCmpBucket {
             instructions.push(format!("for (uint i = 0; i < {}; i++) {{", self.number_of_cmp));
             // update the value of the the parallel status if it is not uniform parallel using the array aux_parallel
             if self.uniform_parallel.is_none(){
-                instructions.push(format!("bool status_parallel = aux_parallel[i];"));
+                instructions.push("bool status_parallel = aux_parallel[i];".to_string());
             }
         }
         // generate array with the positions that are actually created if there are empty components
@@ -236,23 +236,23 @@ impl WriteC for CreateCmpBucket {
         else{
             instructions.push(format!("uint aux_positions [{}]= {};", self.defined_positions.len(), set_list(self.defined_positions.iter().map(|(x, _y)| *x).collect())));
             instructions.push(format!("for (uint i_aux = 0; i_aux < {}; i_aux++) {{",  self.defined_positions.len()));
-            instructions.push(format!("uint i = aux_positions[i_aux];"));
+            instructions.push("uint i = aux_positions[i_aux];".to_string());
             // update the value of the the parallel status if it is not uniform parallel using the array aux_parallel
             if self.uniform_parallel.is_none(){
-                instructions.push(format!("bool status_parallel = aux_parallel[i_aux];"));
+                instructions.push("bool status_parallel = aux_parallel[i_aux];".to_string());
             }
         }
 
         if self.number_of_cmp > 1{
             instructions.push(
                 format!("std::string new_cmp_name = \"{}\"+{};",
-                 self.name_subcomponent.to_string(),
+                 self.name_subcomponent,
                  generate_my_array_position("aux_dimensions".to_string(), self.dimensions.len().to_string(), "i".to_string())
                 )
             );
         }
         else {
-            instructions.push(format!("std::string new_cmp_name = \"{}\";", self.name_subcomponent.to_string()));
+            instructions.push(format!("std::string new_cmp_name = \"{}\";", self.name_subcomponent));
         }
         let create_args = vec![
             "csoffset".to_string(), 

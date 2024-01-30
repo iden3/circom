@@ -93,7 +93,7 @@ impl ExecutedProgram {
         if let Option::Some(index) = possible_index {
             return index;
         }
-        self.template_to_nodes.entry(node.template_name().clone()).or_insert_with(|| vec![]);
+        self.template_to_nodes.entry(node.template_name().clone()).or_default();
         let nodes_for_template = self.template_to_nodes.get_mut(node.template_name()).unwrap();
         let node_index = self.model.len();
         self.model.push(node);

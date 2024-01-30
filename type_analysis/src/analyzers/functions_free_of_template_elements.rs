@@ -92,12 +92,12 @@ fn analyse_statement(
         }
         ConstraintEquality { meta, lhe, rhe, .. } => {
             let mut report = Report::error(
-                format!("Function uses template operators"),
+                "Function uses template operators".to_string(),
                 ReportCode::UndefinedFunction,
             );
             let location =
                 file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id.clone(), format!("Template operator found"));
+            report.add_primary(location, file_id, "Template operator found".to_string());
             reports.push(report);
             analyse_expression(lhe, function_names, reports);
             analyse_expression(rhe, function_names, reports);
@@ -143,12 +143,12 @@ fn analyse_access(
             analyse_expression(index, function_names, reports);
         } else {
             let mut report = Report::error(
-                format!("Function uses component operators"),
+                "Function uses component operators".to_string(),
                 ReportCode::UndefinedFunction,
             );
             let location =
                 file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id.clone(), format!("Template operator found"));
+            report.add_primary(location, file_id, "Template operator found".to_string());
             reports.push(report);
         }
     }
@@ -182,12 +182,12 @@ fn analyse_expression(
         Call { meta, id, args, .. } => {
             if !function_names.contains(id) {
                 let mut report = Report::error(
-                    format!("Unknown call in function"),
+                    "Unknown call in function".to_string(),
                     ReportCode::UndefinedFunction,
                 );
                 let location =
                     file_definition::generate_file_location(meta.get_start(), meta.get_end());
-                report.add_primary(location, file_id.clone(), format!("Is not a function call"));
+                report.add_primary(location, file_id, "Is not a function call".to_string());
                 reports.push(report);
             }
             for arg in args.iter() {

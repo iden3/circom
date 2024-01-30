@@ -41,7 +41,7 @@ pub fn sub(left: &BigInt, right: &BigInt, field: &BigInt) -> BigInt {
 pub fn div(left: &BigInt, right: &BigInt, field: &BigInt) -> Result<BigInt, ArithmeticError> {
     let right_inverse = right
         .mod_inverse(field)
-        .map_or(Result::Err(ArithmeticError::DivisionByZero), |a| Result::Ok(a))?;
+        .map_or(Result::Err(ArithmeticError::DivisionByZero), Result::Ok)?;
     let res = mul(left, &right_inverse, field);
     Result::Ok(res)
 }
@@ -73,21 +73,21 @@ pub fn multi_inv(values: &Vec<BigInt>, field: &BigInt) -> Vec<BigInt>{
     let mut partials : Vec<BigInt> = Vec::new();
     partials.push(one.clone());
     for i in 0..values.len(){
-        partials.push(mul(partials.get(partials.len()-1).unwrap(),
+        partials.push(mul(partials.last().unwrap(),
                                           values.get(i).unwrap(),
-                                          &field));
+                                          field));
     }
     let mut inverse = div(&one,
-                   partials.get(partials.len()-1).unwrap(),
-                   &field).ok().unwrap();
+                   partials.last().unwrap(),
+                   field).ok().unwrap();
     let mut outputs : Vec<BigInt> = vec![BigInt::from(0); partials.len()];
     let mut i = values.len();
     while i > 0{
-        outputs[i-1] = mul(partials.get(i-1).unwrap(), &inverse, &field);
-        inverse = mul(&inverse, values.get(i-1).unwrap(), &field);
-        i = i - 1;
+        outputs[i-1] = mul(partials.get(i-1).unwrap(), &inverse, field);
+        inverse = mul(&inverse, values.get(i-1).unwrap(), field);
+        i -= 1;
     }
-    return outputs;
+    outputs
 }
 
 //Bit operations
@@ -114,7 +114,7 @@ pub fn shift_l(left: &BigInt, right: &BigInt, field: &BigInt) -> Result<BigInt, 
     if right <= &top {
         let usize_repr = right
             .to_usize()
-            .map_or(Result::Err(ArithmeticError::DivisionByZero), |a| Result::Ok(a))?;
+            .map_or(Result::Err(ArithmeticError::DivisionByZero), Result::Ok)?;
         let value = modulus(&((left * &num_traits::pow(two, usize_repr)) & &mask(field)), field);
         Result::Ok(value)
     } else {
@@ -127,7 +127,7 @@ pub fn shift_r(left: &BigInt, right: &BigInt, field: &BigInt) -> Result<BigInt, 
     if right <= &top {
         let usize_repr = right
             .to_usize()
-            .map_or(Result::Err(ArithmeticError::DivisionByZero), |a| Result::Ok(a))?;
+            .map_or(Result::Err(ArithmeticError::DivisionByZero), Result::Ok)?;
         let value = left / &num_traits::pow(two, usize_repr);
         Result::Ok(value)
     } else {

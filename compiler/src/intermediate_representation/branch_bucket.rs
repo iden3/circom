@@ -59,7 +59,7 @@ impl WriteWasm for BranchBucket {
         if producer.needs_comments() {
             instructions.push(";; branch bucket".to_string());
 	}
-        if self.if_branch.len() > 0 {
+        if !self.if_branch.is_empty() {
             let mut instructions_cond = self.cond.produce_wasm(producer);
             instructions.append(&mut instructions_cond);
             instructions.push(call("$Fr_isTrue"));
@@ -68,7 +68,7 @@ impl WriteWasm for BranchBucket {
                 let mut instructions_if = ins.produce_wasm(producer);
                 instructions.append(&mut instructions_if);
             }
-            if self.else_branch.len() > 0 {
+            if !self.else_branch.is_empty() {
                 instructions.push(add_else());
                 for ins in &self.else_branch {
                     let mut instructions_else = ins.produce_wasm(producer);
@@ -76,20 +76,18 @@ impl WriteWasm for BranchBucket {
                 }
             }
 	    instructions.push(add_end());
-        } else {
-            if self.else_branch.len() > 0 {
-                let mut instructions_cond = self.cond.produce_wasm(producer);
-                instructions.append(&mut instructions_cond);
-                instructions.push(call("$Fr_isTrue"));
-                instructions.push(eqz32());
-                instructions.push(add_if());
-                for ins in &self.else_branch {
-                    let mut instructions_else = ins.produce_wasm(producer);
-                    instructions.append(&mut instructions_else);
-                }
-		instructions.push(add_end());
-            }
-        }
+        } else if !self.else_branch.is_empty() {
+                        let mut instructions_cond = self.cond.produce_wasm(producer);
+                        instructions.append(&mut instructions_cond);
+                        instructions.push(call("$Fr_isTrue"));
+                        instructions.push(eqz32());
+                        instructions.push(add_if());
+                        for ins in &self.else_branch {
+                            let mut instructions_else = ins.produce_wasm(producer);
+                            instructions.append(&mut instructions_else);
+                        }
+        		instructions.push(add_end());
+                    }
         if producer.needs_comments() {
             instructions.push(";; end of branch bucket".to_string());
 	}

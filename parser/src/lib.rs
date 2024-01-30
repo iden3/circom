@@ -49,7 +49,7 @@ pub fn find_file(
             }
             Err(e) => {
                 reports.push(e);
-                i = i + 1;
+                i += 1;
             }
         }
     }
@@ -109,7 +109,7 @@ pub fn run_parser(
         }
     }
 
-    if main_components.len() == 0 {
+    if main_components.is_empty() {
         let report = produce_report(ReportCode::NoMainFoundInProject,0..0, 0);
         warnings.push(report);
         Err((file_library, warnings))
@@ -128,7 +128,7 @@ pub fn run_parser(
                 ReportCode::CustomGatesPragmaError
             )
         ).collect();
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             warnings.append(& mut errors);
             Err((file_library, warnings))
         } else {
@@ -184,7 +184,7 @@ fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src */ 
 }
 
 fn parse_number_version(version: &str) -> Version {
-    let version_splitted: Vec<&str> = version.split(".").collect();
+    let version_splitted: Vec<&str> = version.split('.').collect();
     (
         usize::from_str(version_splitted[0]).unwrap(),
         usize::from_str(version_splitted[1]).unwrap(),
@@ -239,25 +239,23 @@ fn check_custom_gates_version(
             );
             return Err(report);
         }
-    } else {
-        if version_compiler.0 < custom_gates_version.0
-            || (version_compiler.0 == custom_gates_version.0
-                && version_compiler.1 < custom_gates_version.1)
-            || (version_compiler.0 == custom_gates_version.0
-                && version_compiler.1 == custom_gates_version.1
-                && version_compiler.2 < custom_gates_version.2)
-        {
-            let report = Report::error(
-                format!(
-                    "File {} does not include pragma version and the compiler version (currently {:?}) should be at least {:?} to use custom templates",
-                    file_path,
-                    version_compiler,
-                    custom_gates_version
-                ),
-                ReportCode::CustomGatesVersionError
-            );
-            return Err(report);
-        }
+    } else if version_compiler.0 < custom_gates_version.0
+        || (version_compiler.0 == custom_gates_version.0
+            && version_compiler.1 < custom_gates_version.1)
+        || (version_compiler.0 == custom_gates_version.0
+            && version_compiler.1 == custom_gates_version.1
+            && version_compiler.2 < custom_gates_version.2)
+    {
+        let report = Report::error(
+            format!(
+                "File {} does not include pragma version and the compiler version (currently {:?}) should be at least {:?} to use custom templates",
+                file_path,
+                version_compiler,
+                custom_gates_version
+            ),
+            ReportCode::CustomGatesVersionError
+        );
+        return Err(report);
     }
     Ok(())
 }

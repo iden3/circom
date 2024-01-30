@@ -114,7 +114,7 @@ pub fn split_declaration_into_single_nodes_and_multisubstitution(
                 build_substitution(meta.clone(), symbol.name, vec![], AssignOp::AssignVar, value);
             initializations.push(substitution);
         }
-        values.push(Expression::Variable { meta: with_meta.clone(), name: name, access: Vec::new() })
+        values.push(Expression::Variable { meta: with_meta.clone(), name, access: Vec::new() })
     }
     if let Some( tuple) = init {
         let (op,expression) = tuple.tuple_init;

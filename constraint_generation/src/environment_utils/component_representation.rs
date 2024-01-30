@@ -4,6 +4,7 @@ use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap, HashSet};
 use crate::ast::Meta;
 
+#[derive(Default)]
 pub struct ComponentRepresentation {
     pub node_pointer: Option<NodePointer>,
     pub is_parallel: bool,
@@ -18,23 +19,7 @@ pub struct ComponentRepresentation {
     pub is_initialized: bool,
 }
 
-impl Default for ComponentRepresentation {
-    fn default() -> Self {
-        ComponentRepresentation {
-            node_pointer: Option::None,
-            is_parallel: false,
-            unassigned_inputs: HashMap::new(),
-            unassigned_tags: HashSet::new(),
-            to_assign_inputs: Vec::new(),
-            inputs: HashMap::new(),
-            inputs_tags: BTreeMap::new(),
-            outputs: HashMap::new(),
-            outputs_tags: BTreeMap::new(),
-            is_initialized: false,
-            meta: Option::None,
-        }
-    }
-}
+
 impl Clone for ComponentRepresentation {
     fn clone(&self) -> Self {
         ComponentRepresentation {
@@ -267,15 +252,13 @@ impl ComponentRepresentation {
         for (t, value) in tags_input{
             if !tags.contains_key(t){
                 return Result::Err(MemoryError::AssignmentMissingTags(signal_name.to_string(), t.clone()));
-            } else{
-                if is_first_assignment_signal{
-                    *value = tags.get(t).unwrap().clone();
-                }
-                else{
-                    // already given a value, check that it is the same
-                    if value != tags.get(t).unwrap(){
-                        return Result::Err(MemoryError::AssignmentTagInputTwice(signal_name.to_string(), t.clone()));
-                    }
+            } else if is_first_assignment_signal{
+                *value = tags.get(t).unwrap().clone();
+            }
+            else{
+                // already given a value, check that it is the same
+                if value != tags.get(t).unwrap(){
+                    return Result::Err(MemoryError::AssignmentTagInputTwice(signal_name.to_string(), t.clone()));
                 }
             }
         }
@@ -316,7 +299,7 @@ impl ComponentRepresentation {
         let inputs_response = component.inputs.get_mut(signal_name).unwrap();
         let signal_previous_value = SignalSlice::access_values(
             inputs_response,
-            &access,
+            access,
         )?;
 
         let new_value_slice = &SignalSlice::new_with_route(slice_route, &true);
@@ -324,7 +307,7 @@ impl ComponentRepresentation {
         SignalSlice::check_correct_dims(
             &signal_previous_value, 
             &Vec::new(), 
-            &new_value_slice, 
+            new_value_slice, 
             true
         )?;
 
@@ -337,8 +320,8 @@ impl ComponentRepresentation {
         
         SignalSlice::insert_values(
             inputs_response,
-            &access,
-            &new_value_slice,
+            access,
+            new_value_slice,
             true
         )?;
         let dim = SignalSlice::get_number_of_cells(new_value_slice);

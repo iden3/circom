@@ -72,7 +72,7 @@ impl SignalsInformation {
                 if signals.can_be_taken(*k) {
                     match signal_to_ocurrences.get_mut(k){
                         Some(prev_ocu) =>{
-                            *prev_ocu = *prev_ocu + 1;
+                            *prev_ocu += 1;
                         },
                         None => {
                             signal_to_ocurrences.insert(*k, 1);
@@ -94,9 +94,9 @@ impl SignalsInformation {
     pub fn remove_constraint(&mut self, constraint: &C, signals: &SignalDefinition4){
         for signal in constraint.c().keys(){
             if signals.can_be_taken(*signal){
-                match self.signal_to_ocurrences.get_mut(&signal){
+                match self.signal_to_ocurrences.get_mut(signal){
                     Some(ocurrences) =>{
-                        *ocurrences = *ocurrences - 1;
+                        *ocurrences -= 1;
                     },
                     None => {},
                 }
@@ -204,7 +204,7 @@ fn treat_constraint_1(
         let out = out.unwrap();
         signals.delete(out);
         let substitution = C::clear_signal_from_linear(work, &out, field);
-        let in_conflict = substitutions.get(&substitution.from()).cloned();
+        let in_conflict = substitutions.get(substitution.from()).cloned();
         if in_conflict.is_none() {
             substitutions.insert(*substitution.from(), substitution);
             break;
@@ -238,7 +238,7 @@ fn treat_constraint_2(
         let out = out.unwrap();
         signals.delete(out);
         let (coefficient, substitution) = C::clear_signal_from_linear_not_normalized(work, &out, field);
-        let in_conflict = substitutions.get(&substitution.from()).cloned();
+        let in_conflict = substitutions.get(substitution.from()).cloned();
         if in_conflict.is_none() {
             substitutions.insert(*substitution.from(), (coefficient, substitution));
             break;
@@ -275,7 +275,7 @@ fn treat_constraint_3(
         let out = out.unwrap();
         signals.delete(out);
         let (coefficient, substitution) = C::clear_signal_from_linear_not_normalized(work, &out, field);
-        let in_conflict = substitutions.get(&substitution.from()).cloned();
+        let in_conflict = substitutions.get(substitution.from()).cloned();
         if in_conflict.is_none() {
             substitutions.insert(*substitution.from(), (coefficient, substitution));
             break;
@@ -328,7 +328,7 @@ fn treat_constraint_4(
         }
         let out = out.unwrap();
         let (coefficient, substitution) = C::clear_signal_from_linear_not_normalized(work, &out, field);
-        let in_conflict = substitutions.get(&substitution.from()).cloned();
+        let in_conflict = substitutions.get(substitution.from()).cloned();
         if in_conflict.is_none() {
             signals.delete(out);
             info_ocurrences.remove_signal(out);
@@ -393,10 +393,8 @@ fn take_signal_4(signals: &SignalDefinition4, info_ocurrences: &SignalsInformati
                             ret = Some(*k);
                             ocurrences_ret = Some(*new_ocurrences);
                         }
-                        else if *new_ocurrences == val_ant{
-                            if ret.unwrap() < *k{
-                                ret = Some(*k);
-                            }
+                        else if *new_ocurrences == val_ant && ret.unwrap() < *k {
+                            ret = Some(*k);
                         }
                     },
                     None => {
@@ -429,9 +427,9 @@ fn normalize_substitutions(substitutions: SHNotNormalized, field: &BigInt) -> SH
             &A::Number {value : inv.clone()}, 
             field
         );
-        let new_sub = S::new(signal.clone(), mult_by_inverse).unwrap(); 
+        let new_sub = S::new(signal, mult_by_inverse).unwrap(); 
         tree.insert(signal, new_sub);
-        i = i + 1;
+        i += 1;
     }
     tree
 }

@@ -136,7 +136,7 @@ impl TemplateData {
         &self.output_signals
     }
     pub fn get_declaration_inputs(&self) -> &SignalDeclarationOrder {
-        &&self.input_declarations
+        &self.input_declarations
     }
     pub fn get_declaration_outputs(&self) -> &SignalDeclarationOrder {
         &self.output_declarations

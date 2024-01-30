@@ -293,7 +293,7 @@ impl ExecutedTemplate {
         }
         for s in &self.underscored_signals{
             let correspondence = dag.get_main().unwrap().correspondence();
-            let new_s = correspondence.get(s).unwrap().clone();
+            let new_s = *correspondence.get(s).unwrap();
             dag.add_underscored_signal(new_s);
         }
     }
@@ -457,7 +457,7 @@ fn filter_used_components(tmp: &ExecutedTemplate) -> (ComponentCollector, usize)
     for cmp in &tmp.components {
         if used.contains(&cmp.0) {
             filtered.push(cmp.clone());
-            number_of_components = number_of_components + compute_number_cmp(&cmp.1);
+            number_of_components += compute_number_cmp(&cmp.1);
         }
     }
     (filtered, number_of_components)
@@ -539,7 +539,7 @@ fn build_clusters(tmp: &ExecutedTemplate, instances: &[TemplateInstance]) -> Vec
         let cluster = TriggerCluster {
             slice: start..end,
             length: end - start,
-            defined_positions: defined_positions,
+            defined_positions,
             cmp_name: cnn_data.name.clone(),
             xtype: ClusterType::Uniform { offset_jump, component_offset_jump, instance_id, header: sub_cmp_header },
         };

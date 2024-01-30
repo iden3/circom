@@ -43,17 +43,9 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 config.dat_file
             );
             println!(
-                "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
+                "{} {}/main.cpp, circom.hpp, calcwit.hpp, calcwit.cpp, fr.hpp, fr.cpp, fr.asm and Makefile",
                 Colour::Green.paint("Written successfully:"),
-            &config.c_folder,
-                "main.cpp".to_string(),
-                "circom.hpp".to_string(),
-                "calcwit.hpp".to_string(),
-                "calcwit.cpp".to_string(),
-                "fr.hpp".to_string(),
-                "fr.cpp".to_string(),
-                "fr.asm".to_string(),
-                "Makefile".to_string()
+            &config.c_folder
             );
         }
     

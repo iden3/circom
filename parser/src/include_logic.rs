@@ -92,7 +92,7 @@ impl IncludesGraph {
         crr.push(old_path.clone());
         let path = std::fs::canonicalize(crr)
             .map_err(|_e| produce_report_with_message(ReportCode::FileOs, old_path))?;
-        let edges = self.adjacency.entry(path).or_insert(vec![]);
+        let edges = self.adjacency.entry(path).or_default();
         edges.push(self.nodes.len() - 1);
         Ok(())
     }
@@ -149,7 +149,7 @@ impl IncludesGraph {
         let mut sep = "";
         for file in path.iter().map(|file| file.display().to_string()) {
             res.push_str(sep);
-            let result_split = file.rsplit_once("/");
+            let result_split = file.rsplit_once('/');
             if result_split.is_some(){
                 res.push_str(result_split.unwrap().1);
             } else{

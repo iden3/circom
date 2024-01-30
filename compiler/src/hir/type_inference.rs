@@ -203,13 +203,13 @@ fn infer_type_array(expr: &Expression, state: &State, context: &mut SearchInfo) 
             lengths
         })
     } else if let UniformArray { value, dimension, .. } = expr {
-        let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
+        let usable_dimension = if let Option::Some(dimension) = cast_dimension(dimension) {
             dimension
         } else {
             unreachable!()
         };
         let mut lengths = vec![usable_dimension];
-        let with_type = infer_type_expresion(&value, state, context);
+        let with_type = infer_type_expresion(value, state, context);
         with_type.map(|mut l| {
             lengths.append(&mut l);
             lengths
@@ -231,9 +231,7 @@ fn infer_type_call(expr: &Expression, state: &State, context: &mut SearchInfo) -
             let body = &state.generic_functions.get(id).unwrap().body;
             let names = &state.generic_functions.get(id).unwrap().params_names;
             let arg_types = infer_args(args, state, context);
-            if arg_types.is_none() {
-                return Option::None;
-            }
+            arg_types.as_ref()?;
             let arg_types = arg_types.unwrap();
             for arg_type in arg_types {
                 context.environment.add_variable(&names[index], arg_type);

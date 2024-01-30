@@ -344,7 +344,7 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
             number_of_cmp: compute_number_cmp(&symbol.dimensions),
             dimensions: symbol.dimensions,
             signal_offset_jump: offset_jump,
-	        component_offset_jump: component_offset_jump,
+	        component_offset_jump,
         }
         .allocate();
         state.code.push(creation_instr);
@@ -453,10 +453,10 @@ fn translate_if_then_else(stmt: Statement, state: &mut State, context: &Context)
     use Statement::IfThenElse;
     if let IfThenElse { meta, cond, if_case, else_case, .. } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
-        let main_program = std::mem::replace(&mut state.code, vec![]);
+        let main_program = std::mem::take(&mut state.code);
         let cond_translation = translate_expression(cond, state, context);
         translate_statement(*if_case, state, context);
-        let if_code = std::mem::replace(&mut state.code, vec![]);
+        let if_code = std::mem::take(&mut state.code);
         if let Option::Some(else_case) = else_case {
             translate_statement(*else_case, state, context);
         }
@@ -477,7 +477,7 @@ fn translate_while(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::While;
     if let While { meta, cond, stmt, .. } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
-        let main_program = std::mem::replace(&mut state.code, vec![]);
+        let main_program = std::mem::take(&mut state.code);
         let cond_translation = translate_expression(cond, state, context);
         translate_statement(*stmt, state, context);
         let loop_code = std::mem::replace(&mut state.code, main_program);
@@ -523,7 +523,7 @@ fn translate_call_case(
     use Expression::Call;
     if let Call { id, args, .. } = info.src {
         let args_instr = translate_call_arguments(args, state, context);
-        info.prc_symbol.into_call_assign(id, args_instr, &state)
+        info.prc_symbol.into_call_assign(id, args_instr, state)
     } else {
         unreachable!()
     }
@@ -954,10 +954,8 @@ impl ProcessedSymbol {
                     with_length = possible_length.iter().fold(1, |r, c| r * (*c));
                     is_first = false;
                 }
-                else{
-                    if with_length != possible_length.iter().fold(1, |r, c| r * (*c)){
-                        unreachable!("On development: Circom compiler does not accept for now the assignment of arrays of unknown sizes during the execution of loops");
-                    }
+                else if with_length != possible_length.iter().fold(1, |r, c| r * (*c)){
+                    unreachable!("On development: Circom compiler does not accept for now the assignment of arrays of unknown sizes during the execution of loops");
                 }
             } 
         }
@@ -1309,7 +1307,7 @@ fn convert_to_usize_multiple(
 
 fn fold(using: OperatorType, mut stack: Vec<InstructionPointer>, state: &State) -> InstructionPointer {
     let instruction = stack.pop().unwrap();
-    if stack.len() == 0 {
+    if stack.is_empty() {
         instruction
     } else {
         ComputeBucket {

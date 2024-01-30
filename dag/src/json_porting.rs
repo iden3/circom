@@ -29,7 +29,7 @@ fn hashmap_as_json(values: &HashMap<usize, BigInt>) -> JsonValue {
 
 fn visit_tree(tree: &Tree, writer: &mut ConstraintJSON) -> Result<(), ()> {
     for constraint in &tree.constraints {
-        let json_value = transform_constraint_to_json(&constraint);
+        let json_value = transform_constraint_to_json(constraint);
         writer.write_constraint(&json_value.to_string())?;
     }
     for edge in Tree::get_edges(tree) {

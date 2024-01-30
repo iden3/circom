@@ -45,7 +45,7 @@ pub fn write_c(circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str
 fn produce_debug_output(circuit: &Circuit) -> Result<(), ()> {
     use std::io::Write;
     use std::path::Path;
-    let path = format!("ir_log");
+    let path = "ir_log".to_string();
     if Path::new(&path).is_dir() {
         std::fs::remove_dir_all(&path).map_err(|_err| {})?;
     }

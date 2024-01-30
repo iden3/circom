@@ -296,13 +296,13 @@ impl TemplateCodeInfo {
         }
 	// parallelism (join at the end of the function)
 	if self.number_of_components > 0 && self.has_parallel_sub_cmp {
-            run_body.push(format!("{{"));
+            run_body.push("{".to_string());
 	    run_body.push(format!("for (uint i = 0; i < {}; i++) {{",&self.number_of_components.to_string()));
-	    run_body.push(format!("if (ctx->componentMemory[ctx_index].sbct[i].joinable()) {{"));
-	    run_body.push(format!("ctx->componentMemory[ctx_index].sbct[i].join();"));
-	    run_body.push(format!("}}"));
-	    run_body.push(format!("}}"));
-	    run_body.push(format!("}}"));
+	    run_body.push("if (ctx->componentMemory[ctx_index].sbct[i].joinable()) {".to_string());
+	    run_body.push("ctx->componentMemory[ctx_index].sbct[i].join();".to_string());
+	    run_body.push("}".to_string());
+	    run_body.push("}".to_string());
+	    run_body.push("}".to_string());
 	}
 	if parallel {
 	    // parallelism
@@ -312,13 +312,13 @@ impl TemplateCodeInfo {
 		run_body.push(format!("{}->componentMemory[{}].outputIsSet[i]=true;",CIRCOM_CALC_WIT,CTX_INDEX));
 	    run_body.push(format!("{}->componentMemory[{}].mutexes[i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX));
 	    run_body.push(format!("{}->componentMemory[{}].cvs[i].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX));	    
-        run_body.push(format!("}}"));
+        run_body.push("}".to_string());
         //parallelism
-        run_body.push(format!("ctx->numThreadMutex.lock();"));
-	    run_body.push(format!("ctx->numThread--;"));
+        run_body.push("ctx->numThreadMutex.lock();".to_string());
+	    run_body.push("ctx->numThread--;".to_string());
         //run_body.push(format!("printf(\"%i \\n\", ctx->numThread);"));
-        run_body.push(format!("ctx->numThreadMutex.unlock();"));
-	    run_body.push(format!("ctx->ntcvs.notify_one();"));
+        run_body.push("ctx->numThreadMutex.unlock();".to_string());
+	    run_body.push("ctx->ntcvs.notify_one();".to_string());
 	}
 
         // to release the memory of its subcomponents
@@ -334,7 +334,7 @@ impl TemplateCodeInfo {
                 vec![CIRCOM_CALC_WIT.to_string(), "index_subc".to_string()]
             )));
         
-        run_body.push(format!("}}"));
+        run_body.push("}".to_string());
         let run_fun = build_callable(run_header, run_params, run_body);
         vec![create_fun, run_fun]
     }

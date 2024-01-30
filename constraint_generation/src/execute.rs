@@ -61,6 +61,7 @@ impl RuntimeInformation {
     }
 }
 
+#[derive(Default)]
 struct FoldedValue {
     pub arithmetic_slice: Option<AExpressionSlice>,
     pub node_pointer: Option<NodePointer>,
@@ -76,16 +77,7 @@ impl FoldedValue {
     }
 }
 
-impl Default for FoldedValue {
-    fn default() -> Self {
-        FoldedValue { 
-            arithmetic_slice: Option::None, 
-            node_pointer: Option::None, 
-            is_parallel: Option::None, 
-            tags: Option::None,
-        }
-    }
-}
+
 
 enum ExecutionError {
     NonQuadraticConstraint,
@@ -199,7 +191,7 @@ fn execute_statement(
                     execute_anonymous_component_declaration(
                         name,
                         meta.clone(),
-                        &dimensions,
+                        dimensions,
                         &mut runtime.environment,
                         &mut runtime.anonymous_components,
                     );
@@ -373,7 +365,7 @@ fn execute_statement(
                     AExpr::sub(
                         &value_left, 
                         &value_right, 
-                        &runtime.constants.get_p()
+                        runtime.constants.get_p()
                     );
                 if possible_non_quadratic.is_nonquadratic() {
                     treat_result_with_execution_error(
@@ -478,7 +470,7 @@ fn execute_statement(
                     }
                     index += 1;
                 }
-                println!("");
+                println!();
             } else{
                 for arglog in args {
                     if let LogArgument::LogExp(arg) = arglog{
@@ -705,7 +697,7 @@ fn execute_call(
         let new_environment = prepare_environment_for_call(id, &arg_values, program_archive);
         let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
         let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
-        let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
+        let previous_anonymous_components = std::mem::take(&mut runtime.anonymous_components);
 
         let new_file_id = program_archive.get_function_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
@@ -737,7 +729,7 @@ fn execute_template_call_complete(
         let new_environment = prepare_environment_for_call(id, &arg_values, program_archive);
         let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
         let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
-        let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
+        let previous_anonymous_components = std::mem::take(&mut runtime.anonymous_components);
 
         let new_file_id = program_archive.get_template_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
@@ -799,7 +791,7 @@ fn execute_signal_declaration(
         match signal_type {
             Input => {
                 if let Some(tags_input) = node.tag_instances().get(signal_name){
-                    environment_shortcut_add_input(environment, signal_name, dimensions, &tags_input);
+                    environment_shortcut_add_input(environment, signal_name, dimensions, tags_input);
                 } else{
                     environment_shortcut_add_input(environment, signal_name, dimensions, &tags);
                 }
@@ -839,7 +831,7 @@ fn perform_assign(
     flags: FlagsExecution
 ) -> Result<Option<Constrained>, ()> {
     use super::execution_data::type_definitions::SubComponentData;
-    let full_symbol = create_symbol(symbol, &accessing_information);
+    let full_symbol = create_symbol(symbol, accessing_information);
 
     let possible_arithmetic_slice = if ExecutionEnvironment::has_variable(&runtime.environment, symbol)
     {
@@ -866,7 +858,7 @@ fn perform_assign(
             let new_value =
                 AExpressionSlice::new_with_route(symbol_content.route(), &AExpr::NonQuadratic);
             let memory_result =
-                AExpressionSlice::insert_values(symbol_content, &vec![], &new_value, false);
+                AExpressionSlice::insert_values(symbol_content, &[], &new_value, false);
             treat_result_with_memory_error_void(
                 memory_result,
                 meta,
@@ -915,7 +907,7 @@ fn perform_assign(
                 &runtime.call_trace,
         )?;
 
-        if SignalSlice::get_number_of_inserts(&reference_to_signal_content) > 0{
+        if SignalSlice::get_number_of_inserts(reference_to_signal_content) > 0{
             treat_result_with_memory_error(
                 Result::Err(MemoryError::AssignmentTagAfterInit),
                 meta,
@@ -929,7 +921,7 @@ fn perform_assign(
                 ArithmeticExpressionGen::Number { value } => {
                     let possible_tag = reference_to_tags.get(&tag.clone());
                     if let Some(val) = possible_tag {
-                        if let Some(_) = val {
+                        if val.is_some() {
                             treat_result_with_memory_error(
                                 Result::Err(MemoryError::AssignmentTagTwice),
                                 meta,
@@ -1017,28 +1009,26 @@ fn perform_assign(
                 if tag_state.value_defined{
                     // already with value, store the same value
                     reference_to_tags.insert(tag, value);
-                } else{
-                    if signal_is_init {
-                        // only keep value if same as previous
-                        let to_store_value = if new_tags.contains_key(&tag){
-                            let value_new = new_tags.get(&tag).unwrap();
-                            if value != *value_new{
-                                None
-                            } else{
-                                value
-                            }
-                        } else{
+                } else if signal_is_init {
+                    // only keep value if same as previous
+                    let to_store_value = if new_tags.contains_key(&tag){
+                        let value_new = new_tags.get(&tag).unwrap();
+                        if value != *value_new{
                             None
-                        };
-                        reference_to_tags.insert(tag, to_store_value);
-                    } else{
-                        // always keep
-                        if new_tags.contains_key(&tag){
-                            let value_new = new_tags.get(&tag).unwrap();
-                            reference_to_tags.insert(tag, value_new.clone());
                         } else{
-                            reference_to_tags.insert(tag, None);
+                            value
                         }
+                    } else{
+                        None
+                    };
+                    reference_to_tags.insert(tag, to_store_value);
+                } else{
+                    // always keep
+                    if new_tags.contains_key(&tag){
+                        let value_new = new_tags.get(&tag).unwrap();
+                        reference_to_tags.insert(tag, value_new.clone());
+                    } else{
+                        reference_to_tags.insert(tag, None);
                     }
                 }
             } else{
@@ -1074,7 +1064,7 @@ fn perform_assign(
         let correct_dims_result = SignalSlice::check_correct_dims(
             &signal_previous_value, 
             &Vec::new(), 
-            &new_value_slice, 
+            new_value_slice, 
             true
         );
         treat_result_with_memory_error_void(
@@ -1107,7 +1097,7 @@ fn perform_assign(
         let access_response = SignalSlice::insert_values(
             reference_to_signal_content,
             &accessing_information.before_signal,
-            &new_value_slice,
+            new_value_slice,
             true
         );
 
@@ -1124,7 +1114,7 @@ fn perform_assign(
                 tag_state.complete = true;
                 if let Option::Some(node) = actual_node{
                     if !tag_state.value_defined{
-                        node.add_tag_signal(symbol, &tag, value.clone());
+                        node.add_tag_signal(symbol, tag, value.clone());
                     }
                 } else{
                     unreachable!();
@@ -1265,7 +1255,7 @@ fn perform_assign(
                 component,
                 &signal_accessed,
                 &accessing_information.after_signal,
-                &arithmetic_slice.route(),
+                arithmetic_slice.route(),
                 tags,
             );
             treat_result_with_memory_error_void(
@@ -1335,7 +1325,7 @@ fn perform_assign(
                         is_parallel: component.is_parallel,
                         indexed_with: accessing_information.before_signal.clone(),
                     };
-                    let component_symbol = create_component_symbol(symbol, &accessing_information);
+                    let component_symbol = create_component_symbol(symbol, accessing_information);
                     actual_node.add_arrow(component_symbol, data);
                 } else {
                     unreachable!();
@@ -1390,7 +1380,7 @@ fn execute_conditional_statement(
             }
         }
         runtime.block_type = previous_block_type;
-        return Result::Ok((ret_value, can_simplify, Option::None));
+        Result::Ok((ret_value, can_simplify, Option::None))
     }
 }
 
@@ -1508,7 +1498,7 @@ fn execute_variable(
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
-    let memory_response = AExpressionSlice::access_values(&ae_slice, &indexing);
+    let memory_response = AExpressionSlice::access_values(ae_slice, &indexing);
     let ae_slice = treat_result_with_memory_error(
         memory_response,
         meta,
@@ -1715,7 +1705,7 @@ fn execute_component(
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-        let slice = SignalSlice::access_values(signal, &access_after_signal);
+        let slice = SignalSlice::access_values(signal, access_after_signal);
         let slice = treat_result_with_memory_error(
             slice,
             meta,
@@ -1803,7 +1793,7 @@ fn execute_template_call(
     flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
     debug_assert!(runtime.block_type == BlockType::Known);
-    let is_main = std::mem::replace(&mut runtime.public_inputs, vec![]);
+    let is_main = std::mem::take(&mut runtime.public_inputs);
     let is_parallel = program_archive.get_template_data(id).is_parallel();
     let is_custom_gate = program_archive.get_template_data(id).is_custom_gate();
     let args_names = program_archive.get_template_data(id).get_name_of_params();
@@ -1813,7 +1803,7 @@ fn execute_template_call(
     let mut instantiation_name = format!("{}(", id);
     let mut not_empty_name = false;
     for (name, value) in args_names.iter().zip(parameter_values) {
-        instantiation_name.push_str(&format!("{},", value.to_string()));
+        instantiation_name.push_str(&format!("{},", value));
         not_empty_name = true;
         args_to_values.insert(name.clone(), value.clone());
     }
@@ -1824,7 +1814,7 @@ fn execute_template_call(
             }
             else{
                 let value = value.clone().unwrap();
-                instantiation_name.push_str(&format!("{},", value.to_string()));
+                instantiation_name.push_str(&format!("{},", value));
             }
             not_empty_name = true;
         }
@@ -1876,8 +1866,8 @@ fn execute_template_call(
 
         let new_node = node_wrap.unwrap();
         let analysis = std::mem::replace(&mut runtime.analysis, analysis);
-        let node_pointer = runtime.exec_program.add_node_to_scheme(new_node, analysis);
-        node_pointer
+        
+        runtime.exec_program.add_node_to_scheme(new_node, analysis)
     };
     Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(false), ..FoldedValue::default() })
 }
@@ -2055,10 +2045,7 @@ fn cast_index(ae_index: &AExpr) -> Option<SliceCapacity> {
     if !ae_index.is_number() {
         return Option::None;
     }
-    match AExpr::get_usize(ae_index) {
-        Some(index) => { Option::Some(index) },
-        None => {  Option::None },
-    }
+    AExpr::get_usize(ae_index)
 }
 
 /*
@@ -2438,9 +2425,7 @@ fn treat_result_with_execution_warning<C>(
         Result::Err(execution_error) => {
             let report = match execution_error {
                 CanBeQuadraticConstraintSingle() => {
-                    let msg = format!(
-                        "Consider using <== instead of <-- to add the corresponding constraint.\n The constraint representing the assignment satisfies the R1CS format and can be added to the constraint system."
-                    );
+                    let msg = "Consider using <== instead of <-- to add the corresponding constraint.\n The constraint representing the assignment satisfies the R1CS format and can be added to the constraint system.".to_string();
                     Report::warning(
                         msg,
                         ReportCode::RuntimeWarning,
@@ -2484,7 +2469,7 @@ fn add_report_to_runtime(
     for call in call_trace.iter() {
         let msg = format!("{}->{}\n", spacing, call);
         trace.push_str(msg.as_str());
-        spacing.push_str(" ");
+        spacing.push(' ');
     }
     report.add_note(trace);
     runtime_errors.push(report);

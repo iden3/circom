@@ -268,10 +268,10 @@ pub fn generate_data_template_instance_to_io(
     for c in 0..producer.get_number_of_template_instances() {
         match io_map.get(&c) {
             Some(value) => {
-                io_map_data.push_str(&&wasm_hexa(4, &BigInt::from(s)));
+                io_map_data.push_str(&wasm_hexa(4, &BigInt::from(s)));
                 s += value.len() * 4;
             }
-            None => io_map_data.push_str(&&wasm_hexa(4, &BigInt::from(0))),
+            None => io_map_data.push_str(&wasm_hexa(4, &BigInt::from(0))),
         }
     }
     io_map_data
@@ -289,9 +289,9 @@ pub fn generate_data_io_signals_to_info(
                 let mut n = 0;
                 for s in value {
                     assert_eq!(s.code, n);
-                    io_signals.push_str(&&wasm_hexa(4, &BigInt::from(pos)));
+                    io_signals.push_str(&wasm_hexa(4, &BigInt::from(pos)));
                     //do not store code and the first one of lengths
-                    if s.lengths.len() == 0 {
+                    if s.lengths.is_empty() {
                         pos += 4;
                     } else {
                         pos += s.lengths.len() * 4;
@@ -315,12 +315,12 @@ pub fn generate_data_io_signals_info(
             Some(value) => {
                 for s in value {
                     // add the actual offset in memory, taking into account the size of field nums
-                    io_signals_info.push_str(&&wasm_hexa(
+                    io_signals_info.push_str(&wasm_hexa(
                         4,
                         &BigInt::from(s.offset * producer.get_size_32_bits_in_memory() * 4),
                     ));
                     for i in 1..s.lengths.len() {
-                        io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(s.lengths[i])));
+                        io_signals_info.push_str(&wasm_hexa(4, &BigInt::from(s.lengths[i])));
                     }
                 }
             }
@@ -348,10 +348,10 @@ pub fn generate_data_constants(producer: &WASMProducer, constant_list: &Vec<Stri
         let p = producer.get_prime().parse::<BigInt>().unwrap();
         let b = ((p.bits() + 63) / 64) * 64;
         let mut r = BigInt::from(1);
-        r = r << b;
-        n = n % BigInt::clone(&p);
-        n = n + BigInt::clone(&p);
-        n = n % BigInt::clone(&p);
+        r <<= b;
+        n %= BigInt::clone(&p);
+        n += BigInt::clone(&p);
+        n %= BigInt::clone(&p);
         let hp = BigInt::clone(&p) / 2;
         let mut nn;
         if BigInt::clone(&n) > hp {
@@ -511,7 +511,7 @@ pub fn generate_imports_list() -> Vec<WasmInstruction> {
 
 pub fn generate_memory_def_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
     let mut wmemory = vec![];
-    wmemory.push(format!("(memory {})", get_initial_size_of_memory(&producer)));
+    wmemory.push(format!("(memory {})", get_initial_size_of_memory(producer)));
     wmemory
 }
 
@@ -567,7 +567,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
         producer.get_shared_rw_memory_start() - 8,
         "\\00\\00\\00\\00\\00\\00\\00\\80"
     ));
-    let map = generate_hash_map(&producer.get_main_input_list());
+    let map = generate_hash_map(producer.get_main_input_list());
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_input_signals_hashmap_start(),
@@ -583,17 +583,17 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_template_instance_to_io_signal_start(),
-        generate_data_template_instance_to_io(&producer, producer.get_io_map())
+        generate_data_template_instance_to_io(producer, producer.get_io_map())
     ));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_io_signals_to_info_start(),
-        generate_data_io_signals_to_info(&producer, producer.get_io_map())
+        generate_data_io_signals_to_info(producer, producer.get_io_map())
     ));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_io_signals_info_start(),
-        generate_data_io_signals_info(&producer, producer.get_io_map())
+        generate_data_io_signals_info(producer, producer.get_io_map())
     ));
     let ml = producer.get_message_list();
     let m = producer.get_message_list_start();
@@ -632,7 +632,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_constant_numbers_start(),
-        generate_data_constants(&producer, producer.get_field_constant_list())
+        generate_data_constants(producer, producer.get_field_constant_list())
     ));
     wdata
 }
@@ -925,9 +925,9 @@ pub fn check_if_input_signal_set_generator(producer: &WASMProducer) -> Vec<WasmI
 
 pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
-    let mut code_aux = get_input_signal_map_position_generator(&producer);
+    let mut code_aux = get_input_signal_map_position_generator(producer);
     instructions.append(&mut code_aux);
-    code_aux = check_if_input_signal_set_generator(&producer);
+    code_aux = check_if_input_signal_set_generator(producer);
     instructions.append(&mut code_aux);
     let header = "(func $setInputSignal (type $_t_i32i32i32)".to_string();
     instructions.push(header);
@@ -1668,7 +1668,7 @@ mod tests {
     use super::*;
     use std::io::{BufRead, BufReader, BufWriter, Write};
     use std::path::Path;
-    const LOCATION: &'static str = "../target/code_generator_test";
+    const LOCATION: &str = "../target/code_generator_test";
 
     fn create_producer() -> WASMProducer {
         WASMProducer::default()

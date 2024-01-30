@@ -60,7 +60,7 @@ impl Report {
             diagnostics.push(report.to_diagnostic());
         }
         for diagnostic in diagnostics.iter() {
-            let print_result = term::emit(&mut writer.lock(), &config, files, &diagnostic);
+            let print_result = term::emit(&mut writer.lock(), &config, files, diagnostic);
             if print_result.is_err() {
                 panic!("Error printing reports")
             }

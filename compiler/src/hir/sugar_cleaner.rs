@@ -573,7 +573,7 @@ fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                 meta: meta.clone(),
                 var: var.clone(),
                 access: access.clone(),
-                op: op.clone(),
+                op,
                 rhe: *if_true,
             };
             if_assigns.push(sub_if);

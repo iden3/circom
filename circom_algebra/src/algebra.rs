@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 
+#[derive(Default)]
 pub enum ArithmeticExpression<C>
 where
     C: Hash + Eq,
@@ -30,6 +31,7 @@ where
         b: HashMap<C, BigInt>,
         c: HashMap<C, BigInt>,
     },
+    #[default]
     NonQuadratic,
 }
 impl<C: Default + Clone + Display + Hash + Eq> Display for ArithmeticExpression<C> {
@@ -80,11 +82,7 @@ impl<C: Default + Clone + Display + Hash + Eq> PartialEq for ArithmeticExpressio
     }
 }
 
-impl<C: Default + Clone + Display + Hash + Eq> Default for ArithmeticExpression<C> {
-    fn default() -> Self {
-        ArithmeticExpression::NonQuadratic
-    }
-}
+
 
 impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
     pub fn new() -> ArithmeticExpression<C> {
@@ -237,7 +235,7 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
         let inverse_constant = modular_arithmetic::div(
             &BigInt::from(1),
             constant,
-            &field
+            field
         )?;
         ArithmeticExpression::multiply_coefficients_by_constant(&inverse_constant, coefficients, field);
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
@@ -898,7 +896,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
         let symbol = substitution.from;
         let mut coefficients = substitution.to;
         ArithmeticExpression::initialize_hashmap_for_expression(&mut coefficients);
-        coefficients.insert(symbol, BigInt::from(-1 % field));
+        coefficients.insert(symbol, -1 % field);
         let arith = ArithmeticExpression::Linear { coefficients };
         ArithmeticExpression::transform_expression_to_constraint_form(arith, field).unwrap()
     }
@@ -1060,7 +1058,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
     ) -> Substitution<C> {
         debug_assert!(Constraint::is_linear(&constraint));
         debug_assert!(constraint.c.contains_key(signal));
-        let raw_expression = Constraint::clear_signal(constraint.c, &signal, field);
+        let raw_expression = Constraint::clear_signal(constraint.c, signal, field);
         Substitution { from: signal.clone(), to: raw_expression }
     }
 
@@ -1071,7 +1069,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
     ) -> (BigInt, Substitution<C>) {
         debug_assert!(Constraint::is_linear(&constraint));
         debug_assert!(constraint.c.contains_key(signal));
-        let (coefficient, raw_expression) = Constraint::clear_signal_not_normalized(constraint.c, &signal, field);
+        let (coefficient, raw_expression) = Constraint::clear_signal_not_normalized(constraint.c, signal, field);
         (coefficient, Substitution {from: signal.clone(), to: raw_expression})
     }
 
@@ -1110,7 +1108,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         key: &C,
         field: &BigInt,
     ) -> HashMap<C, BigInt> {
-        let key_value = symbols.remove(&key).unwrap();
+        let key_value = symbols.remove(key).unwrap();
         assert!(!key_value.is_zero());
         let value_to_the_right = modular_arithmetic::mul(&key_value, &BigInt::from(-1), field);
         ArithmeticExpression::initialize_hashmap_for_expression(&mut symbols);
@@ -1128,7 +1126,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         key: &C,
         field: &BigInt,
     ) -> (BigInt, HashMap<C, BigInt>) {
-        let key_value = symbols.remove(&key).unwrap();
+        let key_value = symbols.remove(key).unwrap();
         assert!(!key_value.is_zero());
         let value_to_the_right = modular_arithmetic::mul(&key_value, &BigInt::from(-1), field);
         ArithmeticExpression::initialize_hashmap_for_expression(&mut symbols);
@@ -1256,7 +1254,7 @@ where
         let id = if key.eq(&constant_coefficient) {
             ArithmeticExpression::constant_coefficient()
         } else {
-            map.get(&key).expect(&format!("Unknown signal: {}", key)).clone()
+            map.get(key).unwrap_or_else(|| panic!("Unknown signal: {}", key)).clone()
         };
         coefficients_as_correspondence.insert(id, value.clone());
     }

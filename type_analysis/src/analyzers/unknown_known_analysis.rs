@@ -338,12 +338,10 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
                 *environment.get_variable_or_break(name, file!(), line!())
             } else if environment.has_component(name) {
                 *environment.get_component_or_break(name, file!(), line!())
-            } else {
-                if environment.has_intermediate(name) && !all_array_are_accesses(access) {
-                    Known /* In this case, it is a tag. */
-                } else{
-                *environment.get_intermediate_or_break(name, file!(), line!())
-                }
+            } else if environment.has_intermediate(name) && !all_array_are_accesses(access) {
+                Known /* In this case, it is a tag. */
+            } else{
+            *environment.get_intermediate_or_break(name, file!(), line!())
             };
             let mut index = 0;
             loop {
@@ -416,7 +414,7 @@ fn all_array_are_accesses(accesses: &[Access]) -> bool {
         if let Access::ComponentAccess(_) = aux {
             all_array_accesses = false;
         }
-        i = i + 1;
+        i += 1;
     }
     all_array_accesses
 }
@@ -518,7 +516,7 @@ fn unknown_index(exp: &Expression, environment: &Environment) -> bool {
         if index == rec.len() || has_unknown_index {
             break has_unknown_index;
         }
-        has_unknown_index = unknown_index(&rec[index], environment);
+        has_unknown_index = unknown_index(rec[index], environment);
         index += 1;
     }
 }

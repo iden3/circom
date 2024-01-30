@@ -264,8 +264,8 @@ impl WriteWasm for StoreBucket {
                         instructions.push(get_local(producer.get_sub_cmp_tag()));
                         instructions.push(load32(None)); // get template id
                         instructions.push(call_indirect(
-                            &"$runsmap".to_string(),
-                            &"(type $_t_i32ri32)".to_string(),
+                            "$runsmap",
+                            "(type $_t_i32ri32)",
                         ));
                         instructions.push(tee_local(producer.get_merror_tag()));
                         instructions.push(add_if());
@@ -301,7 +301,7 @@ impl WriteC for StoreBucket {
         if let AddressType::SubcmpSignal { cmp_address, .. } = &self.dest_address_type {
             let (mut cmp_prologue, cmp_index) = cmp_address.produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
-	    prologue.push(format!("{{"));
+	    prologue.push("{".to_string());
 	    prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
 	}
         let ((mut dest_prologue, dest_index), my_template_header) =
@@ -314,22 +314,22 @@ impl WriteC for StoreBucket {
 		let mut map_access = format!("{}->{}[{}].defs[{}].offset",
 					     circom_calc_wit(), template_ins_2_io_info(),
 					     template_id_in_component(sub_component_pos_in_memory.clone()),
-					     signal_code.to_string());
-		if indexes.len()>0 {
-		    map_prologue.push(format!("{{"));
-		    map_prologue.push(format!("uint map_index_aux[{}];",indexes.len().to_string()));		    
+					     signal_code);
+		if !indexes.is_empty() {
+		    map_prologue.push("{".to_string());
+		    map_prologue.push(format!("uint map_index_aux[{}];",indexes.len()));		    
 		    let (mut index_code_0, mut map_index) = indexes[0].produce_c(producer, parallel);
 		    map_prologue.append(&mut index_code_0);
 		    map_prologue.push(format!("map_index_aux[0]={};",map_index));
-		    map_index = format!("map_index_aux[0]");
+		    map_index = "map_index_aux[0]".to_string();
 		    for i in 1..indexes.len() {
 			let (mut index_code, index_exp) = indexes[i].produce_c(producer, parallel);
 			map_prologue.append(&mut index_code);
-			map_prologue.push(format!("map_index_aux[{}]={};",i.to_string(),index_exp));
+			map_prologue.push(format!("map_index_aux[{}]={};",i,index_exp));
 			map_index = format!("({})*{}->{}[{}].defs[{}].lengths[{}]+map_index_aux[{}]",
 					    map_index, circom_calc_wit(), template_ins_2_io_info(),
 					    template_id_in_component(sub_component_pos_in_memory.clone()),
-					    signal_code.to_string(),(i-1).to_string(),i.to_string());
+					    signal_code,(i-1),i);
 		    }
 		    map_access = format!("{}+{}",map_access,map_index);
 		}
@@ -358,34 +358,34 @@ impl WriteC for StoreBucket {
 	//keep dest_index in an auxiliar if parallel and out put
 	if let AddressType::Signal = &self.dest_address_type {
 	    if parallel.unwrap() && self.dest_is_output {
-        prologue.push(format!("{{"));
+        prologue.push("{".to_string());
 		prologue.push(format!("uint {} = {};",  aux_dest_index, dest_index.clone()));
 	    }
 	}
         // store src in dest
-	prologue.push(format!("{{"));
+	prologue.push("{".to_string());
 	let aux_dest = "aux_dest".to_string();
 	prologue.push(format!("{} {} = {};", T_P_FR_ELEMENT, aux_dest, dest));
         // Load src
-	prologue.push(format!("// load src"));
+	prologue.push("// load src".to_string());
     let (mut src_prologue, src) = self.src.produce_c(producer, parallel);
     prologue.append(&mut src_prologue);
-	prologue.push(format!("// end load src"));	
+	prologue.push("// end load src".to_string());	
         std::mem::drop(src_prologue);
         if self.context.size > 1 {
             let copy_arguments = vec![aux_dest, src, self.context.size.to_string()];
             prologue.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
 	    if let AddressType::Signal = &self.dest_address_type {
         if parallel.unwrap() && self.dest_is_output {
-		    prologue.push(format!("{{"));
+		    prologue.push("{".to_string());
 		    prologue.push(format!("for (int i = 0; i < {}; i++) {{",self.context.size));
 		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].lock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}+i]=true;",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].cvs[{}+i].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("}}"));
-		    prologue.push(format!("}}"));
-		    prologue.push(format!("}}"));
+		    prologue.push("}".to_string());
+		    prologue.push("}".to_string());
+		    prologue.push("}".to_string());
 		}
 	    }
         } else {
@@ -397,11 +397,11 @@ impl WriteC for StoreBucket {
 		    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}]=true;",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].cvs[{}].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("}}"));
+		    prologue.push("}".to_string());
 		}
 	    }
         }
-	prologue.push(format!("}}"));
+	prologue.push("}".to_string());
         match &self.dest_address_type {
             AddressType::SubcmpSignal{ uniform_parallel_value, input_information, .. } => {
                 // if subcomponent input check if run needed
@@ -438,7 +438,7 @@ impl WriteC for StoreBucket {
                         thread_call_instr.push(format!("{}->componentMemory[{}].sbct[{}] = std::thread({},{});",CIRCOM_CALC_WIT,CTX_INDEX,cmp_index_ref, sub_cmp_call_name, argument_list(sub_cmp_call_arguments)));
                         thread_call_instr.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
                         thread_call_instr.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
-                        thread_call_instr.push(format!("ctx->numThread++;"));
+                        thread_call_instr.push("ctx->numThread++;".to_string());
                     thread_call_instr
 
                 }
@@ -486,7 +486,7 @@ impl WriteC for StoreBucket {
                     call_instructions.push(format!("{}->componentMemory[{}].sbct[{}] = std::thread({},{});",CIRCOM_CALC_WIT,CTX_INDEX,cmp_index_ref, sub_cmp_call_name, argument_list(sub_cmp_call_arguments.clone())));
                     call_instructions.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
                     call_instructions.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
-                    call_instructions.push(format!("ctx->numThread++;"));
+                    call_instructions.push("ctx->numThread++;".to_string());
 
                 if let StatusInput::Unknown = status {
                     let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
@@ -502,7 +502,7 @@ impl WriteC for StoreBucket {
                 }
                 // end of case parallel
 
-                prologue.push(format!("}} else {{"));
+                prologue.push("} else {".to_string());
                 
                 // case not parallel
                 let sub_cmp_call_name = if let LocationRule::Indexed { .. } = &self.dest {
@@ -527,7 +527,7 @@ impl WriteC for StoreBucket {
                     prologue.append(&mut call_instructions);
                 }
                 // end of not parallel case
-                prologue.push(format!("}}"));
+                prologue.push("}".to_string());
             }
         }
         } else {
@@ -537,11 +537,11 @@ impl WriteC for StoreBucket {
             _ => (),
         }
 	if let AddressType::SubcmpSignal { .. } = &self.dest_address_type {
-	    prologue.push(format!("}}"));
+	    prologue.push("}".to_string());
 	}
 	if let LocationRule::Mapped { indexes, .. } = &self.dest {
-	    if indexes.len() > 0 {
-    		prologue.push(format!("}}"));
+	    if !indexes.is_empty() {
+    		prologue.push("}".to_string());
 	    }
 	}
 

@@ -483,7 +483,7 @@ impl MemoryKnowledge {
                 )
             }
             MissingSemicolon => {
-                let mut report = Report::error(format!("Missing semicolon"), 
+                let mut report = Report::error("Missing semicolon".to_string(), 
                     ReportCode::MissingSemicolon);
                 report.add_primary(location, file_id, "A semicolon is needed here".to_string());
                 report
@@ -565,20 +565,20 @@ pub fn produce_report_with_message(error_code : ReportCode, msg : String) -> Rep
 }
 
 pub fn produce_compiler_version_report(path : String, required_version : Version, version :  Version) -> Report {
-    let report = Report::error(
+    
+    Report::error(
         format!("File {} requires pragma version {:?} that is not supported by the compiler (version {:?})", path, required_version, version ),
         ReportCode::CompilerVersionError,
-    );
-    report
+    )
 }
 
 pub fn anonymous_inside_condition_error(meta : Meta) -> Report {
     let msg = "An anonymous component cannot be used inside a condition ".to_string();
                 let mut report = Report::error(
-                    format!("{}", msg),
+                    msg.to_string(),
                     ReportCode::AnonymousCompError,
                 );
-                let file_id = meta.get_file_id().clone();
+                let file_id = meta.get_file_id();
                 report.add_primary(
                     meta.location,
                     file_id,
@@ -589,10 +589,10 @@ pub fn anonymous_inside_condition_error(meta : Meta) -> Report {
 
 pub fn anonymous_general_error(meta : Meta, msg : String) -> Report {
     let mut report = Report::error(
-                    format!("{}", msg),
+                    msg.to_string(),
                     ReportCode::AnonymousCompError,
                 );
-                let file_id = meta.get_file_id().clone();
+                let file_id = meta.get_file_id();
                 report.add_primary(
                     meta.location,
                     file_id,
@@ -603,10 +603,10 @@ pub fn anonymous_general_error(meta : Meta, msg : String) -> Report {
 
 pub fn tuple_general_error(meta : Meta, msg : String) -> Report {
     let mut report = Report::error(
-                    format!("{}", msg),
+                    msg.to_string(),
                     ReportCode::TupleError,
                 );
-                let file_id = meta.get_file_id().clone();
+                let file_id = meta.get_file_id();
                 report.add_primary(
                     meta.location,
                     file_id,

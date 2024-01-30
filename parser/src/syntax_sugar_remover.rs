@@ -62,13 +62,11 @@ fn check_anonymous_components_statement(
                     meta.clone(),
                     "An anonymous component cannot be used in the left side of an assignment".to_string())
                 )
+            } else if rhe.contains_anonymous_comp() && *op == AssignOp::AssignSignal{
+                let error = "Anonymous components only admit the use of the operator <==".to_string();
+                Result::Err(anonymous_general_error(meta.clone(),error))
             } else{
-                if rhe.contains_anonymous_comp() && *op == AssignOp::AssignSignal{
-                    let error = format!("Anonymous components only admit the use of the operator <==");
-                    Result::Err(anonymous_general_error(meta.clone(),error))
-                } else{
-                    check_anonymous_components_expression(rhe)
-                }
+                check_anonymous_components_expression(rhe)
             }
         },
         Statement::IfThenElse { meta, cond, if_case, else_case, .. } 
@@ -159,7 +157,7 @@ fn check_anonymous_components_statement(
             }
 
             if rhe.contains_anonymous_comp() && *op == AssignOp::AssignSignal{
-                let error = format!("Anonymous components only admit the use of the operator <==");
+                let error = "Anonymous components only admit the use of the operator <==".to_string();
                 Result::Err(anonymous_general_error(meta.clone(),error))
             } else{
                 check_anonymous_components_expression(rhe)
@@ -283,12 +281,12 @@ fn remove_anonymous_from_statement(
         Statement::MultSubstitution { meta, lhe, op, rhe } => {
 
             let (comp_declarations, mut substitutions, new_rhe) = remove_anonymous_from_expression(templates, file_lib, rhe, var_access)?;
-            let subs = Statement::MultSubstitution { meta: meta.clone(), lhe: lhe, op: op, rhe: new_rhe };
+            let subs = Statement::MultSubstitution { meta: meta.clone(), lhe, op, rhe: new_rhe };
             if substitutions.is_empty(){
                 Result::Ok((subs, comp_declarations, Vec::new(), Vec::new()))
             }else{
                 substitutions.push(subs);
-                Result::Ok((Statement::Block { meta : meta, stmts : substitutions}, comp_declarations, Vec::new(), Vec::new()))   
+                Result::Ok((Statement::Block { meta, stmts : substitutions}, comp_declarations, Vec::new(), Vec::new()))   
             }
         },
         Statement::IfThenElse { meta, cond, if_case, else_case } 
@@ -297,7 +295,7 @@ fn remove_anonymous_from_statement(
             let (if_body, mut if_comp_dec, mut if_var_dec, mut if_subs) = remove_anonymous_from_statement(templates, file_lib, *if_case, var_access)?;
             let b_if = Box::new(if_body);
             if else_case.is_none(){
-                Result::Ok((Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::None}, if_comp_dec, if_var_dec, if_subs))
+                Result::Ok((Statement::IfThenElse { meta, cond, if_case: b_if, else_case: Option::None}, if_comp_dec, if_var_dec, if_subs))
             }else {
                 let else_c = *(else_case.unwrap());
                 let (else_body, mut else_comp_dec, mut else_var_dec, mut else_subs) = remove_anonymous_from_statement(templates, file_lib, else_c, var_access)?;
@@ -305,7 +303,7 @@ fn remove_anonymous_from_statement(
                 if_comp_dec.append(&mut else_comp_dec);
                 if_var_dec.append(&mut else_var_dec);
                 if_subs.append(&mut else_subs);
-                Result::Ok((Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::Some(b_else)}, if_comp_dec, if_var_dec, if_subs))
+                Result::Ok((Statement::IfThenElse { meta, cond, if_case: b_if, else_case: Option::Some(b_else)}, if_comp_dec, if_var_dec, if_subs))
             }
         }
         Statement::While { meta, cond, stmt }   => {
@@ -356,7 +354,7 @@ fn remove_anonymous_from_statement(
             } else{
                 Box::new(body)
             };
-            Result::Ok((Statement::While { meta: meta, cond: cond, stmt: b_while}, comp_dec, var_declarations, subs_out))
+            Result::Ok((Statement::While { meta, cond, stmt: b_while}, comp_dec, var_declarations, subs_out))
         },     
 
         Statement::InitializationBlock { meta, xtype, initializations } =>
@@ -373,7 +371,7 @@ fn remove_anonymous_from_statement(
                 var_inits.append(&mut vars);
                 subs.append(&mut sub);
             }
-            Result::Ok((Statement::InitializationBlock { meta: meta, xtype: xtype, initializations: new_inits }, comp_inits, var_inits, subs))
+            Result::Ok((Statement::InitializationBlock { meta, xtype, initializations: new_inits }, comp_inits, var_inits, subs))
         }
         Statement::Block { meta, stmts } => { 
             let mut new_stmts = Vec::new();
@@ -391,7 +389,7 @@ fn remove_anonymous_from_statement(
         }
         Statement::Substitution {  meta, var, op, rhe, access} => {
             let (comp_declarations, mut stmts, new_rhe) = remove_anonymous_from_expression(templates, file_lib, rhe, var_access)?;
-            let subs = Statement::Substitution { meta: meta.clone(), var: var, access: access, op: op, rhe: new_rhe };
+            let subs = Statement::Substitution { meta: meta.clone(), var, access, op, rhe: new_rhe };
             if stmts.is_empty(){
                 Result::Ok((subs, comp_declarations, Vec::new(), Vec::new()))
             }else{
@@ -476,7 +474,7 @@ pub fn remove_anonymous_from_expression(
                 let mut n_expr = 0;
                 for (operator, name) in m{
                     if operator != AssignOp::AssignConstraintSignal{
-                        let error = format!("Anonymous components only admit the use of the operator <==");
+                        let error = "Anonymous components only admit the use of the operator <==".to_string();
                         return Result::Err(anonymous_general_error(meta.clone(),error));
                     }
                     if inputs.contains_key(&name){
@@ -528,7 +526,7 @@ pub fn remove_anonymous_from_expression(
             // generate the expression for the outputs -> return as expression (if single out) or tuple
             let outputs = template.unwrap().get_declaration_outputs();
             if outputs.len() == 1 {
-                let output = outputs.get(0).unwrap().0.clone();
+                let output = outputs.first().unwrap().0.clone();
                 let mut acc = if var_access.is_none(){
                     Vec::new()
                 } else{
@@ -620,7 +618,7 @@ fn check_tuples_statement(stm: &Statement)-> Result<(), Report>{
                 match arg {
                     LogArgument::LogStr(_) => {},
                     LogArgument::LogExp(exp) => {
-                        check_tuples_expression(&exp)?;
+                        check_tuples_expression(exp)?;
                     },
                 }
             }
@@ -785,21 +783,21 @@ fn remove_tuples_from_statement(stm: Statement) -> Result<Statement, Report> {
                     Expression::Tuple { values: mut values2, .. }) => {
                     if values1.len() == values2.len() {
                         let mut substs = Vec::new();
-                        while  values1.len() > 0 {
+                        while  !values1.is_empty() {
                             let lhe = values1.remove(0);
                             if let Expression::Variable { meta, name, access } = lhe {  
                                 let rhe = values2.remove(0);
                                 if name != "_" {                                
                                     substs.push(build_substitution(meta, name, access, op, rhe));
                                 } else{
-                                    substs.push(Statement::UnderscoreSubstitution { meta: meta, op, rhe: rhe });
+                                    substs.push(Statement::UnderscoreSubstitution { meta, op, rhe });
                                 }
                             } else{   
                                 return Result::Err(tuple_general_error(meta.clone(),"The elements of the receiving tuple must be signals or variables.".to_string()));
                             }
                         }
-                        return Result::Ok(build_block(meta.clone(),substs));
-                    } else if values1.len() > 0 {
+                        Result::Ok(build_block(meta.clone(),substs))
+                    } else if !values1.is_empty() {
                         return Result::Err(tuple_general_error(meta.clone(),"The number of elements in both tuples does not coincide".to_string()));           
                     } else {
                         return Result::Err(tuple_general_error(meta.clone(),"This expression must be in the right side of an assignment".to_string()));           
@@ -819,19 +817,19 @@ fn remove_tuples_from_statement(stm: Statement) -> Result<Statement, Report> {
             let if_ok = remove_tuples_from_statement(*if_case)?;
             let b_if = Box::new(if_ok);
             if else_case.is_none(){
-                Result::Ok(Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::None})
+                Result::Ok(Statement::IfThenElse { meta, cond, if_case: b_if, else_case: Option::None})
             }else {
                 let else_c = *(else_case.unwrap());
                 let else_ok = remove_tuples_from_statement(else_c)?;
                 let b_else = Box::new(else_ok);
-                Result::Ok(Statement::IfThenElse { meta : meta, cond : cond, if_case: b_if, else_case: Option::Some(b_else)})
+                Result::Ok(Statement::IfThenElse { meta, cond, if_case: b_if, else_case: Option::Some(b_else)})
             }
         }
 
         Statement::While { meta, cond, stmt }   => {
             let while_ok = remove_tuples_from_statement(*stmt)?;
             let b_while = Box::new(while_ok);
-            Result::Ok(Statement::While { meta : meta, cond : cond, stmt : b_while})
+            Result::Ok(Statement::While { meta, cond, stmt : b_while})
         }     
         Statement::LogCall {meta, args } => {
             let mut newargs = Vec::new();
@@ -855,7 +853,7 @@ fn remove_tuples_from_statement(stm: Statement) -> Result<Statement, Report> {
                 let stmt_ok = remove_tuples_from_statement(stmt)?;
                 new_inits.push(stmt_ok);
             }
-            Result::Ok(Statement::InitializationBlock { meta: meta, xtype: xtype, initializations: new_inits })
+            Result::Ok(Statement::InitializationBlock { meta, xtype, initializations: new_inits })
         }
         Statement::Block { meta, stmts } => { 
             let mut new_stmts = Vec::new();
@@ -863,7 +861,7 @@ fn remove_tuples_from_statement(stm: Statement) -> Result<Statement, Report> {
                 let stmt_ok = remove_tuples_from_statement(stmt)?;
                 new_stmts.push(stmt_ok);
             }
-            Result::Ok(Statement::Block { meta : meta, stmts: new_stmts})
+            Result::Ok(Statement::Block { meta, stmts: new_stmts})
         }
         Statement::Substitution {  meta, var, op, rhe, access} => {
             let new_rhe = remove_tuple_from_expression(rhe);
@@ -871,10 +869,10 @@ fn remove_tuples_from_statement(stm: Statement) -> Result<Statement, Report> {
                 return Result::Err(tuple_general_error(meta.clone(),"Left-side of the statement is not a tuple".to_string()));       
             }
             if var != "_" {   
-                Result::Ok(Statement::Substitution { meta: meta.clone(), var: var, access: access, op: op, rhe: new_rhe })
+                Result::Ok(Statement::Substitution { meta: meta.clone(), var, access, op, rhe: new_rhe })
             }
             else {
-                Result::Ok(Statement::UnderscoreSubstitution { meta: meta, op, rhe: new_rhe })
+                Result::Ok(Statement::UnderscoreSubstitution { meta, op, rhe: new_rhe })
             }
         }
         Statement::UnderscoreSubstitution { .. } => unreachable!(),

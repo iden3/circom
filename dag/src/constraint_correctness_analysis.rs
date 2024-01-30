@@ -16,8 +16,8 @@ impl UnconstrainedSignal {
         
         if examples.len() == 1{
             let msg = format!("In template \"{}\": Local signal {} does not appear in any constraint", template, examples[0]);
-            let report = Report::warning(msg, UNCONSTRAINED_SIGNAL_CODE);
-            report
+            
+            Report::warning(msg, UNCONSTRAINED_SIGNAL_CODE)
         } else{
             let msg = format!("In template \"{}\": Array of local signals {} contains a total of {} signals that do not appear in any constraint", template, signal, examples.len());
             let mut report = Report::warning(msg, UNCONSTRAINED_SIGNAL_CODE);
@@ -34,8 +34,8 @@ impl UnconstrainedIOSignal {
         
         if examples.len() == 1{
             let msg = format!("In template \"{}\": Subcomponent input/output signal {} does not appear in any constraint of the father component", template, examples[0]);
-            let report = Report::warning(msg, UNCONSTRAINED_IOSIGNAL_CODE);
-            report
+            
+            Report::warning(msg, UNCONSTRAINED_IOSIGNAL_CODE)
         } else{
             let msg = format!("In template \"{}\": Array of subcomponent input/output signals {} contains a total of {} signals that do not appear in any constraint of the father component", template, signal, examples.len());
             let mut report = Report::warning(msg, UNCONSTRAINED_IOSIGNAL_CODE);
@@ -58,7 +58,7 @@ struct Analysis {
 }
 
 fn split_signal_name_index(name: &String)-> String{
-    let split_components:Vec<&str> = name.split(".").collect(); // split the name of components
+    let split_components:Vec<&str> = name.split('.').collect(); // split the name of components
     let mut signal_name = "".to_string();
     for i in 0..split_components.len()-1{
         signal_name = signal_name + split_components[i] + "."; // take the index of the components
@@ -66,7 +66,7 @@ fn split_signal_name_index(name: &String)-> String{
     // no take the index of the array position
     let aux_last_component = split_components[split_components.len()-1].to_string();
     let split_index_last_component = 
-        aux_last_component.split("[").next().unwrap(); 
+        aux_last_component.split('[').next().unwrap(); 
     signal_name + split_index_last_component
 }
 
@@ -118,7 +118,7 @@ fn visit_node(node: &Node) -> Analysis {
     }
 
     for signal in &node.underscored_signals{
-        let prev = constraint_counter.remove(&signal).unwrap();
+        let prev = constraint_counter.remove(signal).unwrap();
         constraint_counter.insert(*signal, prev + 1);
     }
 

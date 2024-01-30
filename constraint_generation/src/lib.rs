@@ -79,7 +79,7 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
 
 type InstantiationResponse = Result<(ExecutedProgram, ReportCollection), ReportCollection>;
 fn instantiation(program: &ProgramArchive, flags: FlagsExecution, prime: &String) -> InstantiationResponse {
-    let execution_result = execute::constraint_execution(&program, flags, prime);
+    let execution_result = execute::constraint_execution(program, flags, prime);
     match execution_result {
         Ok((program_exe, warnings)) => {
             let no_nodes = program_exe.number_of_nodes();
@@ -93,8 +93,8 @@ fn instantiation(program: &ProgramArchive, flags: FlagsExecution, prime: &String
 }
 
 fn export(exe: ExecutedProgram, program: ProgramArchive, flags: FlagsExecution) -> ExportResult {
-    let exported = exe.export(program, flags);
-    exported
+    
+    exe.export(program, flags)
 }
 
 fn sync_dag_and_vcp(vcp: &mut VCP, dag: &mut DAG) {

@@ -62,10 +62,8 @@ fn build_template_instances(
             match component_to_parallel.get_mut(&trigger.component_name){
                 Some(parallel_info) => {
                     parallel_info.positions_to_parallel.insert(trigger.indexed_with.clone(), trigger.is_parallel);
-                    if parallel_info.uniform_parallel_value.is_some(){
-                        if parallel_info.uniform_parallel_value.unwrap() != trigger.is_parallel{
-                            parallel_info.uniform_parallel_value = None;
-                        }
+                    if parallel_info.uniform_parallel_value.is_some() && parallel_info.uniform_parallel_value.unwrap() != trigger.is_parallel {
+                        parallel_info.uniform_parallel_value = None;
                     }
                 },
                 None => {
@@ -96,7 +94,7 @@ fn build_template_instances(
             fresh_cmp_id: cmp_id,
             components: template.components,
             template_database: &c_info.template_database,
-            string_table : string_table,
+            string_table,
             signals_to_tags: template.signals_to_tags,
         };
         let mut template_info = TemplateCodeInfo {
@@ -160,7 +158,7 @@ fn build_function_instances(
             cmp_to_type: HashMap::with_capacity(0),
             component_to_parallel: HashMap::with_capacity(0),
             template_database: &c_info.template_database,
-            string_table : string_table,
+            string_table,
             signals_to_tags: BTreeMap::new(),
         };
         let mut function_info = FunctionCodeInfo {
@@ -345,7 +343,7 @@ fn write_main_inputs_log(vcp: &VCP) {
 
 fn get_number_version(version: &str) -> (usize, usize, usize) {
     use std::str::FromStr;
-    let version_splitted: Vec<&str> = version.split(".").collect();
+    let version_splitted: Vec<&str> = version.split('.').collect();
     (
         usize::from_str(version_splitted[0]).unwrap(),
         usize::from_str(version_splitted[1]).unwrap(),

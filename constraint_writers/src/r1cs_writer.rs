@@ -30,14 +30,14 @@ fn bigint_as_bytes(number: &BigInt, with_bytes: usize) -> (Vec<u8>, usize) {
 fn initialize_section(writer: &mut BufWriter<File>, header: &[u8]) -> Result<u64, ()> {
     writer.write_all(header).map_err(|_err| {})?;
     //writer.flush().map_err(|_err| {})?;
-    let go_back = writer.seek(SeekFrom::Current(0)).map_err(|_err| {})?;
+    let go_back = writer.stream_position().map_err(|_err| {})?;
     writer.write_all(PLACE_HOLDER).map_err(|_| {})?;
     //writer.flush().map_err(|_err| {})?;
     Result::Ok(go_back)
 }
 
 fn end_section(writer: &mut BufWriter<File>, go_back: u64, size: usize) -> Result<(), ()> {
-    let go_back_1 = writer.seek(SeekFrom::Current(0)).map_err(|_err| {})?;
+    let go_back_1 = writer.stream_position().map_err(|_err| {})?;
     writer.seek(SeekFrom::Start(go_back)).map_err(|_err| {})?;
     let (stream, _) = bigint_as_bytes(&BigInt::from(size), 8);
     writer.write_all(&stream).map_err(|_err| {})?;
@@ -161,7 +161,7 @@ impl R1CSWriter {
         let sections = [false; SECTIONS as usize];
         let num_sections: u8 = if custom_gates { 5 } else { 3 };
         let mut writer =
-            File::create(&output_file).map_err(|_err| {}).map(|f| BufWriter::new(f))?;
+            File::create(output_file).map_err(|_err| {}).map(BufWriter::new)?;
         initialize_file(&mut writer, num_sections)?;
         Result::Ok(R1CSWriter { writer, sections, field_size })
     }
