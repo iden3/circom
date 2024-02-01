@@ -134,7 +134,6 @@ fn look_for_return_in_statement(
             function_name,
             environment,
             explored_functions,
-            function_data,
             function_info,
             value,
         ),
@@ -173,7 +172,7 @@ fn look_for_return_in_block(
     explored_functions: &mut NodeRegister,
     function_data: &FunctionData,
     function_info: &HashMap<String, FunctionData>,
-    stmts: &Vec<Statement>,
+    stmts: &[Statement],
 ) -> Option<Type> {
     environment.push(Block::new());
     for stmt in stmts.iter() {
@@ -198,7 +197,6 @@ fn look_for_type_in_expression(
     function_name: &str,
     environment: &mut Environment,
     explored_functions: &mut NodeRegister,
-    function_data: &FunctionData,
     function_info: &HashMap<String, FunctionData>,
     expression: &Expression,
 ) -> Option<Type> {
@@ -208,7 +206,6 @@ fn look_for_type_in_expression(
                 function_name,
                 environment,
                 explored_functions,
-                function_data,
                 function_info,
                 lhe,
             );
@@ -220,7 +217,6 @@ fn look_for_type_in_expression(
                 function_name,
                 environment,
                 explored_functions,
-                function_data,
                 function_info,
                 rhe,
             )
@@ -229,7 +225,6 @@ fn look_for_type_in_expression(
             function_name,
             environment,
             explored_functions,
-            function_data,
             function_info,
             rhe,
         ),
@@ -237,7 +232,6 @@ fn look_for_type_in_expression(
             function_name,
             environment,
             explored_functions,
-            function_data,
             function_info,
             rhe,
         ),
@@ -246,7 +240,6 @@ fn look_for_type_in_expression(
                 function_name,
                 environment,
                 explored_functions,
-                function_data,
                 function_info,
                 if_true,
             );
@@ -258,7 +251,6 @@ fn look_for_type_in_expression(
                 function_name,
                 environment,
                 explored_functions,
-                function_data,
                 function_info,
                 if_false,
             )
@@ -276,7 +268,6 @@ fn look_for_type_in_expression(
             function_name,
             environment,
             explored_functions,
-            function_data,
             function_info,
             &values[0],
         )
@@ -286,17 +277,10 @@ fn look_for_type_in_expression(
                 function_name,
                 environment,
                 explored_functions,
-                function_data,
                 function_info,
                 value,
             );
-            if value_type.is_some(){
-                Option::Some(value_type.unwrap() + 1)
-            }
-            else{
-                None
-            }
-            
+            value_type.map(|x| x + 1)
         }
         Expression::Call { id, args, .. } => {
             if explored_functions.contains(id) {
@@ -308,7 +292,6 @@ fn look_for_type_in_expression(
                     function_name,
                     environment,
                     explored_functions,
-                    function_data,
                     function_info,
                     arg,
                 )?;

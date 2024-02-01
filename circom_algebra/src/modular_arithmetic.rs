@@ -243,7 +243,7 @@ mod tests {
         if let Result::Ok(res) = mod_op(&a, &b, &field) {
             assert_eq!(a, res)
         } else {
-            assert!(false);
+            unreachable!();
         }
     }
     #[test]

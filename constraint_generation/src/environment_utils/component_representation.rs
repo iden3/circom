@@ -325,14 +325,11 @@ impl ComponentRepresentation {
             true
         )?;
         let dim = SignalSlice::get_number_of_cells(new_value_slice);
-        match component.unassigned_inputs.get_mut(signal_name){
-            Some(left) => {
-                *left -= dim;
-                if *left == 0 {
-                    component.unassigned_inputs.remove(signal_name);
-                }
+        if let Some(left) = component.unassigned_inputs.get_mut(signal_name) {
+            *left -= dim;
+            if *left == 0 {
+                component.unassigned_inputs.remove(signal_name);
             }
-            None => {}
         }
 
         Result::Ok(())

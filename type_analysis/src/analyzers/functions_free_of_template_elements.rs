@@ -132,7 +132,7 @@ fn analyse_statement(
 }
 
 fn analyse_access(
-    access: &Vec<Access>,
+    access: &[Access],
     meta: &Meta,
     function_names: &HashSet<String>,
     reports: &mut ReportCollection,

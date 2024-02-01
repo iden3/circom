@@ -1,5 +1,5 @@
 use crate::intermediate_representation::ir_interface::*;
-use std::collections::{HashSet};
+use std::collections::HashSet;
 
 type ComponentsSet = HashSet<String>;
 
@@ -256,15 +256,10 @@ pub fn visit_address_type(
                 found_unknown_address
             }
             else if let Value {..} = **cmp_address{
-                if found_unknown_address{
+                if found_unknown_address || inside_loop {
                     *input_information = Input{status: Unknown};
                     //println!("Poniendo un unknown en {}", cmp_address.to_string());
-                }
-                else if inside_loop {
-                    *input_information = Input{status: Unknown};
-                    //println!("Poniendo un unknown en {}", cmp_address.to_string());
-                }
-                else{
+                } else {
                     *input_information = Input{status: Last};
                     //println!("Poniendo un last en {}", cmp_address.to_string());
                 }

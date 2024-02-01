@@ -449,9 +449,8 @@ fn execute_statement(
         }
         LogCall { args, .. } => {
             can_be_simplified = false;
-            if flags.verbose{
-                let mut index = 0;
-                for arglog in args {
+            if flags.verbose {
+                for (index, arglog) in args.iter().enumerate() {
                     if let LogArgument::LogExp(arg) = arglog{
                         let f_result = execute_expression(arg, program_archive, runtime, flags)?;
                         let arith = safe_unwrap_to_single_arithmetic_expression(f_result, line!());
@@ -468,7 +467,6 @@ fn execute_statement(
                     if index != args.len()-1{
                         print!(" ");
                     }
-                    index += 1;
                 }
                 println!();
             } else{
@@ -682,8 +680,8 @@ fn execute_expression(
 //************************************************* Statement execution support *************************************************
 
 fn execute_call(
-    id: &String,
-    args: &Vec<Expression>,
+    id: &str,
+    args: &[Expression],
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     flags: FlagsExecution,
@@ -702,7 +700,7 @@ fn execute_call(
         let new_file_id = program_archive.get_function_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
 
-        runtime.call_trace.push(id.clone());
+        runtime.call_trace.push(id.to_owned());
         let folded_result = execute_function_call(id, program_archive, runtime, flags)?;
 
         runtime.environment = previous_environment;
@@ -718,7 +716,7 @@ fn execute_call(
 }
 
 fn execute_template_call_complete(
-    id: &String,
+    id: &str,
     arg_values: Vec<AExpressionSlice>,
     tags: BTreeMap<String, TagInfo>,
     program_archive: &ProgramArchive,
@@ -734,7 +732,7 @@ fn execute_template_call_complete(
         let new_file_id = program_archive.get_template_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
 
-        runtime.call_trace.push(id.clone());
+        runtime.call_trace.push(id.to_owned());
         let folded_result = execute_template_call(id, arg_values, tags, program_archive, runtime, flags)?;
 
         runtime.environment = previous_environment;
@@ -765,12 +763,12 @@ fn execute_component_declaration(
 fn execute_anonymous_component_declaration(
     component_name: &str,
     meta: Meta,
-    dimensions: &Vec<Expression>,
+    dimensions: &[Expression],
     environment: &mut ExecutionEnvironment,
     anonymous_components: &mut AnonymousComponentsInfo,
 ) {
     environment_shortcut_add_component(environment, component_name, &Vec::new());
-    anonymous_components.insert(component_name.to_string(), (meta, dimensions.clone()));
+    anonymous_components.insert(component_name.to_string(), (meta, dimensions.to_owned()));
 }
 
 fn execute_signal_declaration(
@@ -819,6 +817,7 @@ struct Constrained {
     left: String,
     right: AExpressionSlice,
 }
+#[allow(clippy::too_many_arguments)]
 fn perform_assign(
     meta: &Meta,
     symbol: &str,
@@ -1220,7 +1219,7 @@ fn perform_assign(
                 let init_result = ComponentRepresentation::initialize_component(
                     component,
                     node_pointer,
-                    &mut runtime.exec_program,
+                    &runtime.exec_program,
                 );
                 treat_result_with_memory_error(
                     init_result,
@@ -1310,7 +1309,7 @@ fn perform_assign(
                 let init_result = ComponentRepresentation::initialize_component(
                     component,
                     node_pointer,
-                    &mut runtime.exec_program,
+                    &runtime.exec_program,
                 );
                 treat_result_with_memory_error_void(
                     init_result,
@@ -1807,14 +1806,12 @@ fn execute_template_call(
         not_empty_name = true;
         args_to_values.insert(name.clone(), value.clone());
     }
-    for (_input, input_tags) in &tag_values{
-        for (_tag, value) in input_tags {
-            if value.is_none(){
+    for input_tags in tag_values.values() {
+        for value in input_tags.values() {
+            if let Some(v) = value {
+                instantiation_name.push_str(&format!("{},", v));
+            } else {
                 instantiation_name.push_str("null,");
-            }
-            else{
-                let value = value.clone().unwrap();
-                instantiation_name.push_str(&format!("{},", value));
             }
             not_empty_name = true;
         }
@@ -1852,16 +1849,13 @@ fn execute_template_call(
         debug_assert!(ret.is_none());
 
         let result_check_components = environment_check_all_components_assigned(&runtime.environment);
-        match result_check_components{
-            Err((error, meta)) =>{
-                treat_result_with_memory_error_void(
-                    Err(error),
-                    &meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-            },
-            Ok(_) => {},
+        if let Err(err) = result_check_components {
+            treat_result_with_memory_error_void(
+                Err(err.0),
+                &err.1,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
         }
 
         let new_node = node_wrap.unwrap();
@@ -1894,14 +1888,12 @@ fn preexecute_template_call(
         outputs_to_tags.insert(name.clone(), info_output.1.clone());
     }
 
-    let node_wrap = Option::Some(PreExecutedTemplate::new(
+    let new_node = PreExecutedTemplate::new(
         id.to_string(),
         parameter_values.to_vec(),
         inputs_to_tags,
         outputs_to_tags,
-    ));
-
-    let new_node = node_wrap.unwrap();
+    );
     let node_pointer = runtime.exec_program.add_prenode_to_scheme(new_node);
     Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(false), ..FoldedValue::default() })
 }
@@ -2433,10 +2425,9 @@ fn treat_result_with_execution_warning<C>(
                 },  
                 CanBeQuadraticConstraintMultiple(positions) =>{
                     let mut msg_positions = positions[0].clone();
-                    for i in 1..positions.len(){
-                        msg_positions = format!("{}, {}", msg_positions, positions[i].clone()) 
-                    };
-
+                    for item in positions.iter().skip(1) {
+                        msg_positions = format!("{}, {}", msg_positions, item) 
+                    }
                     let msg = format!(
                         "Consider using <== instead of <-- for some of positions of the array of signals being assigned.\n The constraints representing the assignment of the positions {} satisfy the R1CS format and can be added to the constraint system.",
                         msg_positions
@@ -2446,8 +2437,6 @@ fn treat_result_with_execution_warning<C>(
                         ReportCode::RuntimeWarning,
                     )
                 }
-
-
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Ok(())

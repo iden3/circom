@@ -42,6 +42,7 @@ pub struct FlagsExecution{
 
 pub type ConstraintWriter = Box<dyn ConstraintExporter>;
 type BuildResponse = Result<(ConstraintWriter, VCP), ()>;
+#[allow(clippy::result_unit_err)]
 pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildResponse {
     let files = program.file_library.clone();
     let flags = FlagsExecution{

@@ -1218,6 +1218,7 @@ impl Constraint<usize> {
         let c = apply_raw_offset(&self.c, offset);
         Constraint::new(a, b, c)
     }
+    #[allow(clippy::ptr_arg)]
     pub fn apply_witness(&self, witness: &Vec<usize>) -> Constraint<usize> {
         let a = apply_vectored_correspondence(&self.a, witness);
         let b = apply_vectored_correspondence(&self.b, witness);
@@ -1231,7 +1232,7 @@ type RawExpr<C> = HashMap<C, BigInt>;
 
 fn apply_vectored_correspondence(
     symbols: &HashMap<usize, BigInt>,
-    map: &Vec<usize>,
+    map: &[usize],
 ) -> HashMap<usize, BigInt> {
     let mut mapped = HashMap::new();
     for (s, v) in symbols {

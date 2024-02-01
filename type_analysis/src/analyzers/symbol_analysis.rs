@@ -14,7 +14,7 @@ pub fn check_naming_correctness(program_archive: &ProgramArchive) -> Result<(), 
     let function_info = program_archive.get_functions();
     let mut reports = ReportCollection::new();
     let mut instances = Vec::new();
-    for (_, data) in template_info {
+    for data in template_info.values() {
         let instance = (
             data.get_file_id(),
             data.get_param_location(),
@@ -23,7 +23,7 @@ pub fn check_naming_correctness(program_archive: &ProgramArchive) -> Result<(), 
         );
         instances.push(instance);
     }
-    for (_, data) in function_info {
+    for data in function_info.values() {
         let instance = (
             data.get_file_id(),
             data.get_param_location(),
@@ -269,10 +269,11 @@ fn analyze_statement(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn treat_variable(
     meta: &Meta,
     name: &String,
-    access: &Vec<Access>,
+    access: &[Access],
     file_id: FileID,
     function_info: &FunctionInfo,
     template_info: &TemplateInfo,

@@ -62,18 +62,18 @@ struct SignalsInformation {
 }
 
 impl SignalsInformation {
-
+    #[allow(clippy::ptr_arg)]
     pub fn new(constraints: &Vec<C>, signals: &SignalDefinition4, num_signals: usize) -> (SignalsInformation, BTreeMap<usize, usize>) {
         let mut signal_to_ocurrences: HashMap<usize, usize> = HashMap::with_capacity(num_signals);
         let mut signal_to_rep: HashMap<usize, usize> = HashMap::with_capacity(num_signals);
         let mut uniques: BTreeMap<usize, usize> = BTreeMap::new();
-        for pos in 0..constraints.len(){
-            for k in constraints[pos].c().keys() {
+        for (pos, item) in constraints.iter().enumerate() {
+            for k in item.c().keys() {
                 if signals.can_be_taken(*k) {
-                    match signal_to_ocurrences.get_mut(k){
-                        Some(prev_ocu) =>{
+                    match signal_to_ocurrences.get_mut(k) {
+                        Some(prev_ocu) => {
                             *prev_ocu += 1;
-                        },
+                        }
                         None => {
                             signal_to_ocurrences.insert(*k, 1);
                             signal_to_rep.insert(*k, pos);
@@ -91,18 +91,14 @@ impl SignalsInformation {
         (SignalsInformation{signal_to_ocurrences}, uniques)
     }
 
-    pub fn remove_constraint(&mut self, constraint: &C, signals: &SignalDefinition4){
-        for signal in constraint.c().keys(){
-            if signals.can_be_taken(*signal){
-                match self.signal_to_ocurrences.get_mut(signal){
-                    Some(ocurrences) =>{
-                        *ocurrences -= 1;
-                    },
-                    None => {},
+    pub fn remove_constraint(&mut self, constraint: &C, signals: &SignalDefinition4) {
+        for signal in constraint.c().keys() {
+            if signals.can_be_taken(*signal) {
+                if let Some(ocurrences) = self.signal_to_ocurrences.get_mut(signal) {
+                    *ocurrences -= 1;
                 }
             }
         }
-        
     }
 
 
@@ -408,28 +404,21 @@ fn take_signal_4(signals: &SignalDefinition4, info_ocurrences: &SignalsInformati
     ret
 }
 
+fn normalize_substitutions(substitutions: SHNotNormalized, field: &BigInt) -> SH {
+    let mut coeffs: Vec<BigInt> = Vec::new();
 
-fn normalize_substitutions(substitutions: SHNotNormalized, field: &BigInt) -> SH{
-    let mut coeffs : Vec<BigInt> = Vec::new();
-
-    for (_signal, (coeff, _sub)) in &substitutions{
+    for (coeff, _sub) in substitutions.values() {
         coeffs.push(coeff.clone());
     }
-    
+
     let inverses = modular_arithmetic::multi_inv(&coeffs, field);
-    let mut tree : BTreeMap<usize,S> = BTreeMap::new();
-    let mut i = 0;
-    for (signal, (_coeff, sub)) in substitutions{
+    let mut tree: BTreeMap<usize, S> = BTreeMap::new();
+    for (i, (signal, (_coeff, sub))) in substitutions.into_iter().enumerate() {
         let inv = inverses.get(i).unwrap();
         let arith_sub = A::hashmap_into_arith(sub.to().clone());
-        let mult_by_inverse = A::mul(
-            &arith_sub, 
-            &A::Number {value : inv.clone()}, 
-            field
-        );
-        let new_sub = S::new(signal, mult_by_inverse).unwrap(); 
+        let mult_by_inverse = A::mul(&arith_sub, &A::Number { value: inv.clone() }, field);
+        let new_sub = S::new(signal, mult_by_inverse).unwrap();
         tree.insert(signal, new_sub);
-        i += 1;
     }
     tree
 }

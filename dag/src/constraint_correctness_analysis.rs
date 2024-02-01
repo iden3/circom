@@ -12,17 +12,14 @@ const UNCONSTRAINED_IOSIGNAL_CODE: ReportCode = ReportCode::UnconstrainedIOSigna
 
 struct UnconstrainedSignal;
 impl UnconstrainedSignal {
-    pub fn new(signal: &str, template: &str, examples: &Vec<String>) -> Report {
-        
+    pub fn report(signal: &str, template: &str, examples: &Vec<String>) -> Report {
         if examples.len() == 1{
             let msg = format!("In template \"{}\": Local signal {} does not appear in any constraint", template, examples[0]);
-            
             Report::warning(msg, UNCONSTRAINED_SIGNAL_CODE)
         } else{
             let msg = format!("In template \"{}\": Array of local signals {} contains a total of {} signals that do not appear in any constraint", template, signal, examples.len());
             let mut report = Report::warning(msg, UNCONSTRAINED_SIGNAL_CODE);
-            let ex = format!("For example: {}, {}.", examples[0], examples[1]);
-            report.add_note(ex);
+            report.add_note(format!("For example: {}, {}.", examples[0], examples[1]));
             report
         }
     }
@@ -30,17 +27,14 @@ impl UnconstrainedSignal {
 
 struct UnconstrainedIOSignal;
 impl UnconstrainedIOSignal {
-    pub fn new(signal: &str, template: &str, examples: &Vec<String>) -> Report {
-        
+    pub fn report(signal: &str, template: &str, examples: &Vec<String>) -> Report {
         if examples.len() == 1{
             let msg = format!("In template \"{}\": Subcomponent input/output signal {} does not appear in any constraint of the father component", template, examples[0]);
-            
             Report::warning(msg, UNCONSTRAINED_IOSIGNAL_CODE)
         } else{
             let msg = format!("In template \"{}\": Array of subcomponent input/output signals {} contains a total of {} signals that do not appear in any constraint of the father component", template, signal, examples.len());
             let mut report = Report::warning(msg, UNCONSTRAINED_IOSIGNAL_CODE);
-            let ex = format!("For example: {}, {}.", examples[0], examples[1]);
-            report.add_note(ex);
+            report.add_note(format!("For example: {}, {}.", examples[0], examples[1]));
             report
         }
     }
@@ -57,16 +51,15 @@ struct Analysis {
     signal_stats: Vec<(String, SignalType, usize)>,
 }
 
-fn split_signal_name_index(name: &String)-> String{
-    let split_components:Vec<&str> = name.split('.').collect(); // split the name of components
+fn split_signal_name_index(name: &str) -> String {
+    let split_components: Vec<&str> = name.split('.').collect(); // split the name of components
     let mut signal_name = "".to_string();
-    for i in 0..split_components.len()-1{
-        signal_name = signal_name + split_components[i] + "."; // take the index of the components
+    for item in split_components.iter().take(split_components.len() - 1) {
+        signal_name = signal_name + item + "."; // take the index of the components
     }
     // no take the index of the array position
-    let aux_last_component = split_components[split_components.len()-1].to_string();
-    let split_index_last_component = 
-        aux_last_component.split('[').next().unwrap(); 
+    let aux_last_component = split_components[split_components.len() - 1].to_string();
+    let split_index_last_component = aux_last_component.split('[').next().unwrap();
     signal_name + split_index_last_component
 }
 
@@ -92,9 +85,9 @@ fn analysis_interpretation(analysis: Analysis, result: &mut AnalysisResult) {
     }
     for (name, (xtype, examples)) in signal2unconstrainedex{
         if xtype == SignalType::Local{
-            result.warnings.push(UnconstrainedSignal::new(&name, &tmp_name, &examples));
+            result.warnings.push(UnconstrainedSignal::report(&name, &tmp_name, &examples));
         } else{
-            result.warnings.push(UnconstrainedIOSignal::new(&name, &tmp_name, &examples));
+            result.warnings.push(UnconstrainedIOSignal::report(&name, &tmp_name, &examples));
         }
     }
 }

@@ -5,7 +5,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate lalrpop_util;
 
-lalrpop_mod!(pub lang);
+lalrpop_mod!(#[allow(clippy::all)] pub lang);
 
 mod include_logic;
 mod parser_logic;
@@ -14,12 +14,11 @@ mod syntax_sugar_remover;
 use include_logic::{FileStack, IncludesGraph};
 use program_structure::ast::{produce_compiler_version_report, produce_report, produce_report_with_message, produce_version_warning_report, Expression};
 use program_structure::error_code::ReportCode;
-use program_structure::error_definition::ReportCollection;
-use program_structure::error_definition::Report;
-use program_structure::file_definition::{FileLibrary};
+use program_structure::error_definition::{Report, ReportCollection};
+use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
 use std::path::{PathBuf, Path};
-use syntax_sugar_remover::{apply_syntactic_sugar};
+use syntax_sugar_remover::apply_syntactic_sugar;
 
 use std::str::FromStr;
 
@@ -48,7 +47,7 @@ pub fn find_file(
                 found = true;
             }
             Err(e) => {
-                reports.push(e);
+                reports.push(*e);
                 i += 1;
             }
         }
@@ -97,7 +96,7 @@ pub fn run_parser(
                 program.compiler_version,
                 parse_number_version(version),
             )
-            .map_err(|e| (file_library.clone(), vec![e]))?,
+            .map_err(|e| (file_library.clone(), vec![*e]))?,
         );
         if program.custom_gates {
             check_custom_gates_version(
@@ -105,7 +104,7 @@ pub fn run_parser(
                 program.compiler_version,
                 parse_number_version(version),
             )
-            .map_err(|e| (file_library.clone(), vec![e]))?
+            .map_err(|e| (file_library.clone(), vec![*e]))?
         }
     }
 
@@ -147,11 +146,12 @@ pub fn run_parser(
                 }
                 Ok(mut program_archive) => {
                     let lib = program_archive.get_file_library().clone();
-                    let program_archive_result = apply_syntactic_sugar( &mut program_archive);
+                    let program_archive_result = apply_syntactic_sugar(&mut program_archive);
                     match program_archive_result {
                         Result::Err(v) => {
-                            warnings.push(v);
-                            Result::Err((lib,warnings))},
+                            warnings.push(*v);
+                            Result::Err((lib, warnings))
+                        }
                         Result::Ok(_) => Ok((program_archive, warnings)),
                     }
                 }
@@ -161,26 +161,22 @@ pub fn run_parser(
 }
 
 fn produce_report_with_main_components(main_components: Vec<(usize, (Vec<String>, Expression), bool)>) -> Report {
-    let mut j = 0;
     let mut r = produce_report(ReportCode::MultipleMain, 0..0, 0);
-    for (i,exp,_) in main_components{
+    for (j, (i, (_, e), _)) in main_components.into_iter().enumerate() {
         if j > 0 {
-            r.add_secondary(exp.1.get_meta().location.clone(), i, Option::Some("Here it is another main component".to_string()));
+            r.add_secondary(e.get_meta().location.clone(), i, Option::Some("Here it is another main component".to_string()));
+        } else {
+            r.add_primary(e.get_meta().location.clone(), i, "This is a main component".to_string());
         }
-        else {
-            r.add_primary(exp.1.get_meta().location.clone(), i, "This is a main component".to_string());
-        }
-        j+=1;
     }
     r
 }
 
-fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src */ {
-    use std::fs::read_to_string;
+fn open_file(path: PathBuf) -> Result<(String, String), Box<Report>> /* path, src */ {
     let path_str = format!("{:?}", path);
-    read_to_string(path)
+    std::fs::read_to_string(path)
         .map(|contents| (path_str.clone(), contents))
-        .map_err(|_| produce_report_with_message(ReportCode::FileOs, path_str.clone()))
+        .map_err(|_| Box::new(produce_report_with_message(ReportCode::FileOs, path_str)))
 }
 
 fn parse_number_version(version: &str) -> Version {
@@ -196,7 +192,7 @@ fn check_number_version(
     file_path: String,
     version_file: Option<Version>,
     version_compiler: Version,
-) -> Result<ReportCollection, Report> {
+) -> Result<ReportCollection, Box<Report>> {
     if let Some(required_version) = version_file {
         if required_version.0 == version_compiler.0
             && (required_version.1 < version_compiler.1
@@ -205,11 +201,10 @@ fn check_number_version(
         {
             Ok(vec![])
         } else {
-            Err(produce_compiler_version_report(file_path, required_version, version_compiler))
+            Err(Box::new(produce_compiler_version_report(file_path, required_version, version_compiler)))
         }
     } else {
-        let report =
-            produce_version_warning_report(file_path, version_compiler);
+        let report = produce_version_warning_report(file_path, version_compiler);
         Ok(vec![report])
     }
 }
@@ -218,7 +213,7 @@ fn check_custom_gates_version(
     file_path: String,
     version_file: Option<Version>,
     version_compiler: Version,
-) -> Result<(), Report> {
+) -> Result<(), Box<Report>> {
     let custom_gates_version: Version = (2, 0, 6);
     if let Some(required_version) = version_file {
         if required_version.0 < custom_gates_version.0
@@ -228,7 +223,7 @@ fn check_custom_gates_version(
                 && required_version.1 == custom_gates_version.1
                 && required_version.2 < custom_gates_version.2)
         {
-            let report = Report::error(
+            let report =Box::new(Report::error(
                 format!(
                     "File {} requires at least version {:?} to use custom templates (currently {:?})",
                     file_path,
@@ -236,7 +231,7 @@ fn check_custom_gates_version(
                     required_version
                 ),
                 ReportCode::CustomGatesVersionError
-            );
+            ));
             return Err(report);
         }
     } else if version_compiler.0 < custom_gates_version.0
@@ -246,7 +241,7 @@ fn check_custom_gates_version(
             && version_compiler.1 == custom_gates_version.1
             && version_compiler.2 < custom_gates_version.2)
     {
-        let report = Report::error(
+        let report = Box::new(Report::error(
             format!(
                 "File {} does not include pragma version and the compiler version (currently {:?}) should be at least {:?} to use custom templates",
                 file_path,
@@ -254,7 +249,7 @@ fn check_custom_gates_version(
                 custom_gates_version
             ),
             ReportCode::CustomGatesVersionError
-        );
+        ));
         return Err(report);
     }
     Ok(())

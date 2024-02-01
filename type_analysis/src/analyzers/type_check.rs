@@ -523,13 +523,7 @@ fn type_expression(
                 );
             };
             let dim_type = type_expression(dimension, program_archive, analysis_information)?;
-            if dim_type.is_template() {
-                add_report(
-                    ReportCode::InvalidArrayType,
-                    expression.get_meta(),
-                    &mut analysis_information.reports,
-                );
-            } else if dim_type.dim() != 0 {
+            if dim_type.is_template() || dim_type.dim() != 0{
                 add_report(
                     ReportCode::InvalidArrayType,
                     expression.get_meta(),

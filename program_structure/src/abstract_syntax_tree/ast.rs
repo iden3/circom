@@ -1,4 +1,4 @@
-use crate::{file_definition::{FileLocation, FileID}, error_definition::Report, error_code::{ReportCode}};
+use crate::{file_definition::{FileLocation, FileID}, error_definition::Report, error_code::ReportCode};
 use num_bigint::BigInt;
 use serde_derive::{Deserialize, Serialize};
 

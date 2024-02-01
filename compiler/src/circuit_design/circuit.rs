@@ -289,13 +289,14 @@ impl WriteWasm for Circuit {
 impl WriteC for Circuit {
     fn produce_c(&self, producer: &CProducer, _parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
-        let mut code = vec![];
-        // Prologue
-        code.push("#include <stdio.h>".to_string());
-        code.push("#include <iostream>".to_string());
-        code.push("#include <assert.h>".to_string());
-        code.push("#include \"circom.hpp\"".to_string());
-        code.push("#include \"calcwit.hpp\"".to_string());
+        let mut code = vec![
+            // Prologue
+            "#include <stdio.h>".to_string(),
+            "#include <iostream>".to_string(),
+            "#include <assert.h>".to_string(),
+            "#include \"circom.hpp\"".to_string(),
+            "#include \"calcwit.hpp\"".to_string(),
+        ];
 
         let mut template_headers = collect_template_headers(producer.get_template_instance_list());
         let function_headers: Vec<_> = self.functions
@@ -391,11 +392,12 @@ impl WriteC for Circuit {
         } else{
             producer.main_header.clone() + "_run"
         };
-        let mut run_args = vec![];
-        // run_args.push(CTX_INDEX.to_string());
-	run_args.push("0".to_string());
-        run_args.push(CIRCOM_CALC_WIT.to_string());
-        let run_call = format!("{};", build_call(main_template_run, run_args.clone()));
+        let run_args = vec![
+            // CTX_INDEX.to_string(),
+            "0".to_string(),
+            CIRCOM_CALC_WIT.to_string(),
+        ];
+        let run_call = format!("{};", build_call(main_template_run, run_args));
 
         let main_run_body = vec![ctx_index, run_call];
         code.push(build_callable(run_circuit, run_circuit_args, main_run_body));
@@ -522,11 +524,12 @@ impl WriteC for Circuit {
         } else{
             producer.main_header.clone() + "_run"
         };
-        let mut run_args = vec![];
-        // run_args.push(CTX_INDEX.to_string());
-	run_args.push("0".to_string());
-        run_args.push(CIRCOM_CALC_WIT.to_string());
-        let run_call = format!("{};", build_call(main_template_run, run_args.clone()));
+        let run_args = vec![
+            // CTX_INDEX.to_string(),
+            "0".to_string(),
+            CIRCOM_CALC_WIT.to_string(),
+        ];
+        let run_call = format!("{};", build_call(main_template_run, run_args));
 
         let main_run_body = vec![ctx_index, run_call];
 	code_write = build_callable(run_circuit, run_circuit_args, main_run_body) + "\n";
@@ -566,6 +569,7 @@ impl Circuit {
     pub fn produce_ir_string_for_function(&self, id: ID) -> String {
         self.functions[id].to_string()
     }
+    #[allow(clippy::result_unit_err)]
     pub fn produce_c<W: Write>(&self, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let c_folder_path = Path::new(c_folder).to_path_buf();
@@ -580,6 +584,7 @@ impl Circuit {
         c_code_generator::generate_dat_file(c_dat, &self.c_producer).map_err(|_err| {})?;
         self.write_c(c_circuit, &self.c_producer)
     }
+    #[allow(clippy::result_unit_err)]
     pub fn produce_wasm<W: Write>(&self, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let js_folder_path = Path::new(js_folder).to_path_buf();

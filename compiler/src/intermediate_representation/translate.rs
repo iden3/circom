@@ -195,8 +195,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
         let symbol_info =
             SymbolInfo { access_instruction: address_instruction.clone(), dimensions, is_component:false };
         state.environment.add_variable(&arg.name, symbol_info);
-        let mut index = 0;
-        for value in arg.values {
+        for (index, value) in arg.values.into_iter().enumerate() {
             let cid = bigint_to_cid(&mut state.field_tracker, &value);
             let offset_instruction = ValueBucket {
                 line: 0,
@@ -233,7 +232,6 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
             }
             .allocate();
             state.code.push(store_instruction);
-            index += 1;
         }
     }
 }
@@ -298,13 +296,13 @@ fn create_components(state: &mut State, triggers: &[Trigger], clusters: Vec<Trig
 }
 
 fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: TriggerCluster) {
-    fn compute_number_cmp(lengths: &Vec<usize>) -> usize {
+    fn compute_number_cmp(lengths: &[usize]) -> usize {
         lengths.iter().fold(1, |p, c| p * (*c))
     }
-    fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
+    fn compute_jump(lengths: &[usize], indexes: &[usize]) -> usize {
         let mut jump = 0;
         let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
-        let mut lengths = lengths.clone();
+        let mut lengths = lengths.to_owned();
         lengths.reverse();
         for index in indexes {
             let length = lengths.pop().unwrap();
@@ -354,10 +352,10 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
 }
 
 fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: TriggerCluster) {
-    fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
+    fn compute_jump(lengths: &[usize], indexes: &[usize]) -> usize {
         let mut jump = 0;
         let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
-        let mut lengths = lengths.clone();
+        let mut lengths = lengths.to_owned();
         lengths.reverse();
         for index in indexes {
             let length = lengths.pop().unwrap();
@@ -389,14 +387,11 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
         .allocate();
 
         let info_parallel_cluster = state.component_to_parallel.get(&c_info.component_name).unwrap(); 
-        let parallel_value: bool;
-        if info_parallel_cluster.uniform_parallel_value.is_some(){
-            parallel_value = info_parallel_cluster.uniform_parallel_value.unwrap();
-        }
-        else{
-            parallel_value = *info_parallel_cluster.
-                positions_to_parallel.get(&c_info.indexed_with).unwrap();
-        }
+        let parallel_value = if let Some(b) = info_parallel_cluster.uniform_parallel_value {
+            b
+        } else{
+            *info_parallel_cluster.positions_to_parallel.get(&c_info.indexed_with).unwrap()
+        };
 
         let creation_instr = CreateCmpBucket {
             line: 0,
@@ -681,9 +676,7 @@ fn translate_expression(
         translate_number(expression, state, context)
     } else if expression.is_call() {
         translate_call(expression, state, context)
-    } else if expression.is_array() {
-        unreachable!("This expression is syntactic sugar")
-    } else if expression.is_switch() {
+    } else if expression.is_array() || expression.is_switch() {
         unreachable!("This expression is syntactic sugar")
     } else {
         unreachable!("Unknown expression")
@@ -787,11 +780,10 @@ fn translate_variable(
     state: &mut State,
     context: &Context,
 ) -> InstructionPointer {
-    use Expression::{Variable};
+    use Expression::Variable;
     if let Variable { meta, name, access, .. } = expression {
-        let tag_access = check_tag_access(&name, &access, state);
-        if tag_access.is_some(){
-            translate_number( Expression::Number(meta.clone(), tag_access.unwrap()), state, context)
+        if let Some(ta) = check_tag_access(&name, &access, state) {
+            translate_number( Expression::Number(meta.clone(), ta), state, context)
         } else{
             let def = SymbolDef { meta, symbol: name, acc: access };
             ProcessedSymbol::new(def, state, context).into_load(state)
@@ -1142,7 +1134,7 @@ fn compute_full_address(
             stack.push(jump);
         }
         stack.push(at);
-        fold(OperatorType::AddAddress, stack, state)
+        fold(OperatorType::AddAddress, stack)
     }
 }
 
@@ -1190,13 +1182,11 @@ fn check_if_possible_to_usize_single( // returns if it is possible to convert to
         }
         Value(v) if v.parse_as == ValueType::BigInt => {
             let field = state.field_tracker.get_constant(v.value).unwrap();
-            let new_value  = usize::from_str_radix(field, 10);
-
-            match new_value{
-                Ok(_) =>{
-                    (true, new_value.unwrap() < 100)
+            match field.parse::<usize>() {
+                Ok(v) => {
+                    (true, v < 100)
                 }
-                _ =>{
+                _ => {
                     (false, false)
                 }
             }
@@ -1236,13 +1226,8 @@ fn check_if_possible_to_usize_multiple( // returns if all of them are usize and 
     (is_usize, number_non_small <= 1)
 }
 
-
-
-fn convert_to_usize_single(
-    index: InstructionPointer,
-    state: &State,
-)-> InstructionPointer{
-
+#[allow(clippy::boxed_local)]
+fn convert_to_usize_single(index: InstructionPointer, state: &State) -> InstructionPointer {
     use Instruction::{Value, Compute};
 
     match *index {
@@ -1251,15 +1236,13 @@ fn convert_to_usize_single(
         }
         Value(mut v) if v.parse_as == ValueType::BigInt => {
             let field = state.field_tracker.get_constant(v.value).unwrap();
-            let new_value  = usize::from_str_radix(field, 10);
-
-            match new_value{
-                Ok(value) =>{
+            match field.parse::<usize>() {
+                Ok(value) => {
                     v.parse_as = ValueType::U32;
                     v.value = value;
                     v.allocate()
                 }
-                _ =>{
+                _ => {
                     unreachable!()
                 }
             }
@@ -1305,7 +1288,7 @@ fn convert_to_usize_multiple(
 }
 
 
-fn fold(using: OperatorType, mut stack: Vec<InstructionPointer>, state: &State) -> InstructionPointer {
+fn fold(using: OperatorType, mut stack: Vec<InstructionPointer>) -> InstructionPointer {
     let instruction = stack.pop().unwrap();
     if stack.is_empty() {
         instruction
@@ -1315,7 +1298,7 @@ fn fold(using: OperatorType, mut stack: Vec<InstructionPointer>, state: &State) 
             message_id: instruction.get_message_id(),
             op_aux_no: 0,
             op: using,
-            stack: vec![fold(using, stack, state), instruction],
+            stack: vec![fold(using, stack), instruction],
         }
         .allocate()
     }

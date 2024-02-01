@@ -9,6 +9,7 @@ pub struct Config {
     pub wat_flag: bool,
 }
 
+#[allow(clippy::result_unit_err)]
 pub fn run_compiler(vcp: VCP, config: Config, version: &str) -> Result<Circuit, ()> {
     let flags = CompilationFlags { main_inputs_log: config.produce_input_log, wat_flag: config.wat_flag };
     let circuit = Circuit::build(vcp, flags, version);
@@ -18,6 +19,7 @@ pub fn run_compiler(vcp: VCP, config: Config, version: &str) -> Result<Circuit, 
     Ok(circuit)
 }
 
+#[allow(clippy::result_unit_err)]
 pub fn write_wasm(circuit: &Circuit, js_folder: &str, wasm_name: &str, file: &str) -> Result<(), ()> {
     use std::path::Path;
     if Path::new(js_folder).is_dir() {
@@ -29,6 +31,7 @@ pub fn write_wasm(circuit: &Circuit, js_folder: &str, wasm_name: &str, file: &st
     circuit.produce_wasm(js_folder, wasm_name, &mut writer)
 }
 
+#[allow(clippy::result_unit_err)]
 pub fn write_c(circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str, dat_file: &str) -> Result<(), ()> {
     use std::path::Path;
     if Path::new(c_folder).is_dir() {

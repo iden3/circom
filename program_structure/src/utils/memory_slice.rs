@@ -373,7 +373,7 @@ mod tests {
                 if let Result::Ok(v) = result {
                     assert_eq!(*v, 0);
                 } else {
-                    assert!(false);
+                    unreachable!();
                 }
             }
         }
@@ -386,7 +386,7 @@ mod tests {
         if let Result::Ok(val) = memory_response {
             assert_eq!(*val, 4);
         } else {
-            assert!(false);
+            unreachable!();
         }
     }
     #[test]
@@ -402,11 +402,11 @@ mod tests {
                 if let Result::Ok(val) = memory_result {
                     assert_eq!(*val, 4);
                 } else {
-                    assert!(false);
+                    unreachable!();
                 }
             }
         } else {
-            assert!(false);
+            unreachable!();
         }
     }
 }

@@ -1,6 +1,6 @@
 use super::very_concrete_program::*;
 use program_structure::ast::*;
-use num_traits::{ToPrimitive};
+use num_traits::ToPrimitive;
 
 
 struct ExtendedSyntax {
@@ -566,6 +566,7 @@ fn into_single_substitution(stmt: Statement, stmts: &mut Vec<Statement>) {
 fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use Expression::InlineSwitchOp;
     use Statement::{Block, IfThenElse, Substitution};
+    #[allow(clippy::collapsible_match)]
     if let Substitution { var, access, op, rhe, meta } = stmt {
         if let InlineSwitchOp { cond, if_true, if_false, .. } = rhe {
             let mut if_assigns = vec![];
@@ -613,8 +614,7 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use Statement::Substitution;
     if let Substitution { var, access, op, rhe, meta } = stmt {
         if let ArrayInLine { values, .. } = rhe {
-            let mut index = 0;
-            for v in values {
+            for (index, v) in values.into_iter().enumerate() {
                 let mut index_meta = meta.clone();
                 index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
                 let expr_index = Number(index_meta, BigInt::from(index));
@@ -629,7 +629,6 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                     rhe: v,
                 };
                 stmts.push(sub);
-                index += 1;
             }
         } else if let UniformArray { value, dimension, .. } = rhe {
             let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
@@ -697,9 +696,9 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
             }
         }
         else if let UniformArray {value, ..} = other_expr {
-            for i in 0..values_l.len() {
+            for item in values_l {
                 let ce = ConstraintEquality {
-                    lhe: values_l[i].clone(),
+                    lhe: item.clone(),
                     rhe: *value.clone(),
                     meta: meta.clone(),
                 };
@@ -707,7 +706,7 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
             }
         }
         else if let Variable { meta: meta_var, name, access, ..} = other_expr {
-            for i in 0..values_l.len() {
+            for (i, item) in values_l.iter().enumerate() {
                 let mut index_meta = meta.clone();
                 index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
                 let expr_index = Number(index_meta, BigInt::from(i));
@@ -715,7 +714,7 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
                 let mut accessed_with = access.clone();
                 accessed_with.push(as_access);
                 let ce = ConstraintEquality {
-                    lhe: values_l[i].clone(),
+                    lhe: item.clone(),
                     rhe: Variable {name: name.clone(), access: accessed_with, meta: meta_var.clone()},
                     meta: meta.clone(),
                 };

@@ -473,13 +473,13 @@ pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>) -> Vec<
     assert!(signal_name_list.len() <= 256);
     let len = 256;
     let mut hash_map = vec![(0, 0, 0); len];
-    for i in 0..signal_name_list.len() {
-        let h = hasher(&signal_name_list[i].0);
+    for (name, start, size) in signal_name_list {
+        let h = hasher(name);
         let mut p = (h % 256) as usize;
         while hash_map[p].1 != 0 {
             p = (p + 1) % 256;
         }
-        hash_map[p] = (h, signal_name_list[i].1 as u64, signal_name_list[i].2 as u64);
+        hash_map[p] = (h, *start as u64, *size as u64);
     }
     hash_map
 }
@@ -582,14 +582,14 @@ pub fn generate_dat_io_signals_info(
 ) -> Vec<u8> {
     // println!("size: {}",io_map.len());
     let mut io_signals_info = vec![];
-    for (t_ins, _) in io_map {
+    for t_ins in io_map.keys() {
         //println!("info: {}",t_ins);
         let t32 = *t_ins as u32;
         let mut v: Vec<u8> = t32.to_be_bytes().to_vec();
         v.reverse();
         io_signals_info.append(&mut v);
     }
-    for (_, l_io_def) in io_map {
+    for l_io_def in io_map.values() {
         //println!("io_def_len: {}",l_io_def.len());
         let l32 = l_io_def.len() as u32;
         let mut v: Vec<u8> = l32.to_be_bytes().to_vec();
@@ -601,12 +601,11 @@ pub fn generate_dat_io_signals_info(
             let mut v: Vec<u8> = l32.to_be_bytes().to_vec();
             v.reverse();
             io_signals_info.append(&mut v);
-            let n32: u32;
-            if !s.lengths.is_empty() {
-                n32 = (s.lengths.len() - 1) as u32;
+            let n32 = if !s.lengths.is_empty() {
+                (s.lengths.len() - 1) as u32
             } else {
-                n32 = 0;
-            }
+                0
+            };
             // println!("dims-1: {}",n32);
             let mut v: Vec<u8> = n32.to_be_bytes().to_vec();
             v.reverse();
@@ -700,14 +699,14 @@ pub fn generate_function_list(_producer: &CProducer, list: &TemplateListParallel
         }else{
             func_list.push_str("\nNULL");
         }
-	    for i in 1..list.len() {
-            if list[i].is_parallel{
-                func_list_parallel.push_str(&format!(",\n{}_run_parallel",list[i].name));
+	    for item in list.iter().skip(1) {
+            if item.is_parallel{
+                func_list_parallel.push_str(&format!(",\n{}_run_parallel",item.name));
             }else{
                 func_list_parallel.push_str(",\nNULL");
             }
-            if list[i].is_not_parallel{
-                func_list.push_str(&format!(",\n{}_run",list[i].name));
+            if item.is_not_parallel{
+                func_list.push_str(&format!(",\n{}_run",item.name));
             }else{
                 func_list.push_str(",\nNULL");
             }
@@ -724,8 +723,8 @@ pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageLi
     instructions.push(start);
     if !message_list.is_empty() {
         instructions.push(format!("\"{}\"", message_list[0]));
-        for i in 1..message_list.len() {
-            instructions.push(format!(",\n\"{}\"", message_list[i]));
+        for item in message_list.iter().skip(1) {
+            instructions.push(format!(",\n\"{}\"", item));
         }
         instructions.push("\n".to_string());
     }
@@ -734,38 +733,39 @@ pub fn generate_message_list_def(_producer: &CProducer, message_list: &MessageLi
     instructions
 }
 
-pub fn generate_function_release_memory_component() -> Vec<String>{
-    let mut instructions = vec![];
-    instructions.push("void release_memory_component(Circom_CalcWit* ctx, uint pos) {{\n".to_string());
-    instructions.push("if (pos != 0){{\n".to_string());
-    instructions.push("if(ctx->componentMemory[pos].subcomponents)".to_string());
-    instructions.push("delete []ctx->componentMemory[pos].subcomponents;\n".to_string());
-    instructions.push("if(ctx->componentMemory[pos].subcomponentsParallel)".to_string());
-    instructions.push("delete []ctx->componentMemory[pos].subcomponentsParallel;\n".to_string());
-    instructions.push("if(ctx->componentMemory[pos].outputIsSet)".to_string());
-    instructions.push("delete []ctx->componentMemory[pos].outputIsSet;\n".to_string());
-    instructions.push("if(ctx->componentMemory[pos].mutexes)".to_string());
-    instructions.push("delete []ctx->componentMemory[pos].mutexes;\n".to_string());
-    instructions.push("if(ctx->componentMemory[pos].cvs)".to_string());
-    instructions.push("delete []ctx->componentMemory[pos].cvs;\n".to_string());
-    instructions.push("if(ctx->componentMemory[pos].sbct)".to_string());
-    instructions.push("delete []ctx->componentMemory[pos].sbct;\n".to_string());
-    instructions.push("}}\n\n".to_string());
-    instructions.push("}}\n\n".to_string());
-    instructions
+pub fn generate_function_release_memory_component() -> Vec<String> {
+    vec![
+        "void release_memory_component(Circom_CalcWit* ctx, uint pos) {{\n".to_string(),
+        "if (pos != 0){{\n".to_string(),
+        "if(ctx->componentMemory[pos].subcomponents)".to_string(),
+        "delete []ctx->componentMemory[pos].subcomponents;\n".to_string(),
+        "if(ctx->componentMemory[pos].subcomponentsParallel)".to_string(),
+        "delete []ctx->componentMemory[pos].subcomponentsParallel;\n".to_string(),
+        "if(ctx->componentMemory[pos].outputIsSet)".to_string(),
+        "delete []ctx->componentMemory[pos].outputIsSet;\n".to_string(),
+        "if(ctx->componentMemory[pos].mutexes)".to_string(),
+        "delete []ctx->componentMemory[pos].mutexes;\n".to_string(),
+        "if(ctx->componentMemory[pos].cvs)".to_string(),
+        "delete []ctx->componentMemory[pos].cvs;\n".to_string(),
+        "if(ctx->componentMemory[pos].sbct)".to_string(),
+        "delete []ctx->componentMemory[pos].sbct;\n".to_string(),
+        "}}\n\n".to_string(),
+        "}}\n\n".to_string(),
+    ]
 }
 
-pub fn generate_function_release_memory_circuit() -> Vec<String>{ 
+pub fn generate_function_release_memory_circuit() -> Vec<String> {
     // deleting each one of the components
-    let mut instructions = vec![];
-    instructions.push("void release_memory(Circom_CalcWit* ctx) {{\n".to_string());
-    instructions.push("for (int i = 0; i < get_number_of_components(); i++) {{\n".to_string());
-    instructions.push("release_memory_component(ctx, i);\n".to_string());
-    instructions.push("}}\n".to_string());
-    instructions.push("}}\n".to_string());
-    instructions
-  }
+    vec![
+        "void release_memory(Circom_CalcWit* ctx) {{\n".to_string(),
+        "for (int i = 0; i < get_number_of_components(, i++) {{\n".to_string(),
+        "release_memory_component(ctx, i,\n".to_string(),
+        "}}\n".to_string(),
+        "}}\n".to_string(),
+    ]
+}
 
+#[allow(clippy::ptr_arg)]
 pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
@@ -783,6 +783,7 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
@@ -800,6 +801,7 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
@@ -826,6 +828,7 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     Ok(())
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
@@ -843,6 +846,7 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
@@ -870,6 +874,7 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     Ok(())
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
@@ -887,6 +892,7 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
@@ -913,6 +919,7 @@ pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     Ok(())
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn generate_make_file(
     c_folder: &PathBuf,
     run_name: &str,

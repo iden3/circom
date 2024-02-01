@@ -16,17 +16,11 @@ pub enum MessageCategory {
 impl MessageCategory {
     fn is_error(&self) -> bool {
         use MessageCategory::*;
-        match self {
-            Error => true,
-            _ => false,
-        }
+        matches!(self, Error)
     }
     fn is_warning(&self) -> bool {
         use MessageCategory::*;
-        match self {
-            Warning => true,
-            _ => false,
-        }
+        matches!(self, Warning)
     }
 }
 

@@ -26,23 +26,9 @@ fn build_template_instances(
     ti: Vec<TemplateInstance>,
     mut field_tracker: FieldTracker,
 ) -> (FieldTracker, HashMap<String,usize>) {
-
-    fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
-        let mut jump = 0;
-        let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
-        let mut lengths = lengths.clone();
-        lengths.reverse();
-        for index in indexes {
-            let length = lengths.pop().unwrap();
-            full_length /= length;
-            jump += (*index) * full_length;
-        }
-        jump
-    }
     let mut cmp_id = 0;
-    let mut tmp_id = 0;
     let mut string_table = HashMap::new();
-    for template in ti {
+    for (tmp_id, template) in ti.into_iter().enumerate() {
         let header = template.template_header;
         let name = template.template_name;
         let instance_values = template.header;
@@ -121,7 +107,6 @@ fn build_template_instances(
         string_table = out.string_table;
         cmp_id = out.next_cmp_id;
         circuit.add_template_code(template_info);
-        tmp_id += 1;
     }
     (field_tracker, string_table)
 }
@@ -363,9 +348,11 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
         write_main_inputs_log(&vcp);
     }
     let template_database = TemplateDB::build(&vcp.templates);
-    let mut circuit = Circuit::default();
-    circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
-    circuit.c_producer = initialize_c_producer(&vcp, &template_database, version);
+    let mut circuit = Circuit {
+        wasm_producer: initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version),
+        c_producer: initialize_c_producer(&vcp, &template_database, version),
+        ..Default::default()
+    };
 
     let field_tracker = FieldTracker::new();
     let circuit_info = CircuitInfo {

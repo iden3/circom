@@ -109,6 +109,7 @@ impl Input {
         })
     }
 
+    #[allow(clippy::ptr_arg)]
     fn build_folder(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
         let mut file = output_path.clone();
 	    let folder_name = format!("{}_{}",filename,ext);
@@ -116,6 +117,7 @@ impl Input {
 	    file
     }
     
+    #[allow(clippy::ptr_arg)]
     fn build_output(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
         let mut file = output_path.clone();
         file.push(format!("{}.{}",filename,ext));
@@ -257,7 +259,7 @@ mod input_processing {
             (_, true, _, _) => Ok(SimplificationStyle::O1),
             (_, _, true,  _) => {
                 let o_2_argument = matches.value_of("simplification_rounds").unwrap();
-                let rounds_r = usize::from_str_radix(o_2_argument, 10);
+                let rounds_r = o_2_argument.parse::<usize>();
                 if let Result::Ok(no_rounds) = rounds_r { 
                     if no_rounds == 0 { Ok(SimplificationStyle::O1) }
                     else {Ok(SimplificationStyle::O2(no_rounds))}} 
