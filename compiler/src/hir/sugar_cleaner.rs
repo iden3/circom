@@ -257,7 +257,7 @@ fn extend_prefix(expr: &mut Expression, state: &mut State, context: &Context) ->
     use Expression::PrefixOp;
     if let PrefixOp { rhe, .. } = expr {
         let mut extended = extend_expression(rhe, state, context);
-        let mut expr = vec![*rhe.clone()];
+        let mut expr = vec![rhe.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
         *rhe = Box::new(expr.pop().unwrap());
         extended
@@ -270,7 +270,7 @@ fn extend_parallel(expr: &mut Expression, state: &mut State, context: &Context) 
     use Expression::ParallelOp;
     if let ParallelOp { rhe, .. } = expr {
         let mut extended = extend_expression(rhe, state, context);
-        let mut expr = vec![*rhe.clone()];
+        let mut expr = vec![rhe.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
         *rhe = Box::new(expr.pop().unwrap());
         extended
@@ -291,7 +291,7 @@ fn extend_infix(expr: &mut Expression, state: &mut State, context: &Context) -> 
         let mut rh_expand = extend_expression(rhe, state, context);
         lh_expand.initializations.append(&mut rh_expand.initializations);
         let mut extended = lh_expand;
-        let mut expr = vec![*lhe.clone(), *rhe.clone()];
+        let mut expr = vec![lhe.as_ref().clone(), rhe.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
 
         let mut expr_rhe = expr.pop().unwrap();
@@ -348,7 +348,7 @@ fn extend_switch(expr: &mut Expression, state: &mut State, context: &Context) ->
         let mut false_expand = extend_expression(if_false, state, context);
         true_expand.initializations.append(&mut false_expand.initializations);
         let mut extended = true_expand;
-        let mut expr = vec![*if_true.clone(), *if_false.clone()];
+        let mut expr = vec![if_true.as_ref().clone(), if_false.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
         *if_false = Box::new(expr.pop().unwrap());
         *if_true = Box::new(expr.pop().unwrap());
@@ -373,7 +373,7 @@ fn extend_array(expr: &mut Expression, state: &mut State, context: &Context) -> 
         let mut dimension_expand = extend_expression(dimension, state, context);
         value_expand.initializations.append(&mut dimension_expand.initializations);
         let mut extended = value_expand;
-        let mut expr = vec![*value.clone(), *dimension.clone()];
+        let mut expr = vec![value.as_ref().clone(), dimension.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
         *dimension = Box::new(expr.pop().unwrap());
         *value = Box::new(expr.pop().unwrap());
@@ -649,7 +649,7 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                     var: var.clone(),
                     access: accessed_with,
                     meta: meta.clone(),
-                    rhe: *value.clone(),
+                    rhe: value.as_ref().clone(),
                 };
                 stmts.push(sub);
                 index += 1;
@@ -699,7 +699,7 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
             for item in values_l {
                 let ce = ConstraintEquality {
                     lhe: item.clone(),
-                    rhe: *value.clone(),
+                    rhe: value.as_ref().clone(),
                     meta: meta.clone(),
                 };
                 stmts.push(ce);
