@@ -60,7 +60,7 @@ Instead, if we run
 circom simplify.circom --r1cs --wasm --simplification_substitution --O0
 ```
 
-to indicate that we do not want to apply any simplification the generated file 'simplify_substitutions.json' contains
+to indicate that we do not want to apply any simplification, the generated file 'simplify_substitutions.json' contains
 
 ```text
 {
@@ -72,7 +72,7 @@ Finaly, if we run
 circom simplify.circom --r1cs --wasm --simplification_substitution --O1
 ```
 
-to indicate that we only want to apply constant and renaming (equalities between signals) simplifications the generated file 'simplify_substitutions.json' contains
+to indicate that we only want to apply constant and renaming (equalities between signals) simplifications, the generated file 'simplify_substitutions.json' contains
 
 ```text
 {
