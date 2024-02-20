@@ -126,6 +126,16 @@ pub ParseDefinition : Definition = {
         Some(a)
         => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), custom_gate.is_some()),
     },
+    <s:@L> "bus" <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?> <arge:@R> ")" <body: ParseBusBlock> <e:@R>
+    => {
+        println!("Bus {} with declaration starting at {} and finishing at {} parsed", name, s, e);
+        build_bus(Meta::new(s,e), name)
+    },
+    <s:@L> "bus" <name: IDENTIFIER> <body: ParseBusBlock> <e:@R>
+    => {
+        println!("Bus {} with declaration starting at {} and finishing at {} parsed", name, s, e);
+        build_bus(Meta::new(s,e), name)
+    },
 };
 
 
@@ -283,6 +293,7 @@ ParseDeclaration : Statement = {
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignSignal)
     },
 };
+
 ParseSubstitution : Statement = {
     <s:@L> <variable: ParseExpression> <ops: ParseAssignOp> <rhe: ParseExpression> <e:@R>
     => {if let Expression::Variable {meta, name, access} = variable {
@@ -399,6 +410,7 @@ ParseStatement1 : Statement = {
     =>  build_conditional_block(Meta::new(s,e),cond,if_case,Option::Some(else_case)),
     ParseStatement2
 };
+
 ParseStatement2 : Statement = {
     <s:@L> "for" "(" <init: ParseDeclaration> Semicolon <cond: ParseExpression> Semicolon <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
     => ast_shortcuts::for_into_while(Meta::new(s,e),init,cond,step,body),
@@ -765,4 +777,48 @@ Version : Version = {
     <version: SMALL_DECNUMBER> "." <subversion:SMALL_DECNUMBER> "." <subsubversion:SMALL_DECNUMBER> => {
         (version, subversion, subsubversion)
     }
+};
+
+
+// ====================================================================
+// Bus syntax
+// ====================================================================
+
+BusSignalHeader: VariableType = {
+    "signal" <tags_list: ParseTagsList?>
+    => {
+        let t = match tags_list {
+            None => Vec::new(),
+            Some(tl) => tl,
+        };
+        VariableType::Signal(SignalType::Intermediate, t)
+    }
+};
+
+// The only declarations allowed in a bus are the signal ones without initialization
+ParseBusSignalDeclaration: Statement = {
+
+    <s:@L> <xtype: BusSignalHeader> "(" <symbols: (<SimpleSymbol> ",")*> <symbol: SimpleSymbol> ")" <e:@R> => {
+        let mut symbols = symbols;
+        let meta = Meta::new(s,e);
+        symbols.push(symbol);
+        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols,None)
+    },
+
+    <s:@L> <xtype: BusSignalHeader> <symbols: (<SimpleSymbol> ",")*> <symbol: SimpleSymbol> <e:@R> => {
+        let mut symbols = symbols;
+        let meta = Meta::new(s,e);
+        symbols.push(symbol);
+        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols,None)
+    },
+};
+
+ParseBusBlock: Statement = {
+    <s:@L> "{" <stmts :ParseBusStatement+> "}" <e:@R>
+     => build_block(Meta::new(s,e),stmts),
+};
+
+ParseBusStatement: Statement = {
+    <dec: ParseBusSignalDeclaration> Semicolon
+    => dec
 };

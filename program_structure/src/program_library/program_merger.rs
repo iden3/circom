@@ -65,6 +65,14 @@ impl Merger {
                         (Option::None, meta)
                     }
                 }
+                Definition::Bus { name, meta } => {
+                    if self.contains_function(&name) || self.contains_template(&name) {
+                        (Option::Some(name), meta)
+                    } else {
+                        
+                        (Option::None, meta)
+                    }
+                }
             };
             if let Option::Some(definition_name) = name {
                 let mut report = Report::error(
