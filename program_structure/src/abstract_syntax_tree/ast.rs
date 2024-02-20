@@ -155,6 +155,10 @@ pub enum Definition {
         arg_location: FileLocation,
         body: Statement,
     },
+    Bus {
+        meta: Meta,
+        name: String,
+    },
 }
 pub fn build_template(
     meta: Meta,
@@ -176,6 +180,16 @@ pub fn build_function(
     body: Statement,
 ) -> Definition {
     Definition::Function { meta, name, args, arg_location, body }
+}
+
+pub fn build_bus(
+    meta: Meta,
+    name: String,
+    //args: Vec<String>,
+    //arg_location: FileLocation,
+    //body: Statement,
+) -> Definition {
+    Definition::Bus { meta, name }
 }
 
 #[derive(Clone)]
