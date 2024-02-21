@@ -110,6 +110,14 @@ pub ParseMainComponent : MainComponent = {
        },
 };
 
+pub ParseParenthesisArguments : Vec<String> = {
+    "("  <arg_names: IdentifierListDef?>  ")" =>{
+        match arg_names {
+            None => Vec::new(),
+            Some(a) => a
+        }
+    },
+};
 
 pub ParseDefinition : Definition = {
     <s:@L> "function" <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
@@ -119,23 +127,20 @@ pub ParseDefinition : Definition = {
         Some(a)
         => build_function(Meta::new(s,e),name,a,args..arge,body),
     },
-    <s:@L> "template" <custom_gate: "custom"?> <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?> <arge:@R> ")" <body: ParseBlock> <e:@R>
+    <s:@L> "template" <custom_gate: "custom"?> <parallel: "parallel"?> <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R>  <body: ParseBlock> <e:@R>
     => match arg_names {
         None
         => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), custom_gate.is_some()),
         Some(a)
         => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), custom_gate.is_some()),
     },
-    <s:@L> "bus" <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?> <arge:@R> ")" <body: ParseBusBlock> <e:@R>
+
+    <s:@L> "bus" <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R>  <body: ParseBusBlock> <e:@R>
     => {
         println!("Bus {} with declaration starting at {} and finishing at {} parsed", name, s, e);
         build_bus(Meta::new(s,e), name)
     },
-    <s:@L> "bus" <name: IDENTIFIER> <body: ParseBusBlock> <e:@R>
-    => {
-        println!("Bus {} with declaration starting at {} and finishing at {} parsed", name, s, e);
-        build_bus(Meta::new(s,e), name)
-    },
+
 };
 
 
