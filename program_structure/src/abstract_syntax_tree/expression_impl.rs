@@ -17,6 +17,7 @@ impl Expression {
             | ArrayInLine { meta, .. } => meta,
             | UniformArray { meta, .. } => meta,
             | Tuple {meta, ..} => meta,
+            | BusCall { meta, .. } => meta,
         }
     }
     pub fn get_mut_meta(&mut self) -> &mut Meta {
@@ -33,6 +34,7 @@ impl Expression {
             | ArrayInLine { meta, .. } => meta,
             | UniformArray { meta, .. } => meta,
             | Tuple {meta, ..} => meta,
+            | BusCall {meta, ..} => meta,
         }
     }
 
@@ -149,7 +151,7 @@ impl Expression {
             InlineSwitchOp {  cond, if_true, if_false, .. } => {
                  cond.contains_anonymous_comp() || if_true.contains_anonymous_comp() || if_false.contains_anonymous_comp()
             },
-            Call { args, .. } | Tuple {values: args, ..} | ArrayInLine {  values : args, .. } => {
+            BusCall { args, .. } | Call { args, .. } | Tuple {values: args, ..} | ArrayInLine {  values : args, .. } => {
                 for arg in args{
                     if arg.contains_anonymous_comp() {  return true;}
                 }
@@ -182,7 +184,7 @@ impl Expression {
             InlineSwitchOp {  cond, if_true, if_false, .. } => {
                  cond.contains_tuple() || if_true.contains_tuple() || if_false.contains_tuple()
             },
-            Call { args, .. } | ArrayInLine {  values : args, .. } => {
+            BusCall{ args, .. } | Call { args, .. } | ArrayInLine {  values : args, .. } => {
                 for arg in args{
                     if arg.contains_tuple() {  return true;}
                 }
@@ -228,6 +230,7 @@ impl FillMeta for Expression {
                 fill_inline_switch_op(meta, cond, if_true, if_false, file_id, element_id)
             }
             Call { meta, args, .. } => fill_call(meta, args, file_id, element_id),
+            BusCall { meta, args, .. } => fill_call(meta, args, file_id, element_id),
             ArrayInLine { meta, values, .. } => {
                 fill_array_inline(meta, values, file_id, element_id)
             }

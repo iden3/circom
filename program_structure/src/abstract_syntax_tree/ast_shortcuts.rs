@@ -123,3 +123,35 @@ pub fn split_declaration_into_single_nodes_and_multisubstitution(
     }
     build_initialization_block(meta, xtype, initializations)
 }
+
+
+
+pub fn build_bus_declaration_and_split(
+    meta: Meta,
+    type_bus: Expression,
+    symbols: Vec<Symbol>,
+    op: AssignOp,
+) -> Statement {
+    use crate::ast_shortcuts::AssignOp::AssignVar;
+
+    let mut initializations = Vec::new();
+
+    for symbol in symbols {
+        let with_meta = meta.clone();
+        let has_type = VariableType::Bus;
+        let name = symbol.name.clone();
+        let dimensions = symbol.is_array;
+        let possible_init = symbol.init;
+        let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone());
+        let bus_declaration = build_substitution(meta.clone(), symbol.name.clone(), vec![], AssignVar, type_bus.clone());
+        initializations.push(single_declaration);
+        initializations.push(bus_declaration);
+
+        if let Option::Some(init) = possible_init {
+            let substitution =
+                build_substitution(meta.clone(), symbol.name, vec![], op, init);
+            initializations.push(substitution);
+        }
+    }
+    build_initialization_block(meta, VariableType::Bus, initializations)
+}

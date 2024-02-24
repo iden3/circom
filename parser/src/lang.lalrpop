@@ -297,6 +297,16 @@ ParseDeclaration : Statement = {
             symbols.push(symbol);
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignSignal)
     },
+
+    <s:@L> <type_bus: BusHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol> <e:@R> => {
+            let mut symbols = symbols;
+            let meta = Meta::new(s,e);
+            symbols.push(symbol);
+            ast_shortcuts::build_bus_declaration_and_split(meta,type_bus,symbols,AssignOp::AssignSignal)
+    },
+
+
+    
 };
 
 ParseSubstitution : Statement = {
@@ -788,6 +798,20 @@ Version : Version = {
 // ====================================================================
 // Bus syntax
 // ====================================================================
+
+BusHeader: Expression = {
+    <s:@L> <id: IDENTIFIER> <e:@R> =>{
+        build_bus_call(Meta::new(s,e),id,Vec::new())
+    },
+
+
+    <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R>
+    => match args {
+        None => build_bus_call(Meta::new(s,e),id,Vec::new()),
+        Some(a) => build_bus_call(Meta::new(s,e),id,a),
+    },
+
+};
 
 BusSignalHeader: VariableType = {
     "signal" <tags_list: ParseTagsList?>

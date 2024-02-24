@@ -236,6 +236,14 @@ pub fn check_anonymous_components_expression(
             }
             Result::Ok(())
         },
+        BusCall { meta, args, .. } => {
+            for value in args{
+                if value.contains_anonymous_comp() {
+                    return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used as a parameter in a bus call ".to_string()));
+                }
+            }
+            Result::Ok(())
+        },
         AnonymousComp {meta, params, signals, .. } => {
             for value in params{
                 if value.contains_anonymous_comp() {
@@ -752,6 +760,14 @@ pub fn check_tuples_expression(exp: &Expression) -> Result<(), Report>{
             for value in args{
                 if value.contains_tuple() {
                     return Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used as a parameter of a function call".to_string()));       
+                }
+            }
+            Result::Ok(())
+        },
+        BusCall { meta, args, .. } => {
+            for value in args{
+                if value.contains_tuple() {
+                    return Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used as a parameter of a bus call".to_string()));       
                 }
             }
             Result::Ok(())
