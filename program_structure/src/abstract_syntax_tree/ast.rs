@@ -267,12 +267,14 @@ pub enum SignalType {
 
 pub type TagList = Vec<String>;
 
-#[derive(Clone, PartialEq, Ord, PartialOrd, Eq)]
+
+#[derive(Clone, PartialEq, Eq)]
 pub enum VariableType {
     Var,
     Signal(SignalType, TagList),
     Component,
     AnonymousComponent,
+    Bus,
 }
 
 #[derive(Clone)]
@@ -305,6 +307,11 @@ pub enum Expression {
     },
     Number(Meta, BigInt),
     Call {
+        meta: Meta,
+        id: String,
+        args: Vec<Expression>,
+    },
+    BusCall {
         meta: Meta,
         id: String,
         args: Vec<Expression>,
