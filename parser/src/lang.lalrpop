@@ -752,7 +752,7 @@ IDENTIFIER : String = {
 };
 
 STRING : String = {
-    <s:r#""[^"]*""#> => String::from(&s[1..s.len()-1])
+    <s:r#""[^"\n]*""#> => String::from(&s[1..s.len()-1])
 };
 
 SMALL_DECNUMBER: usize = {
