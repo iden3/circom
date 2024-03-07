@@ -63,6 +63,7 @@ pub fn run_parser(
     version: &str,
     link_libraries: Vec<PathBuf>,
     save_ast: bool,
+    ast_path: PathBuf,
 ) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
     let mut file_library = FileLibrary::new();
     let mut definitions = Vec::new();
@@ -118,7 +119,7 @@ pub fn run_parser(
 
     if save_ast {
         let ast_list = serde_json::to_string(&ast_list).unwrap();
-        let mut file = std::fs::File::create("ast.json").unwrap();
+        let mut file = std::fs::File::create(ast_path).unwrap();
         file.write_all(ast_list.as_bytes()).unwrap();
     }
     if main_components.len() == 0 {

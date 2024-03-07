@@ -34,6 +34,8 @@ pub struct Input {
     pub prime: String,
     pub link_libraries : Vec<PathBuf>,
     pub save_ast: bool,
+    pub ast_path: PathBuf,
+    pub dry_run: bool,
 }
 
 
@@ -107,7 +109,8 @@ impl Input {
             flag_verbose: input_processing::get_flag_verbose(&matches), 
             prime: input_processing::get_prime(&matches)?,
             link_libraries,
-            save_ast: false,
+            save_ast: input_processing::get_save_ast(&matches),
+            ast_path: input_processing::get_ast_path(&matches),
         })
     }
 
@@ -321,6 +324,7 @@ mod input_processing {
     pub fn get_flag_old_heuristics(matches: &ArgMatches) -> bool {
         matches.is_present("flag_old_heuristics")
     }
+
     pub fn get_prime(matches: &ArgMatches) -> Result<String, ()> {
         
         match matches.is_present("prime"){
@@ -348,6 +352,33 @@ mod input_processing {
 
     pub fn get_save_ast(matches: &ArgMatches) -> bool {
         matches.is_present("save_ast")
+    }
+
+    pub fn get_ast_path(matches: &ArgMatches) -> PathBuf {
+        
+        match matches.is_present("save_ast"){
+            true => 
+               {
+                   let path = matches.value_of("save_ast").unwrap();
+                   if path != "" {
+                        let path = Path::new(path);
+                        if let Some(parent) = path.parent() {
+                            std::fs::create_dir_all(parent).unwrap();
+                        }
+                        if path.is_dir() {
+                            PathBuf::from(path.join("ast.json").to_str().unwrap())
+                        }
+                        else {
+                            PathBuf::from(path.to_str().unwrap())
+                        }
+                    }
+                    else {
+                        PathBuf::from("ast.json")
+                    }
+               }
+               
+            false => PathBuf::from("ast.json"),
+        }
     }
 
     pub fn view() -> ArgMatches<'static> {
@@ -518,9 +549,10 @@ mod input_processing {
             .arg(
                 Arg::with_name("save_ast")
                     .long("save_ast")
-                    .takes_value(false)
+                    .takes_value(true)
+                    .default_value("ast.json")
                     .display_order(990)
-                    .help("Saves the AST of the circuit to ast.json"),
+                    .help("Saves the AST of the circuit, accepts a file name as argument, defaults to ast.json"),
             )
             .get_matches()
     }
