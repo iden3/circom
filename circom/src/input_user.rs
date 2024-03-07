@@ -356,7 +356,6 @@ mod input_processing {
     }
 
     pub fn get_ast_path(matches: &ArgMatches) -> PathBuf {
-        
         match matches.is_present("save_ast"){
             true => 
                {
@@ -366,14 +365,13 @@ mod input_processing {
                         if let Some(parent) = path.parent() {
                             std::fs::create_dir_all(parent).unwrap();
                         }
+                        
                         if path.is_dir() {
                             PathBuf::from(path.join("ast.json").to_str().unwrap())
-                        }
-                        else {
+                        } else {
                             PathBuf::from(path.to_str().unwrap())
                         }
-                    }
-                    else {
+                    } else {
                         PathBuf::from("ast.json")
                     }
                }
