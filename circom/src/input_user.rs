@@ -111,6 +111,7 @@ impl Input {
             link_libraries,
             save_ast: input_processing::get_save_ast(&matches),
             ast_path: input_processing::get_ast_path(&matches),
+            dry_run: input_processing::get_dry_run(&matches),
         })
     }
 
@@ -381,6 +382,10 @@ mod input_processing {
         }
     }
 
+    pub fn get_dry_run(matches: &ArgMatches) -> bool {
+        matches.is_present("dry_run")
+    }
+
     pub fn view() -> ArgMatches<'static> {
         App::new("circom compiler")
             .version(VERSION)
@@ -553,6 +558,13 @@ mod input_processing {
                     .default_value("ast.json")
                     .display_order(990)
                     .help("Saves the AST of the circuit, accepts a file name as argument, defaults to ast.json"),
+            )
+            .arg(
+                Arg::with_name("dry_run")
+                    .long("dry_run")
+                    .takes_value(false)
+                    .display_order(1000)
+                    .help("Does not run the compiler, only checks the input and outputs the AST if --save_ast is present"),
             )
             .get_matches()
     }
