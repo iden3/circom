@@ -555,9 +555,8 @@ mod input_processing {
                 Arg::with_name("save_ast")
                     .long("save_ast")
                     .takes_value(true)
-                    .default_value("ast.json")
                     .display_order(990)
-                    .help("Saves the AST of the circuit, accepts a file name as argument, defaults to ast.json"),
+                    .help("If --save_ast is specified, the compiler will save the serialized AST of the circuit, accepts a file name as argument [default: ast.json]"),
             )
             .arg(
                 Arg::with_name("dry_run")
