@@ -346,6 +346,10 @@ mod input_processing {
         }
     }
 
+    pub fn get_save_ast(matches: &ArgMatches) -> bool {
+        matches.is_present("save_ast")
+    }
+
     pub fn view() -> ArgMatches<'static> {
         App::new("circom compiler")
             .version(VERSION)

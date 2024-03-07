@@ -117,7 +117,7 @@ pub fn run_parser(
     }
 
     if save_ast {
-        let ast_list= serde_json::to_string(&ast_list).unwrap();
+        let ast_list = serde_json::to_string(&ast_list).unwrap();
         let mut file = std::fs::File::create("ast.json").unwrap();
         file.write_all(ast_list.as_bytes()).unwrap();
     }
