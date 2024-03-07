@@ -20,7 +20,7 @@ pub fn build_main_component(public: Vec<String>, call: Expression) -> MainCompon
 
 pub type Version = (usize, usize, usize);
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct Meta {
     pub elem_id: usize,
     pub start: usize,
@@ -81,7 +81,7 @@ impl Meta {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct AST {
     pub meta: Meta,
     pub compiler_version: Option<Version>,
@@ -137,7 +137,7 @@ impl AST {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum Definition {
     Template {
         meta: Meta,
@@ -178,7 +178,7 @@ pub fn build_function(
     Definition::Function { meta, name, args, arg_location, body }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum Statement {
     IfThenElse {
         meta: Meta,
@@ -253,7 +253,7 @@ pub enum SignalType {
 
 pub type TagList = Vec<String>;
 
-#[derive(Clone, PartialEq, Ord, PartialOrd, Eq)]
+#[derive(Clone, PartialEq, Ord, PartialOrd, Eq, Serialize)]
 pub enum VariableType {
     Var,
     Signal(SignalType, TagList),
@@ -261,7 +261,7 @@ pub enum VariableType {
     AnonymousComponent,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum Expression {
     InfixOp {
         meta: Meta,
@@ -318,7 +318,7 @@ pub enum Expression {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum Access {
     ComponentAccess(String),
     ArrayAccess(Expression),
@@ -330,14 +330,14 @@ pub fn build_array_access(expr: Expression) -> Access {
     Access::ArrayAccess(expr)
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize)]
 pub enum AssignOp {
     AssignVar,
     AssignSignal,
     AssignConstraintSignal,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize)]
 pub enum ExpressionInfixOpcode {
     Mul,
     Div,
@@ -361,7 +361,7 @@ pub enum ExpressionInfixOpcode {
     BitXor,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize)]
 pub enum ExpressionPrefixOpcode {
     Sub,
     BoolNot,
@@ -370,7 +370,7 @@ pub enum ExpressionPrefixOpcode {
 
 // Knowledge buckets
 
-#[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq)]
+#[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Serialize)]
 pub enum TypeReduction {
     Variable,
     Component,
@@ -378,7 +378,7 @@ pub enum TypeReduction {
     Tag,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum LogArgument {
     LogStr(String),
     LogExp(Expression),
@@ -391,7 +391,7 @@ pub fn build_log_expression(expr: Expression) -> LogArgument {
 }
 
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize)]
 pub struct TypeKnowledge {
     reduces_to: Option<TypeReduction>,
 }
@@ -423,7 +423,7 @@ impl TypeKnowledge {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize)]
 pub struct MemoryKnowledge {
     concrete_dimensions: Option<Vec<usize>>,
     full_length: Option<usize>,

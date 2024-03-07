@@ -16,10 +16,12 @@ use program_structure::ast::{produce_compiler_version_report, produce_report, pr
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::ReportCollection;
 use program_structure::error_definition::Report;
-use program_structure::file_definition::{FileLibrary};
+use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
+use std::io::Write;
 use std::path::{PathBuf, Path};
-use syntax_sugar_remover::{apply_syntactic_sugar};
+use syntax_sugar_remover::apply_syntactic_sugar;
+use serde_json;
 
 use std::str::FromStr;
 
@@ -60,6 +62,7 @@ pub fn run_parser(
     file: String,
     version: &str,
     link_libraries: Vec<PathBuf>,
+    save_ast: bool,
 ) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
     let mut file_library = FileLibrary::new();
     let mut definitions = Vec::new();
@@ -69,6 +72,7 @@ pub fn run_parser(
     let mut warnings = Vec::new();
     let mut link_libraries2 = link_libraries.clone();
     let mut ext_link_libraries = vec![Path::new("").to_path_buf()];
+    let mut ast_list = Vec::new();
     ext_link_libraries.append(&mut link_libraries2);
     while let Some(crr_file) = FileStack::take_next(&mut file_stack) {
         let (found, path, src, crr_str_file, reports) =
@@ -79,6 +83,9 @@ pub fn run_parser(
         let file_id = file_library.add_file(path.clone(), src.clone());
         let program =
             parser_logic::parse_file(&src, file_id).map_err(|e| (file_library.clone(), e))?;
+        if save_ast {
+            ast_list.push(program.clone());
+        }
         if let Some(main) = program.main_component {
             main_components.push((file_id, main, program.custom_gates));
         }
@@ -109,6 +116,11 @@ pub fn run_parser(
         }
     }
 
+    if save_ast {
+        let ast_list= serde_json::to_string(&ast_list).unwrap();
+        let mut file = std::fs::File::create("ast.json").unwrap();
+        file.write_all(ast_list.as_bytes()).unwrap();
+    }
     if main_components.len() == 0 {
         let report = produce_report(ReportCode::NoMainFoundInProject,0..0, 0);
         warnings.push(report);

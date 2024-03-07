@@ -32,7 +32,8 @@ pub struct Input {
     pub no_rounds: usize,
     pub flag_verbose: bool,
     pub prime: String,
-    pub link_libraries : Vec<PathBuf>
+    pub link_libraries : Vec<PathBuf>,
+    pub save_ast: bool,
 }
 
 
@@ -105,7 +106,8 @@ impl Input {
             flag_old_heuristics: input_processing::get_flag_old_heuristics(&matches),
             flag_verbose: input_processing::get_flag_verbose(&matches), 
             prime: input_processing::get_prime(&matches)?,
-            link_libraries
+            link_libraries,
+            save_ast: false,
         })
     }
 
@@ -508,6 +510,13 @@ mod input_processing {
                     .default_value("bn128")
                     .display_order(300)
                     .help("To choose the prime number to use to generate the circuit. Receives the name of the curve (bn128, bls12381, goldilocks, grumpkin, pallas, vesta, secq256r1)"),
+            )
+            .arg(
+                Arg::with_name("save_ast")
+                    .long("save_ast")
+                    .takes_value(false)
+                    .display_order(990)
+                    .help("Saves the AST of the circuit to ast.json"),
             )
             .get_matches()
     }
