@@ -89,6 +89,9 @@ impl Default for FoldedValue {
 
 enum ExecutionError {
     NonQuadraticConstraint,
+    ConstraintInUnknown,
+    DeclarationInUnknown,
+    TagAssignmentInUnknown,
     FalseAssert,
     ArraySizeTooBig
 }
@@ -196,6 +199,16 @@ fn execute_statement(
         Declaration { meta, xtype, name, dimensions, .. } => {
             match xtype {
                 VariableType::AnonymousComponent => {
+                    if runtime.block_type == BlockType::Unknown{
+                        // Case not valid constraint Known/Unknown
+                        let err = Result::Err(ExecutionError::DeclarationInUnknown);
+                        treat_result_with_execution_error(
+                            err,
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                    }
                     execute_anonymous_component_declaration(
                         name,
                         meta.clone(),
@@ -231,25 +244,50 @@ fn execute_statement(
                             )?
                         };
                     match xtype {
-                        VariableType::Component => execute_component_declaration(
-                            name,
-                            &usable_dimensions,
-                            &mut runtime.environment,
-                            actual_node,
-                        ),
+                        VariableType::Component => {
+                            if runtime.block_type == BlockType::Unknown{
+                                // Case not valid constraint Known/Unknown
+                                let err = Result::Err(ExecutionError::DeclarationInUnknown);
+                                treat_result_with_execution_error(
+                                    err,
+                                    meta,
+                                    &mut runtime.runtime_errors,
+                                    &runtime.call_trace,
+                                )?;
+                            }
+                            execute_component_declaration(
+                                name,
+                                &usable_dimensions,
+                                &mut runtime.environment,
+                                actual_node,
+                            )
+                        },
                         VariableType::Var => environment_shortcut_add_variable(
                             &mut runtime.environment,
                             name,
                             &usable_dimensions,
                         ),
-                        VariableType::Signal(signal_type, tag_list) => execute_signal_declaration(
-                            name,
-                            &usable_dimensions,
-                            tag_list,
-                            *signal_type,
-                            &mut runtime.environment,
-                            actual_node,
-                        ),
+                        VariableType::Signal(signal_type, tag_list) => 
+                        {
+                            if runtime.block_type == BlockType::Unknown{
+                                // Case not valid constraint Known/Unknown
+                                let err = Result::Err(ExecutionError::DeclarationInUnknown);
+                                treat_result_with_execution_error(
+                                    err,
+                                    meta,
+                                    &mut runtime.runtime_errors,
+                                    &runtime.call_trace,
+                                )?;
+                            }
+                            execute_signal_declaration(
+                                name,
+                                &usable_dimensions,
+                                tag_list,
+                                *signal_type,
+                                &mut runtime.environment,
+                                actual_node,
+                            )
+                        },
                         _ =>{
                             unreachable!()
                         }
@@ -267,6 +305,19 @@ fn execute_statement(
             if let Option::Some(node) = actual_node {
                 if *op == AssignOp::AssignConstraintSignal || (*op == AssignOp::AssignSignal && flags.inspect){
                     debug_assert!(possible_constraint.is_some());
+                    
+                    if *op == AssignOp::AssignConstraintSignal && runtime.block_type == BlockType::Unknown{
+                        // Case not valid constraint Known/Unknown
+                        let err = Result::Err(ExecutionError::ConstraintInUnknown);
+                        treat_result_with_execution_error(
+                            err,
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                    }
+                    
+                    
                     let constrained = possible_constraint.unwrap();
 
                     let mut needs_double_arrow = Vec::new();
@@ -331,7 +382,7 @@ fn execute_statement(
                                 Result::Err(ExecutionWarning::CanBeQuadraticConstraintMultiple(needs_double_arrow));
                         
                             treat_result_with_execution_warning(
-                    err,
+                                err,
                                 meta,
                                 &mut runtime.runtime_errors,
                                 &runtime.call_trace,
@@ -344,10 +395,24 @@ fn execute_statement(
         }
         ConstraintEquality { meta, lhe, rhe, .. } => {
             debug_assert!(actual_node.is_some());
+
+            if runtime.block_type == BlockType::Unknown{
+                // Case not valid constraint Known/Unknown
+                let err = Result::Err(ExecutionError::ConstraintInUnknown);
+                treat_result_with_execution_error(
+                    err,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+            }
+
             let f_left = execute_expression(lhe, program_archive, runtime, flags)?;
             let f_right = execute_expression(rhe, program_archive, runtime, flags)?;
             let arith_left = safe_unwrap_to_arithmetic_slice(f_left, line!());
             let arith_right = safe_unwrap_to_arithmetic_slice(f_right, line!());
+
+            
 
             let correct_dims_result = AExpressionSlice::check_correct_dims(&arith_left, &Vec::new(), &arith_right, true);
             treat_result_with_memory_error_void(
@@ -906,6 +971,18 @@ fn perform_assign(
                 &runtime.call_trace,
             )?
         }
+
+        if runtime.block_type == BlockType::Unknown{
+            // Case not valid constraint Known/Unknown
+            let err = Result::Err(ExecutionError::TagAssignmentInUnknown);
+            treat_result_with_execution_error(
+                err,
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+        }
+
         let tag = accessing_information.signal_access.clone().unwrap();
         let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
         let (reference_to_tags, reference_to_tags_defined, reference_to_signal_content) = treat_result_with_environment_error(
@@ -2419,6 +2496,18 @@ fn treat_result_with_execution_error<C>(
                     "The size of the array is expected to be a usize".to_string(),
                     ReportCode::RuntimeError,
                 ),
+                ConstraintInUnknown => Report::error(
+                    "There are constraints depending on the value of a condition that can be unknown during the constraint generation phase".to_string(),
+                    ReportCode::RuntimeError,
+                ),
+                DeclarationInUnknown => Report::error(
+                    "There are signal or component declarations depending on the value of a condition that can be unknown during the constraint generation phase".to_string(),
+                    ReportCode::RuntimeError,
+                ),
+                TagAssignmentInUnknown => Report::error(
+                    "There are tag assignments depending on the value of a condition that can be unknown during the constraint generation phase".to_string(),
+                    ReportCode::RuntimeError,
+                )
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Err(())
