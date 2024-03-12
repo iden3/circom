@@ -2249,7 +2249,7 @@ fn treat_result_with_memory_error_void(
         Result::Ok(()) => Result::Ok(()),
         Result::Err(MemoryError::MismatchedDimensionsWeak(dim_given, dim_original)) => {
                     let report = Report::warning(
-                        format!("Typing warning: Mismatched dimensions, assigning to an array an expression of smaller length, the remaining positions are assigned to 0.\n  Expected length: {}, given {}",
+                        format!("Typing warning: Mismatched dimensions, assigning to an array an expression of smaller length, the remaining positions are not modified. Initially all variables are initialized to 0.\n  Expected length: {}, given {}",
                             dim_original, dim_given),
                         RuntimeError);
                     add_report_to_runtime(report, meta, runtime_errors, call_trace);
