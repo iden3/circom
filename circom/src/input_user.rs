@@ -352,31 +352,33 @@ mod input_processing {
     }
 
     pub fn get_save_ast(matches: &ArgMatches) -> bool {
-        matches.is_present("save_ast")
+        matches.occurrences_of("save_ast") > 0
     }
 
     pub fn get_ast_path(matches: &ArgMatches) -> PathBuf {
-        match matches.is_present("save_ast"){
-            true => 
-               {
-                   let path = matches.value_of("save_ast").unwrap();
-                   if path != "" {
-                        let path = Path::new(path);
-                        if let Some(parent) = path.parent() {
-                            std::fs::create_dir_all(parent).unwrap();
-                        }
-                        
-                        if path.is_dir() {
-                            PathBuf::from(path.join("ast.json").to_str().unwrap())
-                        } else {
-                            PathBuf::from(path.to_str().unwrap())
-                        }
-                    } else {
-                        PathBuf::from("ast.json")
-                    }
-               }
-               
-            false => PathBuf::from("ast.json"),
+        let input = get_input(&matches).expect("Invalid input file");
+        let file_name = &format!("{}_ast.json", input.file_stem().unwrap().to_str().unwrap().to_string());
+        let output_dir = get_output_path(&matches).expect("Invalid output path");
+
+        if matches.value_of("save_ast").unwrap() == "<path_to_output>/<filename>_ast.json" {
+            return PathBuf::from(file_name);
+        }
+        let path_str = matches.value_of("save_ast").unwrap();
+        let mut path = PathBuf::from(path_str);
+        if !path.is_absolute() {
+            path = output_dir.join(path);
+        }
+
+        if path_str.ends_with("/") {
+            std::fs::create_dir_all(&path).unwrap();
+        } else if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+
+        if path.is_dir() {
+            PathBuf::from(path.join(file_name).to_str().unwrap())
+        } else {
+            PathBuf::from(path.to_str().unwrap())
         }
     }
 
@@ -553,8 +555,9 @@ mod input_processing {
                 Arg::with_name("save_ast")
                     .long("save_ast")
                     .takes_value(true)
+                    .default_value("<path_to_output>/<filename>_ast.json")
                     .display_order(990)
-                    .help("If --save_ast is specified, the compiler will save the serialized AST of the circuit, accepts a file name as argument [default: ast.json]"),
+                    .help("If --save_ast is specified, the compiler will save the serialized AST of the circuit, accepts a filename or path as argument"),
             )
             .arg(
                 Arg::with_name("dry_run")
