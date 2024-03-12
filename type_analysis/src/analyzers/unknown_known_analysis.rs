@@ -26,7 +26,17 @@ enum Tag {
     Known,
     Unknown,
 }
-type Environment = CircomEnvironment<Tag, Tag, Tag>;
+
+// For the vars we store the information:  (is_it_known, is_it_array)
+// in case it is an array, if it becomes unknown it will always be unknown
+// but it will not generate an error
+// Example:
+//     a[0] = 0; // a[0] is known
+//     a[1] = in; // a[1] is unknown
+//     if (a[i] == 5){ in === 5;} // we do not know if there is an error here or not
+//          --> we cannot detect the error until execution
+
+type Environment = CircomEnvironment<Tag, Tag, (Tag, bool)>;
 
 pub fn unknown_known_analysis(
     template_name: &str,
@@ -38,7 +48,8 @@ pub fn unknown_known_analysis(
     let file_id = template_data.get_file_id();
     let mut environment = Environment::new();
     for arg in template_data.get_name_of_params() {
-        environment.add_variable(arg, Tag::Known);
+        // We do not know if it is an array or not, so we use the most restrictive option
+        environment.add_variable(arg, (Tag::Known, true));
     }
 
     let entry = EntryInformation { file_id, environment };
@@ -97,8 +108,9 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             } else if let VariableType::AnonymousComponent = xtype {
                 environment.add_component(name, Unknown);
                 signals_declared = true;
-            } else {
-                environment.add_variable(name, Unknown);
+            } else { // it is a variable
+                let is_array = dimensions.len() > 0;
+                environment.add_variable(name, (Known, is_array));                
                 modified_variables.insert(name.clone());
             }
             if let VariableType::AnonymousComponent = xtype {
@@ -130,8 +142,12 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                 }
             }
             if simplified_elem == Variable {
-                let value = environment.get_mut_variable_or_break(var, file!(), line!());
-                *value = max(expression_tag, access_tag);
+                let (value, is_array) = environment.get_mut_variable_or_break(var, file!(), line!());
+                if !*is_array { // if it is a single variable we always update
+                    *value = max(expression_tag, access_tag);
+                } else if *value == Known{ // if not, if it was ukn it remains ukn
+                    *value = max(expression_tag, access_tag);
+                }
                 modified_variables.insert(var.clone());
             } else if simplified_elem == Component {
                 constraints_declared = true;
@@ -214,7 +230,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             if tag_cond == Unknown{
                 for var in &modified_variables{
                     if environment.has_variable(var){
-                        let value = environment.get_mut_variable_or_break(var, file!(), line!());
+                        let (value, _is_array) = environment.get_mut_variable_or_break(var, file!(), line!());
                         *value = Unknown;
                     }
                 }
@@ -270,7 +286,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             if tag_out == Unknown{
                 for var in &exit.modified_variables{
                     if environment.has_variable(var){
-                        let value = environment.get_mut_variable_or_break(var, file!(), line!());
+                        let (value, _is_array) = environment.get_mut_variable_or_break(var, file!(), line!());
                         *value = Unknown;
                     }
                 }   
@@ -335,7 +351,12 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
         Number(_, _) => Known,
         Variable { name, access, .. } => {
             let mut symbol_tag = if environment.has_variable(name) {
-                *environment.get_variable_or_break(name, file!(), line!())
+                let (tag, is_array) = environment.get_variable_or_break(name, file!(), line!());
+                if *is_array{
+                    Known
+                } else{
+                    *tag
+                }
             } else if environment.has_component(name) {
                 *environment.get_component_or_break(name, file!(), line!())
             } else {
@@ -398,7 +419,7 @@ fn check_modified(
             let t_ini = initial_state.get_variable_or_break(v, file!(), line!());
             let t_fin = final_state.get_mut_variable_or_break(v, file!(), line!());
             if *t_ini != *t_fin{
-                if *t_fin == Tag::Unknown{ // in other case we can enter in loops
+                if t_fin.0 == Tag::Unknown{ // in other case we can enter in loops
                     modified = true;
                 }
                 *t_fin = max(*t_ini, *t_fin);
