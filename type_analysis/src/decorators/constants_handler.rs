@@ -224,6 +224,7 @@ fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
         Variable { name, .. } => variable(name, environment),
         ArrayInLine { .. } => array_inline(),
         UniformArray { .. } => uniform_array(),
+        BusCall { args, .. } => call(args, environment),
         _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
@@ -415,8 +416,18 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
             expand_inline_switch_op(meta, *cond, *if_true, *if_false, environment)
         }
         Variable { meta, name, access } => expand_variable(meta, name, access, environment),
+        BusCall { meta, id, args } => expand_bus_call(meta,id,args,environment),
         _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
+}
+
+fn expand_bus_call(meta: Meta, id: String, old_args: Vec<Expression>, environment: &ExpressionHolder,) -> Expression {
+    let mut args = Vec::new();
+    for expr in old_args {
+        let new_expression = expand_expression(expr, environment);
+        args.push(new_expression);
+    }
+    build_bus_call(meta, id, args)
 }
 
 fn expand_number(meta: Meta, value: BigInt) -> Expression {

@@ -6,8 +6,42 @@ use std::collections::{HashMap, BTreeMap, HashSet};
 
 pub type BusInfo = HashMap<String, BusData>;
 pub type TagInfo = HashSet<String>;
-type SignalInfo = BTreeMap<String, (usize, TagInfo)>;
-type SignalDeclarationOrder = Vec<(String, usize)>;
+type FieldInfo = BTreeMap<String, FieldType>;
+type FieldDeclarationOrder = Vec<(String, usize)>;
+
+#[derive(Clone)]
+pub struct FieldType {
+    is_signal: bool,
+    dimension: usize,
+    tag_info: TagInfo,
+}
+
+impl FieldType {
+    pub fn new(
+        is_signal: bool,
+        dimension: usize,
+        tag_info: TagInfo,
+    ) -> FieldType {
+        FieldType {
+            is_signal,
+            dimension,
+            tag_info
+        }
+    }
+    pub fn is_signal(&self) -> bool {
+        self.is_signal
+    }
+    pub fn get_dimension(&self) -> usize {
+        self.dimension
+    }
+    pub fn contains_tag(&self, name: &str) -> bool {
+        self.tag_info.contains(name)
+    }
+    pub fn get_tags(&self) -> &TagInfo {
+        &self.tag_info
+    }
+}
+
 #[derive(Clone)]
 pub struct BusData {
     name: String,
@@ -15,7 +49,7 @@ pub struct BusData {
     num_of_params: usize,
     name_of_params: Vec<String>,
     param_location: FileLocation,
-    signals: SignalInfo,
+    fields: FieldInfo,
     body: Statement,
 }
 
@@ -30,7 +64,7 @@ impl BusData {
         elem_id: &mut usize,
     ) -> BusData {
         body.fill(file_id, elem_id);
-        let signals = SignalInfo::new();
+        let fields = FieldInfo::new();
 
         BusData {
              name, 
@@ -39,7 +73,7 @@ impl BusData {
              name_of_params, 
              param_location, 
              num_of_params,
-             signals
+             fields
         }
     }
     pub fn get_file_id(&self) -> FileID {
@@ -81,37 +115,37 @@ impl BusData {
     pub fn get_name(&self) -> &str {
         &self.name
     }
-    pub fn get_signal_info(&self, name: &str) -> Option<&(usize, TagInfo)> {
-        self.signals.get(name)
+    pub fn get_field_info(&self, name: &str) -> Option<&FieldType> {
+        self.fields.get(name)
     }
-    pub fn get_signals(&self) -> &SignalInfo {
-        &self.signals
+    pub fn get_fields(&self) -> &FieldInfo {
+        &self.fields
     }
 }
 
 
-fn fill_signals(
-    template_statement: &Statement,
-    signals: &mut SignalInfo,
+fn fill_fields(
+    bus_statement: &Statement,
+    fields: &mut FieldInfo,
 ) {
-    match template_statement {
+    match bus_statement {
         Statement::IfThenElse { if_case, else_case, .. } => {
-            fill_signals(if_case, signals);
+            fill_fields(if_case, fields);
             if let Option::Some(else_value) = else_case {
-                fill_signals(else_value, signals);
+                fill_fields(else_value, fields);
             }
         }
         Statement::Block { stmts, .. } => {
             for stmt in stmts.iter() {
-                fill_signals(stmt, signals);
+                fill_fields(stmt, fields);
             }
         }
         Statement::While { stmt, .. } => {
-            fill_signals(stmt, signals);
+            fill_fields(stmt, fields);
         }
         Statement::InitializationBlock { initializations, .. } => {
             for initialization in initializations.iter() {
-                fill_signals(initialization, signals);
+                fill_fields(initialization, fields);
             }
         }
         Statement::Declaration { xtype, name, dimensions, .. } => {
@@ -122,9 +156,18 @@ fn fill_signals(
                 for tag in tag_list{
                     tag_info.insert(tag.clone());
                 }
-
-                signals.insert(signal_name.clone(), (dim, tag_info));
+                let field_type = FieldType::new(true,dim,tag_info);
+                fields.insert(signal_name.clone(), field_type.clone());
             }
+            else if let ast::VariableType::Bus(stype, tag_list) = xtype {
+                let bus_name = name.clone();
+                let dim = dimensions.len();
+                let mut tag_info = HashSet::new();
+                for tag in tag_list{
+                    tag_info.insert(tag.clone());
+                }
+                let field_type = FieldType::new(false,dim,tag_info);
+                fields.insert(bus_name.clone(), field_type);            }
         }
         _ => {}
     }
