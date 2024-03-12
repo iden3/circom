@@ -3,6 +3,7 @@ use super::file_definition::{FileID, FileLibrary};
 use super::function_data::{FunctionData, FunctionInfo};
 use super::program_merger::Merger;
 use super::template_data::{TemplateData, TemplateInfo};
+use super::bus_data::{BusData, BusInfo};
 use crate::abstract_syntax_tree::ast::FillMeta;
 use std::collections::HashSet;
 use crate::error_definition::Report;
@@ -16,8 +17,10 @@ pub struct ProgramArchive {
     pub file_library: FileLibrary,
     pub functions: FunctionInfo,
     pub templates: TemplateInfo,
+    pub buses: BusInfo,
     pub function_keys: HashSet<String>,
     pub template_keys: HashSet<String>,
+    pub bus_keys: HashSet<String>,
     pub public_inputs: Vec<String>,
     pub initial_template_call: Expression,
     pub custom_gates: bool,
@@ -37,14 +40,19 @@ impl ProgramArchive {
                 reports.append(&mut errs);
             }
         }
-        let (mut fresh_id, functions, templates) = merger.decompose();
+        let (mut fresh_id, functions, templates, buses) = merger.decompose();
         let mut function_keys = HashSet::new();
         let mut template_keys = HashSet::new();
+        let mut bus_keys = HashSet::new();
+
         for key in functions.keys() {
             function_keys.insert(key.clone());
         }
         for key in templates.keys() {
             template_keys.insert(key.clone());
+        }
+        for key in buses.keys() {
+            bus_keys.insert(key.clone());
         }
         let (public_inputs, mut initial_template_call) = main_component;
         initial_template_call.fill(file_id_main, &mut fresh_id);
@@ -55,10 +63,12 @@ impl ProgramArchive {
                 file_library,
                 functions,
                 templates,
+                buses,
                 public_inputs,
                 initial_template_call,
                 function_keys,
                 template_keys,
+                bus_keys,
                 custom_gates,
             })
         } else {
@@ -121,6 +131,32 @@ impl ProgramArchive {
     pub fn remove_function(&mut self, id: &str) {
         self.function_keys.remove(id);
         self.functions.remove(id);
+    }
+
+    // bus functions
+    pub fn contains_bus(&self, bus_name: &str) -> bool {
+        self.get_buses().contains_key(bus_name)
+    }
+    pub fn get_bus_data(&self, bus_name: &str) -> &BusData {
+        assert!(self.contains_bus(bus_name));
+        self.get_buses().get(bus_name).unwrap()
+    }
+    pub fn get_mut_bus_data(&mut self, bus_name: &str) -> &mut BusData {
+        assert!(self.contains_bus(bus_name));
+        self.buses.get_mut(bus_name).unwrap()
+    }
+    pub fn get_bus_names(&self) -> &HashSet<String> {
+        &self.bus_keys
+    }
+    pub fn get_buses(&self) -> &BusInfo {
+        &self.buses
+    }
+    pub fn get_mut_buses(&mut self) -> &mut BusInfo {
+        &mut self.buses
+    }
+    pub fn remove_bus(&mut self, id: &str) {
+        self.bus_keys.remove(id);
+        self.buses.remove(id);
     }
 
     //main_component functions
