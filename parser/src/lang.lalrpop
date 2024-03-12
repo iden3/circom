@@ -135,9 +135,8 @@ pub ParseDefinition : Definition = {
         => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), custom_gate.is_some()),
     },
 
-    <s:@L> "bus" <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R>  <body: ParseBusBlock> <e:@R>
+    <s:@L> "bus" <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R> <body: ParseBlock> <e:@R>
     => {
-        //println!("Bus {} with declaration starting at {} and finishing at {} parsed", name, s, e);
         match arg_names{
             None =>
                 build_bus(Meta::new(s,e), name, Vec::new(), args..arge, body),
@@ -165,8 +164,8 @@ ParseSignalType: SignalType = {
     "output" => SignalType::Output
 };
 
-SignalHeader : VariableType = {
-    "signal"  <signal_type: ParseSignalType?> <tags_list: ParseTagsList?>
+ParseHeader: (SignalType, Vec<String>) = {
+    <signal_type: ParseSignalType?> <tags_list: ParseTagsList?>
     => {
         let s = match signal_type {
             None => SignalType::Intermediate,
@@ -176,7 +175,34 @@ SignalHeader : VariableType = {
             None => Vec::new(),
             Some(tl) => tl,
         };
+        (s,t)
+    }
+}
+
+SignalHeader : VariableType = {
+    "signal" <header: ParseHeader>
+    => {
+        let (s,t) = header;
         VariableType::Signal(s, t)
+    }
+};
+
+BusHeader : (Expression, VariableType) = {
+    <s:@L> <id: IDENTIFIER> <e:@R> <header: ParseHeader>
+    => {
+        let bus_builder = build_bus_call(Meta::new(s,e),id,Vec::new());
+        let (s,t) = header;
+        (bus_builder,VariableType::Bus(s, t))
+    },
+
+    <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R> <header: ParseHeader>
+    => {
+        let bus_builder = match args {
+                            None => build_bus_call(Meta::new(s,e),id,Vec::new()),
+                            Some(a) => build_bus_call(Meta::new(s,e),id,a),
+                            };
+        let (s,t) = header;
+        (bus_builder,VariableType::Bus(s, t))
     }
 };
 
@@ -263,6 +289,7 @@ ParseDeclaration : Statement = {
         symbols.push(symbol);
         ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init)
     },
+
     <s:@L> "component" "(" <symbols:(<SimpleSymbol> ",")*> <symbol: SimpleSymbol> ")" <init : TupleInitialization?>  <e:@R> => {
         let mut symbols = symbols;
         let meta = Meta::new(s,e);
@@ -271,6 +298,13 @@ ParseDeclaration : Statement = {
         ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init)
     },
 
+//    <s:@L> <bus_header: BusHeader> "(" <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol> ")" <init : TupleInitialization?> <e:@R> => {
+//        let (bus_type,xtype) = bus_header;
+//        let mut symbols = symbols;
+//        let meta = Meta::new(s,e);
+//        symbols.push(symbol);
+//        ast_shortcuts::split_bus_declaration_into_single_nodes_and_multisubstitution(meta,bus_type,xtype,symbols, init)
+//    },
 
     <s:@L> "var" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
             let mut symbols = symbols;
@@ -288,14 +322,14 @@ ParseDeclaration : Statement = {
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
     },
 
-    <s:@L><xtype: SignalHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol>  <e:@R>
+    <s:@L> <xtype: SignalHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol>  <e:@R>
     => {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
             symbols.push(symbol);
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignConstraintSignal)
     },
-    <s:@L><xtype: SignalHeader> <symbols:(<SignalSimpleSymbol> ",")*> <symbol: SignalSimpleSymbol>  <e:@R>
+    <s:@L> <xtype: SignalHeader> <symbols:(<SignalSimpleSymbol> ",")*> <symbol: SignalSimpleSymbol>  <e:@R>
     => {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
@@ -303,11 +337,12 @@ ParseDeclaration : Statement = {
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignSignal)
     },
 
-    <s:@L> <type_bus: BusHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol> <e:@R> => {
+    <s:@L> <bus_header: BusHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol> <e:@R> => {
+            let (bus_type,xtype) = bus_header;
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
             symbols.push(symbol);
-            ast_shortcuts::build_bus_declaration_and_split(meta,type_bus,symbols,AssignOp::AssignSignal)
+            ast_shortcuts::split_bus_declaration_into_single_nodes(meta,bus_type,xtype,symbols,AssignOp::AssignSignal)
     },
 
 
@@ -797,62 +832,4 @@ Version : Version = {
     <version: SMALL_DECNUMBER> "." <subversion:SMALL_DECNUMBER> "." <subsubversion:SMALL_DECNUMBER> => {
         (version, subversion, subsubversion)
     }
-};
-
-
-// ====================================================================
-// Bus syntax
-// ====================================================================
-
-BusHeader: Expression = {
-    <s:@L> <id: IDENTIFIER> <e:@R> =>{
-        build_bus_call(Meta::new(s,e),id,Vec::new())
-    },
-
-
-    <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R>
-    => match args {
-        None => build_bus_call(Meta::new(s,e),id,Vec::new()),
-        Some(a) => build_bus_call(Meta::new(s,e),id,a),
-    },
-
-};
-
-BusSignalHeader: VariableType = {
-    "signal" <tags_list: ParseTagsList?>
-    => {
-        let t = match tags_list {
-            None => Vec::new(),
-            Some(tl) => tl,
-        };
-        VariableType::Signal(SignalType::Intermediate, t)
-    }
-};
-
-// The only declarations allowed in a bus are the signal ones without initialization
-ParseBusSignalDeclaration: Statement = {
-
-    <s:@L> <xtype: BusSignalHeader> "(" <symbols: (<SimpleSymbol> ",")*> <symbol: SimpleSymbol> ")" <e:@R> => {
-        let mut symbols = symbols;
-        let meta = Meta::new(s,e);
-        symbols.push(symbol);
-        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols,None)
-    },
-
-    <s:@L> <xtype: BusSignalHeader> <symbols: (<SimpleSymbol> ",")*> <symbol: SimpleSymbol> <e:@R> => {
-        let mut symbols = symbols;
-        let meta = Meta::new(s,e);
-        symbols.push(symbol);
-        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols,None)
-    },
-};
-
-ParseBusBlock: Statement = {
-    <s:@L> "{" <stmts :ParseBusStatement+> "}" <e:@R>
-     => build_block(Meta::new(s,e),stmts),
-};
-
-ParseBusStatement: Statement = {
-    <dec: ParseBusSignalDeclaration> Semicolon
-    => dec
 };

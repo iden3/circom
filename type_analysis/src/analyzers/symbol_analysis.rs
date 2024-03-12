@@ -414,6 +414,19 @@ fn analyze_expression(
                 environment,
             );
         },
+        Expression::BusCall { args, .. } => 
+        {
+            for arg in args.iter() {
+                analyze_expression(
+                    arg,
+                    file_id,
+                    function_info,
+                    template_info,
+                    reports,
+                    environment,
+                );
+            }
+        },
         _ => {}
     }
 }

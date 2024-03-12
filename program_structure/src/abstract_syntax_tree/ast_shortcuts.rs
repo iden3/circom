@@ -73,7 +73,7 @@ pub fn split_declaration_into_single_nodes(
             initializations.push(substitution);
         }
         else if xtype == Var {
-            let mut value = Expression:: Number(meta.clone(), BigInt::from(0));
+            let mut value = Expression::Number(meta.clone(), BigInt::from(0));
             for dim_expr in dimensions.iter().rev(){
                 value = build_uniform_array(meta.clone(), value, dim_expr.clone());
             }
@@ -126,9 +126,10 @@ pub fn split_declaration_into_single_nodes_and_multisubstitution(
 
 
 
-pub fn build_bus_declaration_and_split(
+pub fn split_bus_declaration_into_single_nodes(
     meta: Meta,
-    type_bus: Expression,
+    bustype: Expression,
+    xtype: VariableType,
     symbols: Vec<Symbol>,
     op: AssignOp,
 ) -> Statement {
@@ -138,12 +139,12 @@ pub fn build_bus_declaration_and_split(
 
     for symbol in symbols {
         let with_meta = meta.clone();
-        let has_type = VariableType::Bus;
+        let has_type = xtype.clone();
         let name = symbol.name.clone();
         let dimensions = symbol.is_array;
         let possible_init = symbol.init;
         let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone());
-        let bus_declaration = build_substitution(meta.clone(), symbol.name.clone(), vec![], AssignVar, type_bus.clone());
+        let bus_declaration = build_substitution(meta.clone(), symbol.name.clone(), vec![], AssignVar, bustype.clone());
         initializations.push(single_declaration);
         initializations.push(bus_declaration);
 
@@ -153,5 +154,36 @@ pub fn build_bus_declaration_and_split(
             initializations.push(substitution);
         }
     }
-    build_initialization_block(meta, VariableType::Bus, initializations)
+    build_initialization_block(meta, xtype, initializations)
+}
+
+pub fn split_bus_declaration_into_single_nodes_and_multisubstitution(
+    meta: Meta,
+    bustype: Expression,
+    xtype: VariableType,
+    symbols: Vec<Symbol>,
+    init: Option<TupleInit>,
+) -> Statement {
+    use crate::ast_shortcuts::AssignOp::AssignVar;
+
+    let mut initializations = Vec::new();
+    let mut values = Vec::new();
+    for symbol in symbols {
+        let with_meta = meta.clone();
+        let has_type = xtype.clone();
+        let name = symbol.name.clone();
+        let dimensions = symbol.is_array;
+        debug_assert!(symbol.init.is_none());
+        let single_declaration = build_declaration(with_meta.clone(), has_type, name.clone(), dimensions.clone());
+        let bus_declaration = build_substitution(meta.clone(), symbol.name.clone(), vec![], AssignVar, bustype.clone());
+        initializations.push(single_declaration);
+        initializations.push(bus_declaration);
+        values.push(Expression::Variable { meta: with_meta.clone(), name: name, access: Vec::new() })
+    }
+    if let Some(tuple) = init {
+        let (op,expression) = tuple.tuple_init;
+        let multi_sub = build_mult_substitution(meta.clone(), build_tuple(meta.clone(), values), op, expression);
+        initializations.push(multi_sub);
+    }
+    build_initialization_block(meta, xtype, initializations)
 }

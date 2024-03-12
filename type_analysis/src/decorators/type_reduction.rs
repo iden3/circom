@@ -82,6 +82,9 @@ fn reduce_types_in_expression(expression: &mut Expression, environment: &Environ
             reduce_types_in_expression(dimension, environment);
         }
         Number(..) => {}
+        BusCall { args, .. } => {
+            reduce_types_in_vec_of_expressions(args, environment);
+        },
         _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
