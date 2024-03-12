@@ -137,8 +137,13 @@ pub ParseDefinition : Definition = {
 
     <s:@L> "bus" <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R>  <body: ParseBusBlock> <e:@R>
     => {
-        println!("Bus {} with declaration starting at {} and finishing at {} parsed", name, s, e);
-        build_bus(Meta::new(s,e), name)
+        //println!("Bus {} with declaration starting at {} and finishing at {} parsed", name, s, e);
+        match arg_names{
+            None =>
+                build_bus(Meta::new(s,e), name, Vec::new(), args..arge, body),
+            Some(a) =>
+                build_bus(Meta::new(s,e), name, a, args..arge, body),
+        }
     },
 
 };
