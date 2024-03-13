@@ -27,6 +27,10 @@ fn start() -> Result<(), ()> {
     let mut program_archive = parser_user::parse_project(&user_input)?;
     type_analysis_user::analyse_project(&mut program_archive)?;
 
+    if user_input.dry_run {
+        return Result::Ok(());
+    }
+
     let config = ExecutionConfig {
         no_rounds: user_input.no_rounds(),
         flag_p: user_input.parallel_simplification_flag(),
