@@ -118,9 +118,24 @@ pub fn run_parser(
     }
 
     if save_ast {
-        let ast_list = serde_json::to_string(&ast_list).unwrap();
-        let mut file = std::fs::File::create(ast_path).unwrap();
-        file.write_all(ast_list.as_bytes()).unwrap();
+        let ast_list = serde_json::to_string(&ast_list).map_err(|e| {
+            (
+                file_library.clone(),
+                vec![Report::error(format!("Error serializing AST: {}", e), ReportCode::FileOs)],
+            )
+        })?;
+        let mut file = std::fs::File::create(ast_path).map_err(|e| {
+            (
+                file_library.clone(),
+                vec![Report::error(format!("Error creating AST file: {}", e), ReportCode::FileOs)],
+            )
+        })?;
+        file.write_all(ast_list.as_bytes()).map_err(|e| {
+            (
+                file_library.clone(),
+                vec![Report::error(format!("Error writing AST file: {}", e), ReportCode::FileOs)],
+            )
+        })?;
     }
     if main_components.len() == 0 {
         let report = produce_report(ReportCode::NoMainFoundInProject,0..0, 0);

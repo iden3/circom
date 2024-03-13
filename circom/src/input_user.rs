@@ -110,7 +110,7 @@ impl Input {
             prime: input_processing::get_prime(&matches)?,
             link_libraries,
             save_ast: input_processing::get_save_ast(&matches),
-            ast_path: input_processing::get_ast_path(&matches),
+            ast_path: input_processing::get_ast_path(&matches)?,
             dry_run: input_processing::get_dry_run(&matches),
         })
     }
@@ -355,30 +355,33 @@ mod input_processing {
         matches.occurrences_of("save_ast") > 0
     }
 
-    pub fn get_ast_path(matches: &ArgMatches) -> PathBuf {
-        let input = get_input(&matches).expect("Invalid input file");
-        let file_name = &format!("{}_ast.json", input.file_stem().unwrap().to_str().unwrap().to_string());
-        let output_dir = get_output_path(&matches).expect("Invalid output path");
+    pub fn get_ast_path(matches: &ArgMatches) -> Result<PathBuf, ()> {
+        let binding = get_input(&matches)?;
+        let input = binding.file_stem().ok_or(())?.to_str().ok_or(())?;
+        let file_name = &format!("{}_ast.json", input);
+        let output_dir = get_output_path(&matches)?;
 
-        if matches.value_of("save_ast").unwrap() == "<path_to_output>/<filename>_ast.json" {
-            return PathBuf::from(file_name);
+        if matches.value_of("save_ast").ok_or(())? == "<path_to_output>/<filename>_ast.json" {
+            return Ok(PathBuf::from(file_name));
         }
-        let path_str = matches.value_of("save_ast").unwrap();
+
+        let path_str = matches.value_of("save_ast").ok_or(())?;
         let mut path = PathBuf::from(path_str);
+
         if !path.is_absolute() {
             path = output_dir.join(path);
         }
 
         if path_str.ends_with("/") {
-            std::fs::create_dir_all(&path).unwrap();
+            let _ = std::fs::create_dir_all(&path);
         } else if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).unwrap();
+            let _ = std::fs::create_dir_all(parent);
         }
 
         if path.is_dir() {
-            PathBuf::from(path.join(file_name).to_str().unwrap())
+            Ok(PathBuf::from(path.join(file_name).to_str().ok_or(())?))
         } else {
-            PathBuf::from(path.to_str().unwrap())
+            Ok(PathBuf::from(path.to_str().ok_or(())?))
         }
     }
 
