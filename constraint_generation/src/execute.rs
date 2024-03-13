@@ -820,7 +820,7 @@ fn execute_signal_declaration(
 }
 
 /*
-    In case the assigment could be a constraint generator the returned value is the constraint
+    In case the assignment could be a constraint generator the returned value is the constraint
     that will be created
 */
 struct Constrained {

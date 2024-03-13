@@ -232,7 +232,7 @@ impl WriteC for CreateCmpBucket {
             }
         }
         // generate array with the positions that are actually created if there are empty components
-        // if not only traverse the defined positions, but i gets the value of the indexed accesed position
+        // if not only traverse the defined positions, but i gets the value of the indexed accessed position
         else{
             instructions.push(format!("uint aux_positions [{}]= {};", self.defined_positions.len(), set_list(self.defined_positions.iter().map(|(x, _y)| *x).collect())));
             instructions.push(format!("for (uint i_aux = 0; i_aux < {}; i_aux++) {{",  self.defined_positions.len()));

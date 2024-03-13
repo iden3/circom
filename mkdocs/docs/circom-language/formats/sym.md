@@ -69,7 +69,7 @@ to indicate that we do not want to apply any simplification the generated file '
 5,5,0,main.c.in[0]
 6,6,0,main.c.in[1]
 ```
-Finaly, if we run 
+Finally, if we run 
 
 ```text
 circom symbols.circom --r1cs --wasm --sym --O1
