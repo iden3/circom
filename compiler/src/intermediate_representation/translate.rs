@@ -495,6 +495,7 @@ fn translate_while(stmt: Statement, state: &mut State, context: &Context) {
 fn translate_substitution(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::Substitution;
     if let Substitution { meta, var, access, rhe, .. } = stmt {
+
         debug_assert!(!meta.get_type_knowledge().is_component());
         let def = SymbolDef { meta: meta.clone(), symbol: var, acc: access };
         let str_info =
@@ -534,8 +535,9 @@ fn translate_standard_case(
     state: &mut State,
     context: &Context,
 ) -> InstructionPointer {
+    let src_size: usize = get_expression_size(&info.src, state, context);
     let src = translate_expression(info.src, state, context);
-    info.prc_symbol.into_store(src, state)
+    info.prc_symbol.into_store(src, state, src_size)
 }
 
 // End of substitution utils
@@ -654,15 +656,36 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
 fn translate_return(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::Return;
     if let Return { meta, value, .. } = stmt {
-        let return_type = context.functions.get(&context.translating).unwrap();
+        let src_size: usize = get_expression_size(&value, state, context);
+    
         let return_bucket = ReturnBucket {
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
-            with_size: return_type.iter().fold(1, |p, c| p * (*c)),
+            with_size: src_size,
             value: translate_expression(value, state, context),
         }
         .allocate();
         state.code.push(return_bucket);
+    }
+}
+
+fn get_expression_size(expression: &Expression, state: &mut State, context: &Context) -> usize{
+    if expression.is_infix() {
+        1
+    } else if expression.is_prefix() {
+        1
+    } else if expression.is_variable() {
+        get_variable_size(expression, state, context)
+    } else if expression.is_number() {
+        1
+    } else if expression.is_call() {
+        unreachable!("This case should be unreachable")
+    } else if expression.is_array() {
+        unreachable!("This expression is syntactic sugar")
+    } else if expression.is_switch() {
+        unreachable!("This expression is syntactic sugar")
+    } else {
+        unreachable!("Unknown expression")
     }
 }
 
@@ -780,6 +803,25 @@ fn check_tag_access(name_signal: &String, access: &Vec<Access>, state: &mut Stat
         }
     }
     value_tag
+}
+
+fn get_variable_size(
+    expression: &Expression,
+    state: &mut State,
+    context: &Context,
+) -> usize {
+    use Expression::{Variable};
+    if let Variable { meta, name, access, .. } = expression {
+        let tag_access = check_tag_access(&name, &access, state);
+        if tag_access.is_some(){
+            1
+        } else{
+            let def = SymbolDef { meta: meta.clone(), symbol: name.clone(), acc: access.clone() };
+            ProcessedSymbol::new(def, state, context).length
+        }
+    } else {
+        unreachable!()
+    }
 }
 
 fn translate_variable(
@@ -1031,7 +1073,9 @@ impl ProcessedSymbol {
         .allocate()
     }
 
-    fn into_store(self, src: InstructionPointer, state: &State) -> InstructionPointer {
+    fn into_store(self, src: InstructionPointer, state: &State, src_size: usize) -> InstructionPointer {
+        let minimal_lenth = std::cmp::min(self.length, src_size);
+        
         if let Option::Some(signal) = self.signal {
             let dest_type = AddressType::SubcmpSignal {
                 cmp_address: compute_full_address(state, self.symbol, self.before_signal),
@@ -1047,7 +1091,7 @@ impl ProcessedSymbol {
                 dest: signal,
                 line: self.line,
                 message_id: self.message_id,
-                context: InstrContext { size: self.length },
+                context: InstrContext { size: minimal_lenth },
                 dest_is_output: false,
                 dest_address_type: dest_type,
             }
@@ -1065,7 +1109,7 @@ impl ProcessedSymbol {
                 message_id: self.message_id,
                 dest_is_output: self.signal_type.map_or(false, |t| t == SignalType::Output),
                 dest: LocationRule::Indexed { location: address, template_header: None },
-                context: InstrContext { size: self.length },
+                context: InstrContext { size: minimal_lenth },
             }
             .allocate()
         }

@@ -54,6 +54,18 @@ fn infer_type_return(stmt: &Statement, state: &State, context: &mut SearchInfo) 
     }
 }
 
+fn check_if_greater_than(new: &VCT, original: &VCT)-> bool{
+    let mut value_new = 1;
+    for v in new{
+        value_new *= v;
+    }
+    let mut value_original = 1;
+    for v in original{
+        value_original = value_original * v;
+    }
+    value_new > value_original
+}
+
 fn infer_type_declaration(
     stmt: &Statement,
     _state: &State,
@@ -75,8 +87,22 @@ fn infer_type_block(stmt: &Statement, state: &State, context: &mut SearchInfo) -
         let mut returns = Option::None;
         let mut index = 0;
         context.environment.add_variable_block();
-        while index < stmts.len() && returns.is_none() {
-            returns = infer_type_stmt(&stmts[index], state, context);
+        while index < stmts.len() {
+            let new_returns = infer_type_stmt(&stmts[index], state, context);
+            if new_returns.is_some(){
+                let v_new_returns = new_returns.unwrap();
+                returns = if returns.is_some(){
+                    let v_returns = returns.unwrap();
+                    if check_if_greater_than(&v_new_returns, &v_returns) {
+                        Some(v_new_returns)
+                    } else{
+                        Some(v_returns)
+                    }
+                } else{
+                    Some(v_new_returns)
+                }            
+            }
+            
             index += 1;
         }
         context.environment.remove_variable_block();
@@ -109,8 +135,19 @@ fn infer_type_conditional(
     if let IfThenElse { if_case, else_case, .. } = stmt {
         let mut returns = infer_type_stmt(if_case, state, context);
         if let Option::Some(s) = else_case {
-            if returns.is_none() {
-                returns = infer_type_stmt(s, state, context);
+            let else_returns = infer_type_stmt(s, state, context);
+            if else_returns.is_some(){
+                let v_else_returns = else_returns.unwrap();
+                returns = if returns.is_some(){
+                    let v_returns = returns.unwrap();
+                    if check_if_greater_than(&v_else_returns, &v_returns) {
+                        Some(v_else_returns)
+                    } else{
+                        Some(v_returns)
+                    }
+                } else{
+                    Some(v_else_returns)
+                }            
             }
         }
         returns

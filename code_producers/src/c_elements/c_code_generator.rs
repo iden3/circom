@@ -402,6 +402,31 @@ pub fn build_failed_assert_message(line: usize) -> String{
      )
 }
 
+pub fn build_failed_return_message(line: usize, length: usize) -> String{
+
+    format!("
+    std::cerr<< \"\\nError: Incorrect sizes in function \" << {} << \" line {}: the function returns a variable of length {} when the expected length is \" << {} << \"\\nFollowed trace of components:\" << {} <<\" \\n\";
+    ",
+        MY_TEMPLATE_NAME,
+        line,
+        length,
+        FUNCTION_DESTINATION_SIZE,
+        generate_my_trace()
+     )
+}
+
+pub fn build_warning_return_message(line: usize, length: usize) -> String{
+
+    format!("
+    std::cerr<< \"\\nWarning: Incorrect sizes in function \" << {} << \" line {}: the function returns a variable of length {} when the expected length is \" << {} << \", the remaining positions are not modified\\nFollowed trace of components:\" << {} <<\" \\n\";
+    ",
+        MY_TEMPLATE_NAME,
+        line,
+        length,
+        FUNCTION_DESTINATION_SIZE,
+        generate_my_trace()
+     )
+}
 
 pub fn build_conditional(
     cond: Vec<String>,

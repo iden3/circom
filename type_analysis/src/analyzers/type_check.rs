@@ -1062,7 +1062,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         }
         MainComponentWithTags => "Main component cannot have inputs with tags".to_string(),
         ExpectedDimDiffGotDim(expected, got) => {
-            format!("Function should return {} but returns {}", expected, got)
+            format!("All branches of a function should return an element of the same dimensions.\n Found {} and {} dimensions", expected, got)
         }
         WrongNumberOfArguments(expected, got) => {
             format!("Expecting {} arguments, {} where obtained", expected, got)

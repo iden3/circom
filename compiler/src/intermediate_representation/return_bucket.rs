@@ -100,9 +100,36 @@ impl WriteC for ReturnBucket {
         instructions.push("// return bucket".to_string());
         let (mut instructions_value, src) = self.value.produce_c(producer, parallel);
         instructions.append(&mut instructions_value);
-        if self.with_size > 1 {
+
+        let warning_condition = format!("{} > {}", FUNCTION_DESTINATION_SIZE, self.with_size); 
+        let check_correct_size_1 = format!(
+            "if({}){{
+                {}
+            }}", 
+            warning_condition,
+            build_warning_return_message(self.line, self.with_size)
+        );
+        
+        let error_condition = format!("{} >= {}", FUNCTION_DESTINATION_SIZE, self.with_size); 
+
+        let check_correct_size_2 = format!(
+            "if(!({})){{
+                {}
+            }}", 
+            error_condition,
+            build_failed_return_message(self.line, self.with_size)
+        );
+        let assertion = format!("{};", build_call("assert".to_string(), vec![error_condition]));
+
+        instructions.push(check_correct_size_1);
+        instructions.push(check_correct_size_2);
+        instructions.push(assertion);
+
+
+
+        if self.with_size > 1 {   
             let copy_arguments =
-                vec![FUNCTION_DESTINATION.to_string(), src, FUNCTION_DESTINATION_SIZE.to_string()];
+                vec![FUNCTION_DESTINATION.to_string(), src, self.with_size.to_string()];
             instructions.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
         } else {
             let copy_arguments = vec![FUNCTION_DESTINATION.to_string(), src];
