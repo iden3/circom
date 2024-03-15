@@ -1,46 +1,10 @@
 use super::ast;
 use super::ast::{FillMeta, Statement};
-use super::file_definition::FileID;
-use crate::file_definition::FileLocation;
-use std::collections::{HashMap, BTreeMap, HashSet};
+use super::file_definition::{FileID, FileLocation};
+use super::wire_data::{TagInfo, WireInfo, WireData, WireType, WireDeclarationOrder};
+use std::collections::{HashMap};
 
 pub type BusInfo = HashMap<String, BusData>;
-pub type TagInfo = HashSet<String>;
-type FieldInfo = BTreeMap<String, FieldType>;
-type FieldDeclarationOrder = Vec<(String, usize)>;
-
-#[derive(Clone)]
-pub struct FieldType {
-    is_signal: bool,
-    dimension: usize,
-    tag_info: TagInfo,
-}
-
-impl FieldType {
-    pub fn new(
-        is_signal: bool,
-        dimension: usize,
-        tag_info: TagInfo,
-    ) -> FieldType {
-        FieldType {
-            is_signal,
-            dimension,
-            tag_info
-        }
-    }
-    pub fn is_signal(&self) -> bool {
-        self.is_signal
-    }
-    pub fn get_dimension(&self) -> usize {
-        self.dimension
-    }
-    pub fn contains_tag(&self, name: &str) -> bool {
-        self.tag_info.contains(name)
-    }
-    pub fn get_tags(&self) -> &TagInfo {
-        &self.tag_info
-    }
-}
 
 #[derive(Clone)]
 pub struct BusData {
@@ -49,7 +13,7 @@ pub struct BusData {
     num_of_params: usize,
     name_of_params: Vec<String>,
     param_location: FileLocation,
-    fields: FieldInfo,
+    fields: WireInfo,
     body: Statement,
 }
 
@@ -64,7 +28,7 @@ impl BusData {
         elem_id: &mut usize,
     ) -> BusData {
         body.fill(file_id, elem_id);
-        let fields = FieldInfo::new();
+        let fields = WireInfo::new();
 
         BusData {
              name, 
@@ -115,10 +79,10 @@ impl BusData {
     pub fn get_name(&self) -> &str {
         &self.name
     }
-    pub fn get_field_info(&self, name: &str) -> Option<&FieldType> {
+    pub fn get_field_info(&self, name: &str) -> Option<&WireData> {
         self.fields.get(name)
     }
-    pub fn get_fields(&self) -> &FieldInfo {
+    pub fn get_fields(&self) -> &WireInfo {
         &self.fields
     }
 }
@@ -126,7 +90,7 @@ impl BusData {
 
 fn fill_fields(
     bus_statement: &Statement,
-    fields: &mut FieldInfo,
+    fields: &mut WireInfo,
 ) {
     match bus_statement {
         Statement::IfThenElse { if_case, else_case, .. } => {
@@ -149,25 +113,25 @@ fn fill_fields(
             }
         }
         Statement::Declaration { xtype, name, dimensions, .. } => {
-            if let ast::VariableType::Signal(stype, tag_list) = xtype {
+            if let ast::VariableType::Signal(_, tag_list) = xtype {
                 let signal_name = name.clone();
                 let dim = dimensions.len();
-                let mut tag_info = HashSet::new();
-                for tag in tag_list{
+                let mut tag_info = TagInfo::new();
+                for tag in tag_list {
                     tag_info.insert(tag.clone());
                 }
-                let field_type = FieldType::new(true,dim,tag_info);
-                fields.insert(signal_name.clone(), field_type.clone());
+                let field_data = WireData::new(WireType::Signal,dim,tag_info);
+                fields.insert(signal_name, field_data);
             }
-            else if let ast::VariableType::Bus(stype, tag_list) = xtype {
+            else if let ast::VariableType::Bus(_, tag_list) = xtype {
                 let bus_name = name.clone();
                 let dim = dimensions.len();
-                let mut tag_info = HashSet::new();
-                for tag in tag_list{
+                let mut tag_info = TagInfo::new();
+                for tag in tag_list {
                     tag_info.insert(tag.clone());
                 }
-                let field_type = FieldType::new(false,dim,tag_info);
-                fields.insert(bus_name.clone(), field_type);            }
+                let field_data = WireData::new(WireType::Bus,dim,tag_info);
+                fields.insert(bus_name, field_data);            }
         }
         _ => {}
     }
