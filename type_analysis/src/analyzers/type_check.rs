@@ -108,7 +108,7 @@ fn check_main_has_tags(initial_expression: &Expression, program_archive: &Progra
         let inputs = program_archive.get_template_data(id).get_inputs();
         let mut tag_in_inputs = false;
         for input in inputs {
-            if !input.1.1.is_empty(){
+            if !input.1.get_tags().is_empty(){
                 tag_in_inputs = true;
                 break;
             }
@@ -844,7 +844,12 @@ fn apply_access_to_symbol(
             let output = program_archive.get_template_data(&template_name).get_output_info(&signal_name);
             let tags;
             (current_dim, tags) = match (input, output) {
-                (Option::Some((d, tags)), _) | (_, Option::Some((d, tags))) => (*d, tags),
+                //(Option::Some((d, tags)), _) | (_, Option::Some((d, tags))) => (*d, tags),
+                //_ => {
+                //    return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
+                //}
+                (Option::Some(wire_data), _) | (_, Option::Some(wire_data)) =>
+                    (wire_data.get_dimension(), wire_data.get_tags()),
                 _ => {
                     return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
                 }

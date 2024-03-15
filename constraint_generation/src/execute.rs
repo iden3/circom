@@ -1897,11 +1897,11 @@ fn preexecute_template_call(
 
 
     for (name, info_input) in inputs {
-        inputs_to_tags.insert(name.clone(), info_input.1.clone());
+        inputs_to_tags.insert(name.clone(), info_input.get_tags().clone());
     }
 
     for (name, info_output) in outputs {
-        outputs_to_tags.insert(name.clone(), info_output.1.clone());
+        outputs_to_tags.insert(name.clone(), info_output.get_tags().clone());
     }
 
     let node_wrap = Option::Some(PreExecutedTemplate::new(
