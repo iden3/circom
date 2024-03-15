@@ -344,7 +344,7 @@ fn type_statement(
         LogCall { args, meta } => {
             for arglog in args {
                 if let LogArgument::LogExp(arg) = arglog{
-                    let arg_response = type_expression(&arg, program_archive, analysis_information);
+                    let arg_response = type_expression(arg, program_archive, analysis_information);
                     let arg_type = if let Result::Ok(t) = arg_response {
                         t
                     } else {
@@ -395,7 +395,7 @@ fn type_statement(
             } else {
                 return;
             };
-            let ret_type = analysis_information.return_type.clone().unwrap();
+            let ret_type = analysis_information.return_type.unwrap();
             debug_assert!(!value_type.is_template());
             if ret_type != value_type.dim() {
                 add_report(
@@ -523,13 +523,7 @@ fn type_expression(
                 );
             };
             let dim_type = type_expression(dimension, program_archive, analysis_information)?;
-            if dim_type.is_template() {
-                add_report(
-                    ReportCode::InvalidArrayType,
-                    expression.get_meta(),
-                    &mut analysis_information.reports,
-                );
-            } else if dim_type.dim() != 0 {
+            if dim_type.is_template() || dim_type.dim() != 0{
                 add_report(
                     ReportCode::InvalidArrayType,
                     expression.get_meta(),
@@ -702,7 +696,7 @@ fn type_expression(
                 std::mem::replace(&mut analysis_information.environment, new_environment);
             let returned_type = if program_archive.contains_function(id) {
                 type_function(id, &concrete_types, meta, analysis_information, program_archive)
-                    .map(|val| FoldedType::arithmetic_type(val))
+                    .map(FoldedType::arithmetic_type)
             } else {
                 let r_val =
                     type_template(id, &concrete_types, analysis_information, program_archive);
@@ -743,7 +737,7 @@ fn treat_access(
     for access in accesses {
         match access {
             ArrayAccess(index) => {
-                let index_response = type_expression(&index, program_archive, analysis_information);
+                let index_response = type_expression(index, program_archive, analysis_information);
                 
                 if access_info.2.is_some(){
                     add_report(
@@ -847,7 +841,7 @@ fn apply_access_to_symbol(
             };
             if access_information.2.is_some(){ // tag of io signal of component
                 if dims_accessed > 0{
-                    return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
+                    add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports)
                 }
                 else if !tags.contains(&access_information.2.unwrap()){
                     return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
@@ -856,9 +850,9 @@ fn apply_access_to_symbol(
                 }
             } else{ // io signal of component
                 if dims_accessed > current_dim {
-                    return add_report_and_end(ReportCode::InvalidArrayAccess(current_dim, dims_accessed), meta, reports);
+                    add_report_and_end(ReportCode::InvalidArrayAccess(current_dim, dims_accessed), meta, reports)
                 } else {
-                    return Result::Ok(SymbolInformation::Signal(current_dim - dims_accessed));
+                    Result::Ok(SymbolInformation::Signal(current_dim - dims_accessed))
                 }   
             }
         } else{ // we are in template
@@ -1035,10 +1029,10 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         InvalidPartialArray => "Only variable arrays can be accessed partially".to_string(),
         UninitializedSymbolInExpression => "The type of this symbol is not known".to_string(),
         WrongTypesInAssignOperationOperatorSignal => {
-            format!("The operator does not match the types of the assigned elements.\n Assignments to signals do not allow the operator =, try using <== or <-- instead")
+            "The operator does not match the types of the assigned elements.\n Assignments to signals do not allow the operator =, try using <== or <-- instead".to_string()
         }
         WrongTypesInAssignOperationOperatorNoSignal => {
-            format!("The operator does not match the types of the assigned elements.\n Only assignments to signals allow the operators <== and <--, try using = instead")
+            "The operator does not match the types of the assigned elements.\n Only assignments to signals allow the operators <== and <--, try using = instead".to_string()
         }
         WrongTypesInAssignOperationArrayTemplates => "Assignee and assigned types do not match.\n All components of an array must be instances of the same template.".to_string(),
         WrongTypesInAssignOperationTemplate => "Assignee and assigned types do not match.\n Expected template found expression.".to_string(),
@@ -1053,7 +1047,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
             format!("Must be a single arithmetic expression.\n Found expression of {} dimensions", dim)
         }
         MustBeSingleArithmeticT => {
-              format!("Must be a single arithmetic expression.\n Found component")
+              "Must be a single arithmetic expression.\n Found component".to_string()
         }
         MustBeArithmetic => "Must be a single arithmetic expression or an array of arithmetic expressions. \n Found component".to_string(),
         OutputTagCannotBeModifiedOutside => "Output tag from a subcomponent cannot be modified".to_string(),

@@ -10,6 +10,15 @@ where
     constants: Vec<C>,
 }
 
+impl<C> Default for ConstantTracker<C>
+where
+    C: Eq + Hash + Clone,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<C> ConstantTracker<C>
 where
     C: Eq + Hash + Clone,

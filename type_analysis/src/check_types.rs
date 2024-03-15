@@ -108,7 +108,7 @@ fn function_level_analyses(program_archive: &ProgramArchive, reports: &mut Repor
             reports.append(&mut functions_free_of_template_elements_reports);
         }
         if let Result::Err(functions_all_paths_with_return_statement_report) = result_1 {
-            reports.push(functions_all_paths_with_return_statement_report);
+            reports.push(*functions_all_paths_with_return_statement_report);
         }
     }
 }

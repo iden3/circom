@@ -68,20 +68,17 @@ pub fn custom_gate_analysis(
             }
             Substitution { meta, op, .. } => {
                 use AssignOp::*;
-                match op {
-                    AssignConstraintSignal => {
-                        let mut error = Report::error(
-                            String::from("Added constraint inside custom template"),
-                            ReportCode::CustomGateConstraintError
-                        );
-                        error.add_primary(
-                            meta.location.clone(),
-                            meta.file_id.unwrap(),
-                            String::from("Added constraint")
-                        );
-                        errors.push(error);
-                    }
-                    _ => {}
+                if op == &AssignConstraintSignal {
+                    let mut error = Report::error(
+                        String::from("Added constraint inside custom template"),
+                        ReportCode::CustomGateConstraintError,
+                    );
+                    error.add_primary(
+                        meta.location.clone(),
+                        meta.file_id.unwrap(),
+                        String::from("Added constraint"),
+                    );
+                    errors.push(error);
                 }
             }
             ConstraintEquality { meta, .. } => {
@@ -103,20 +100,17 @@ pub fn custom_gate_analysis(
             }
             UnderscoreSubstitution { meta, op, .. } => {
                 use AssignOp::*;
-                match op {
-                    AssignConstraintSignal => {
-                        let mut error = Report::error(
-                            String::from("Added constraint inside custom template"),
-                            ReportCode::CustomGateConstraintError
-                        );
-                        error.add_primary(
-                            meta.location.clone(),
-                            meta.file_id.unwrap(),
-                            String::from("Added constraint")
-                        );
-                        errors.push(error);
-                    }
-                    _ => {}
+                if op == &AssignConstraintSignal {
+                    let mut error = Report::error(
+                        String::from("Added constraint inside custom template"),
+                        ReportCode::CustomGateConstraintError,
+                    );
+                    error.add_primary(
+                        meta.location.clone(),
+                        meta.file_id.unwrap(),
+                        String::from("Added constraint"),
+                    );
+                    errors.push(error);
                 }
             }
             _ => {}

@@ -43,17 +43,9 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 config.dat_file
             );
             println!(
-                "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
+                "{} {}/main.cpp, circom.hpp, calcwit.hpp, calcwit.cpp, fr.hpp, fr.cpp, fr.asm and Makefile",
                 Colour::Green.paint("Written successfully:"),
-            &config.c_folder,
-                "main.cpp".to_string(),
-                "circom.hpp".to_string(),
-                "calcwit.hpp".to_string(),
-                "calcwit.cpp".to_string(),
-                "fr.hpp".to_string(),
-                "fr.cpp".to_string(),
-                "fr.asm".to_string(),
-                "Makefile".to_string()
+            &config.c_folder
             );
         }
     
@@ -64,7 +56,7 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 let result = wat_to_wasm(&config.wat_file, &config.wasm_file);
                 match result {
                     Result::Err(report) => {
-                        Report::print_reports(&[report], &FileLibrary::new());
+                        Report::print_reports(&[*report], &FileLibrary::new());
                         return Err(());
                     }
                     Result::Ok(()) => {
@@ -78,7 +70,7 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 std::fs::remove_file(&config.wat_file).unwrap();
                 match result {
                     Result::Err(report) => {
-                        Report::print_reports(&[report], &FileLibrary::new());
+                        Report::print_reports(&[*report], &FileLibrary::new());
                         return Err(());
                     }
                     Result::Ok(()) => {
@@ -99,7 +91,7 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
 }
 
 
-fn wat_to_wasm(wat_file: &str, wasm_file: &str) -> Result<(), Report> {
+fn wat_to_wasm(wat_file: &str, wasm_file: &str) -> Result<(), Box<Report>> {
     use std::fs::read_to_string;
     use std::fs::File;
     use std::io::BufWriter;
@@ -112,19 +104,19 @@ fn wat_to_wasm(wat_file: &str, wasm_file: &str) -> Result<(), Report> {
     let result_wasm_contents = parser::parse::<Wat>(&buf);
     match result_wasm_contents {
         Result::Err(error) => {
-            Result::Err(Report::error(
+            Result::Err(Box::new(Report::error(
                 format!("Error translating the circuit from wat to wasm.\n\nException encountered when parsing WAT: {}", error),
                 ReportCode::ErrorWat2Wasm,
-            ))
+            )))
         }
         Result::Ok(mut wat) => {
             let wasm_contents = wat.module.encode();
             match wasm_contents {
                 Result::Err(error) => {
-                    Result::Err(Report::error(
+                    Result::Err(Box::new(Report::error(
                         format!("Error translating the circuit from wat to wasm.\n\nException encountered when encoding WASM: {}", error),
                         ReportCode::ErrorWat2Wasm,
-                    ))
+                    )))
                 }
                 Result::Ok(wasm_contents) => {
                     let file = File::create(wasm_file).unwrap();

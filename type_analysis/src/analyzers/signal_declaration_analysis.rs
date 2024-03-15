@@ -51,7 +51,7 @@ fn treat_statement(
                         file_definition::generate_file_location(meta.get_start(), meta.get_end());
                     report.add_primary(
                         location,
-                        template_id.clone(),
+                        template_id,
                         "Is outside the initial scope".to_string(),
                     );
                     reports.push(report);

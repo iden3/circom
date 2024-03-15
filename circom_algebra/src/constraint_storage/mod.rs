@@ -19,6 +19,12 @@ pub struct ConstraintStorage {
     constraints: Vec<CompressedConstraint>,
 }
 
+impl Default for ConstraintStorage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConstraintStorage {
     pub fn new() -> ConstraintStorage {
         ConstraintStorage { field_tracker: FieldTracker::new(), constraints: Vec::new() }

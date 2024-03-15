@@ -9,6 +9,12 @@ pub struct Log {
     pub no_public_outputs: usize,
 }
 
+impl Default for Log {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Log {
     pub fn new() -> Log {
         Log {

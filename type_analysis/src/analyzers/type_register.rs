@@ -29,12 +29,7 @@ impl<Type: Default + Eq> TypeRegister<Type> {
             return Option::None;
         }
         let instances = self.id_to_instances.get(id).unwrap();
-        for instance in instances {
-            if instance.arguments() == look_for {
-                return Option::Some(&instance);
-            }
-        }
-        Option::None
+        instances.iter().find(|&instance| instance.arguments() == look_for)
     }
     pub fn add_instance(
         &mut self,

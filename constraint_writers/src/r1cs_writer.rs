@@ -30,14 +30,14 @@ fn bigint_as_bytes(number: &BigInt, with_bytes: usize) -> (Vec<u8>, usize) {
 fn initialize_section(writer: &mut BufWriter<File>, header: &[u8]) -> Result<u64, ()> {
     writer.write_all(header).map_err(|_err| {})?;
     //writer.flush().map_err(|_err| {})?;
-    let go_back = writer.seek(SeekFrom::Current(0)).map_err(|_err| {})?;
+    let go_back = writer.stream_position().map_err(|_err| {})?;
     writer.write_all(PLACE_HOLDER).map_err(|_| {})?;
     //writer.flush().map_err(|_err| {})?;
     Result::Ok(go_back)
 }
 
 fn end_section(writer: &mut BufWriter<File>, go_back: u64, size: usize) -> Result<(), ()> {
-    let go_back_1 = writer.seek(SeekFrom::Current(0)).map_err(|_err| {})?;
+    let go_back_1 = writer.stream_position().map_err(|_err| {})?;
     writer.seek(SeekFrom::Start(go_back)).map_err(|_err| {})?;
     let (stream, _) = bigint_as_bytes(&BigInt::from(size), 8);
     writer.write_all(&stream).map_err(|_err| {})?;
@@ -153,6 +153,7 @@ pub struct CustomGatesAppliedSection {
 }
 
 impl R1CSWriter {
+    #[allow(clippy::result_unit_err)]
     pub fn new(
         output_file: String,
         field_size: usize,
@@ -161,11 +162,12 @@ impl R1CSWriter {
         let sections = [false; SECTIONS as usize];
         let num_sections: u8 = if custom_gates { 5 } else { 3 };
         let mut writer =
-            File::create(&output_file).map_err(|_err| {}).map(|f| BufWriter::new(f))?;
+            File::create(output_file).map_err(|_err| {}).map(BufWriter::new)?;
         initialize_file(&mut writer, num_sections)?;
         Result::Ok(R1CSWriter { writer, sections, field_size })
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn start_header_section(mut r1cs: R1CSWriter) -> Result<HeaderSection, ()> {
         let start = initialize_section(&mut r1cs.writer, HEADER_TYPE)?;
         Result::Ok(HeaderSection {
@@ -178,6 +180,7 @@ impl R1CSWriter {
         })
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn start_constraints_section(mut r1cs: R1CSWriter) -> Result<ConstraintSection, ()> {
         let start = initialize_section(&mut r1cs.writer, CONSTRAINT_TYPE)?;
         Result::Ok(ConstraintSection {
@@ -191,6 +194,7 @@ impl R1CSWriter {
         })
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn start_signal_section(mut r1cs: R1CSWriter) -> Result<SignalSection, ()> {
         let start = initialize_section(&mut r1cs.writer, WIRE2LABEL_TYPE)?;
         Result::Ok(SignalSection {
@@ -203,6 +207,7 @@ impl R1CSWriter {
         })
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn start_custom_gates_used_section(mut r1cs: R1CSWriter) -> Result<CustomGatesUsedSection, ()> {
         let start = initialize_section(&mut r1cs.writer, CUSTOM_GATES_USED_TYPE)?;
         Result::Ok(CustomGatesUsedSection {
@@ -215,6 +220,7 @@ impl R1CSWriter {
         })
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn start_custom_gates_applied_section(mut r1cs: R1CSWriter) -> Result<CustomGatesAppliedSection, ()> {
         let start = initialize_section(&mut r1cs.writer, CUSTOM_GATES_APPLIED_TYPE)?;
         Result::Ok(CustomGatesAppliedSection {
@@ -227,8 +233,9 @@ impl R1CSWriter {
         })
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn finish_writing(mut r1cs: R1CSWriter) -> Result<(), ()> {
-	r1cs.writer.flush().map_err(|_err| {})
+	    r1cs.writer.flush().map_err(|_err| {})
     }
 }
 
@@ -243,6 +250,7 @@ pub struct HeaderData {
 }
 
 impl HeaderSection {
+    #[allow(clippy::result_unit_err)]
     pub fn write_section(&mut self, data: HeaderData) -> Result<(), ()> {
         let (field_stream, bytes_field) = bigint_as_bytes(&data.field, self.field_size);
         let (length_stream, bytes_size) = bigint_as_bytes(&BigInt::from(self.field_size), 4);
@@ -268,6 +276,7 @@ impl HeaderSection {
         Result::Ok(())
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn end_section(mut self) -> Result<R1CSWriter, ()> {
         end_section(&mut self.writer, self.go_back, self.size)?;
         let mut sections = self.sections;
@@ -279,6 +288,7 @@ impl HeaderSection {
 
 type Constraint = HashMap<usize, BigInt>;
 impl ConstraintSection {
+    #[allow(clippy::result_unit_err)]
     pub fn write_constraint_usize(
         &mut self,
         a: &Constraint,
@@ -307,6 +317,7 @@ impl ConstraintSection {
         Result::Ok(())
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn end_section(mut self) -> Result<R1CSWriter, ()> {
         end_section(&mut self.writer, self.go_back, self.size)?;
         let mut sections = self.sections;
@@ -325,6 +336,7 @@ impl ConstraintSection {
 }
 
 impl SignalSection {
+    #[allow(clippy::result_unit_err)]
     pub fn write_signal<T>(
         &mut self,
         bytes: &T
@@ -335,11 +347,13 @@ impl SignalSection {
         //self.writer.flush().map_err(|_err| {})
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn write_signal_usize(&mut self, signal: usize) -> Result<(), ()> {
         let (_, as_bytes) = BigInt::from(signal).to_bytes_le();
         SignalSection::write_signal(self, &as_bytes)
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn end_section(mut self) -> Result<R1CSWriter, ()> {
         end_section(&mut self.writer, self.go_back, self.size)?;
         let mut sections = self.sections;
@@ -355,6 +369,7 @@ impl SignalSection {
 
 pub type CustomGatesUsedData = Vec<(String, Vec<BigInt>)>;
 impl CustomGatesUsedSection {
+    #[allow(clippy::result_unit_err)]
     pub fn write_custom_gates_usages(&mut self, data: CustomGatesUsedData) -> Result<(), ()> {
         let no_custom_gates = data.len();
         let (no_custom_gates_stream, no_custom_gates_size) =
@@ -390,6 +405,7 @@ impl CustomGatesUsedSection {
         Result::Ok(())
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn end_section(mut self) -> Result<R1CSWriter, ()> {
         end_section(&mut self.writer, self.go_back, self.size)?;
         let mut sections = self.sections;
@@ -405,6 +421,7 @@ impl CustomGatesUsedSection {
 
 pub type CustomGatesAppliedData = Vec<(usize, Vec<usize>)>;
 impl CustomGatesAppliedSection {
+    #[allow(clippy::result_unit_err)]
     pub fn write_custom_gates_applications(&mut self, data: CustomGatesAppliedData) -> Result<(), ()> {
         let no_custom_gate_applications = data.len();
         let (no_custom_gate_applications_stream, no_custom_gate_applications_size) =
@@ -440,6 +457,7 @@ impl CustomGatesAppliedSection {
         Result::Ok(())
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn end_section(mut self) -> Result<R1CSWriter, ()> {
         end_section(&mut self.writer, self.go_back, self.size)?;
         let mut sections = self.sections;

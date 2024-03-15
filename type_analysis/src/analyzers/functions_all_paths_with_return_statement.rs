@@ -3,14 +3,14 @@ use program_structure::error_code::ReportCode;
 use program_structure::error_definition::Report;
 use program_structure::function_data::FunctionData;
 
-pub fn all_paths_with_return_check(function_data: &FunctionData) -> Result<(), Report> {
+pub fn all_paths_with_return_check(function_data: &FunctionData) -> Result<(), Box<Report>> {
     let function_body = function_data.get_body();
     let function_name = function_data.get_name();
     if !analyse_statement(function_body) {
-        return Result::Err(Report::error(
+        return Result::Err(Box::new(Report::error(
             format!("In {} there are paths without return", function_name),
             ReportCode::FunctionReturnError,
-        ));
+        )));
     }
     Result::Ok(())
 }
@@ -31,7 +31,7 @@ fn analyse_statement(stmt: &Statement) -> bool {
     }
 }
 
-fn analyse_block(block: &Vec<Statement>) -> bool {
+fn analyse_block(block: &[Statement]) -> bool {
     let mut has_return_path = false;
     for stmt in block.iter() {
         has_return_path = has_return_path || analyse_statement(stmt);

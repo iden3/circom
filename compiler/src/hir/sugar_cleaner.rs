@@ -1,6 +1,6 @@
 use super::very_concrete_program::*;
 use program_structure::ast::*;
-use num_traits::{ToPrimitive};
+use num_traits::ToPrimitive;
 
 
 struct ExtendedSyntax {
@@ -257,7 +257,7 @@ fn extend_prefix(expr: &mut Expression, state: &mut State, context: &Context) ->
     use Expression::PrefixOp;
     if let PrefixOp { rhe, .. } = expr {
         let mut extended = extend_expression(rhe, state, context);
-        let mut expr = vec![*rhe.clone()];
+        let mut expr = vec![rhe.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
         *rhe = Box::new(expr.pop().unwrap());
         extended
@@ -270,7 +270,7 @@ fn extend_parallel(expr: &mut Expression, state: &mut State, context: &Context) 
     use Expression::ParallelOp;
     if let ParallelOp { rhe, .. } = expr {
         let mut extended = extend_expression(rhe, state, context);
-        let mut expr = vec![*rhe.clone()];
+        let mut expr = vec![rhe.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
         *rhe = Box::new(expr.pop().unwrap());
         extended
@@ -291,7 +291,7 @@ fn extend_infix(expr: &mut Expression, state: &mut State, context: &Context) -> 
         let mut rh_expand = extend_expression(rhe, state, context);
         lh_expand.initializations.append(&mut rh_expand.initializations);
         let mut extended = lh_expand;
-        let mut expr = vec![*lhe.clone(), *rhe.clone()];
+        let mut expr = vec![lhe.as_ref().clone(), rhe.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
 
         let mut expr_rhe = expr.pop().unwrap();
@@ -348,7 +348,7 @@ fn extend_switch(expr: &mut Expression, state: &mut State, context: &Context) ->
         let mut false_expand = extend_expression(if_false, state, context);
         true_expand.initializations.append(&mut false_expand.initializations);
         let mut extended = true_expand;
-        let mut expr = vec![*if_true.clone(), *if_false.clone()];
+        let mut expr = vec![if_true.as_ref().clone(), if_false.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
         *if_false = Box::new(expr.pop().unwrap());
         *if_true = Box::new(expr.pop().unwrap());
@@ -373,7 +373,7 @@ fn extend_array(expr: &mut Expression, state: &mut State, context: &Context) -> 
         let mut dimension_expand = extend_expression(dimension, state, context);
         value_expand.initializations.append(&mut dimension_expand.initializations);
         let mut extended = value_expand;
-        let mut expr = vec![*value.clone(), *dimension.clone()];
+        let mut expr = vec![value.as_ref().clone(), dimension.as_ref().clone()];
         sugar_filter(&mut expr, state, &mut extended.initializations);
         *dimension = Box::new(expr.pop().unwrap());
         *value = Box::new(expr.pop().unwrap());
@@ -566,6 +566,7 @@ fn into_single_substitution(stmt: Statement, stmts: &mut Vec<Statement>) {
 fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use Expression::InlineSwitchOp;
     use Statement::{Block, IfThenElse, Substitution};
+    #[allow(clippy::collapsible_match)]
     if let Substitution { var, access, op, rhe, meta } = stmt {
         if let InlineSwitchOp { cond, if_true, if_false, .. } = rhe {
             let mut if_assigns = vec![];
@@ -573,7 +574,7 @@ fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                 meta: meta.clone(),
                 var: var.clone(),
                 access: access.clone(),
-                op: op.clone(),
+                op,
                 rhe: *if_true,
             };
             if_assigns.push(sub_if);
@@ -613,8 +614,7 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use Statement::Substitution;
     if let Substitution { var, access, op, rhe, meta } = stmt {
         if let ArrayInLine { values, .. } = rhe {
-            let mut index = 0;
-            for v in values {
+            for (index, v) in values.into_iter().enumerate() {
                 let mut index_meta = meta.clone();
                 index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
                 let expr_index = Number(index_meta, BigInt::from(index));
@@ -629,7 +629,6 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                     rhe: v,
                 };
                 stmts.push(sub);
-                index += 1;
             }
         } else if let UniformArray { value, dimension, .. } = rhe {
             let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
@@ -650,7 +649,7 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                     var: var.clone(),
                     access: accessed_with,
                     meta: meta.clone(),
-                    rhe: *value.clone(),
+                    rhe: value.as_ref().clone(),
                 };
                 stmts.push(sub);
                 index += 1;
@@ -697,17 +696,17 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
             }
         }
         else if let UniformArray {value, ..} = other_expr {
-            for i in 0..values_l.len() {
+            for item in values_l {
                 let ce = ConstraintEquality {
-                    lhe: values_l[i].clone(),
-                    rhe: *value.clone(),
+                    lhe: item.clone(),
+                    rhe: value.as_ref().clone(),
                     meta: meta.clone(),
                 };
                 stmts.push(ce);
             }
         }
         else if let Variable { meta: meta_var, name, access, ..} = other_expr {
-            for i in 0..values_l.len() {
+            for (i, item) in values_l.iter().enumerate() {
                 let mut index_meta = meta.clone();
                 index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
                 let expr_index = Number(index_meta, BigInt::from(i));
@@ -715,7 +714,7 @@ fn lhe_array_ce(meta: &Meta, expr_array: &Expression, other_expr: &Expression, s
                 let mut accessed_with = access.clone();
                 accessed_with.push(as_access);
                 let ce = ConstraintEquality {
-                    lhe: values_l[i].clone(),
+                    lhe: item.clone(),
                     rhe: Variable {name: name.clone(), access: accessed_with, meta: meta_var.clone()},
                     meta: meta.clone(),
                 };

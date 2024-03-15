@@ -75,8 +75,8 @@ pub fn build_compute(bucket: &mut ComputeBucket, mut fresh: usize) -> usize {
 
 pub fn build_load(bucket: &mut LoadBucket, fresh: usize) -> usize {
     let v0 = build_address_type(&mut bucket.address_type, fresh);
-    let v1 = build_location(&mut bucket.src, v0);
-    v1
+    
+    build_location(&mut bucket.src, v0)
 }
 
 pub fn build_create_cmp(bucket: &mut CreateCmpBucket, fresh: usize) -> usize {

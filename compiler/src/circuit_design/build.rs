@@ -26,23 +26,9 @@ fn build_template_instances(
     ti: Vec<TemplateInstance>,
     mut field_tracker: FieldTracker,
 ) -> (FieldTracker, HashMap<String,usize>) {
-
-    fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
-        let mut jump = 0;
-        let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
-        let mut lengths = lengths.clone();
-        lengths.reverse();
-        for index in indexes {
-            let length = lengths.pop().unwrap();
-            full_length /= length;
-            jump += (*index) * full_length;
-        }
-        jump
-    }
     let mut cmp_id = 0;
-    let mut tmp_id = 0;
     let mut string_table = HashMap::new();
-    for template in ti {
+    for (tmp_id, template) in ti.into_iter().enumerate() {
         let header = template.template_header;
         let name = template.template_name;
         let instance_values = template.header;
@@ -62,10 +48,8 @@ fn build_template_instances(
             match component_to_parallel.get_mut(&trigger.component_name){
                 Some(parallel_info) => {
                     parallel_info.positions_to_parallel.insert(trigger.indexed_with.clone(), trigger.is_parallel);
-                    if parallel_info.uniform_parallel_value.is_some(){
-                        if parallel_info.uniform_parallel_value.unwrap() != trigger.is_parallel{
-                            parallel_info.uniform_parallel_value = None;
-                        }
+                    if parallel_info.uniform_parallel_value.is_some() && parallel_info.uniform_parallel_value.unwrap() != trigger.is_parallel {
+                        parallel_info.uniform_parallel_value = None;
                     }
                 },
                 None => {
@@ -96,7 +80,7 @@ fn build_template_instances(
             fresh_cmp_id: cmp_id,
             components: template.components,
             template_database: &c_info.template_database,
-            string_table : string_table,
+            string_table,
             signals_to_tags: template.signals_to_tags,
         };
         let mut template_info = TemplateCodeInfo {
@@ -123,7 +107,6 @@ fn build_template_instances(
         string_table = out.string_table;
         cmp_id = out.next_cmp_id;
         circuit.add_template_code(template_info);
-        tmp_id += 1;
     }
     (field_tracker, string_table)
 }
@@ -160,7 +143,7 @@ fn build_function_instances(
             cmp_to_type: HashMap::with_capacity(0),
             component_to_parallel: HashMap::with_capacity(0),
             template_database: &c_info.template_database,
-            string_table : string_table,
+            string_table,
             signals_to_tags: BTreeMap::new(),
         };
         let mut function_info = FunctionCodeInfo {
@@ -345,7 +328,7 @@ fn write_main_inputs_log(vcp: &VCP) {
 
 fn get_number_version(version: &str) -> (usize, usize, usize) {
     use std::str::FromStr;
-    let version_splitted: Vec<&str> = version.split(".").collect();
+    let version_splitted: Vec<&str> = version.split('.').collect();
     (
         usize::from_str(version_splitted[0]).unwrap(),
         usize::from_str(version_splitted[1]).unwrap(),
@@ -365,9 +348,11 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
         write_main_inputs_log(&vcp);
     }
     let template_database = TemplateDB::build(&vcp.templates);
-    let mut circuit = Circuit::default();
-    circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
-    circuit.c_producer = initialize_c_producer(&vcp, &template_database, version);
+    let mut circuit = Circuit {
+        wasm_producer: initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version),
+        c_producer: initialize_c_producer(&vcp, &template_database, version),
+        ..Default::default()
+    };
 
     let field_tracker = FieldTracker::new();
     let circuit_info = CircuitInfo {

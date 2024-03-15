@@ -8,7 +8,7 @@ pub fn free_of_returns(template_data: &TemplateData) -> Result<(), ReportCollect
     let file_id = template_data.get_file_id();
     let template_body = template_data.get_body();
     let mut reports = ReportCollection::new();
-    look_for_return(&template_body, file_id, &mut reports);
+    look_for_return(template_body, file_id, &mut reports);
     if reports.is_empty() {
         Result::Ok(())
     } else {

@@ -55,8 +55,8 @@ impl ToString for CallBucket {
         let line = self.line.to_string();
         let template_id = self.message_id.to_string();
 	let ret = match &self.return_info {
-            ReturnType::Intermediate { op_aux_no } => {format!("Intermediate({})",op_aux_no.to_string())}
-	    _ => {format!("Final")}
+            ReturnType::Intermediate { op_aux_no } => {format!("Intermediate({})",op_aux_no)}
+	    _ => {"Final".to_string()}
 	};
         let mut args = "".to_string();
         for i in &self.arguments {
@@ -73,7 +73,7 @@ impl WriteWasm for CallBucket {
         if producer.needs_comments() {
             instructions.push(";; call bucket".to_string());
 	}
-        if self.arguments.len() > 0 {
+        if !self.arguments.is_empty() {
             let local_info_size_u32 = producer.get_local_info_size_u32();
             instructions.push(set_constant("0"));
             instructions.push(load32(None)); // current stack size
@@ -84,11 +84,10 @@ impl WriteWasm for CallBucket {
             }
             instructions.push(set_local(producer.get_call_lvar_tag()));
             let mut count = 0;
-            let mut i = 0;
-            for p in &self.arguments {
-		if producer.needs_comments() {
+            for (i, p) in self.arguments.iter().enumerate() {
+                if producer.needs_comments() {
                     instructions.push(format!(";; copying argument {}", i));
-		}
+                }
                 instructions.push(get_local(producer.get_call_lvar_tag()));
                 instructions.push(set_constant(&count.to_string()));
                 instructions.push(add32());
@@ -128,11 +127,10 @@ impl WriteWasm for CallBucket {
                     instructions.push(add_end());
                     instructions.push(add_end());
                 }
-		if producer.needs_comments() {
+                if producer.needs_comments() {
                     instructions.push(format!(";; end copying argument {}", i));
-		}
+                }
                 count += self.argument_types[i].size * 4 * producer.get_size_32_bits_in_memory();
-                i += 1;
             }
         }
         match &self.return_info {
@@ -243,13 +241,12 @@ impl WriteWasm for CallBucket {
                                                                      // compute de move with 2 or more dimensions
                                     let mut instructions_idx0 = indexes[0].produce_wasm(producer);
                                     instructions.append(&mut instructions_idx0); // start with dimension 0
-                                    for i in 1..indexes.len() {
+                                    for (i, item) in indexes.iter().enumerate().skip(1) {
                                         instructions.push(get_local(producer.get_io_info_tag()));
                                         let offsetdim = 4 * i;
                                         instructions.push(load32(Some(&offsetdim.to_string()))); // get size of ith dimension
                                         instructions.push(mul32()); // multiply the current move by size of the ith dimension
-                                        let mut instructions_idxi =
-                                            indexes[i].produce_wasm(producer);
+                                        let mut instructions_idxi = item.produce_wasm(producer);
                                         instructions.append(&mut instructions_idxi);
                                         instructions.push(add32()); // add move upto dimension i
                                     }
@@ -268,7 +265,7 @@ impl WriteWasm for CallBucket {
                                 instructions.push(add32()); // we get the position of the signal (with indexes) in memory
                             }
                             _ => {
-                                assert!(false);
+                                unreachable!()
                             }
                         }
                     }
@@ -284,76 +281,71 @@ impl WriteWasm for CallBucket {
 		instructions.push(get_local(producer.get_merror_tag()));    
                 instructions.push(add_return());
                 instructions.push(add_end());
-                match &data.dest_address_type {
-                    AddressType::SubcmpSignal { .. } => {
-                        // if subcomponent input check if run needed
-			if producer.needs_comments() {
-                            instructions.push(";; decrease counter".to_string()); // by self.context.size
-			}
-                        instructions.push(get_local(producer.get_sub_cmp_tag()));
-                        instructions.push(get_local(producer.get_sub_cmp_tag()));
-                        instructions.push(load32(Some(
-                            &producer.get_input_counter_address_in_component().to_string(),
-                        ))); //remaining inputs to be set
-                        instructions.push(set_constant(&data.context.size.to_string()));
-                        instructions.push(sub32());
-                        instructions.push(store32(Some(
-                            &producer.get_input_counter_address_in_component().to_string(),
-                        ))); // update remaining inputs to be set
-			if producer.needs_comments() {
-                            instructions.push(";; check if run is needed".to_string());
-			}
-                        instructions.push(get_local(producer.get_sub_cmp_tag()));
-                        instructions.push(load32(Some(
-                            &producer.get_input_counter_address_in_component().to_string(),
-                        )));
-                        instructions.push(eqz32());
-                        instructions.push(add_if());
-			if producer.needs_comments() {
-                            instructions.push(";; run sub component".to_string());
-			}
-                        instructions.push(get_local(producer.get_sub_cmp_tag()));
-                        match &data.dest {
-                            LocationRule::Indexed { .. } => {
-                                if let Some(name) = &my_template_header {
-                                    instructions.push(call(&format!("${}_run", name)));
-                                    instructions.push(tee_local(producer.get_merror_tag()));
-                                    instructions.push(add_if());
-                                    instructions.push(set_constant(&self.message_id.to_string()));
-                                    instructions.push(set_constant(&self.line.to_string()));
-                                    instructions.push(call("$buildBufferMessage"));
-                                    instructions.push(call("$printErrorMessage"));
-                                    instructions.push(get_local(producer.get_merror_tag()));    
-                                    instructions.push(add_return());
-                                    instructions.push(add_end());
-                                } else {
-                                    assert!(false);
-                                }
-                            }
-                            LocationRule::Mapped { .. } => {
-                                instructions.push(get_local(producer.get_sub_cmp_tag()));
-                                instructions.push(load32(None)); // get template id
-                                instructions.push(call_indirect(
-                                    &"$runsmap".to_string(),
-                                    &"(type $_t_i32ri32)".to_string(),
-                                ));
+                if let AddressType::SubcmpSignal { .. } = data.dest_address_type {
+                    // if subcomponent input check if run needed
+                    if producer.needs_comments() {
+                        instructions.push(";; decrease counter".to_string());
+                        // by self.context.size
+                    }
+                    instructions.push(get_local(producer.get_sub_cmp_tag()));
+                    instructions.push(get_local(producer.get_sub_cmp_tag()));
+                    instructions.push(load32(Some(
+                        &producer.get_input_counter_address_in_component().to_string(),
+                    ))); //remaining inputs to be set
+                    instructions.push(set_constant(&data.context.size.to_string()));
+                    instructions.push(sub32());
+                    instructions.push(store32(Some(
+                        &producer.get_input_counter_address_in_component().to_string(),
+                    ))); // update remaining inputs to be set
+                    if producer.needs_comments() {
+                        instructions.push(";; check if run is needed".to_string());
+                    }
+                    instructions.push(get_local(producer.get_sub_cmp_tag()));
+                    instructions.push(load32(Some(
+                        &producer.get_input_counter_address_in_component().to_string(),
+                    )));
+                    instructions.push(eqz32());
+                    instructions.push(add_if());
+                    if producer.needs_comments() {
+                        instructions.push(";; run sub component".to_string());
+                    }
+                    instructions.push(get_local(producer.get_sub_cmp_tag()));
+                    match &data.dest {
+                        LocationRule::Indexed { .. } => {
+                            if let Some(name) = &my_template_header {
+                                instructions.push(call(&format!("${}_run", name)));
                                 instructions.push(tee_local(producer.get_merror_tag()));
                                 instructions.push(add_if());
                                 instructions.push(set_constant(&self.message_id.to_string()));
                                 instructions.push(set_constant(&self.line.to_string()));
                                 instructions.push(call("$buildBufferMessage"));
                                 instructions.push(call("$printErrorMessage"));
-                                instructions.push(get_local(producer.get_merror_tag()));    
+                                instructions.push(get_local(producer.get_merror_tag()));
                                 instructions.push(add_return());
                                 instructions.push(add_end());
+                            } else {
+                                unreachable!();
                             }
                         }
-			if producer.needs_comments() {
-                            instructions.push(";; end run sub component".to_string());
-			}
-                        instructions.push(add_end());
+                        LocationRule::Mapped { .. } => {
+                            instructions.push(get_local(producer.get_sub_cmp_tag()));
+                            instructions.push(load32(None)); // get template id
+                            instructions.push(call_indirect("$runsmap", "(type $_t_i32ri32)"));
+                            instructions.push(tee_local(producer.get_merror_tag()));
+                            instructions.push(add_if());
+                            instructions.push(set_constant(&self.message_id.to_string()));
+                            instructions.push(set_constant(&self.line.to_string()));
+                            instructions.push(call("$buildBufferMessage"));
+                            instructions.push(call("$printErrorMessage"));
+                            instructions.push(get_local(producer.get_merror_tag()));
+                            instructions.push(add_return());
+                            instructions.push(add_end());
+                        }
                     }
-                    _ => (),
+                    if producer.needs_comments() {
+                        instructions.push(";; end run sub component".to_string());
+                    }
+                    instructions.push(add_end());
                 }
             }
         }
@@ -375,8 +367,7 @@ impl WriteC for CallBucket {
         prologue.push(format!("{};", declare_lvar_func_call(self.arena_size)));
         // copying parameters
         let mut count = 0;
-        let mut i = 0;
-        for p in &self.arguments {
+        for (i, p) in self.arguments.iter().enumerate() {
             prologue.push(format!("// copying argument {}", i));
             let (mut prologue_value, src) = p.produce_c(producer, parallel);
             prologue.append(&mut prologue_value);
@@ -393,7 +384,6 @@ impl WriteC for CallBucket {
             }
             prologue.push(format!("// end copying argument {}", i));
             count += self.argument_types[i].size;
-            i += 1;
         }
         let result;
         let mut call_arguments = vec![];
@@ -414,7 +404,7 @@ impl WriteC for CallBucket {
 		if let AddressType::SubcmpSignal { cmp_address, .. } = &data.dest_address_type {
 		    let (mut cmp_prologue, cmp_index) = cmp_address.produce_c(producer, parallel);
 		    prologue.append(&mut cmp_prologue);
-		    prologue.push(format!("{{"));
+		    prologue.push("{".to_string());
 	            prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
 	        
 		}
@@ -428,29 +418,28 @@ impl WriteC for CallBucket {
 			let mut map_access = format!("{}->{}[{}].defs[{}].offset",
 						     circom_calc_wit(), template_ins_2_io_info(),
 						     template_id_in_component(sub_component_pos_in_memory.clone()),
-						     signal_code.to_string());
-			if indexes.len()>0 {
-			    map_prologue.push(format!("{{"));
-			    map_prologue.push(format!("uint map_index_aux[{}];",indexes.len().to_string()));		    
+						     signal_code);
+			if !indexes.is_empty() {
+			    map_prologue.push("{".to_string());
+			    map_prologue.push(format!("uint map_index_aux[{}];",indexes.len()));		    
 			    let (mut index_code_0, mut map_index) = indexes[0].produce_c(producer, parallel);
 			    map_prologue.append(&mut index_code_0);
 			    map_prologue.push(format!("map_index_aux[0]={};",map_index));
-			    map_index = format!("map_index_aux[0]");
-			    for i in 1..indexes.len() {
-				let (mut index_code, index_exp) = indexes[i].produce_c(producer, parallel);
-				map_prologue.append(&mut index_code);
-				map_prologue.push(format!("map_index_aux[{}]={};",i.to_string(),index_exp));
-				map_index = format!("({})*{}->{}[{}].defs[{}].lengths[{}]+map_index_aux[{}]",
-						    map_index, circom_calc_wit(), template_ins_2_io_info(),
-						    template_id_in_component(sub_component_pos_in_memory.clone()),
-						    signal_code.to_string(),(i-1).to_string(),i.to_string());
+			    map_index = "map_index_aux[0]".to_string();
+			    for (i, item) in indexes.iter().enumerate().skip(1) {
+                    let (mut index_code, index_exp) = item.produce_c(producer, parallel);
+                    map_prologue.append(&mut index_code);
+                    map_prologue.push(format!("map_index_aux[{}]={};",i,index_exp));
+                    map_index = format!("({})*{}->{}[{}].defs[{}].lengths[{}]+map_index_aux[{}]",
+                                map_index, circom_calc_wit(), template_ins_2_io_info(),
+                                template_id_in_component(sub_component_pos_in_memory.clone()),
+                                signal_code,(i-1),i);
 			    }
 			    map_access = format!("{}+{}",map_access,map_index);
 			}
 			((map_prologue, map_access),Some(template_id_in_component(sub_component_pos_in_memory.clone())))
                     } else {
-			assert!(false);
-			((vec![], "".to_string()),Option::<String>::None)
+                        unreachable!();
                     };
 		prologue.append(&mut dest_prologue);
                 let result_ref = match &data.dest_address_type {
@@ -475,22 +464,22 @@ impl WriteC for CallBucket {
                 call_arguments.push(data.context.size.to_string());
                 prologue.push(format!("{};", build_call(self.symbol.clone(), call_arguments)));
 		if let LocationRule::Mapped { indexes, .. } = &data.dest {
-		    if indexes.len() > 0 {
-    			prologue.push(format!("}}"));
+		    if !indexes.is_empty() {
+    			prologue.push("}".to_string());
 		    }
 		}
 		// if output and parallel send notify
 		if let AddressType::Signal = &data.dest_address_type {
 		    if parallel.unwrap()  && data.dest_is_output {
 			if data.context.size > 0 {
-			    prologue.push(format!("{{"));
+			    prologue.push("{".to_string());
 			    prologue.push(format!("for (int i = 0; i < {}; i++) {{",data.context.size));
 			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].lock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}+i]=true;",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			    prologue.push(format!("{}->componentMemory[{}].cvs[{}+i].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
-			    prologue.push(format!("}}"));
-			    prologue.push(format!("}}"));
+			    prologue.push("}".to_string());
+			    prologue.push("}".to_string());
 			} else {
 			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}].lock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}]=true;",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
@@ -500,8 +489,7 @@ impl WriteC for CallBucket {
 		    }
 		}
                 // like store update counters and check if Subcomponent needs to be run
-                match &data.dest_address_type {
-                    AddressType::SubcmpSignal { uniform_parallel_value, input_information, .. } => {
+                if let AddressType::SubcmpSignal { uniform_parallel_value, input_information, .. } = &data.dest_address_type {
                         // if subcomponent input check if run needed
                         let sub_cmp_counter = format!(
                             "{}->componentMemory[{}[{}]].inputCounter",
@@ -537,7 +525,7 @@ impl WriteC for CallBucket {
                         thread_call_instr.push(format!("{}->componentMemory[{}].sbct[{}] = std::thread({},{});",CIRCOM_CALC_WIT,CTX_INDEX,cmp_index_ref, sub_cmp_call_name, argument_list(sub_cmp_call_arguments)));
                         thread_call_instr.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
                         thread_call_instr.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return  {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
-                        thread_call_instr.push(format!("ctx->numThread++;"));
+                        thread_call_instr.push("ctx->numThread++;".to_string());
                         //thread_call_instr.push(format!("printf(\"%i \\n\", ctx->numThread);"));
                         thread_call_instr
 
@@ -586,7 +574,7 @@ impl WriteC for CallBucket {
                     call_instructions.push(format!("{}->componentMemory[{}].sbct[{}] = std::thread({},{});",CIRCOM_CALC_WIT,CTX_INDEX,cmp_index_ref, sub_cmp_call_name, argument_list(sub_cmp_call_arguments.clone())));
                     call_instructions.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
                     call_instructions.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
-                    call_instructions.push(format!("ctx->numThread++;"));
+                    call_instructions.push("ctx->numThread++;".to_string());
                     //call_instructions.push(format!("printf(\"%i \\n\", ctx->numThread);"));
                     if let StatusInput::Unknown = status {
                         let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
@@ -602,7 +590,7 @@ impl WriteC for CallBucket {
                     }
                     // end of case parallel
 
-                    prologue.push(format!("}} else {{"));
+                    prologue.push("} else {".to_string());
                     
                     // case not parallel
                     let sub_cmp_call_name = if let LocationRule::Indexed { .. } = &data.dest {
@@ -627,17 +615,15 @@ impl WriteC for CallBucket {
                         prologue.append(&mut call_instructions);
                     }
 
-                    prologue.push(format!("}}"));
+                    prologue.push("}".to_string());
                 }
 			}
             } else {
-			    assert!(false);
+			    unreachable!();
 			}
 		    }
-                    _ => (),
-                }
                 if let AddressType::SubcmpSignal { .. } = &data.dest_address_type {
-	             prologue.push(format!("}}"));
+	             prologue.push("}".to_string());
 	        }
                 result = "".to_string();
             }

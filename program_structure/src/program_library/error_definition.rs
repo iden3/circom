@@ -16,17 +16,11 @@ pub enum MessageCategory {
 impl MessageCategory {
     fn is_error(&self) -> bool {
         use MessageCategory::*;
-        match self {
-            Error => true,
-            _ => false,
-        }
+        matches!(self, Error)
     }
     fn is_warning(&self) -> bool {
         use MessageCategory::*;
-        match self {
-            Warning => true,
-            _ => false,
-        }
+        matches!(self, Warning)
     }
 }
 
@@ -60,7 +54,7 @@ impl Report {
             diagnostics.push(report.to_diagnostic());
         }
         for diagnostic in diagnostics.iter() {
-            let print_result = term::emit(&mut writer.lock(), &config, files, &diagnostic);
+            let print_result = term::emit(&mut writer.lock(), &config, files, diagnostic);
             if print_result.is_err() {
                 panic!("Error printing reports")
             }

@@ -5,20 +5,13 @@ use super::file_definition::FileID;
 use super::function_data::{FunctionData, FunctionInfo};
 use super::template_data::{TemplateData, TemplateInfo};
 
+#[derive(Default)]
 pub struct Merger {
     fresh_id: usize,
     function_info: FunctionInfo,
     template_info: TemplateInfo,
 }
-impl Default for Merger {
-    fn default() -> Self {
-        Merger {
-            fresh_id: 0,
-            function_info: FunctionInfo::new(),
-            template_info: TemplateInfo::new(),
-        }
-    }
-}
+
 
 impl Merger {
     pub fn new() -> Merger {

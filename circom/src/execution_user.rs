@@ -80,7 +80,7 @@ fn generate_json_constraints(
     debug: &DebugWriter,
     exporter: &dyn ConstraintExporter,
 ) -> Result<(), ()> {
-    if let Ok(()) = exporter.json_constraints(&debug) {
+    if let Ok(()) = exporter.json_constraints(debug) {
         println!("{} {}", Colour::Green.paint("Constraints written in:"), debug.json_constraints);
         Result::Ok(())
     } else {

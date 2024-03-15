@@ -89,9 +89,7 @@ fn treat_statement(stmt: &mut Statement, context: &Context, reports: &mut Report
         treat_declaration(stmt, context, reports, flags, prime)
     } else if stmt.is_substitution(){
         treat_substitution(stmt, context, reports, flags, prime)
-    } else{
-
-    }
+    } 
 }
 
 fn treat_init_block(stmt: &mut Statement, context: &Context, reports: &mut ReportCollection, flags: FlagsExecution, prime: &String) {
@@ -184,15 +182,14 @@ fn treat_expression(
 ){
     use Expression::{Number, UniformArray};
     if let UniformArray {meta, value, dimension} = expr{
-        let execution_response = treat_dimension(&dimension, context, reports, flags, prime);
+        let execution_response = treat_dimension(dimension, context, reports, flags, prime);
         if let Option::Some(v) = execution_response {
             **dimension = Number(meta.clone(), BigInt::from(v));
         } else {
             report_invalid_dimension(meta, reports);
         }
         treat_expression(value, context, reports, flags, prime)
-    } else{
-    }
+    } 
 }
 
 fn treat_dimension(

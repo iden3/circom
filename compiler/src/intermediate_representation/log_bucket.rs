@@ -106,8 +106,7 @@ impl WriteC for LogBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let mut log_c = Vec::new();
-        let mut index = 0;
-        for logarg in &self.argsprint {
+        for (index, logarg) in self.argsprint.iter().enumerate() {
             if let LogBucketArg::LogExp(exp) = logarg {
                 let (mut argument_code, argument_result) = exp.produce_c(producer, parallel);
                 let to_string_call = build_call("Fr_element2str".to_string(), vec![argument_result]);
@@ -122,8 +121,7 @@ impl WriteC for LogBucket {
                 log_c.push(format!("{};", print_c));
                 log_c.push(format!("{};", delete_temp));
                 log_c.push("}".to_string());
-            }
-            else if let LogBucketArg::LogStr(string_id) = logarg {
+            } else if let LogBucketArg::LogStr(string_id) = logarg {
                 let string_value = &producer.get_string_table()[*string_id];
 
                 let print_c =
@@ -134,8 +132,7 @@ impl WriteC for LogBucket {
                 log_c.push("{".to_string());
                 log_c.push(format!("{};", print_c));
                 log_c.push("}".to_string());
-            }
-            else{
+            } else {
                 unreachable!();
             }
             if index != self.argsprint.len() - 1 { 
@@ -148,7 +145,6 @@ impl WriteC for LogBucket {
                 log_c.push(format!("{};", print_c));
                 log_c.push("}".to_string());
             }
-            index += 1;
         }
         let print_end_line = build_call(
             "printf".to_string(), 

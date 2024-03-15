@@ -27,6 +27,7 @@ pub struct TemplateData {
 }
 
 impl TemplateData {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         name: String,
         file_id: FileID,
@@ -60,6 +61,7 @@ impl TemplateData {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn copy(
         name: String,
         file_id: FileID,
@@ -136,7 +138,7 @@ impl TemplateData {
         &self.output_signals
     }
     pub fn get_declaration_inputs(&self) -> &SignalDeclarationOrder {
-        &&self.input_declarations
+        &self.input_declarations
     }
     pub fn get_declaration_outputs(&self) -> &SignalDeclarationOrder {
         &self.output_declarations
@@ -179,26 +181,23 @@ fn fill_inputs_and_outputs(
                 fill_inputs_and_outputs(initialization, input_signals, output_signals, input_declarations, output_declarations);
             }
         }
-        Statement::Declaration { xtype, name, dimensions, .. } => {
-            if let ast::VariableType::Signal(stype, tag_list) = xtype {
-                let signal_name = name.clone();
-                let dim = dimensions.len();
-                let mut tag_info = HashSet::new();
-                for tag in tag_list{
-                    tag_info.insert(tag.clone());
+        Statement::Declaration { xtype: ast::VariableType::Signal(stype, tag_list), name, dimensions, .. } => {
+            let signal_name = name.clone();
+            let dim = dimensions.len();
+            let mut tag_info = HashSet::new();
+            for tag in tag_list {
+                tag_info.insert(tag.clone());
+            }
+            match stype {
+                ast::SignalType::Input => {
+                    input_signals.insert(signal_name.clone(), (dim, tag_info));
+                    input_declarations.push((signal_name, dim));
                 }
-
-                match stype {
-                    ast::SignalType::Input => {
-                        input_signals.insert(signal_name.clone(), (dim, tag_info));
-                        input_declarations.push((signal_name,dim));
-                    }
-                    ast::SignalType::Output => {
-                        output_signals.insert(signal_name.clone(), (dim, tag_info));
-                        output_declarations.push((signal_name,dim));
-                    }
-                    _ => {} //no need to deal with intermediate signals
+                ast::SignalType::Output => {
+                    output_signals.insert(signal_name.clone(), (dim, tag_info));
+                    output_declarations.push((signal_name, dim));
                 }
+                _ => {} //no need to deal with intermediate signals
             }
         }
         _ => {}

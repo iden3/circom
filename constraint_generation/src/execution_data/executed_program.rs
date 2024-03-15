@@ -19,6 +19,7 @@ pub struct ExecutedProgram {
 }
 
 impl ExecutedProgram {
+    #[allow(clippy::ptr_arg)]
     pub fn new(prime: &String) -> ExecutedProgram {
         ExecutedProgram{
             model: Vec::new(),
@@ -93,7 +94,7 @@ impl ExecutedProgram {
         if let Option::Some(index) = possible_index {
             return index;
         }
-        self.template_to_nodes.entry(node.template_name().clone()).or_insert_with(|| vec![]);
+        self.template_to_nodes.entry(node.template_name().clone()).or_default();
         let nodes_for_template = self.template_to_nodes.get_mut(node.template_name()).unwrap();
         let node_index = self.model.len();
         self.model.push(node);
@@ -143,12 +144,10 @@ impl ExecutedProgram {
         crate::compute_constants::manage_functions(&mut program, flags, &self.prime)?;
         crate::compute_constants::compute_vct(&mut temp_instances, &program, flags, &self.prime)?;
         let mut mixed = vec![];
-        let mut index = 0;
-        for in_mixed in mixed_instances {
+        for (index, in_mixed) in mixed_instances.into_iter().enumerate() {
             if in_mixed {
                 mixed.push(index);
             }
-            index += 1;
         }
         let config = VCPConfig {
             stats: dag_stats,

@@ -314,9 +314,9 @@ impl ConstraintExporter for DAG {
 }
 
 impl DAG {
-    pub fn new(prime: &String) -> DAG {
-        DAG{
-            prime : prime.clone(),
+    pub fn new(prime: &str) -> DAG {
+        DAG {
+            prime : prime.to_owned(),
             one_signal: 0,
             nodes: Vec::new(),
             adjacency: Vec::new(),
@@ -471,14 +471,17 @@ impl DAG {
         constraint_correctness_analysis::clean_constraints(&mut self.nodes);
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn generate_r1cs_output(&self, output_file: &str, custom_gates: bool) -> Result<(), ()> {
         r1cs_porting::write(self, output_file, custom_gates)
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn generate_sym_output(&self, output_file: &str) -> Result<(), ()> {
         sym_porting::write(self, output_file)
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn generate_json_constraints(&self, debug: &DebugWriter) -> Result<(), ()> {
         json_porting::port_constraints(self, debug)
     }

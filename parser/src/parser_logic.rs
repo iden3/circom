@@ -1,5 +1,5 @@
 use super::lang;
-use program_structure::ast::{AST};
+use program_structure::ast::AST;
 use program_structure::ast::produce_report;
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{ReportCollection, Report};

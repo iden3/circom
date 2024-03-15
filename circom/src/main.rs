@@ -4,7 +4,7 @@ mod input_user;
 mod parser_user;
 mod type_analysis_user;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 
 use ansi_term::Colour;

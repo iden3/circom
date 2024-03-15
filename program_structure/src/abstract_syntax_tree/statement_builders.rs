@@ -7,7 +7,7 @@ pub fn build_conditional_block(
     if_case: Statement,
     else_case: Option<Statement>,
 ) -> Statement {
-    IfThenElse { meta, cond, else_case: else_case.map(|s| Box::new(s)), if_case: Box::new(if_case) }
+    IfThenElse { meta, cond, else_case: else_case.map(Box::new), if_case: Box::new(if_case) }
 }
 
 pub fn build_while_block(meta: Meta, cond: Expression, stmt: Statement) -> Statement {
