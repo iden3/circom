@@ -30,7 +30,7 @@ impl Merger {
         for definition in definitions {
             let (name, meta) = match definition {
                 Definition::Template { name, args, arg_location, body, meta, parallel, is_custom_gate } => {
-                    if self.contains_function(&name) || self.contains_template(&name) {
+                    if self.contains_function(&name) {
                         (Option::Some(name), meta)
                     } else {
                         let new_data = TemplateData::new(
@@ -44,12 +44,24 @@ impl Merger {
                             parallel,
                             is_custom_gate,
                         );
-                        self.get_mut_template_info().insert(name.clone(), new_data);
-                        (Option::None, meta)
+                        if self.contains_template(&name) {
+                            let existing_template = self.get_template_info().get(&name).unwrap();
+                            // Ignore duplicate but equal
+                            if existing_template.name_of_params == new_data.name_of_params
+                            && existing_template.input_declarations == new_data.input_declarations
+                            && existing_template.output_declarations == new_data.output_declarations {
+                                (Option::None, meta)
+                            } else {
+                                (Option::Some(name), meta)
+                            }
+                        } else {
+                            self.get_mut_template_info().insert(name.clone(), new_data);
+                            (Option::None, meta)
+                        }
                     }
                 }
                 Definition::Function { name, body, args, arg_location, meta } => {
-                    if self.contains_function(&name) || self.contains_template(&name) {
+                    if self.contains_template(&name) {
                         (Option::Some(name), meta)
                     } else {
                         let new_data = FunctionData::new(
@@ -61,8 +73,18 @@ impl Merger {
                             arg_location,
                             &mut self.fresh_id,
                         );
-                        self.get_mut_function_info().insert(name.clone(), new_data);
-                        (Option::None, meta)
+                        if self.contains_function(&name) {
+                            let existing_function = self.get_function_info().get(&name).unwrap();
+                            // Ignore duplicate but equal
+                            if existing_function.name_of_params == new_data.name_of_params {
+                                (Option::None, meta)
+                            } else {
+                                (Option::Some(name), meta)
+                            }
+                        } else {
+                            self.get_mut_function_info().insert(name.clone(), new_data);
+                            (Option::None, meta)
+                        }
                     }
                 }
             };
