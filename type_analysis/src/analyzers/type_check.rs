@@ -844,10 +844,6 @@ fn apply_access_to_symbol(
             let output = program_archive.get_template_data(&template_name).get_output_info(&signal_name);
             let tags;
             (current_dim, tags) = match (input, output) {
-                //(Option::Some((d, tags)), _) | (_, Option::Some((d, tags))) => (*d, tags),
-                //_ => {
-                //    return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
-                //}
                 (Option::Some(wire_data), _) | (_, Option::Some(wire_data)) =>
                     (wire_data.get_dimension(), wire_data.get_tags()),
                 _ => {
