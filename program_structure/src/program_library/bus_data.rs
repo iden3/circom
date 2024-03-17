@@ -1,7 +1,6 @@
-use super::ast;
-use super::ast::{FillMeta, Statement};
+use super::ast::{FillMeta, Statement, VariableType, SignalType};
 use super::file_definition::{FileID, FileLocation};
-use super::wire_data::{TagInfo, WireInfo, WireData, WireType, WireDeclarationOrder};
+use super::wire_data::*;
 use std::collections::{HashMap};
 
 pub type BusInfo = HashMap<String, BusData>;
@@ -92,46 +91,33 @@ fn fill_fields(
     bus_statement: &Statement,
     fields: &mut WireInfo,
 ) {
+    use Statement::*;
     match bus_statement {
-        Statement::IfThenElse { if_case, else_case, .. } => {
-            fill_fields(if_case, fields);
-            if let Option::Some(else_value) = else_case {
-                fill_fields(else_value, fields);
-            }
-        }
-        Statement::Block { stmts, .. } => {
+        Block { stmts, .. } => {
             for stmt in stmts.iter() {
                 fill_fields(stmt, fields);
             }
         }
-        Statement::While { stmt, .. } => {
-            fill_fields(stmt, fields);
-        }
-        Statement::InitializationBlock { initializations, .. } => {
-            for initialization in initializations.iter() {
-                fill_fields(initialization, fields);
-            }
-        }
-        Statement::Declaration { xtype, name, dimensions, .. } => {
-            if let ast::VariableType::Signal(_, tag_list) = xtype {
-                let signal_name = name.clone();
-                let dim = dimensions.len();
-                let mut tag_info = TagInfo::new();
-                for tag in tag_list {
-                    tag_info.insert(tag.clone());
+        Declaration { xtype, name, dimensions, .. } => {
+            match xtype {
+                VariableType::Signal(stype, tag_list) | VariableType::Bus(stype, tag_list) => {
+                    if *stype == SignalType::Intermediate {
+                        let wire_name = name.clone();
+                        let dim = dimensions.len();
+                        let mut tag_info = TagInfo::new();
+                        for tag in tag_list {
+                            tag_info.insert(tag.clone());
+                        }
+                        let field_data = if let VariableType::Signal(_,_) = xtype {
+                            WireData::new(WireType::Signal,dim,tag_info)
+                        } else {
+                            WireData::new(WireType::Bus,dim,tag_info)
+                        };
+                        fields.insert(wire_name, field_data);
+                    }
                 }
-                let field_data = WireData::new(WireType::Signal,dim,tag_info);
-                fields.insert(signal_name, field_data);
+                _ => {}
             }
-            else if let ast::VariableType::Bus(_, tag_list) = xtype {
-                let bus_name = name.clone();
-                let dim = dimensions.len();
-                let mut tag_info = TagInfo::new();
-                for tag in tag_list {
-                    tag_info.insert(tag.clone());
-                }
-                let field_data = WireData::new(WireType::Bus,dim,tag_info);
-                fields.insert(bus_name, field_data);            }
         }
         _ => {}
     }

@@ -1,7 +1,7 @@
 use super::ast;
 use super::ast::{FillMeta, Statement};
 use super::file_definition::{FileID, FileLocation};
-use super::wire_data::{TagInfo, WireInfo, WireData, WireType, WireDeclarationOrder};
+use super::wire_data::*;
 use std::collections::{HashMap};
 
 pub type TemplateInfo = HashMap<String, TemplateData>;
@@ -156,68 +156,55 @@ fn fill_inputs_and_outputs(
     input_declarations: &mut WireDeclarationOrder,
     output_declarations: &mut WireDeclarationOrder
 ) {
+    use Statement::*;
     match template_statement {
-        Statement::IfThenElse { if_case, else_case, .. } => {
+        IfThenElse { if_case, else_case, .. } => {
             fill_inputs_and_outputs(if_case, input_wires, output_wires, input_declarations, output_declarations);
             if let Option::Some(else_value) = else_case {
                 fill_inputs_and_outputs(else_value, input_wires, output_wires, input_declarations, output_declarations);
             }
         }
-        Statement::Block { stmts, .. } => {
+        Block { stmts, .. } => {
             for stmt in stmts.iter() {
                 fill_inputs_and_outputs(stmt, input_wires, output_wires, input_declarations, output_declarations);
             }
         }
-        Statement::While { stmt, .. } => {
+        While { stmt, .. } => {
             fill_inputs_and_outputs(stmt, input_wires, output_wires, input_declarations, output_declarations);
         }
-        Statement::InitializationBlock { initializations, .. } => {
+        InitializationBlock { initializations, .. } => {
             for initialization in initializations.iter() {
                 fill_inputs_and_outputs(initialization, input_wires, output_wires, input_declarations, output_declarations);
             }
         }
-        Statement::Declaration { xtype, name, dimensions, .. } => {
-            if let ast::VariableType::Signal(stype, tag_list) = xtype {
-                let signal_name = name.clone();
-                let dim = dimensions.len();
-                let mut tag_info = TagInfo::new();
-                for tag in tag_list{
-                    tag_info.insert(tag.clone());
-                }
-                let wire_data = WireData::new(WireType::Signal,dim,tag_info);
+        Declaration { xtype, name, dimensions, .. } => {
+            match xtype {
+                ast::VariableType::Signal(stype, tag_list) | ast::VariableType::Bus(stype, tag_list) => {
+                    let wire_name = name.clone();
+                    let dim = dimensions.len();
+                    let mut tag_info = TagInfo::new();
+                    for tag in tag_list{
+                        tag_info.insert(tag.clone());
+                    }
+                    let wire_data = if let ast::VariableType::Signal(_,_) = xtype {
+                        WireData::new(WireType::Signal,dim,tag_info)
+                    } else {
+                        WireData::new(WireType::Bus,dim,tag_info)
+                    };
 
-                match stype {
-                    ast::SignalType::Input => {
-                        input_wires.insert(signal_name.clone(), wire_data);
-                        input_declarations.push((signal_name,dim));
+                    match stype {
+                        ast::SignalType::Input => {
+                            input_wires.insert(wire_name.clone(), wire_data);
+                            input_declarations.push((wire_name,dim));
+                        }
+                        ast::SignalType::Output => {
+                            output_wires.insert(wire_name.clone(), wire_data);
+                            output_declarations.push((wire_name,dim));
+                        }
+                        _ => {} //no need to deal with intermediate signals
                     }
-                    ast::SignalType::Output => {
-                        output_wires.insert(signal_name.clone(), wire_data);
-                        output_declarations.push((signal_name,dim));
-                    }
-                    _ => {} //no need to deal with intermediate signals
                 }
-            }
-            else if let ast::VariableType::Bus(stype, tag_list) = xtype {
-                let bus_name = name.clone();
-                let dim = dimensions.len();
-                let mut tag_info = TagInfo::new();
-                for tag in tag_list{
-                    tag_info.insert(tag.clone());
-                }
-                let wire_data = WireData::new(WireType::Bus,dim,tag_info);
-
-                match stype {
-                    ast::SignalType::Input => {
-                        input_wires.insert(bus_name.clone(), wire_data);
-                        input_declarations.push((bus_name,dim));
-                    }
-                    ast::SignalType::Output => {
-                        output_wires.insert(bus_name.clone(), wire_data);
-                        output_declarations.push((bus_name,dim));
-                    }
-                    _ => {} //no need to deal with intermediate signals
-                }
+                _ => {}
             }
         }
         _ => {}
