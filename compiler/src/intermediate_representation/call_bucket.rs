@@ -376,14 +376,25 @@ impl WriteC for CallBucket {
         // copying parameters
         let mut count = 0;
         let mut i = 0;
+        let mut sizes = Vec::new();
         for p in &self.arguments {
             prologue.push(format!("// copying argument {}", i));
             let (mut prologue_value, src) = p.produce_c(producer, parallel);
             prologue.append(&mut prologue_value);
             let arena_position = format!("&{}[{}]", L_VAR_FUNC_CALL_STORAGE, count);
-            if self.argument_types[i].size > 1 {
+            
+            let real_size = if self.argument_types[i].variable_size.is_some(){
+                format!("{}", self.argument_types[i].variable_size.as_ref().unwrap())
+            } else{
+                self.argument_types[i].size.to_string()
+            };
+
+            sizes.push(real_size.clone());
+
+            if real_size != "1" {
+
                 let copy_arguments =
-                    vec![arena_position, src, self.argument_types[i].size.to_string()];
+                    vec![arena_position, src, real_size];
                 prologue
                     .push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
             } else {
@@ -395,10 +406,13 @@ impl WriteC for CallBucket {
             count += self.argument_types[i].size;
             i += 1;
         }
+        prologue.push(format!("uint sizes_args[{}] = {{ {} }};", sizes.len(), argument_list(sizes)));
+        prologue.push(format!("// end copying argument {}", i)); 
         let result;
         let mut call_arguments = vec![];
         call_arguments.push(CIRCOM_CALC_WIT.to_string());
         call_arguments.push(L_VAR_FUNC_CALL_STORAGE.to_string());
+        call_arguments.push("sizes_args".to_string()); // to have the sizes
         call_arguments.push(my_id());
         match &self.return_info {
             ReturnType::Intermediate { op_aux_no } => {
@@ -472,7 +486,16 @@ impl WriteC for CallBucket {
                     }
                 };
                 call_arguments.push(result_ref);
-                call_arguments.push(data.context.size.to_string());
+                call_arguments.push(data.context.size.to_string()); // stores the expected size of the result
+                
+                // we declare this variable to store the size that is actually returned and pass it by reference
+                if data.context.variable_size.is_some(){
+                    call_arguments.push(format!("{}", data.context.variable_size.as_ref().unwrap()));
+                } else{
+                    prologue.push("uint aux_size;".to_string());
+                    call_arguments.push("aux_size".to_string());
+                }
+                
                 prologue.push(format!("{};", build_call(self.symbol.clone(), call_arguments)));
 		if let LocationRule::Mapped { indexes, .. } = &data.dest {
 		    if indexes.len() > 0 {

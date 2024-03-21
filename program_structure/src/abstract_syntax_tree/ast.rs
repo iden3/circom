@@ -206,6 +206,7 @@ pub enum Statement {
         name: String,
         dimensions: Vec<Expression>,
         is_constant: bool,
+        has_known_size: bool,
     },
     Substitution {
         meta: Meta,

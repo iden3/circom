@@ -23,6 +23,7 @@ pub struct TemplateCodeInfo {
     pub expression_stack_depth: usize,
     pub signal_stack_depth: usize, // Not used now
     pub number_of_components: usize,
+    pub aux_sizes_needed: Vec<String>
 }
 impl ToString for TemplateCodeInfo {
     fn to_string(&self) -> String {
@@ -289,6 +290,9 @@ impl TemplateCodeInfo {
         run_body.push(format!("{};", declare_lvar(self.var_stack_depth)));
         run_body.push(format!("{};", declare_sub_component_aux()));
         run_body.push(format!("{};", declare_index_multiple_eq()));
+        for size_needed in &self.aux_sizes_needed{
+            run_body.push(format!("{};", declare_size_needed(size_needed)));
+        }
         
         for t in &self.body {
             let (mut instructions_body, _) = t.produce_c(producer, Some(parallel));

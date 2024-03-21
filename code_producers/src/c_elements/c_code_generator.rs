@@ -77,6 +77,11 @@ pub fn index_multiple_eq() -> CInstruction {
     format!("{}", INDEX_MULTIPLE_EQ)
 }
 
+pub const FUNCTION_ARG_SIZES: &str = "argument_sizes"; // type uint[]
+pub fn declare_argument_sizes() -> CInstruction {
+    format!("uint* {}", FUNCTION_ARG_SIZES)
+}
+
 pub const FUNCTION_DESTINATION: &str = "destination"; // type PFrElements[]
 pub fn declare_dest_pointer() -> CInstruction {
     format!("{}* {}", T_FR_ELEMENT, FUNCTION_DESTINATION)
@@ -84,6 +89,10 @@ pub fn declare_dest_pointer() -> CInstruction {
 pub const FUNCTION_DESTINATION_SIZE: &str = "destination_size"; // type PFrElements[]
 pub fn declare_dest_size() -> CInstruction {
     format!("int {}", FUNCTION_DESTINATION_SIZE)
+}
+pub const FUNCTION_RETURN_SIZE: &str = "return_size"; // type uint
+pub fn declare_return_size() -> CInstruction {
+    format!("uint &{}", FUNCTION_RETURN_SIZE)
 }
 
 pub const CTX_INDEX: &str = "ctx_index";
@@ -227,6 +236,10 @@ pub fn signal_values(at: CInstruction) -> CInstruction {
 }
 pub fn store_signal_values(at: CInstruction, value: CInstruction) -> CInstruction {
     format!("{} = {}", signal_values(at), value)
+}
+
+pub fn declare_size_needed(size: &String) -> CInstruction{
+    format!("uint size_{}", size)
 }
 
 /*
@@ -402,10 +415,10 @@ pub fn build_failed_assert_message(line: usize) -> String{
      )
 }
 
-pub fn build_failed_return_message(line: usize, length: usize) -> String{
+pub fn build_failed_return_message(line: usize, length: &String) -> String{
 
     format!("
-    std::cerr<< \"\\nError: Incorrect sizes in function \" << {} << \" line {}: the function returns a variable of length {} when the expected length is \" << {} << \"\\nFollowed trace of components:\" << {} <<\" \\n\";
+    std::cerr<< \"\\nError: Incorrect sizes in function \" << {} << \" line {}: the function returns a variable of length \" << {} << \" when the expected length is \" << {} << \"\\nFollowed trace of components:\" << {} <<\" \\n\";
     ",
         MY_TEMPLATE_NAME,
         line,
@@ -415,10 +428,10 @@ pub fn build_failed_return_message(line: usize, length: usize) -> String{
      )
 }
 
-pub fn build_warning_return_message(line: usize, length: usize) -> String{
+pub fn build_warning_return_message(line: usize, length: &String) -> String{
 
     format!("
-    std::cerr<< \"\\nWarning: Incorrect sizes in function \" << {} << \" line {}: the function returns a variable of length {} when the expected length is \" << {} << \", the remaining positions are not modified\\nFollowed trace of components:\" << {} <<\" \\n\";
+    std::cerr<< \"\\nWarning: Incorrect sizes in function \" << {} << \" line {}: the function returns a variable of length \" << {} << \" when the expected length is \" << {} << \", the remaining positions are not modified\\nFollowed trace of components:\" << {} <<\" \\n\";
     ",
         MY_TEMPLATE_NAME,
         line,
@@ -481,6 +494,7 @@ pub fn collect_function_headers(functions: Vec<String>) -> Vec<String> {
         let params = vec![
             declare_circom_calc_wit(),
             declare_lvar_pointer(),
+            declare_argument_sizes(),
             declare_component_father(),
             declare_dest_pointer(),
             declare_dest_size(),

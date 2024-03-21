@@ -95,9 +95,11 @@ impl WriteC for FunctionCodeInfo {
         let params = vec![
             declare_circom_calc_wit(),
             declare_lvar_pointer(),
+            declare_argument_sizes(),
             declare_component_father(),
             declare_dest_pointer(),
             declare_dest_size(),
+            declare_return_size()
         ];
         let mut body = vec![];
         body.push(format!("{};", declare_circuit_constants()));

@@ -14,7 +14,8 @@ impl ToString for ValueType {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct InstrContext {
-    pub size: usize,
+    pub size: usize, // The maximum possible size
+    pub variable_size: Option<String>, // if known size -> None, if not, the variable in which it depends
 }

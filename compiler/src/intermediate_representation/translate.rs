@@ -16,6 +16,8 @@ pub struct SymbolInfo {
     access_instruction: InstructionPointer,
     dimensions: Vec<Length>,
     is_component: bool,
+    has_known_size: bool,
+    is_parameter: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -102,6 +104,7 @@ struct State {
     code: InstructionList,
     // string_table
     string_table: HashMap<String, usize>,
+    aux_sizes_needed: Vec<String>
 }
 
 impl State {
@@ -127,6 +130,7 @@ impl State {
             max_stack_depth: 0,
             code: vec![],
             string_table : HashMap::new(),
+            aux_sizes_needed: Vec::new()
         }
     }
     fn reserve(fresh: &mut usize, size: usize) -> usize {
@@ -161,6 +165,7 @@ struct Context<'a> {
 }
 
 fn initialize_parameters(state: &mut State, params: Vec<Param>) {
+    let mut index = 0;
     for p in params {
         let lengths = p.length;
         let full_size = lengths.iter().fold(1, |p, s| p * (*s));
@@ -173,9 +178,17 @@ fn initialize_parameters(state: &mut State, params: Vec<Param>) {
             op_aux_no: 0,
         };
         let address_instruction = address_instruction.allocate();
+        
         let symbol_info =
-            SymbolInfo { dimensions: lengths, access_instruction: address_instruction.clone(), is_component:false };
+            SymbolInfo { 
+                dimensions: lengths, 
+                access_instruction: address_instruction.clone(), 
+                is_component:false,
+                has_known_size: true,
+                is_parameter: Some(index),
+            };
         state.environment.add_variable(&p.name, symbol_info);
+        index = index + 1;
     }
 }
 
@@ -193,7 +206,13 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
         }
         .allocate();
         let symbol_info =
-            SymbolInfo { access_instruction: address_instruction.clone(), dimensions, is_component:false };
+            SymbolInfo {
+                 access_instruction: address_instruction.clone(), 
+                 dimensions, 
+                 is_component: false,
+                 has_known_size: true,
+                 is_parameter: None,
+            };
         state.environment.add_variable(&arg.name, symbol_info);
         let mut index = 0;
         for value in arg.values {
@@ -228,7 +247,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
                 dest_is_output: false,
                 dest_address_type: AddressType::Variable,
                 dest: LocationRule::Indexed { location: full_address, template_header: None },
-                context: InstrContext { size: 1 },
+                context: InstrContext { size: 1, variable_size : None },
                 src: content,
             }
             .allocate();
@@ -250,7 +269,13 @@ fn initialize_signals(state: &mut State, signals: Vec<Signal>) {
             op_aux_no: 0,
         }
         .allocate();
-        let info = SymbolInfo { access_instruction: instruction, dimensions: signal.lengths, is_component:false };
+        let info = SymbolInfo { 
+            access_instruction: instruction, 
+            dimensions: signal.lengths, 
+            is_component:false,
+            has_known_size: true,
+            is_parameter: None,
+        };
         state.environment.add_variable(&signal.name, info);
         state.signal_to_type.insert(signal.name.clone(), signal.xtype);
     }
@@ -268,7 +293,13 @@ fn initialize_components(state: &mut State, components: Vec<Component>) {
             op_aux_no: 0,
         }
         .allocate();
-        let info = SymbolInfo { access_instruction: instruction, dimensions: component.lengths, is_component: true };
+        let info = SymbolInfo { 
+            access_instruction: instruction, 
+            dimensions: component.lengths, 
+            is_component: true, 
+            has_known_size: true,
+            is_parameter: None
+        };
         state.environment.add_variable(&component.name, info);
     }
 }
@@ -535,16 +566,16 @@ fn translate_standard_case(
     state: &mut State,
     context: &Context,
 ) -> InstructionPointer {
-    let src_size: usize = get_expression_size(&info.src, state, context);
+    let src_size = get_expression_size(&info.src, state, context);
     let src = translate_expression(info.src, state, context);
-    info.prc_symbol.into_store(src, state, src_size)
+    info.prc_symbol.into_store(src, state, src_size.size)
 }
 
 // End of substitution utils
 
 fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::Declaration;
-    if let Declaration { name, meta, .. } = stmt {
+    if let Declaration { name, meta, has_known_size, .. } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let dimensions = meta.get_memory_knowledge().get_concrete_dimensions().to_vec();
         let size = dimensions.iter().fold(1, |p, c| p * (*c));
@@ -557,7 +588,16 @@ fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) 
             op_aux_no: 0,
         }
         .allocate();
-        let info = SymbolInfo { access_instruction: instruction, dimensions, is_component: false };
+        let info = SymbolInfo { 
+            access_instruction: instruction, 
+            dimensions, 
+            is_component: false, 
+            has_known_size,
+            is_parameter: None
+        };
+        if !has_known_size{
+            state.aux_sizes_needed.push(name.clone());
+        }
         state.environment.add_variable(&name, info);
     } else {
         unreachable!()
@@ -656,12 +696,12 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
 fn translate_return(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::Return;
     if let Return { meta, value, .. } = stmt {
-        let src_size: usize = get_expression_size(&value, state, context);
+        let possible_sizes = get_expression_size(&value, state, context);
     
         let return_bucket = ReturnBucket {
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
-            with_size: src_size,
+            with_size: possible_sizes,
             value: translate_expression(value, state, context),
         }
         .allocate();
@@ -669,23 +709,11 @@ fn translate_return(stmt: Statement, state: &mut State, context: &Context) {
     }
 }
 
-fn get_expression_size(expression: &Expression, state: &mut State, context: &Context) -> usize{
-    if expression.is_infix() {
-        1
-    } else if expression.is_prefix() {
-        1
-    } else if expression.is_variable() {
+fn get_expression_size(expression: &Expression, state: &mut State, context: &Context) -> InstrContext{
+    if expression.is_variable() {
         get_variable_size(expression, state, context)
-    } else if expression.is_number() {
-        1
-    } else if expression.is_call() {
-        unreachable!("This case should be unreachable")
-    } else if expression.is_array() {
-        unreachable!("This expression is syntactic sugar")
-    } else if expression.is_switch() {
-        unreachable!("This expression is syntactic sugar")
-    } else {
-        unreachable!("Unknown expression")
+    } else { // if it is not a variable it is always a single element
+        InstrContext{size: 1, variable_size: None}
     }
 }
 
@@ -809,15 +837,23 @@ fn get_variable_size(
     expression: &Expression,
     state: &mut State,
     context: &Context,
-) -> usize {
+) -> InstrContext {
     use Expression::{Variable};
     if let Variable { meta, name, access, .. } = expression {
         let tag_access = check_tag_access(&name, &access, state);
         if tag_access.is_some(){
-            1
+            InstrContext{size: 1, variable_size: None}
         } else{
             let def = SymbolDef { meta: meta.clone(), symbol: name.clone(), acc: access.clone() };
-            ProcessedSymbol::new(def, state, context).length
+            let symbol = ProcessedSymbol::new(def, state, context);
+            let variable_size = if !symbol.has_known_size{
+                Some(format!("size_{}", symbol.name))
+            } else if symbol.is_parameter.is_some(){
+                Some(format!("argument_sizes[{}]", symbol.is_parameter.unwrap()))
+            } else{
+                None
+            };
+            InstrContext{size: symbol.length, variable_size}
         }
     } else {
         unreachable!()
@@ -947,6 +983,8 @@ struct ProcessedSymbol {
     signal: Option<LocationRule>,
     signal_type: Option<SignalType>,
     before_signal: Vec<InstructionPointer>,
+    has_known_size: bool,
+    is_parameter: Option<usize>,
 }
 
 impl ProcessedSymbol {
@@ -954,7 +992,7 @@ impl ProcessedSymbol {
         use Access::*;
         let symbol_name = definition.symbol;
         let meta = definition.meta;
-        let symbol_info = state.environment.get_variable(&symbol_name).unwrap().clone();
+        let symbol_info: SymbolInfo = state.environment.get_variable(&symbol_name).unwrap().clone();
         let mut lengths = symbol_info.dimensions.clone();
         lengths.reverse();
         let mut with_length = symbol_info.dimensions.iter().fold(1, |r, c| r * (*c));
@@ -963,6 +1001,15 @@ impl ProcessedSymbol {
         let mut bf_index = vec![];
         let mut af_index = vec![];
         let mut multiple_possible_lengths: Vec<Vec<usize>> = vec![];
+        
+        // TODO: access to symbols of unknown 
+        let has_known_size = symbol_info.has_known_size && definition.acc.is_empty();
+        let is_parameter = if symbol_info.is_parameter.is_some() && definition.acc.is_empty(){
+            symbol_info.is_parameter
+        } else{
+            None
+        };
+
         for acc in definition.acc {
             match acc {
                 ArrayAccess(exp) if signal.is_none() => {
@@ -1013,16 +1060,20 @@ impl ProcessedSymbol {
                 state,
             )
         });
+
+
         ProcessedSymbol {
             xtype: meta.get_type_knowledge().get_reduces_to(),
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
             length: with_length,
+            has_known_size,
+            is_parameter,
             symbol: symbol_info,
             name: symbol_name,
             before_signal: bf_index,
             signal: signal_location,
-            signal_type
+            signal_type,
         }
     }
 
@@ -1042,8 +1093,15 @@ impl ProcessedSymbol {
                     _ => InputInformation::NoInput,
                 },
             };
+            let variable_size = if !self.has_known_size{
+                Some(format!("size_{}", self.name))
+            } else if self.is_parameter.is_some(){
+                Some(format!("argument_sizes[{}]", self.is_parameter.unwrap()))
+            } else{
+                None
+            };
             FinalData {
-                context: InstrContext { size: self.length },
+                context: InstrContext { size: self.length,  variable_size},
                 dest_is_output: false,
                 dest_address_type: dest_type,
                 dest: signal,
@@ -1054,8 +1112,15 @@ impl ProcessedSymbol {
                 TypeReduction::Variable => AddressType::Variable,
                 _ => AddressType::Signal,
             };
+            let variable_size = if !self.has_known_size{
+                Some(format!("size_{}", self.name))
+            } else if self.is_parameter.is_some(){
+                Some(format!("argument_sizes[{}]", self.is_parameter.unwrap()))
+            } else{
+                None
+            };
             FinalData {
-                context: InstrContext { size: self.length },
+                context: InstrContext { size: self.length, variable_size },
                 dest_is_output: self.signal_type.map_or(false, |t| t == SignalType::Output),
                 dest_address_type: xtype,
                 dest: LocationRule::Indexed { location: address, template_header: None },
@@ -1075,7 +1140,15 @@ impl ProcessedSymbol {
 
     fn into_store(self, src: InstructionPointer, state: &State, src_size: usize) -> InstructionPointer {
         let minimal_lenth = std::cmp::min(self.length, src_size);
-        
+
+        let variable_size = if !self.has_known_size{
+            Some(format!("size_{}", self.name))
+        } else if self.is_parameter.is_some(){
+            Some(format!("argument_sizes[{}]", self.is_parameter.unwrap()))
+        } else{
+            None
+        };
+
         if let Option::Some(signal) = self.signal {
             let dest_type = AddressType::SubcmpSignal {
                 cmp_address: compute_full_address(state, self.symbol, self.before_signal),
@@ -1086,12 +1159,13 @@ impl ProcessedSymbol {
                     _ => InputInformation::NoInput,
                 },
             };
+            
             StoreBucket {
                 src,
                 dest: signal,
                 line: self.line,
                 message_id: self.message_id,
-                context: InstrContext { size: minimal_lenth },
+                context: InstrContext { size: minimal_lenth, variable_size },
                 dest_is_output: false,
                 dest_address_type: dest_type,
             }
@@ -1109,13 +1183,21 @@ impl ProcessedSymbol {
                 message_id: self.message_id,
                 dest_is_output: self.signal_type.map_or(false, |t| t == SignalType::Output),
                 dest: LocationRule::Indexed { location: address, template_header: None },
-                context: InstrContext { size: minimal_lenth },
+                context: InstrContext { size: minimal_lenth, variable_size },
             }
             .allocate()
         }
     }
 
     fn into_load(self, state: &State) -> InstructionPointer {
+        let variable_size = if !self.has_known_size{
+            Some(format!("size_{}", self.name))
+        } else if self.is_parameter.is_some(){
+            Some(format!("argument_sizes[{}]", self.is_parameter.unwrap()))
+        } else{
+            None
+        };
+
         if let Option::Some(signal) = self.signal {
             let dest_type = AddressType::SubcmpSignal {
                 cmp_address: compute_full_address(state, self.symbol, self.before_signal),
@@ -1131,10 +1213,11 @@ impl ProcessedSymbol {
                 line: self.line,
                 message_id: self.message_id,
                 address_type: dest_type,
-                context: InstrContext { size: self.length },
+                context: InstrContext { size: self.length, variable_size },
             }
             .allocate()
         } else {
+
             let address = compute_full_address(state, self.symbol, self.before_signal);
             let xtype = match self.xtype {
                 TypeReduction::Variable => AddressType::Variable,
@@ -1145,7 +1228,7 @@ impl ProcessedSymbol {
                 address_type: xtype,
                 message_id: self.message_id,
                 src: LocationRule::Indexed { location: address, template_header: None },
-                context: InstrContext { size: self.length },
+                context: InstrContext { size: self.length, variable_size },
             }
             .allocate()
         }
@@ -1378,14 +1461,9 @@ fn translate_call_arguments(
 ) -> ArgData {
     let mut info = ArgData { argument_data: vec![], arguments: InstructionList::new() };
     for arg in args {
-        let length = arg
-            .get_meta()
-            .get_memory_knowledge()
-            .get_concrete_dimensions()
-            .iter()
-            .fold(1, |r, c| r * (*c));
+        let instr_size = get_expression_size(&arg, state, context);
         let instr = translate_expression(arg, state, context);
-        info.argument_data.push(InstrContext { size: length });
+        info.argument_data.push(instr_size);
         info.arguments.push(instr);
     }
     info
@@ -1424,6 +1502,7 @@ pub struct CodeOutput {
     pub code: InstructionList,
     pub constant_tracker: FieldTracker,
     pub string_table: HashMap<String, usize>,
+    pub aux_sizes_needed: Vec<String>
 }
 
 pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
@@ -1465,6 +1544,7 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         stack_depth: state.max_stack_depth,
         signal_depth: state.signal_stack,
         constant_tracker: state.field_tracker,
-        string_table : state.string_table
+        string_table : state.string_table,
+        aux_sizes_needed: state.aux_sizes_needed
     }
 }

@@ -36,7 +36,7 @@ pub fn build_declaration(
     dimensions: Vec<Expression>,
 ) -> Statement {
     let is_constant = true;
-    Declaration { meta, xtype, name, dimensions, is_constant }
+    Declaration { meta, xtype, name, dimensions, is_constant, has_known_size: true }
 }
 
 pub fn build_substitution(

@@ -7,7 +7,7 @@ use code_producers::wasm_elements::*;
 pub struct ReturnBucket {
     pub line: usize,
     pub message_id: usize,
-    pub with_size: usize,
+    pub with_size: InstrContext,
     pub value: InstructionPointer,
 }
 
@@ -48,7 +48,7 @@ impl WriteWasm for ReturnBucket {
         if producer.needs_comments() {
             instructions.push(";; return bucket".to_string());
 	}
-        if self.with_size == 1 {
+        if self.with_size.size == 1 {
             instructions.push(get_local(producer.get_result_address_tag())); //result address
             let mut instructions_value = self.value.produce_wasm(producer);
             instructions.append(&mut instructions_value);
@@ -100,24 +100,30 @@ impl WriteC for ReturnBucket {
         instructions.push("// return bucket".to_string());
         let (mut instructions_value, src) = self.value.produce_c(producer, parallel);
         instructions.append(&mut instructions_value);
+        
+        let real_size = if self.with_size.variable_size.is_none() {
+            self.with_size.size.to_string()
+        } else{
+            self.with_size.variable_size.as_ref().unwrap().clone()
+        };
 
-        let warning_condition = format!("{} > {}", FUNCTION_DESTINATION_SIZE, self.with_size); 
+        let warning_condition = format!("{} > {}", FUNCTION_DESTINATION_SIZE, real_size); 
         let check_correct_size_1 = format!(
             "if({}){{
                 {}
             }}", 
             warning_condition,
-            build_warning_return_message(self.line, self.with_size)
+            build_warning_return_message(self.line, &real_size)
         );
         
-        let error_condition = format!("{} >= {}", FUNCTION_DESTINATION_SIZE, self.with_size); 
+        let error_condition = format!("{} >= {}", FUNCTION_DESTINATION_SIZE, real_size); 
 
         let check_correct_size_2 = format!(
             "if(!({})){{
                 {}
             }}", 
             error_condition,
-            build_failed_return_message(self.line, self.with_size)
+            build_failed_return_message(self.line, &real_size)
         );
         let assertion = format!("{};", build_call("assert".to_string(), vec![error_condition]));
 
@@ -127,14 +133,16 @@ impl WriteC for ReturnBucket {
 
 
 
-        if self.with_size > 1 {   
+        if real_size != "1" {   
             let copy_arguments =
-                vec![FUNCTION_DESTINATION.to_string(), src, self.with_size.to_string()];
+                vec![FUNCTION_DESTINATION.to_string(), src, real_size.clone()];
             instructions.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
         } else {
             let copy_arguments = vec![FUNCTION_DESTINATION.to_string(), src];
             instructions.push(format!("{};", build_call("Fr_copy".to_string(), copy_arguments)));
         }
+        // to update the length of the stored value
+        instructions.push(format!("{} = {};", FUNCTION_RETURN_SIZE, real_size));
         instructions.push(add_return());
         (instructions, "".to_string())
     }

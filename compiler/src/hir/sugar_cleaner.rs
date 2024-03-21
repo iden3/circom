@@ -423,12 +423,14 @@ fn rmv_sugar(fresh_variable: &str, expr: Expression, buffer: &mut Vec<Statement>
     declaration_meta.get_mut_type_knowledge().set_reduces_to(TypeReduction::Variable);
     variable_meta.get_mut_type_knowledge().set_reduces_to(TypeReduction::Variable);
     initialization_meta.get_mut_type_knowledge().set_reduces_to(TypeReduction::Variable);
+
     let declaration = Declaration {
         meta: declaration_meta,
         is_constant: true,
         xtype: VariableType::Var,
         name: fresh_variable.to_string(),
         dimensions: vec![],
+        has_known_size: !expr.is_call(),
     };
     let initialization = Substitution {
         meta: initialization_meta,
@@ -537,6 +539,7 @@ fn split_return(stmt: Statement, id: usize) -> ReturnSplit {
             name: id.to_string(),
             dimensions: expr_lengths,
             is_constant: false,
+            has_known_size: true,
         };
         let substitution = Substitution {
             meta: substitution_meta,

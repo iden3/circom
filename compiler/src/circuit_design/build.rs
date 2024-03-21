@@ -120,6 +120,7 @@ fn build_template_instances(
         template_info.expression_stack_depth = out.expression_depth;
         template_info.var_stack_depth = out.stack_depth;
         template_info.signal_stack_depth = out.signal_depth;
+        template_info.aux_sizes_needed = out.aux_sizes_needed;
         string_table = out.string_table;
         cmp_id = out.next_cmp_id;
         circuit.add_template_code(template_info);
