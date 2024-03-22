@@ -190,19 +190,19 @@ SignalHeader : VariableType = {
 BusHeader : (Expression, VariableType) = {
     <s:@L> <id: IDENTIFIER> <e:@R> <header: ParseHeader>
     => {
-        let bus_builder = build_bus_call(Meta::new(s,e),id,Vec::new());
+        let bus_builder = build_bus_call(Meta::new(s,e),id.clone(),Vec::new());
         let (s,t) = header;
-        (bus_builder,VariableType::Bus(s, t))
+        (bus_builder,VariableType::Bus(id, s, t))
     },
 
     <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R> <header: ParseHeader>
     => {
         let bus_builder = match args {
-                            None => build_bus_call(Meta::new(s,e),id,Vec::new()),
-                            Some(a) => build_bus_call(Meta::new(s,e),id,a),
+                            None => build_bus_call(Meta::new(s,e),id.clone(),Vec::new()),
+                            Some(a) => build_bus_call(Meta::new(s,e),id.clone(),a),
                             };
         let (s,t) = header;
-        (bus_builder,VariableType::Bus(s, t))
+        (bus_builder,VariableType::Bus(id, s, t))
     }
 };
 

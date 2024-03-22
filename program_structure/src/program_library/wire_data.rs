@@ -9,7 +9,7 @@ pub type WireDeclarationOrder = Vec<(String, usize)>;
 #[derive(Clone, PartialEq, Eq)]
 pub enum WireType {
     Signal,
-    Bus,
+    Bus(String),
 }
 
 

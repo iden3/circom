@@ -133,7 +133,7 @@ impl TemplateData {
         &self.output_wires
     }
     pub fn get_declaration_inputs(&self) -> &WireDeclarationOrder {
-        &&self.input_declarations
+        &self.input_declarations
     }
     pub fn get_declaration_outputs(&self) -> &WireDeclarationOrder {
         &self.output_declarations
@@ -179,18 +179,14 @@ fn fill_inputs_and_outputs(
         }
         Declaration { xtype, name, dimensions, .. } => {
             match xtype {
-                ast::VariableType::Signal(stype, tag_list) | ast::VariableType::Bus(stype, tag_list) => {
+                ast::VariableType::Signal(stype, tag_list) => {
                     let wire_name = name.clone();
                     let dim = dimensions.len();
                     let mut tag_info = TagInfo::new();
                     for tag in tag_list{
                         tag_info.insert(tag.clone());
                     }
-                    let wire_data = if let ast::VariableType::Signal(_,_) = xtype {
-                        WireData::new(WireType::Signal,dim,tag_info)
-                    } else {
-                        WireData::new(WireType::Bus,dim,tag_info)
-                    };
+                    let wire_data = WireData::new(WireType::Signal,dim,tag_info);
 
                     match stype {
                         ast::SignalType::Input => {
@@ -203,8 +199,30 @@ fn fill_inputs_and_outputs(
                         }
                         _ => {} //no need to deal with intermediate signals
                     }
-                }
-                _ => {}
+                },
+                ast::VariableType::Bus(tname, stype, tag_list) => {
+                    let wire_name = name.clone();
+                    let dim = dimensions.len();
+                    let type_name = tname.clone();
+                    let mut tag_info = TagInfo::new();
+                    for tag in tag_list{
+                        tag_info.insert(tag.clone());
+                    }
+                    let wire_data = WireData::new(WireType::Bus(type_name),dim,tag_info);
+
+                    match stype {
+                        ast::SignalType::Input => {
+                            input_wires.insert(wire_name.clone(), wire_data);
+                            input_declarations.push((wire_name,dim));
+                        }
+                        ast::SignalType::Output => {
+                            output_wires.insert(wire_name.clone(), wire_data);
+                            output_declarations.push((wire_name,dim));
+                        }
+                        _ => {} //no need to deal with intermediate signals
+                    }
+                },
+                _ => {},
             }
         }
         _ => {}

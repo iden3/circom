@@ -167,7 +167,7 @@ fn type_statement(
                 VariableType::AnonymousComponent => analysis_information
                     .environment
                     .add_component(name, (meta.component_inference.clone(), dimensions.len())),
-                VariableType::Bus(s_type, tags) => {
+                VariableType::Bus(tname, stype, tags) => {
                     // TODO: 
                     unreachable!("TODO")
                 }
