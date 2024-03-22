@@ -73,8 +73,8 @@ impl Merger {
                         (Option::Some(name), meta)
                     } else {
                         let new_data = BusData::new(
-                            name.clone(),
                             file_id,
+                            name.clone(),
                             body,
                             args.len(),
                             args,

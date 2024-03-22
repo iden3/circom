@@ -277,7 +277,7 @@ pub enum VariableType {
     Signal(SignalType, TagList),
     Component,
     AnonymousComponent,
-    Bus(SignalType, TagList),
+    Bus(String, SignalType, TagList),
 }
 
 #[derive(Clone)]
