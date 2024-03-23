@@ -25,6 +25,11 @@ pub fn check_types(
         return Result::Err(errors);
     }
 
+    bus_level_analyses(program_archive, &mut errors);
+    if !errors.is_empty() {
+        return Result::Err(errors);
+    }
+
     // Decorators
     template_level_decorators(program_archive, &mut errors);
     if !errors.is_empty() {
@@ -52,6 +57,11 @@ pub fn check_types(
             for name in program_archive.get_template_names().clone() {
                 if !info.reached.contains(&name) {
                     program_archive.remove_template(&name)
+                }
+            }
+            for name in program_archive.get_bus_names().clone() {
+                if !info.reached.contains(&name) {
+                    program_archive.remove_bus(&name)
                 }
             }
         }
@@ -102,12 +112,12 @@ fn template_level_decorators(
 fn function_level_analyses(program_archive: &ProgramArchive, reports: &mut ReportCollection) {
     let function_names = program_archive.get_function_names();
     for function_data in program_archive.get_functions().values() {
-        let result_0 = free_of_template_elements(function_data, function_names);
-        let result_1 = all_paths_with_return_check(function_data);
-        if let Result::Err(mut functions_free_of_template_elements_reports) = result_0 {
+        let free_of_template_elements_result = free_of_template_elements(function_data, function_names);
+        let return_check_result = all_paths_with_return_check(function_data);
+        if let Result::Err(mut functions_free_of_template_elements_reports) = free_of_template_elements_result {
             reports.append(&mut functions_free_of_template_elements_reports);
         }
-        if let Result::Err(functions_all_paths_with_return_statement_report) = result_1 {
+        if let Result::Err(functions_all_paths_with_return_statement_report) = return_check_result {
             reports.push(functions_all_paths_with_return_statement_report);
         }
     }
@@ -119,6 +129,16 @@ fn function_level_decorators(program_archive: &mut ProgramArchive, reports: &mut
             constants_handler::handle_function_constants(function_data);
         type_reduction::reduce_function(function_data);
         reports.append(&mut constant_handler_reports);
+    }
+}
+
+fn bus_level_analyses(program_archive: &ProgramArchive, reports: &mut ReportCollection) {
+    let function_names = program_archive.get_function_names();
+    for bus_data in program_archive.get_buses().values() {
+        let free_of_invalid_statements_result = free_of_invalid_statements(bus_data, function_names);
+        if let Result::Err(mut free_of_invalid_statements_reports) = free_of_invalid_statements_result {
+            reports.append(&mut free_of_invalid_statements_reports);
+        }
     }
 }
 
