@@ -523,7 +523,7 @@ ParseVarAccess : Access  = {
     <component_acc: ParseComponentAcc> => build_component_access(component_acc),
 };
 ParseArrayAcc: Expression = {
-    "["<dim: ParseExpression>"]" => dim
+    "[" <dim: ParseExpression> "]" => dim
 };
 ParseComponentAcc: String = {
     "." <id: IDENTIFIER> => id,
