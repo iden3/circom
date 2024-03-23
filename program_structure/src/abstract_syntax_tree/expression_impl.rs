@@ -14,9 +14,9 @@ impl Expression {
             | Number(meta, ..)
             | Call { meta, .. }
             | AnonymousComp { meta, ..}
-            | ArrayInLine { meta, .. } => meta,
-            | UniformArray { meta, .. } => meta,
-            | Tuple {meta, ..} => meta,
+            | ArrayInLine { meta, .. }
+            | UniformArray { meta, .. }
+            | Tuple {meta, ..}
             | BusCall { meta, .. } => meta,
         }
     }
@@ -31,9 +31,9 @@ impl Expression {
             | Number(meta, ..)
             | Call { meta, .. }
             | AnonymousComp {meta, ..}
-            | ArrayInLine { meta, .. } => meta,
-            | UniformArray { meta, .. } => meta,
-            | Tuple {meta, ..} => meta,
+            | ArrayInLine { meta, .. }
+            | UniformArray { meta, .. }
+            | Tuple {meta, ..}
             | BusCall {meta, ..} => meta,
         }
     }
