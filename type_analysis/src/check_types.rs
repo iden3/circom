@@ -41,6 +41,11 @@ pub fn check_types(
         return Result::Err(errors);
     }
 
+    bus_level_decorators(program_archive, &mut errors);
+    if !errors.is_empty() {
+        return Result::Err(errors);
+    }
+
     // Type analysis
     let typing_result = type_check(program_archive);
     match typing_result {
@@ -139,6 +144,15 @@ fn bus_level_analyses(program_archive: &ProgramArchive, reports: &mut ReportColl
         if let Result::Err(mut free_of_invalid_statements_reports) = free_of_invalid_statements_result {
             reports.append(&mut free_of_invalid_statements_reports);
         }
+    }
+}
+
+fn bus_level_decorators(program_archive: &mut ProgramArchive, reports: &mut ReportCollection) {
+    for bus_data in program_archive.get_mut_buses().values_mut() {
+        let mut constant_handler_reports =
+            constants_handler::handle_bus_constants(bus_data);
+        //type_reduction::reduce_bus(bus_data);
+        reports.append(&mut constant_handler_reports);
     }
 }
 

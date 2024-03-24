@@ -4,7 +4,9 @@ use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::expression_builders::*;
 use program_structure::utils::environment::VarEnvironment;
-use program_structure::{function_data::FunctionData, template_data::TemplateData};
+use program_structure::function_data::FunctionData;
+use program_structure::template_data::TemplateData;
+use program_structure::bus_data::BusData;
 use std::collections::HashSet;
 
 type Constants = VarEnvironment<bool>;
@@ -37,6 +39,17 @@ pub fn _handle_template_constants(template: &mut TemplateData) -> ReportCollecti
     expand_statement(template.get_mut_body(), &mut expression_holder);
     reports
 }
+pub fn handle_bus_constants(bus: &mut BusData) -> ReportCollection {
+    let mut environment = Constants::new();
+    let mut expression_holder = ExpressionHolder::new();
+    for p in bus.get_name_of_params() {
+        environment.add_variable(p, false);
+    }
+    statement_constant_inference(bus.get_mut_body(), &mut environment);
+    let reports = statement_invariant_check(bus.get_body(), &mut environment);
+    expand_statement(bus.get_mut_body(), &mut expression_holder);
+    reports
+}
 
 // Set of functions used to infer the constant tag in variable declarations
 fn statement_constant_inference(stmt: &mut Statement, environment: &mut Constants) {
@@ -49,7 +62,7 @@ fn statement_constant_inference(stmt: &mut Statement, environment: &mut Constant
         InitializationBlock { initializations, .. } => {
             initialization_block_constant_inference(initializations, environment)
         }
-        While { stmt, .. } => while_stmt_constant_inference(stmt, environment),
+        While { stmt, .. } => while_constant_inference(stmt, environment),
         Block { stmts, .. } => block_constant_inference(stmts, environment),
         _ => {}
     }
@@ -84,7 +97,7 @@ fn initialization_block_constant_inference(
     }
 }
 
-fn while_stmt_constant_inference(stmt: &mut Statement, environment: &mut Constants) {
+fn while_constant_inference(stmt: &mut Statement, environment: &mut Constants) {
     statement_constant_inference(stmt, environment)
 }
 
