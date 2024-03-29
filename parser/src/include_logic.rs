@@ -17,6 +17,7 @@ impl FileStack {
         FileStack { current_location: location, black_paths: HashSet::new(), stack: vec![src] }
     }
 
+    #[allow(clippy::ptr_arg, clippy::result_large_err)]
     pub fn add_include(
         f_stack: &mut FileStack,
         name: String,
@@ -87,12 +88,13 @@ impl IncludesGraph {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn add_edge(&mut self, old_path: String) -> Result<(), Report> {
         let mut crr = PathBuf::new();
         crr.push(old_path.clone());
         let path = std::fs::canonicalize(crr)
             .map_err(|_e| produce_report_with_message(ReportCode::FileOs, old_path))?;
-        let edges = self.adjacency.entry(path).or_insert(vec![]);
+        let edges = self.adjacency.entry(path).or_default();
         edges.push(self.nodes.len() - 1);
         Ok(())
     }
@@ -144,15 +146,15 @@ impl IncludesGraph {
         problematic_paths
     }
 
+    #[allow(clippy::ptr_arg)]
     pub fn display_path(path: &Vec<PathBuf>) -> String {
         let mut res = String::new();
         let mut sep = "";
         for file in path.iter().map(|file| file.display().to_string()) {
             res.push_str(sep);
-            let result_split = file.rsplit_once("/");
-            if result_split.is_some(){
-                res.push_str(result_split.unwrap().1);
-            } else{
+            if let Some((_, s)) = file.rsplit_once('/') {
+                res.push_str(s);
+            } else {
                 res.push_str(&file);
             }
             sep = " -> ";

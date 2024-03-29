@@ -7,6 +7,7 @@ pub struct ConstraintJSON {
 }
 
 impl ConstraintJSON {
+    #[allow(clippy::result_unit_err)]
     pub fn new(file: &str) -> Result<ConstraintJSON, ()> {
         let file_constraints = File::create(file).map_err(|_err| {})?;
         let mut writer_constraints = BufWriter::new(file_constraints);
@@ -18,6 +19,7 @@ impl ConstraintJSON {
 
         Result::Ok(ConstraintJSON { writer_constraints, constraints_flag: false })
     }
+    #[allow(clippy::result_unit_err)]
     pub fn write_constraint(&mut self, constraint: &str) -> Result<(), ()> {
         if !self.constraints_flag {
             self.constraints_flag = true;
@@ -31,6 +33,7 @@ impl ConstraintJSON {
         self.writer_constraints.flush().map_err(|_err| {})?;
         Result::Ok(())
     }
+    #[allow(clippy::result_unit_err)]
     pub fn end(mut self) -> Result<(), ()> {
         self.writer_constraints.write_all(b"\n]\n}").map_err(|_err| {})?;
         self.writer_constraints.flush().map_err(|_err| {})?;
@@ -42,6 +45,7 @@ pub struct SignalsJSON {
     writer_signals: BufWriter<File>,
 }
 impl SignalsJSON {
+    #[allow(clippy::result_unit_err)]
     pub fn new(file: &str) -> Result<SignalsJSON, ()> {
         let file_signals = File::create(file).map_err(|_err| {})?;
         let mut writer_signals = BufWriter::new(file_signals);
@@ -53,12 +57,14 @@ impl SignalsJSON {
         writer_signals.flush().map_err(|_err| {})?;
         Result::Ok(SignalsJSON { writer_signals })
     }
+    #[allow(clippy::result_unit_err)]
     pub fn write_correspondence(&mut self, signal: String, data: String) -> Result<(), ()> {
         self.writer_signals
             .write_all(format!(",\n\"{}\" : {}", signal, data).as_bytes())
             .map_err(|_err| {})?;
         self.writer_signals.flush().map_err(|_err| {})
     }
+    #[allow(clippy::result_unit_err)]
     pub fn end(mut self) -> Result<(), ()> {
         self.writer_signals.write_all(b"\n}\n}").map_err(|_err| {})?;
         self.writer_signals.flush().map_err(|_err| {})
@@ -70,6 +76,7 @@ pub struct SubstitutionJSON {
     first: bool,
 }
 impl SubstitutionJSON {
+    #[allow(clippy::result_unit_err)]
     pub fn new(file: &str) -> Result<SubstitutionJSON, ()> {
         let first = true;
         let file_substitutions = File::create(file).map_err(|_err| {})?;
@@ -78,6 +85,7 @@ impl SubstitutionJSON {
         writer_substitutions.flush().map_err(|_err| {})?;
         Result::Ok(SubstitutionJSON { writer_substitutions, first })
     }
+    #[allow(clippy::result_unit_err)]
     pub fn write_substitution(&mut self, signal: &str, substitution: &str) -> Result<(), ()> {
         if self.first {
             self.first = false;
@@ -91,6 +99,7 @@ impl SubstitutionJSON {
         self.writer_substitutions.flush().map_err(|_err| {})?;
         Result::Ok(())
     }
+    #[allow(clippy::result_unit_err)]
     pub fn end(mut self) -> Result<(), ()> {
         self.writer_substitutions.write_all(b"\n}").map_err(|_err| {})?;
         self.writer_substitutions.flush().map_err(|_err| {})

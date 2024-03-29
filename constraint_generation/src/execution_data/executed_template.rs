@@ -83,6 +83,7 @@ pub struct ExecutedTemplate {
 }
 
 impl ExecutedTemplate {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         public: Vec<String>,
         name: String,
@@ -164,12 +165,12 @@ impl ExecutedTemplate {
 
     pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>){
         let tags_signal = self.signal_to_tags.get_mut(signal_name);
-        if tags_signal.is_none(){
+        if let Some(s) = tags_signal {
+            s.insert(tag_name.to_string(), value);
+        } else {
             let mut new_tags_signal = TagInfo::new();
             new_tags_signal.insert(tag_name.to_string(), value);
             self.signal_to_tags.insert(signal_name.to_string(), new_tags_signal);
-        } else {
-            tags_signal.unwrap().insert(tag_name.to_string(), value);
         }
     }
 
@@ -293,7 +294,7 @@ impl ExecutedTemplate {
         }
         for s in &self.underscored_signals{
             let correspondence = dag.get_main().unwrap().correspondence();
-            let new_s = correspondence.get(s).unwrap().clone();
+            let new_s = *correspondence.get(s).unwrap();
             dag.add_underscored_signal(new_s);
         }
     }
@@ -445,7 +446,7 @@ fn as_big_int(exprs: Vec<ArithmeticExpression<String>>) -> Vec<BigInt> {
 }
 
 fn filter_used_components(tmp: &ExecutedTemplate) -> (ComponentCollector, usize) {
-    fn compute_number_cmp(lengths: &Vec<usize>) -> usize {
+    fn compute_number_cmp(lengths: &[usize]) -> usize {
         lengths.iter().fold(1, |p, c| p * (*c))
     }
     let mut used = HashSet::with_capacity(tmp.components.len());
@@ -457,12 +458,13 @@ fn filter_used_components(tmp: &ExecutedTemplate) -> (ComponentCollector, usize)
     for cmp in &tmp.components {
         if used.contains(&cmp.0) {
             filtered.push(cmp.clone());
-            number_of_components = number_of_components + compute_number_cmp(&cmp.1);
+            number_of_components += compute_number_cmp(&cmp.1);
         }
     }
     (filtered, number_of_components)
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Copy, Clone)]
 enum POS {
     T,
@@ -526,9 +528,7 @@ fn build_clusters(tmp: &ExecutedTemplate, instances: &[TemplateInstance]) -> Vec
         let mut end = index;
         let mut defined_positions: Vec<Vec<usize>> = vec![];
         loop {
-            if end == connexions.len() {
-                break;
-            } else if connexions[end].inspect.name != cnn_data.name {
+            if end == connexions.len() || connexions[end].inspect.name != cnn_data.name {
                 break;
             } else {
                 defined_positions.push(connexions[end].inspect.indexed_with.clone());
@@ -539,7 +539,7 @@ fn build_clusters(tmp: &ExecutedTemplate, instances: &[TemplateInstance]) -> Vec
         let cluster = TriggerCluster {
             slice: start..end,
             length: end - start,
-            defined_positions: defined_positions,
+            defined_positions,
             cmp_name: cnn_data.name.clone(),
             xtype: ClusterType::Uniform { offset_jump, component_offset_jump, instance_id, header: sub_cmp_header },
         };

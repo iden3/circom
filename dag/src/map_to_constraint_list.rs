@@ -18,7 +18,7 @@ fn map_tree(
     let mut no_constraints = 0;
 
     for signal in &tree.signals {
-        Vec::push(witness, *signal);
+        witness.push(*signal);
         if tree.dag.nodes[tree.node_id].is_custom_gate {
             forbidden.insert(*signal);
         }
@@ -26,11 +26,11 @@ fn map_tree(
 
     for constraint in &tree.constraints {
         if Constraint::is_constant_equality(constraint) {
-            LinkedList::push_back(&mut c_holder.constant_equalities, constraint.clone());
+            c_holder.constant_equalities.push_back(constraint.clone());
         } else if Constraint::is_equality(constraint, &tree.field) {
-            LinkedList::push_back(&mut c_holder.equalities, constraint.clone());
+            c_holder.equalities.push_back(constraint.clone());
         } else if Constraint::is_linear(constraint) {
-            LinkedList::push_back(&mut c_holder.linear, constraint.clone());
+            c_holder.linear.push_back(constraint.clone());
         } else {
             no_constraints += 1;
         }
@@ -51,19 +51,17 @@ fn produce_encoding(
 ) -> DAGEncoding {
     let mut adjacency = Vec::new();
     let mut nodes = Vec::new();
-    let mut id = 0;
-    for node in dag_nodes {
+    for (id, node) in dag_nodes.into_iter().enumerate() {
         let encoded = map_node_to_encoding(id, node);
-        Vec::push(&mut nodes, encoded);
-        id += 1;
+        nodes.push(encoded);
     }
     for edges in dag_edges {
         let mut encoded = Vec::new();
         for edge in edges {
             let new = map_edge_to_encoding(edge);
-            Vec::push(&mut encoded, new);
+            encoded.push(new);
         }
-        Vec::push(&mut adjacency, encoded);
+        adjacency.push(encoded);
     }
     DAGEncoding { init, no_constraints, nodes, adjacency }
 }
@@ -75,7 +73,7 @@ fn map_node_to_encoding(id: usize, node: Node) -> EncodingNode {
     let mut non_linear = LinkedList::new();
     for c in node.constraints {
         if !Constraint::is_linear(&c) {
-            LinkedList::push_back(&mut non_linear, c);
+            non_linear.push_back(c);
         }
     }
 
@@ -85,9 +83,9 @@ fn map_node_to_encoding(id: usize, node: Node) -> EncodingNode {
     }
 
     for (name, id) in node.signal_correspondence {
-        if HashSet::contains(&locals, &id) {
+        if locals.contains(&id) {
             let new_signal = SignalInfo { name, id };
-            Vec::push(&mut signals, new_signal);
+            signals.push(new_signal);
         }
     }
     signals.sort_by(|a, b| a.id.cmp(&b.id));
@@ -121,7 +119,7 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
     let mut c_holder = CHolder::default();
     let mut signal_map = vec![0];
     let no_constraints = map_tree(&Tree::new(&dag), &mut signal_map, &mut c_holder, &mut forbidden);
-    let max_signal = Vec::len(&signal_map);
+    let max_signal = signal_map.len();
     let name_encoding = produce_encoding(no_constraints, init_id, dag.nodes, dag.adjacency);
     let _dur = now.elapsed().unwrap().as_millis();
     // println!("End of dag to list mapping: {} ms", dur);

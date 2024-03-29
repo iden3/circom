@@ -226,17 +226,17 @@ impl WASMProducer {
     }
     pub fn get_number_of_io_signals(&self) -> usize {
         let mut n = 0;
-        for (_c, v) in &self.io_map {
+        for v in self.io_map.values() {
             n += v.len();
         }
         n
     }
     pub fn get_io_signals_info_size(&self) -> usize {
         let mut n = 0;
-        for (_c, v) in &self.io_map {
+        for v in self.io_map.values() {
             for s in v {
                 // since we take offset and all lengths but last one
-                if s.lengths.len() == 0 {
+                if s.lengths.is_empty() {
                     n += 1;
                 } else {
                     n += s.lengths.len();

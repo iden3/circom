@@ -13,7 +13,6 @@ fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis, prime: &String) ->
         MultSubstitution { .. } => unreachable!(),
         IfThenElse { if_case, else_case, cond, meta } => {
             let field = program_structure::constants::UsefulConstants::new(prime).get_p().clone();
-            let empty_block = Box::new(Block { meta: meta.clone(), stmts: vec![] });
             let if_case_empty = clean_dead_code(if_case, analysis, prime);
             let else_case_empty =
                 if let Some(case) = else_case { clean_dead_code(case, analysis, prime) } else { true };
@@ -22,9 +21,14 @@ fn clean_dead_code(stmt: &mut Statement, analysis: &Analysis, prime: &String) ->
             }
 
             match Analysis::read_computed(analysis, cond.get_meta().elem_id) {
-                Some(val) if as_bool(&val, &field) => *stmt = *if_case.clone(),
+                Some(val) if as_bool(&val, &field) => {
+                    *stmt = if_case.as_ref().clone()
+                }
                 Some(val) if !as_bool(&val, &field) => {
-                    *stmt = *else_case.clone().unwrap_or(empty_block)
+                    *stmt = match else_case {
+                        Some(s) => s.as_ref().clone(),
+                        None => Block { meta: meta.clone(), stmts: vec![] },
+                    }
                 }
                 _ => {}
             }

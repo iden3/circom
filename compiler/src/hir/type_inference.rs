@@ -2,7 +2,7 @@ use super::analysis_utilities::*;
 use super::very_concrete_program::*;
 use program_structure::ast::*;
 use std::collections::HashSet;
-use num_traits::{ToPrimitive};
+use num_traits::ToPrimitive;
 
 struct SearchInfo {
     environment: E,
@@ -20,6 +20,7 @@ pub fn infer_function_result(id: &str, params: Vec<Param>, state: &State) -> VCT
 }
 
 fn infer_type_stmt(stmt: &Statement, state: &State, context: &mut SearchInfo) -> Option<VCT> {
+    #[allow(clippy::if_same_then_else)]
     if stmt.is_return() {
         infer_type_return(stmt, state, context)
     } else if stmt.is_block() {
@@ -129,6 +130,7 @@ fn infer_type_while(stmt: &Statement, state: &State, context: &mut SearchInfo) -
 }
 
 fn infer_type_expresion(expr: &Expression, state: &State, context: &mut SearchInfo) -> Option<VCT> {
+    #[allow(clippy::if_same_then_else)]
     if expr.is_call() {
         infer_type_call(expr, state, context)
     } else if expr.is_variable() {
@@ -203,13 +205,13 @@ fn infer_type_array(expr: &Expression, state: &State, context: &mut SearchInfo) 
             lengths
         })
     } else if let UniformArray { value, dimension, .. } = expr {
-        let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
+        let usable_dimension = if let Option::Some(dimension) = cast_dimension(dimension) {
             dimension
         } else {
             unreachable!()
         };
         let mut lengths = vec![usable_dimension];
-        let with_type = infer_type_expresion(&value, state, context);
+        let with_type = infer_type_expresion(value, state, context);
         with_type.map(|mut l| {
             lengths.append(&mut l);
             lengths
@@ -227,17 +229,13 @@ fn infer_type_call(expr: &Expression, state: &State, context: &mut SearchInfo) -
         } else {
             context.open_calls.insert(id.clone());
             context.environment.add_variable_block();
-            let mut index = 0;
             let body = &state.generic_functions.get(id).unwrap().body;
             let names = &state.generic_functions.get(id).unwrap().params_names;
             let arg_types = infer_args(args, state, context);
-            if arg_types.is_none() {
-                return Option::None;
-            }
+            arg_types.as_ref()?;
             let arg_types = arg_types.unwrap();
-            for arg_type in arg_types {
+            for (index, arg_type) in arg_types.into_iter().enumerate() {
                 context.environment.add_variable(&names[index], arg_type);
-                index += 1;
             }
             let inferred = infer_type_stmt(body, state, context);
             context.environment.remove_variable_block();
