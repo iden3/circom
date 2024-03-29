@@ -66,7 +66,7 @@ to indicate that we do not want to apply any simplification, the generated file 
 {
 }
 ```
-Finaly, if we run 
+Finally, if we run 
 
 ```text
 circom simplify.circom --r1cs --wasm --simplification_substitution --O1
