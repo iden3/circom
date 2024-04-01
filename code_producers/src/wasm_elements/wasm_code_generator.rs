@@ -226,15 +226,14 @@ pub fn get_initial_size_of_memory(producer: &WASMProducer) -> usize {
 
 //------------------- generate all kinds of Data ------------------
 
-pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>) -> Vec<(u64, usize, usize)> {
-    assert!(signal_name_list.len() <= 256);
-    let len = 256;
-    let mut hash_map = vec![(0, 0, 0); len];
+pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>, size: usize) -> Vec<(u64, usize, usize)> {
+    assert!(signal_name_list.len() <= size);
+    let mut hash_map = vec![(0, 0, 0); size];
     for i in 0..signal_name_list.len() {
         let h = hasher(&signal_name_list[i].0);
-        let mut p = (h % 256) as usize;
+        let mut p = h as usize %  size;
         while hash_map[p].1 != 0 {
-            p = (p + 1) % 256;
+            p = (p + 1) % size;
         }
         hash_map[p] = (h, signal_name_list[i].1, signal_name_list[i].2);
     }
@@ -567,7 +566,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
         producer.get_shared_rw_memory_start() - 8,
         "\\00\\00\\00\\00\\00\\00\\00\\80"
     ));
-    let map = generate_hash_map(&producer.get_main_input_list());
+    let map = generate_hash_map(&producer.get_main_input_list(),producer.get_input_hash_map_entry_size());
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_input_signals_hashmap_start(),
@@ -852,6 +851,7 @@ pub fn init_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
 pub fn get_input_signal_map_position_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
     let header = "(func $getInputSignalMapPosition (type $_t_i64ri32)".to_string();
+    let sizeones = producer.get_input_hash_map_entry_size()-1;
     instructions.push(header);
     instructions.push(" (param $hn i64)".to_string());
     instructions.push("(result i32)".to_string());
@@ -860,7 +860,7 @@ pub fn get_input_signal_map_position_generator(producer: &WASMProducer) -> Vec<W
     instructions.push(" (local $aux i32)".to_string());
     instructions.push(get_local("$hn"));
     instructions.push(wrap_i6432());
-    instructions.push(set_constant("255"));
+    instructions.push(set_constant(&sizeones.to_string()));
     instructions.push(and32());
     instructions.push(set_local("$ini"));
     instructions.push(get_local("$ini"));
@@ -891,7 +891,7 @@ pub fn get_input_signal_map_position_generator(producer: &WASMProducer) -> Vec<W
     instructions.push(get_local("$i"));
     instructions.push(set_constant("1"));
     instructions.push(add32());
-    instructions.push(set_constant("255"));
+    instructions.push(set_constant(&sizeones.to_string()));
     instructions.push(and32());
     instructions.push(set_local("$i"));
     instructions.push(get_local("$i"));

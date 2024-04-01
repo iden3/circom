@@ -134,6 +134,9 @@ impl CProducer {
     pub fn get_main_input_list(&self) -> &InputList {
         &self.main_input_list
     }
+    pub fn get_input_hash_map_entry_size(&self) -> usize {
+        std::cmp::max(usize::pow(2,(self.main_input_list.len() as f32).log2().ceil() as u32),256)
+    }    
     pub fn get_number_of_witness(&self) -> usize {
         self.signals_in_witness
     }
