@@ -290,6 +290,12 @@ impl<C: Clone> MemorySlice<C> {
         }
         return Result::Ok(memory_slice.values[index].clone());
     }
+    
+    pub fn get_reference_values<'a>(
+        memory_slice: &'a MemorySlice<C>,
+    )-> &'a Vec<C>{
+        &memory_slice.values
+    }
 
     pub fn get_reference_to_single_value<'a>(
         memory_slice: &'a MemorySlice<C>,
