@@ -7,5 +7,6 @@ pub use type_definitions::NodePointer;
 pub mod analysis;
 pub mod executed_program;
 pub mod executed_template;
+pub mod executed_bus;
 mod filters;
 pub mod type_definitions;
