@@ -18,6 +18,14 @@ struct Connexion {
     dag_component_jump: usize,
 }
 
+struct BusConnexion{
+    full_name: String,
+    inspect: BusData,
+    dag_offset: usize,
+    dag_jump: usize,
+}
+
+
 #[derive(Clone)]
 pub struct PreExecutedTemplate {
     pub template_name: String,
@@ -65,8 +73,11 @@ pub struct ExecutedTemplate {
     pub template_name: String,
     pub report_name: String,
     pub inputs: SignalCollector,
+    pub bus_inputs: BusCollector,
     pub outputs: SignalCollector,
+    pub bus_outputs: BusCollector,
     pub intermediates: SignalCollector,
+    pub bus_intermediates: BusCollector,
     pub ordered_signals: Vec<String>,
     pub constraints: Vec<Constraint>,
     pub components: ComponentCollector,
@@ -80,6 +91,7 @@ pub struct ExecutedTemplate {
     pub is_custom_gate: bool,
     pub underscored_signals: Vec<String>,
     connexions: Vec<Connexion>,
+    bus_connexions: HashMap<String, BusConnexion>,
 }
 
 impl ExecutedTemplate {
@@ -108,11 +120,15 @@ impl ExecutedTemplate {
             inputs: SignalCollector::new(),
             outputs: SignalCollector::new(),
             intermediates: SignalCollector::new(),
+            bus_inputs: BusCollector::new(),
+            bus_outputs: BusCollector::new(),
+            bus_intermediates: BusCollector::new(),
             ordered_signals: Vec::new(),
             constraints: Vec::new(),
             components: ComponentCollector::new(),
             number_of_components: 0,
             connexions: Vec::new(),
+            bus_connexions: HashMap::new(),
             underscored_signals: Vec::new(),
         }
     }
@@ -123,11 +139,14 @@ impl ExecutedTemplate {
             && self.tag_instances == *tag_context
     }
 
+    // pub add_bus_arrow
     pub fn add_arrow(&mut self, component_name: String, data: SubComponentData) {
         let cnn =
             Connexion { full_name: component_name, inspect: data, dag_offset: 0, dag_component_offset: 0, dag_jump: 0, dag_component_jump: 0};
             self.connexions.push(cnn);
     }
+
+    // Same with buses
 
     pub fn add_input(&mut self, input_name: &str, dimensions: &[usize]) {
         self.inputs.push((input_name.to_string(), dimensions.to_vec()));
@@ -259,6 +278,7 @@ impl ExecutedTemplate {
             let config = SignalConfig { signal_type: 2, dimensions: dim, is_public: false };
             generate_symbols(dag, state, &config);
         }
+        // We also need to build the signals inside the buses -> similar to build_connexions
     }
     fn build_connexions(&mut self, dag: &mut DAG) {
         self.connexions.sort_by(|l, r| {
@@ -400,6 +420,8 @@ impl ExecutedTemplate {
             dag_local_id += signal.size();
             instance.add_signal(signal);
         }
+
+        // Here we need to add the buses
 
         instance
     }
