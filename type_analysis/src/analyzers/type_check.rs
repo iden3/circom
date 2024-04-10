@@ -11,7 +11,8 @@ use std::collections::HashSet;
 
 type ArithmeticType = usize;
 type ComponentInfo = (Option<String>, ArithmeticType);
-type TypingEnvironment = CircomEnvironment<ComponentInfo,  (ArithmeticType, std::vec::Vec<std::string::String>), ArithmeticType>;
+type BusInfo = (Option<String>, ArithmeticType);
+type TypingEnvironment = CircomEnvironment<ComponentInfo,  (ArithmeticType, std::vec::Vec<std::string::String>), ArithmeticType, BusInfo>;
 type CallRegister = TypeRegister<ArithmeticType>;
 
 struct AnalysisInformation {

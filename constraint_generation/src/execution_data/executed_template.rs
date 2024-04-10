@@ -160,6 +160,18 @@ impl ExecutedTemplate {
         self.intermediates.push((intermediate_name.to_string(), dimensions.to_vec()));
     }
 
+    pub fn add_bus_input(&mut self, input_name: &str, dimensions: &[usize]) {
+        self.bus_inputs.push((input_name.to_string(), dimensions.to_vec()));
+    }
+
+    pub fn add_bus_output(&mut self, output_name: &str, dimensions: &[usize]) {
+        self.bus_outputs.push((output_name.to_string(), dimensions.to_vec()));
+    }
+
+    pub fn add_bus_intermediate(&mut self, intermediate_name: &str, dimensions: &[usize]) {
+        self.bus_intermediates.push((intermediate_name.to_string(), dimensions.to_vec()));
+    }
+
     pub fn add_ordered_signal(&mut self, signal_name: &str, dimensions: &[usize]) {
         fn generate_symbols(name: String, current: usize, dimensions: &[usize]) -> Vec<String> {
             let symbol_name = name.clone();
