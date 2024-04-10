@@ -11,6 +11,7 @@ pub type TagContext = BTreeMap<String, TagInfo>;
 pub type TagInfo = BTreeMap<String, Option<BigInt>>;
 // From name to dimensions
 pub type SignalCollector = Vec<(String, Vec<usize>)>;
+pub type BusCollector = Vec<(String, Vec<usize>)>;
 pub type ComponentCollector = Vec<(String, Vec<usize>)>;
 pub struct SubComponentData {
     pub name: String,
@@ -18,3 +19,10 @@ pub struct SubComponentData {
     pub indexed_with: Vec<usize>,
     pub goes_to: NodePointer,
 }
+
+pub struct BusData {
+    pub name: String,
+    pub indexed_with: Vec<usize>,
+    pub goes_to: NodePointer,
+}
+

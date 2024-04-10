@@ -398,6 +398,7 @@ pub enum ExpressionPrefixOpcode {
 pub enum TypeReduction {
     Variable,
     Component,
+    Bus,
     Signal,
     Tag,
 }

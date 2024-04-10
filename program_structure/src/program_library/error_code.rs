@@ -87,6 +87,7 @@ pub enum ReportCode {
     RuntimeError,
     RuntimeWarning,
     UnknownTemplate,
+    UnknownBus,
     NonQuadratic,
     NonConstantArrayLength,
     NonComputableExpression,
@@ -201,6 +202,7 @@ impl fmt::Display for ReportCode {
             NonComputableExpression => "T20464",
             WrongNumberOfArguments(..) => "T20465",
             UninitializedComponent => "T20466",
+            UnknownBus => "T20467",
             // Constraint analysis codes
             UnconstrainedSignal => "CA01",
             UnconstrainedIOSignal => "CA02",
