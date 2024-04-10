@@ -26,7 +26,7 @@ enum Tag {
     Known,
     Unknown,
 }
-type Environment = CircomEnvironment<Tag, Tag, Tag>;
+type Environment = CircomEnvironment<Tag, Tag, Tag, Tag>;
 
 pub fn unknown_known_analysis(
     template_name: &str,

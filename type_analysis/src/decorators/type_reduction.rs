@@ -3,7 +3,7 @@ use program_structure::environment::CircomEnvironment;
 use program_structure::function_data::FunctionData;
 use program_structure::template_data::TemplateData;
 
-type Environment = CircomEnvironment<(), (), ()>;
+type Environment = CircomEnvironment<(), (), (), ()>;
 
 pub fn reduce_function(function_data: &mut FunctionData) {
     let mut environment = CircomEnvironment::new();
