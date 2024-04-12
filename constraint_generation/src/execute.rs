@@ -2,6 +2,8 @@ use super::environment_utils::{
     environment::{
         environment_shortcut_add_component, environment_shortcut_add_input,
         environment_shortcut_add_intermediate, environment_shortcut_add_output,
+        environment_shortcut_add_bus_input, environment_shortcut_add_bus_intermediate,
+        environment_shortcut_add_bus_output,
         environment_shortcut_add_variable, ExecutionEnvironment, ExecutionEnvironmentError,
         environment_check_all_components_assigned
     },
@@ -250,6 +252,16 @@ fn execute_statement(
                             &mut runtime.environment,
                             actual_node,
                         ),
+                        VariableType::Bus(id, signal_type, tag_list) => {
+                            execute_bus_declaration(
+                                name,
+                                &usable_dimensions,
+                                tag_list,
+                                *signal_type,
+                                &mut runtime.environment,
+                                actual_node,
+                            )
+                        }
                         _ =>{
                             unreachable!()
                         }
@@ -819,6 +831,44 @@ fn execute_signal_declaration(
     }
 }
 
+fn execute_bus_declaration(
+    bus_name: &str,
+    dimensions: &[SliceCapacity],
+    list_tags: &Vec<String>,
+    signal_type: SignalType,
+    environment: &mut ExecutionEnvironment,
+    actual_node: &mut Option<ExecutedTemplate>,
+) {
+    use SignalType::*;
+    let mut tags = TagInfo::new();
+    for t in list_tags{
+        tags.insert(t.clone(), None);
+    } 
+    if let Option::Some(node) = actual_node {
+        //node.add_ordered_signal(signal_name, dimensions);
+        match signal_type {
+            Input => {
+                if let Some(tags_input) = node.tag_instances().get(bus_name){
+                    environment_shortcut_add_bus_input(environment, bus_name, dimensions, &tags_input);
+                } else{
+                    environment_shortcut_add_bus_input(environment, bus_name, dimensions, &tags);
+                }
+                node.add_bus_input(bus_name, dimensions);
+            }
+            Output => {
+                environment_shortcut_add_bus_output(environment, bus_name, dimensions, &tags);
+                node.add_bus_output(bus_name, dimensions);
+            }
+            Intermediate => {
+                environment_shortcut_add_bus_intermediate(environment, bus_name, dimensions, &tags);
+                node.add_bus_intermediate(bus_name, dimensions);
+            }
+        }
+    } else {
+        unreachable!();
+    }
+}
+
 /*
     In case the assigment could be a constraint generator the returned value is the constraint
     that will be created
@@ -1343,6 +1393,9 @@ fn perform_assign(
             }
             Option::Some(arithmetic_slice)
         }
+    } else if ExecutionEnvironment::has_variable(&runtime.environment, symbol){
+        // Case buses -> case assigning bus type or assigning values
+        unreachable!();
     } else {
         unreachable!();
     };
