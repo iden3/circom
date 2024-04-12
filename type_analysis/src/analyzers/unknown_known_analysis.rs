@@ -52,7 +52,6 @@ pub fn unknown_known_analysis(
 
 fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInformation {
     use Statement::*;
-    use TypeReduction::*;
     use Tag::*;
 
     fn iterate_statements(
@@ -101,7 +100,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     environment.add_intermediate_bus(name, Unknown);
                     signals_declared = true;
                 }
-                VariableType::Comment
+                VariableType::Component
                 | VariableType::AnonymousComponent => {
                     environment.add_component(name, Unknown);
                     signals_declared = true;
@@ -125,7 +124,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             }
         }
         Substitution { meta, var, access, op, rhe, .. } => {
-            let reduced_type = meta.get_type_knowledge().unwrap();
+            let reduced_type = meta.get_type_knowledge().get_reduces_to();
             let expression_tag = tag(rhe, &environment);
             let mut access_tag = Known;
             for acc in access {
@@ -135,17 +134,17 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     }
                     _ => {}
                 }
-                if access_tag == Unkown {
+                if access_tag == Unknown {
                     break;
                 }
             }
             match reduced_type {
-                Variable => {
+                TypeReduction::Variable => {
                     let value = environment.get_mut_variable_or_break(var, file!(), line!());
                     *value = max(expression_tag, access_tag);
                     modified_variables.insert(var.clone());
                 }
-                Component => {
+                TypeReduction::Component => {
                     constraints_declared = true;
                     if expression_tag == Unknown {
                         add_report(ReportCode::UnknownTemplate, rhe.get_meta(), file_id, &mut reports);
@@ -154,7 +153,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                         add_report(ReportCode::UnknownTemplate, meta, file_id, &mut reports);
                     }
                 }
-                Bus => {
+                TypeReduction::Bus => {
                     constraints_declared = true;
                     if expression_tag == Unknown {
                         add_report(ReportCode::UnknownBus, rhe.get_meta(), file_id, &mut reports);
@@ -163,7 +162,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                         add_report(ReportCode::UnknownBus, meta, file_id, &mut reports);
                     }
                 }
-                SignalTag => {
+                TypeReduction::Tag => {
                     tags_modified = true;
                     if expression_tag == Unknown {
                         add_report(ReportCode::UnknownTemplate, rhe.get_meta(), file_id, &mut reports);
@@ -356,18 +355,17 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
 
 fn tag(expression: &Expression, environment: &Environment) -> Tag {
     use Expression::*;
-    use TypeReduction::*;
     use Tag::*;
     match expression {
         Number(_, _) => Known,
-        Variable { meta, name, access } => {
-            let reduced_type = meta.get_type_knowledge().unwrap();
+        Variable { meta, name, .. } => {
+            let reduced_type = meta.get_type_knowledge().get_reduces_to();
             match reduced_type {
-                Variable => *environment.get_variable_or_break(name, file!(), line!()),
-                Signal => *environment.get_intermediate_or_break(name, file!(), line!()),
-                Bus => *environment.get_intermediate_bus_or_break(name, file!(), line!()),
-                Component => *environment.get_component_or_break(name, file!(), line!()),
-                Tag => Known,
+                TypeReduction::Variable => *environment.get_variable_or_break(name, file!(), line!()),
+                TypeReduction::Signal => *environment.get_intermediate_or_break(name, file!(), line!()),
+                TypeReduction::Bus => *environment.get_intermediate_bus_or_break(name, file!(), line!()),
+                TypeReduction::Component => *environment.get_component_or_break(name, file!(), line!()),
+                TypeReduction::Tag => Known,
             }
         }
         ArrayInLine { values, .. } | Call { args: values, .. } => {
@@ -457,16 +455,18 @@ fn unknown_index(exp: &Expression, environment: &Environment) -> bool {
             has_unknown_index
         }
         InfixOp { lhe, rhe, .. } => {
-            unknown_index(lhe.as_ref()) || unknown_index(rhe.as_ref())
+            unknown_index(lhe.as_ref(), environment) || unknown_index(rhe.as_ref(), environment)
         }
         PrefixOp { rhe, .. } => {
-            unknown_index(rhe.as_ref())
+            unknown_index(rhe.as_ref(), environment)
         }
         ParallelOp { rhe, .. } => {
-            unknown_index(rhe.as_ref())
+            unknown_index(rhe.as_ref(), environment)
         }
         InlineSwitchOp { cond, if_true, if_false, .. } => {
-            unknown_index(cond.as_ref()) || unknown_index(if_true.as_ref()) || unknown_index(if_false.as_ref())
+            unknown_index(cond.as_ref(), environment)
+            || unknown_index(if_true.as_ref(), environment)
+            || unknown_index(if_false.as_ref(), environment)
         }
         Call { args: exprs, .. }
         | BusCall { args: exprs, .. }
@@ -474,7 +474,7 @@ fn unknown_index(exp: &Expression, environment: &Environment) -> bool {
         | Tuple { values: exprs, .. } => {
             let mut has_unknown_index = false;
             for exp in exprs {
-                has_unknown_index = has_unknown_index || unknown_index(exp);
+                has_unknown_index = has_unknown_index || unknown_index(exp, environment);
                 if has_unknown_index {
                     break;
                 }
@@ -482,7 +482,7 @@ fn unknown_index(exp: &Expression, environment: &Environment) -> bool {
             has_unknown_index
         }
         UniformArray{ value, dimension, .. } => {
-            unknown_index(value.as_ref()) || unknown_index(dimension.as_ref())
+            unknown_index(value.as_ref(), environment) || unknown_index(dimension.as_ref(), environment)
         }
         _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
