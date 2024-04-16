@@ -144,7 +144,13 @@ pub fn split_bus_declaration_into_single_nodes(
         let dimensions = symbol.is_array;
         let possible_init = symbol.init;
         let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone());
-        let bus_declaration = build_substitution(meta.clone(), symbol.name.clone(), vec![], AssignVar, bustype.clone());
+        
+        let mut value = bustype.clone();
+        for dim_expr in dimensions.iter().rev(){
+            value = build_uniform_array(meta.clone(), value, dim_expr.clone());
+        }
+        
+        let bus_declaration = build_substitution(meta.clone(), symbol.name.clone(), vec![], AssignVar, value);
         initializations.push(single_declaration);
         initializations.push(bus_declaration);
 

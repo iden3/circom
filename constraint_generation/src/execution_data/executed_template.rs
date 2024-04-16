@@ -139,11 +139,16 @@ impl ExecutedTemplate {
             && self.tag_instances == *tag_context
     }
 
-    // pub add_bus_arrow
     pub fn add_arrow(&mut self, component_name: String, data: SubComponentData) {
         let cnn =
             Connexion { full_name: component_name, inspect: data, dag_offset: 0, dag_component_offset: 0, dag_jump: 0, dag_component_jump: 0};
             self.connexions.push(cnn);
+    }
+
+    pub fn add_bus_arrow(&mut self, bus_name: String, data: BusData){
+        let cnn =
+            BusConnexion { full_name:bus_name.clone(), inspect: data, dag_offset: 0, dag_jump: 0};
+            self.bus_connexions.insert(bus_name, cnn);
     }
 
     // Same with buses

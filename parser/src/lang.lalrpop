@@ -192,7 +192,7 @@ BusHeader : (Expression, VariableType) = {
     => {
         let bus_builder = build_bus_call(Meta::new(s,e),id.clone(),Vec::new());
         let (s,t) = header;
-        (bus_builder,VariableType::Bus(id, s, t))
+        (bus_builder, VariableType::Bus(id, s, t))
     },
 
     <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R> <header: ParseHeader>

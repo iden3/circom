@@ -22,7 +22,6 @@ pub struct SubComponentData {
 
 pub struct BusData {
     pub name: String,
-    pub indexed_with: Vec<usize>,
     pub goes_to: NodePointer,
 }
 

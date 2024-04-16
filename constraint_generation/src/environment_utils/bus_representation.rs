@@ -14,8 +14,9 @@ struct FieldTypes { // For each field, we store the info depending on if it is a
 pub struct BusRepresentation {
     pub node_pointer: Option<NodePointer>,
     pub meta: Option<Meta>,
-    pub fields: BTreeMap<String, FieldTypes>,
+    fields: BTreeMap<String, FieldTypes>,
     pub field_tags: BTreeMap<String, TagInfo>,
+    unassigned_fields: HashMap<String, SliceCapacity>,
 }
 
 impl Default for BusRepresentation {
@@ -25,6 +26,7 @@ impl Default for BusRepresentation {
             fields: BTreeMap::new(),
             field_tags: BTreeMap::new(),
             meta: Option::None,
+            unassigned_fields: HashMap::new(),
         }
     }
 }
@@ -35,6 +37,7 @@ impl Clone for BusRepresentation {
             fields: self.fields.clone(),
             field_tags: self.field_tags.clone(),
             meta : self.meta.clone(),
+            unassigned_fields: self.unassigned_fields.clone(),
         }
     }
 }
@@ -54,10 +57,35 @@ impl BusRepresentation {
         // En caso de los buses, crear e inicializar componentRepresentation de todos
 
         for (symbol, route) in node.signal_fields() {
-
+            let signal_slice = SignalSlice::new_with_route(route, &false);
+            let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
+            if signal_slice_size > 0{
+                component.unassigned_fields
+                    .insert(symbol.clone(), signal_slice_size);
+            }
+            let field_signal = FieldTypes{signal: Some(signal_slice), bus:None};
+            component.fields.insert(symbol.clone(), field_signal);
         }
-        for (symbol, route) in node.bus_fields() {
 
+        let bus_connexions = node.bus_connexions();
+
+        for (symbol, route) in node.bus_fields() {
+            
+            let bus_node = bus_connexions.get(symbol).unwrap().inspect.goes_to;
+            let mut bus_field = BusRepresentation::default();
+            BusRepresentation::initialize_bus(
+                &mut bus_field,
+                bus_node,
+                scheme,
+            )?;
+            let bus_slice = BusSlice::new_with_route(route, &bus_field);
+            let bus_slice_size = BusSlice::get_number_of_cells(&bus_slice);
+            if bus_slice_size > 0{
+                component.unassigned_fields
+                    .insert(symbol.clone(), bus_slice_size);
+            }
+            let field_bus = FieldTypes{bus: Some(bus_slice), signal:None};
+            component.fields.insert(symbol.clone(), field_bus);
         }
 
         component.node_pointer = Option::Some(node_pointer);

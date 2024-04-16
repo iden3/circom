@@ -10,14 +10,15 @@ use super::environment_utils::{
     slice_types::{
         AExpressionSlice, ArithmeticExpression as ArithmeticExpressionGen, ComponentRepresentation,
         ComponentSlice, MemoryError, TypeInvalidAccess, TypeAssignmentError, MemorySlice, 
-        SignalSlice, SliceCapacity, TagInfo, TagState
+        SignalSlice, SliceCapacity, TagInfo, TagState, BusSlice, BusRepresentation
     },
 };
 
 use program_structure::constants::UsefulConstants;
 
 use super::execution_data::analysis::Analysis;
-use super::execution_data::{ExecutedProgram, ExecutedTemplate, PreExecutedTemplate, NodePointer};
+use super::execution_data::{ExecutedBus, ExecutedProgram, ExecutedTemplate, PreExecutedTemplate, NodePointer};
+
 use super::{
     ast::*, ArithmeticError, FileID, ProgramArchive, Report, ReportCode, ReportCollection
 };
@@ -66,15 +67,22 @@ impl RuntimeInformation {
 struct FoldedValue {
     pub arithmetic_slice: Option<AExpressionSlice>,
     pub node_pointer: Option<NodePointer>,
+    pub bus_node_pointer: Option<NodePointer>,
     pub is_parallel: Option<bool>,
     pub tags: Option<TagInfo>,
 }
 impl FoldedValue {
     pub fn valid_arithmetic_slice(f_value: &FoldedValue) -> bool {
-        f_value.arithmetic_slice.is_some() && f_value.node_pointer.is_none() && f_value.is_parallel.is_none()
+        f_value.arithmetic_slice.is_some() && f_value.node_pointer.is_none() && 
+            f_value.is_parallel.is_none() && f_value.bus_node_pointer.is_none()
     }
     pub fn valid_node_pointer(f_value: &FoldedValue) -> bool {
-        f_value.node_pointer.is_some() && f_value.is_parallel.is_some() && f_value.arithmetic_slice.is_none()
+        f_value.node_pointer.is_some() && f_value.is_parallel.is_some() &&
+            f_value.arithmetic_slice.is_none() && f_value.bus_node_pointer.is_none()
+    }
+    pub fn valid_bus_node_pointer(f_value: &FoldedValue) -> bool{
+        f_value.bus_node_pointer.is_some() && f_value.node_pointer.is_none() && 
+            f_value.is_parallel.is_none() && f_value.arithmetic_slice.is_none()
     }
 }
 
@@ -83,6 +91,7 @@ impl Default for FoldedValue {
         FoldedValue { 
             arithmetic_slice: Option::None, 
             node_pointer: Option::None, 
+            bus_node_pointer: Option::None,
             is_parallel: Option::None, 
             tags: Option::None,
         }
@@ -274,8 +283,25 @@ fn execute_statement(
         Substitution { meta, var, access, op, rhe, .. } => {
             let access_information = treat_accessing(meta, access, program_archive, runtime, flags)?;
             let r_folded = execute_expression(rhe, program_archive, runtime, flags)?;
+            
+            let mut struct_node = if actual_node.is_some(){
+                ExecutedStructure::Template(actual_node.as_mut().unwrap())
+            } else{
+               ExecutedStructure::None
+            };
+            
             let possible_constraint =
-                perform_assign(meta, var, *op, &access_information, r_folded, actual_node, runtime, program_archive, flags)?;
+                perform_assign(
+                    meta, 
+                    var, 
+                    *op, 
+                    &access_information, 
+                    r_folded, 
+                    &mut struct_node, 
+                    runtime, 
+                    program_archive, 
+                    flags
+                )?;
             if let Option::Some(node) = actual_node {
                 if *op == AssignOp::AssignConstraintSignal || (*op == AssignOp::AssignSignal && flags.inspect){
                     debug_assert!(possible_constraint.is_some());
@@ -548,6 +574,90 @@ fn execute_statement(
     Result::Ok((res, can_be_simplified))
 }
 
+fn execute_bus_statement(
+    stmt: &Statement,
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+    actual_node: &mut ExecutedBus,
+    flags: FlagsExecution
+)-> Result<(), ()>{
+    use Statement::*;
+    let id = stmt.get_meta().elem_id;
+    Analysis::reached(&mut runtime.analysis, id);
+    let res = match stmt {
+        InitializationBlock { initializations, .. } => {
+            execute_sequence_of_bus_statements(
+                initializations,
+                program_archive,
+                runtime,
+                actual_node,
+                flags, 
+            )?
+        }
+        Declaration { meta, xtype, name, dimensions, .. } => {
+
+            let mut arithmetic_values = Vec::new();
+            for dimension in dimensions.iter() {
+                let f_dimensions = 
+                    execute_expression(dimension, program_archive, runtime, flags)?;
+                    arithmetic_values
+                    .push(safe_unwrap_to_single_arithmetic_expression(f_dimensions, line!()));
+            }
+            treat_result_with_memory_error_void(
+                valid_array_declaration(&arithmetic_values),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            let usable_dimensions =
+            if let Option::Some(dimensions) = cast_indexing(&arithmetic_values) {
+                dimensions
+            } else {
+                let err = Result::Err(ExecutionError::ArraySizeTooBig);
+                treat_result_with_execution_error(
+                    err,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?
+            };
+            match xtype {
+    
+                VariableType::Signal(_signal_type, tag_list) => 
+                    execute_declaration_bus(name, &usable_dimensions, tag_list, actual_node, false),
+
+                VariableType::Bus(_id, _signal_type, tag_list) =>
+                    execute_declaration_bus(name, &usable_dimensions, tag_list, actual_node, false),
+                    
+                _ =>{
+                    unreachable!()
+                }
+            }
+        }
+        Substitution { meta, var, access, op, rhe, .. } => {
+            let access_information = treat_accessing(meta, access, program_archive, runtime, flags)?;
+            let r_folded = execute_expression(rhe, program_archive, runtime, flags)?;
+            let _possible_constraint =
+                perform_assign(
+                    meta, 
+                    var, 
+                    *op, 
+                    &access_information, 
+                    r_folded, 
+                    &mut ExecutedStructure::Bus(actual_node), 
+                    runtime, 
+                    program_archive, 
+                    flags
+                )?;
+        }
+        Block { stmts, .. } => {
+            execute_sequence_of_bus_statements(stmts, program_archive, runtime, actual_node, flags)?;
+        }
+        _ => unreachable!(),
+    };
+    Result::Ok(())
+}
+
 fn execute_expression(
     expr: &Expression,
     program_archive: &ProgramArchive,
@@ -679,6 +789,12 @@ fn execute_expression(
             can_be_simplified = can_simplify;
             value
         }
+        BusCall{id, args, ..} =>{
+            let (value, can_simplify) = execute_bus_call(id, args, program_archive, runtime, flags)?;
+            can_be_simplified = can_simplify;
+            value
+        
+        }
         ParallelOp{rhe, ..} => {
             let folded_value = execute_expression(rhe, program_archive, runtime, flags)?;
             let (node_pointer, _) =
@@ -793,6 +909,43 @@ fn execute_anonymous_component_declaration(
     anonymous_components.insert(component_name.to_string(), (meta, dimensions.clone()));
 }
 
+fn execute_bus_call(
+    id: &String,
+    args: &Vec<Expression>,
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+    flags: FlagsExecution,
+) -> Result<(FoldedValue, bool), ()> {
+    let mut arg_values = Vec::new();
+    
+    for arg_expression in args.iter() {
+        let f_arg = execute_expression(arg_expression, program_archive, runtime, flags)?;
+        arg_values.push(safe_unwrap_to_arithmetic_slice(f_arg, line!()));
+    }
+
+    if program_archive.contains_bus(id){ // in this case we execute
+        let new_environment = prepare_environment_for_call(id, &arg_values, program_archive);
+        let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
+        let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
+        let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
+
+        let new_file_id = program_archive.get_function_data(id).get_file_id();
+        let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
+
+        runtime.call_trace.push(id.clone());
+        let folded_result = execute_function_call(id, program_archive, runtime, flags)?;
+
+        runtime.environment = previous_environment;
+        runtime.current_file = previous_id;
+        runtime.block_type = previous_block_type;
+        runtime.anonymous_components = previous_anonymous_components;
+        runtime.call_trace.pop();
+        Ok(folded_result)
+    } else{
+        unreachable!()
+    }
+}
+
 fn execute_signal_declaration(
     signal_name: &str,
     dimensions: &[SliceCapacity],
@@ -829,6 +982,23 @@ fn execute_signal_declaration(
     } else {
         unreachable!();
     }
+}
+
+fn execute_declaration_bus(
+    signal_name: &str,
+    dimensions: &[SliceCapacity],
+    list_tags: &Vec<String>,
+    actual_node: &mut ExecutedBus,
+    is_bus: bool,
+) {
+    if is_bus{
+        actual_node.add_bus(signal_name, dimensions);
+    } else{
+        actual_node.add_signal(signal_name, dimensions);
+    }
+    for t in list_tags{
+        actual_node.add_tag_signal(signal_name, t, None);
+    } 
 }
 
 fn execute_bus_declaration(
@@ -873,6 +1043,12 @@ fn execute_bus_declaration(
     In case the assigment could be a constraint generator the returned value is the constraint
     that will be created
 */
+enum ExecutedStructure<'a>{
+    Template(&'a mut ExecutedTemplate),
+    Bus(&'a mut ExecutedBus),
+    None
+}
+
 struct Constrained {
     left: String,
     right: AExpressionSlice,
@@ -883,12 +1059,12 @@ fn perform_assign(
     op: AssignOp,
     accessing_information: &AccessingInformation,
     r_folded: FoldedValue,
-    actual_node: &mut Option<ExecutedTemplate>,
+    actual_node: &mut ExecutedStructure,
     runtime: &mut RuntimeInformation,
     program_archive: &ProgramArchive,
     flags: FlagsExecution
 ) -> Result<Option<Constrained>, ()> {
-    use super::execution_data::type_definitions::SubComponentData;
+    use super::execution_data::type_definitions::{SubComponentData, BusData};
     let full_symbol = create_symbol(symbol, &accessing_information);
 
     let possible_arithmetic_slice = if ExecutionEnvironment::has_variable(&runtime.environment, symbol)
@@ -990,10 +1166,16 @@ fn perform_assign(
                             reference_to_tags.insert(tag.clone(), Option::Some(value.clone()));
                             let tag_state = reference_to_tags_defined.get_mut(&tag).unwrap();
                             tag_state.value_defined = true;
-                            if let Option::Some(node) = actual_node{
-                                node.add_tag_signal(symbol, &tag, Some(value));
-                            } else{
-                                unreachable!();
+                            match actual_node{
+                                ExecutedStructure::Template(node) =>{
+                                    node.add_tag_signal(symbol, &tag, Some(value));
+                                },
+                                ExecutedStructure::Bus(node) =>{
+                                    node.add_tag_signal(symbol, &tag, Some(value));
+                                },
+                                ExecutedStructure::None => {
+                                    unreachable!();
+                                }
                             }
                                 
                         }
@@ -1172,12 +1354,18 @@ fn perform_assign(
             for (tag, value) in reference_to_tags{
                 let tag_state = reference_to_tags_defined.get_mut(tag).unwrap();
                 tag_state.complete = true;
-                if let Option::Some(node) = actual_node{
-                    if !tag_state.value_defined{
-                        node.add_tag_signal(symbol, &tag, value.clone());
+                match actual_node{
+                    ExecutedStructure::Template(node) =>{
+                        if !tag_state.value_defined{
+                            node.add_tag_signal(symbol, &tag, value.clone());
+                        }
+                    },
+                    ExecutedStructure::Bus(node) =>{
+                        unreachable!();
+                    },
+                    ExecutedStructure::None => {
+                        unreachable!();
                     }
-                } else{
-                    unreachable!();
                 }
             }
         }
@@ -1288,17 +1476,24 @@ fn perform_assign(
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?;
-                if let Option::Some(actual_node) = actual_node {
-                    let data = SubComponentData {
-                        name: symbol.to_string(),
-                        is_parallel: component.is_parallel,
-                        goes_to: node_pointer,
-                        indexed_with: accessing_information.before_signal.clone(),
-                    };
-                    actual_node.add_arrow(full_symbol.clone(), data);
-                } else {
-                    unreachable!();
-                }
+                    
+                    match actual_node{
+                        ExecutedStructure::Template(node) =>{
+                            let data = SubComponentData {
+                                name: symbol.to_string(),
+                                is_parallel: component.is_parallel,
+                                goes_to: node_pointer,
+                                indexed_with: accessing_information.before_signal.clone(),
+                            };
+                            node.add_arrow(full_symbol.clone(), data);
+                        },
+                        ExecutedStructure::Bus(node) =>{
+                            unreachable!();
+                        },
+                        ExecutedStructure::None => {
+                            unreachable!();
+                        }
+                    }
             }
             Option::None
         } else {
@@ -1378,24 +1573,98 @@ fn perform_assign(
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?;
-                if let Option::Some(actual_node) = actual_node {
-                    let data = SubComponentData {
-                        name: symbol.to_string(),
-                        goes_to: node_pointer,
-                        is_parallel: component.is_parallel,
-                        indexed_with: accessing_information.before_signal.clone(),
-                    };
-                    let component_symbol = create_component_symbol(symbol, &accessing_information);
-                    actual_node.add_arrow(component_symbol, data);
-                } else {
-                    unreachable!();
+                match actual_node{
+                    ExecutedStructure::Template(node) =>{
+                        let data = SubComponentData {
+                            name: symbol.to_string(),
+                            goes_to: node_pointer,
+                            is_parallel: component.is_parallel,
+                            indexed_with: accessing_information.before_signal.clone(),
+                        };
+                        let component_symbol = create_component_symbol(symbol, &accessing_information);
+                        node.add_arrow(component_symbol, data);
+                    },
+                    ExecutedStructure::Bus(node) =>{
+                        unreachable!();
+                    },
+                    ExecutedStructure::None => {
+                        unreachable!();
+                    }
                 }
             }
             Option::Some(arithmetic_slice)
         }
-    } else if ExecutionEnvironment::has_variable(&runtime.environment, symbol){
-        // Case buses -> case assigning bus type or assigning values
-        unreachable!();
+    } else if ExecutionEnvironment::has_bus(&runtime.environment, symbol){
+        
+        let environment_response = ExecutionEnvironment::get_mut_bus_res(&mut runtime.environment, symbol);
+        
+        let bus_slice = treat_result_with_environment_error(
+            environment_response,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+
+        if FoldedValue::valid_bus_node_pointer(&r_folded){
+            // in this case we are performing an assigment of the type in the node_pointer
+            // to the bus in the left
+
+            let bus_pointer = r_folded.bus_node_pointer.unwrap();
+            debug_assert!(accessing_information.before_signal.len() == 0);
+            debug_assert!(accessing_information.signal_access.is_none());
+
+            
+
+            for i in 0..BusSlice::get_number_of_cells(&bus_slice.2){
+                let mut value_left = treat_result_with_memory_error(
+                    BusSlice::access_value_by_index(&bus_slice.2, i),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                
+                let memory_result = BusRepresentation::initialize_bus(
+                    &mut value_left,
+                    bus_pointer,
+                    &runtime.exec_program,
+                );
+                treat_result_with_memory_error_void(
+                    memory_result,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+
+            }
+            match actual_node{
+                ExecutedStructure::Template(node) =>{
+                    let data = BusData {
+                        name: symbol.to_string(),
+                        goes_to: bus_pointer,
+                    };
+                    let component_symbol = create_component_symbol(symbol, &accessing_information);
+                    node.add_bus_arrow(component_symbol, data);;
+                },
+                ExecutedStructure::Bus(node) =>{
+                    let data = BusData {
+                        name: symbol.to_string(),
+                        goes_to: bus_pointer,
+                    };
+                    let component_symbol = create_component_symbol(symbol, &accessing_information);
+                    node.add_bus_arrow(component_symbol, data);
+                },
+                ExecutedStructure::None => {
+                    unreachable!();
+                }
+            }
+            
+            None
+        } else{
+            // case assigning a signal of the bus or a tag
+            None
+        }
+        
+
     } else {
         unreachable!();
     };
@@ -1467,6 +1736,19 @@ fn execute_sequence_of_statements(
         execute_delayed_declarations(program_archive, runtime, actual_node, flags)?;
     }
     Result::Ok((Option::None, can_be_simplified))
+}
+
+fn execute_sequence_of_bus_statements(
+    stmts: &[Statement],
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+    actual_node: &mut ExecutedBus,
+    flags: FlagsExecution,
+) -> Result<(), ()> {
+    for stmt in stmts.iter() {
+        execute_bus_statement(stmt, program_archive, runtime, actual_node, flags)?;
+    }
+    Result::Ok(())
 }
 
 fn execute_delayed_declarations(

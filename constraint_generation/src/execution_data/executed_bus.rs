@@ -9,9 +9,9 @@ use crate::execution_data::AExpressionSlice;
 use crate::execution_data::TagInfo;
 
 
-struct BusConnexion{
+pub struct BusConnexion{
     full_name: String,
-    inspect: BusData,
+    pub inspect: BusData,
     dag_offset: usize,
     dag_jump: usize,
 }
@@ -23,7 +23,8 @@ pub struct ExecutedBus {
     pub signal_fields: SignalCollector,
     pub bus_fields: BusCollector, 
     pub parameter_instances: ParameterContext,
-    bus_connexions: HashMap<String, BusConnexion>,
+    pub signal_to_tags: TagContext,
+    pub bus_connexions: HashMap<String, BusConnexion>,
 }
 
 impl ExecutedBus {
@@ -38,6 +39,7 @@ impl ExecutedBus {
             parameter_instances: instance,
             signal_fields: Vec::new(),
             bus_fields: Vec::new(),
+            signal_to_tags: TagContext::new(),
             bus_connexions: HashMap::new(),
         }
     }
@@ -61,7 +63,16 @@ impl ExecutedBus {
         self.bus_fields.push((bus_name.to_string(), dimensions.to_vec()));
     }
 
-
+    pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>){
+        let tags_signal = self.signal_to_tags.get_mut(signal_name);
+        if tags_signal.is_none(){
+            let mut new_tags_signal = TagInfo::new();
+            new_tags_signal.insert(tag_name.to_string(), value);
+            self.signal_to_tags.insert(signal_name.to_string(), new_tags_signal);
+        } else {
+            tags_signal.unwrap().insert(tag_name.to_string(), value);
+        }
+    }
 
     fn build_signals(&self, dag: &mut DAG) {
         
@@ -72,6 +83,10 @@ impl ExecutedBus {
     }
     pub fn bus_fields(&self) -> &BusCollector {
         &self.bus_fields
+    }
+
+    pub fn bus_connexions(&self) -> &HashMap<String, BusConnexion>{
+        &self.bus_connexions
     }
    
 }
