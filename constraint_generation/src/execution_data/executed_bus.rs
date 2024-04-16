@@ -44,7 +44,7 @@ impl ExecutedBus {
         }
     }
 
-    pub fn is_equal(&self, name: &str, context: &ParameterContext, tag_context: &TagContext) -> bool {
+    pub fn is_equal(&self, name: &str, context: &ParameterContext) -> bool {
         self.bus_name == name 
             && self.parameter_instances == *context
     }
@@ -76,6 +76,14 @@ impl ExecutedBus {
 
     fn build_signals(&self, dag: &mut DAG) {
         
+    }
+
+    pub fn bus_name(&self) -> &String {
+        &self.bus_name
+    }
+
+    pub fn parameter_instances(&self) -> &ParameterContext {
+        &self.parameter_instances
     }
 
     pub fn signal_fields(&self) -> &SignalCollector {

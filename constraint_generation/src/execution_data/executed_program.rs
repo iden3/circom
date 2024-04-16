@@ -47,6 +47,20 @@ impl ExecutedProgram {
         }
         Option::None
     }
+    pub fn identify_bus_node(&self, name: &str, context: &ParameterContext) -> Option<NodePointer> {
+        if !self.bus_to_nodes.contains_key(name) {
+            return Option::None;
+        }
+        let related_nodes = self.bus_to_nodes.get(name).unwrap();
+        for index in related_nodes {
+            let existing_node = &self.model_buses[*index];
+            if ExecutedBus::is_equal(existing_node, name, context) {
+                return Option::Some(*index);
+            }
+        }
+        Option::None
+    }
+
     pub fn number_of_nodes(&self) -> usize {
         self.model.len()
     }
@@ -110,6 +124,32 @@ impl ExecutedProgram {
         let node_index = self.model.len();
         self.model.push(node);
         nodes_for_template.push(node_index);
+        node_index
+    }
+
+
+    pub fn add_bus_node_to_scheme(
+        &mut self,
+        mut node: ExecutedBus,
+        analysis: Analysis, // not needed?
+    ) -> NodePointer {
+        //use super::filters::*;
+        // Clean code???
+        //apply_unused(&mut node.code, &analysis, &self.prime);
+        //apply_computed(&mut node.code, &analysis);
+        // Insert template
+        let possible_index = self.identify_bus_node(
+            node.bus_name(), 
+            node.parameter_instances(),
+        );
+        if let Option::Some(index) = possible_index {
+            return index;
+        }
+        self.bus_to_nodes.entry(node.bus_name().clone()).or_insert_with(|| vec![]);
+        let nodes_for_bus = self.bus_to_nodes.get_mut(node.bus_name()).unwrap();
+        let node_index = self.model_buses.len();
+        self.model_buses.push(node);
+        nodes_for_bus.push(node_index);
         node_index
     }
 

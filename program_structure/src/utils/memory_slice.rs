@@ -6,6 +6,7 @@ pub enum TypeInvalidAccess {
     MissingInputTags(String),
     NoInitializedComponent,
     NoInitializedSignal,
+    NoInitializedBus,
 }
 
 pub enum TypeAssignmentError {
