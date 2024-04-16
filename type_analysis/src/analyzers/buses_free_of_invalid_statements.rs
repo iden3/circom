@@ -53,7 +53,7 @@ fn analyse_statement(
                 analyse_statement(stmt, function_names, reports);
             }
         },
-        InitializationBlock { meta, xtype, initializations } => {
+        InitializationBlock { meta, .. } => {
             let mut report = Report::error(
                 "Initialization statement used inside the bus".to_string(),
                 ReportCode::UndefinedBus,
