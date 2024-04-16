@@ -101,9 +101,8 @@ impl BusRepresentation {
         unreachable!()
     }
 
-    fn get_all_fields(&self) -> Result<&SignalSlice, MemoryError>{
-        // TODO
-        unreachable!()
+    pub fn has_unassigned_fields(&self) -> bool{
+        self.node_pointer.is_none() || !self.unassigned_fields.is_empty()
     }
 
     pub fn assign_value_to_field(

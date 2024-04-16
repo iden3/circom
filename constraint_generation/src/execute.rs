@@ -66,6 +66,7 @@ impl RuntimeInformation {
 
 struct FoldedValue {
     pub arithmetic_slice: Option<AExpressionSlice>,
+    pub bus_slice: Option<BusSlice>,
     pub node_pointer: Option<NodePointer>,
     pub bus_node_pointer: Option<NodePointer>,
     pub is_parallel: Option<bool>,
@@ -75,14 +76,22 @@ impl FoldedValue {
     pub fn valid_arithmetic_slice(f_value: &FoldedValue) -> bool {
         f_value.arithmetic_slice.is_some() && f_value.node_pointer.is_none() && 
             f_value.is_parallel.is_none() && f_value.bus_node_pointer.is_none()
+            && f_value.bus_slice.is_none()
+    }
+    pub fn valid_bus_slice(f_value: &FoldedValue) -> bool {
+        f_value.bus_slice.is_some() && f_value.node_pointer.is_none() && 
+            f_value.is_parallel.is_none() && f_value.bus_node_pointer.is_none()
+            && f_value.arithmetic_slice.is_none()
     }
     pub fn valid_node_pointer(f_value: &FoldedValue) -> bool {
         f_value.node_pointer.is_some() && f_value.is_parallel.is_some() &&
             f_value.arithmetic_slice.is_none() && f_value.bus_node_pointer.is_none()
+            && f_value.bus_slice.is_none()
     }
     pub fn valid_bus_node_pointer(f_value: &FoldedValue) -> bool{
         f_value.bus_node_pointer.is_some() && f_value.node_pointer.is_none() && 
             f_value.is_parallel.is_none() && f_value.arithmetic_slice.is_none()
+            && f_value.bus_slice.is_none()
     }
 }
 
@@ -90,6 +99,7 @@ impl Default for FoldedValue {
     fn default() -> Self {
         FoldedValue { 
             arithmetic_slice: Option::None, 
+            bus_slice: Option::None,
             node_pointer: Option::None, 
             bus_node_pointer: Option::None,
             is_parallel: Option::None, 
@@ -679,7 +689,10 @@ fn execute_expression(
                 execute_component(meta, name, access, program_archive, runtime, flags)?
             } else if ExecutionEnvironment::has_variable(&runtime.environment, name) {
                 execute_variable(meta, name, access, program_archive, runtime, flags)?
-            } else {
+            } else if ExecutionEnvironment::has_bus(&runtime.environment, name){
+                execute_bus(meta, name, access, program_archive, runtime, flags)?
+            }
+            else {
                 unreachable!();
             }
         }
@@ -790,8 +803,7 @@ fn execute_expression(
             value
         }
         BusCall{id, args, ..} =>{
-            let (value, can_simplify) = execute_bus_call(id, args, program_archive, runtime, flags)?;
-            can_be_simplified = can_simplify;
+            let value = execute_bus_call_complete(id, args, program_archive, runtime, flags)?;
             value
         
         }
@@ -909,13 +921,13 @@ fn execute_anonymous_component_declaration(
     anonymous_components.insert(component_name.to_string(), (meta, dimensions.clone()));
 }
 
-fn execute_bus_call(
+fn execute_bus_call_complete(
     id: &String,
     args: &Vec<Expression>,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     flags: FlagsExecution,
-) -> Result<(FoldedValue, bool), ()> {
+) -> Result<FoldedValue, ()> {
     let mut arg_values = Vec::new();
     
     for arg_expression in args.iter() {
@@ -929,11 +941,11 @@ fn execute_bus_call(
         let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
         let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
 
-        let new_file_id = program_archive.get_function_data(id).get_file_id();
+        let new_file_id = program_archive.get_bus_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
 
         runtime.call_trace.push(id.clone());
-        let folded_result = execute_function_call(id, program_archive, runtime, flags)?;
+        let folded_result = execute_bus_call(id, arg_values, program_archive, runtime, flags)?;
 
         runtime.environment = previous_environment;
         runtime.current_file = previous_id;
@@ -1979,6 +1991,116 @@ fn unfold_signals(current: String, dim: usize, lengths: &[usize], result: &mut V
     }
 }
 
+fn execute_bus(
+    meta: &Meta,
+    symbol: &str,
+    access: &[Access],
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+    flags: FlagsExecution
+) -> Result<FoldedValue, ()> {
+    let access_information = treat_accessing_bus(meta, access, program_archive, runtime, flags)?;
+    if access_information.undefined {
+        let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
+        return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
+    }
+    let environment_response =
+        ExecutionEnvironment::get_bus_res(&runtime.environment, symbol);
+    let (tags, tags_definitions, bus_slice) = treat_result_with_environment_error(
+        environment_response,
+        meta,
+        &mut runtime.runtime_errors,
+        &runtime.call_trace,
+    )?;
+
+    let memory_response = BusSlice::access_values(&bus_slice, &access_information.array_access);
+    let bus_slice = treat_result_with_memory_error(
+        memory_response,
+        meta,
+        &mut runtime.runtime_errors,
+        &runtime.call_trace,
+    )?;
+    if access_information.field_access.is_none() {
+
+        // Case we are accessing the complete bus or array of buses
+        
+        let mut tags_propagated = TagInfo::new();
+        for (tag, value) in tags{
+            let state = tags_definitions.get(tag).unwrap();
+            if state.value_defined || state.complete{
+                tags_propagated.insert(tag.clone(), value.clone());
+            } else if state.defined{
+                tags_propagated.insert(tag.clone(), None);
+            }
+        }
+        // Check that all the buses are completely assigned
+
+        for i in 0..BusSlice::get_number_of_cells(&bus_slice){
+            let value_left = treat_result_with_memory_error(
+                BusSlice::access_value_by_index(&bus_slice, i),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            
+            if value_left.has_unassigned_fields(){
+                treat_result_with_memory_error(
+                    Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedBus)),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+            }
+        }
+
+        Result::Ok(FoldedValue{bus_slice: Some(bus_slice), tags: Some(tags_propagated), ..FoldedValue::default()})
+    } else{
+        if meta.get_type_knowledge().is_tag(){
+            // Case we are accessing a tag of the bus
+            let acc = access_information.field_access.unwrap();
+            if tags.contains_key(&acc) {
+                let value_tag = tags.get(&acc).unwrap();
+                let state = tags_definitions.get(&acc).unwrap();
+                if let Some(value_tag) = value_tag { // tag has value
+                    // access only allowed when (1) it is value defined by user or (2) it is completely assigned
+                    if state.value_defined || state.complete{
+                        let a_value = AExpr::Number { value: value_tag.clone() };
+                        let ae_slice = AExpressionSlice::new(&a_value);
+                        Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
+                    } else{
+                        let error = MemoryError::TagValueNotInitializedAccess;
+                        treat_result_with_memory_error(
+                            Result::Err(error),
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?
+                    }
+                    
+                }
+                else {
+                    let error = MemoryError::TagValueNotInitializedAccess;
+                    treat_result_with_memory_error(
+                        Result::Err(error),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?
+                }
+            }
+            else {
+                 unreachable!() 
+            }
+
+        } else{
+            // Case we are accessing a field of the component
+            Ok(FoldedValue{..FoldedValue::default()})
+
+        }
+    }
+
+}
+
 fn execute_component(
     meta: &Meta,
     symbol: &str,
@@ -2129,6 +2251,8 @@ fn execute_function_call(
     Result::Ok((return_value, can_be_simplified))
 }
 
+
+
 fn execute_template_call(
     id: &str,
     parameter_values: Vec<AExpressionSlice>,
@@ -2249,6 +2373,61 @@ fn preexecute_template_call(
     let new_node = node_wrap.unwrap();
     let node_pointer = runtime.exec_program.add_prenode_to_scheme(new_node);
     Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(false), ..FoldedValue::default() })
+}
+
+fn execute_bus_call(
+    id: &str,
+    parameter_values: Vec<AExpressionSlice>,
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+    flags: FlagsExecution,
+) -> Result<FoldedValue, ()> {
+    debug_assert!(runtime.block_type == BlockType::Known);
+   
+    let args_names = program_archive.get_bus_data(id).get_name_of_params();
+    let template_body = program_archive.get_bus_data(id).get_body_as_vec();
+    let mut args_to_values = BTreeMap::new();
+    debug_assert_eq!(args_names.len(), parameter_values.len());
+    let mut instantiation_name = format!("{}(", id);
+    let mut not_empty_name = false;
+    
+    for (name, value) in args_names.iter().zip(parameter_values) {
+        instantiation_name.push_str(&format!("{},", value.to_string()));
+        not_empty_name = true;
+        args_to_values.insert(name.clone(), value.clone());
+    }
+
+    if not_empty_name  {
+        instantiation_name.pop();
+    }
+    instantiation_name.push(')');
+
+    let existent_node = runtime.exec_program.identify_bus_node(id, &args_to_values);
+    let node_pointer = if let Option::Some(pointer) = existent_node {
+        pointer
+    } else {
+        let analysis =
+            std::mem::replace(&mut runtime.analysis, Analysis::new(program_archive.id_max));
+        let code = program_archive.get_bus_data(id).get_body().clone();
+        let mut node = ExecutedBus::new(
+            id.to_string(),
+            instantiation_name,
+            args_to_values,
+        );
+        execute_sequence_of_bus_statements(
+            template_body,
+            program_archive,
+            runtime,
+            &mut node,
+            flags, 
+        )?;
+
+
+        let analysis = std::mem::replace(&mut runtime.analysis, analysis);
+        let node_pointer = runtime.exec_program.add_bus_node_to_scheme(node, analysis);
+        node_pointer
+    };
+    Result::Ok(FoldedValue { bus_node_pointer: Option::Some(node_pointer), ..FoldedValue::default() })
 }
 
 fn execute_infix_op(
@@ -2451,6 +2630,88 @@ fn treat_accessing(
     Result::Ok(AccessingInformation { undefined, before_signal, after_signal, signal_access, tag_access})
 }
 
+
+/*
+    Usable representation of a series of accesses performed over a symbol representing a bus.
+    AccessingInformationBus {
+        pub undefined: bool ===> true if one of the index values could not be transformed into a SliceCapacity during the process,
+        pub array_access: Vec<SliceCapacity> 
+        pub field_access: Option<String> // may not appear
+        pub remaining_access: Option<AccessingInformation>, // may not appear
+    }
+*/
+struct AccessingInformationBus {
+    pub undefined: bool,
+    pub array_access: Vec<SliceCapacity>,
+    pub field_access: Option<String>,
+    pub remaining_access: Option<Box<AccessingInformationBus>>,
+}
+fn treat_accessing_bus(
+    meta: &Meta,
+    access: &[Access],
+    program_archive: &ProgramArchive,
+    runtime: &mut RuntimeInformation,
+    flags: FlagsExecution
+) -> Result<AccessingInformationBus, ()> {
+
+    fn treat_accessing_bus_index(
+        index: usize,
+        meta: &Meta,
+        access: &[Access],
+        program_archive: &ProgramArchive,
+        runtime: &mut RuntimeInformation,
+        flags: FlagsExecution
+    ) -> Result<AccessingInformationBus, ()>{
+        
+        let (ae_before_signal, field_access, signal_index) =
+            treat_indexing(index, access, program_archive, runtime, flags)?;
+        
+        treat_result_with_memory_error(
+            valid_indexing(&ae_before_signal),
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+
+        let mut remaining_access = if signal_index < access.len(){
+            Some(Box::new(
+                treat_accessing_bus_index(signal_index + 1, meta, access, program_archive, runtime, flags)?)
+            )
+        } else{
+            None
+        };
+
+        let possible_before_indexing = cast_indexing(&ae_before_signal);
+
+        let remaining_access_undefined = remaining_access.is_some() && remaining_access.as_ref().unwrap().undefined;
+
+        let undefined = possible_before_indexing.is_none() || remaining_access_undefined;
+
+        let array_access = if undefined {
+            Vec::new()
+        } else {
+            possible_before_indexing.unwrap()
+        };
+        if undefined{
+            remaining_access = None
+        };
+
+    Result::Ok(AccessingInformationBus { undefined, array_access, remaining_access, field_access})
+
+    }
+
+    treat_accessing_bus_index(
+        0,
+        meta,
+        access,
+        program_archive,
+        runtime,
+        flags
+    )
+
+}
+
+
 //************************************************* Safe transformations *************************************************
 
 fn safe_unwrap_to_single_arithmetic_expression(folded_value: FoldedValue, line: u32) -> AExpr {
@@ -2535,6 +2796,10 @@ fn treat_result_with_memory_error_void(
                         },
                         TypeInvalidAccess::NoInitializedSignal =>{
                             Report::error("Exception caused by invalid access: trying to access to a signal that is not initialized" .to_string(),
+                                RuntimeError)
+                        },
+                        TypeInvalidAccess::NoInitializedBus =>{
+                            Report::error("Exception caused by invalid access: trying to access to a bus whose fields have not been completely initialized" .to_string(),
                                 RuntimeError)
                         }
                     }
@@ -2638,6 +2903,10 @@ fn treat_result_with_memory_error<C>(
                         },
                         TypeInvalidAccess::NoInitializedSignal =>{
                             Report::error("Exception caused by invalid access: trying to access to a signal that is not initialized" .to_string(),
+                                RuntimeError)
+                        }
+                        TypeInvalidAccess::NoInitializedBus =>{
+                            Report::error("Exception caused by invalid access: trying to access to a bus whose fields have not been completely initialized" .to_string(),
                                 RuntimeError)
                         }
                     }
