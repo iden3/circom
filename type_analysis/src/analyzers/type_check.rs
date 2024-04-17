@@ -87,13 +87,7 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
         );
     }
 
-    if check_main_has_tags(initial_expression, program_archive) {
-            add_report(
-                ReportCode::MainComponentWithTags,
-                initial_expression.get_meta(),
-                &mut analysis_information.reports,
-            );
-    }
+    check_main_has_tags(initial_expression, program_archive, &mut analysis_information.reports);
 
 
     if analysis_information.reports.is_empty() {
@@ -103,19 +97,36 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
     }
 }
 
-fn check_main_has_tags(initial_expression: &Expression, program_archive: &ProgramArchive) -> bool {
+fn check_main_has_tags(initial_expression: &Expression, program_archive: &ProgramArchive, reports: &mut ReportCollection) {
     if let  Call { id, .. } = initial_expression{
-        let inputs = program_archive.get_template_data(id).get_inputs();
-        let mut tag_in_inputs = false;
-        for input in inputs {
-            if !input.1.1.is_empty(){
-                tag_in_inputs = true;
-                break;
+        if program_archive.contains_template(id){
+            let inputs = program_archive.get_template_data(id).get_inputs();
+            for input in inputs {
+                if !input.1.1.is_empty(){
+                    add_report(
+                        ReportCode::MainComponentWithTags,
+                        initial_expression.get_meta(),
+                        reports,
+                    );
+                    break;
+                }
             }
+        } else{
+            add_report(
+                ReportCode::IllegalMainExpression,
+                initial_expression.get_meta(),
+                reports,
+            )
         }
-        tag_in_inputs
+       
     }
-    else { unreachable!()}
+    else { 
+        add_report(
+            ReportCode::IllegalMainExpression,
+            initial_expression.get_meta(),
+            reports,
+        )
+    }
 }
 
 fn type_statement(
@@ -1062,13 +1073,14 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         }
         MainComponentWithTags => "Main component cannot have inputs with tags".to_string(),
         ExpectedDimDiffGotDim(expected, got) => {
-            format!("Function should return {} but returns {}", expected, got)
+            format!("All branches of a function should return an element of the same dimensions.\n Found {} and {} dimensions", expected, got)
         }
         WrongNumberOfArguments(expected, got) => {
             format!("Expecting {} arguments, {} where obtained", expected, got)
         }
         UninitializedComponent => "Trying to access to a signal of a component that has not been initialized".to_string(),
         NonCompatibleBranchTypes => "Inline switch operator branches types are non compatible".to_string(),
+        IllegalMainExpression => "Invalid main component: the main component should be a template, not a function call or expression".to_string(),
         e => panic!("Unimplemented error code: {}", e),
     };
     report.add_primary(location, file_id, message);

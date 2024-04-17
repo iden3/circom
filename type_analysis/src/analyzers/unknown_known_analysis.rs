@@ -160,10 +160,10 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             } else if simplified_elem == SignalTag {
                 tags_modified = true;
                 if expression_tag == Unknown {
-                    add_report(ReportCode::UnknownTemplate, rhe.get_meta(), file_id, &mut reports);
+                    add_report(ReportCode::NonValidTagAssignment, rhe.get_meta(), file_id, &mut reports);       
                 }
                 if access_tag == Unknown {
-                    add_report(ReportCode::UnknownTemplate, meta, file_id, &mut reports);
+                    add_report(ReportCode::NonValidTagAssignment, rhe.get_meta(), file_id, &mut reports);
                 }   
             } else if *op == AssignOp::AssignConstraintSignal {
                 constraints_declared = true;
@@ -555,8 +555,9 @@ fn add_report(
     let mut report = Report::error("Typing error found".to_string(), error_code);
     let location = generate_file_location(meta.start, meta.end);
     let message = match error_code {
-        UnknownDimension => "The length of every array must known during the constraint generation phase".to_string(),
-        UnknownTemplate => "Every component instantiation must be resolved during the constraint generation phase".to_string(),
+        UnknownDimension => "The length of every array must be known during the constraint generation phase".to_string(),
+        UnknownTemplate => "Every component instantiation must be resolved during the constraint generation phase. This component declaration uses a value that can be unknown during the constraint generation phase.".to_string(),
+        NonValidTagAssignment => "Tags cannot be assigned to values that can be unknown during the constraint generation phase".to_string(),
         NonQuadratic => "Non-quadratic constraint was detected statically, using unknown index will cause the constraint to be non-quadratic".to_string(),
         UnreachableConstraints => "There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
         UnreachableTags => "There are tag assignments depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
