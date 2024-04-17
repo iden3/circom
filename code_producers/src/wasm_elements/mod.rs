@@ -179,6 +179,9 @@ impl WASMProducer {
     pub fn get_main_input_list(&self) -> &InputList {
         &self.main_input_list
     }
+    pub fn get_input_hash_map_entry_size(&self) -> usize {
+        std::cmp::max(usize::pow(2,(self.main_input_list.len() as f32).log2().ceil() as u32),256)
+    }
     pub fn get_number_of_witness(&self) -> usize {
         self.signals_in_witness
     }
@@ -261,7 +264,7 @@ impl WASMProducer {
         (4 * self.size_32_bit) + 8 + self.get_shared_rw_memory_start()
     }
     pub fn get_remaining_input_signal_counter(&self) -> usize {
-        self.get_input_signals_hashmap_start() + 4096 // 256*(8(h)+4(pos)+4(size))
+        self.get_input_signals_hashmap_start() + self.get_input_hash_map_entry_size()*16 // input_hash_map_entry_size*(8(h)+4(pos)+4(size))
     }
     pub fn get_input_signal_set_map_start(&self) -> usize {
         self.get_remaining_input_signal_counter() + 4

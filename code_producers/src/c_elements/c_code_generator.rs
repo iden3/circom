@@ -22,8 +22,8 @@ const S_IO_DEF: &str = "IODef";
 const IO_DEF_FIELDS: [&str; 2] = ["offset", "lengths"];
 
 // Global variables
-pub const SIZE_INPUT_HASHMAP: usize = 256;
-const G_INPUT_HASHMAP: &str = "inputHashMap"; // type HashSignalInfo[256]
+//pub const SIZE_INPUT_HASHMAP: usize = 256;
+const G_INPUT_HASHMAP: &str = "inputHashMap"; // type HashSignalInfo[max(256,needed)]
 const G_RM_INPUT_SIGNAL_COUNTER: &str = "remainingInputSignalCounter"; // type u32
 const G_INPUT_SIGNAL_SET: &str = "inputSignalSetMap"; // type bool[M]
 const G_WITNESS_TO_SIGNAL: &str = "witness2signalList"; // type u64[W]
@@ -469,15 +469,14 @@ pub fn collect_function_headers(functions: Vec<String>) -> Vec<String> {
 
 //--------------- generate all kinds of Data for the .dat file ---------------
 
-pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>) -> Vec<(u64, u64, u64)> {
-    assert!(signal_name_list.len() <= 256);
-    let len = 256;
-    let mut hash_map = vec![(0, 0, 0); len];
+pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>, size: usize) -> Vec<(u64, u64, u64)> {
+    assert!(signal_name_list.len() <= size);
+    let mut hash_map = vec![(0, 0, 0); size];
     for i in 0..signal_name_list.len() {
         let h = hasher(&signal_name_list[i].0);
-        let mut p = (h % 256) as usize;
+        let mut p = h as usize % size;
         while hash_map[p].1 != 0 {
-            p = (p + 1) % 256;
+            p = (p + 1) % size;
         }
         hash_map[p] = (h, signal_name_list[i].1 as u64, signal_name_list[i].2 as u64);
     }
@@ -653,9 +652,9 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     //dfile.flush()?;
 
     let aux = producer.get_main_input_list();
-    let map = generate_hash_map(&aux);
+    let map = generate_hash_map(&aux,producer.get_input_hash_map_entry_size());
     let hashmap = generate_dat_from_hash_map(&map); //bytes u64 --> u64
-                                                    //let hml = 256 as u32;
+                                                    //let hml = producer.get_input_hash_map_entry_size() as u32;
                                                     //dfile.write_all(&hml.to_be_bytes())?;
     dat_file.write_all(&hashmap)?;
     //dat_file.flush()?;
@@ -946,7 +945,7 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
     let full_name = name + ".cpp";
     let mut cfile = File::create(full_name)?;
     let mut code = vec![];
-    let len = 256;
+    let len = producer.get_input_hash_map_entry_size();
     code.push("#include <stdio.h>".to_string());
     code.push("#include <iostream>".to_string());
     code.push("#include <assert.h>".to_string());
