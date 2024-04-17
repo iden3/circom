@@ -92,6 +92,8 @@ enum ExecutionError {
     ConstraintInUnknown,
     DeclarationInUnknown,
     TagAssignmentInUnknown,
+    UnknownTemplate,
+    NonValidTagAssignment,
     FalseAssert,
     ArraySizeTooBig
 }
@@ -727,8 +729,8 @@ fn execute_expression(
                 FoldedValue { arithmetic_slice, ..FoldedValue::default() }
             }
         }
-        Call { id, args, .. } => {
-            let (value, can_simplify) = execute_call(id, args, program_archive, runtime, flags)?;
+        Call { id, args, meta, .. } => {
+            let (value, can_simplify) = execute_call(id,meta, args, program_archive, runtime, flags)?;
             can_be_simplified = can_simplify;
             value
         }
@@ -756,15 +758,32 @@ fn execute_expression(
 
 fn execute_call(
     id: &String,
+    meta: &Meta,
     args: &Vec<Expression>,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     flags: FlagsExecution,
 ) -> Result<(FoldedValue, bool), ()> {
     let mut arg_values = Vec::new();
+
+    let is_template = program_archive.contains_template(id);
+
     for arg_expression in args.iter() {
         let f_arg = execute_expression(arg_expression, program_archive, runtime, flags)?;
-        arg_values.push(safe_unwrap_to_arithmetic_slice(f_arg, line!()));
+        let safe_f_arg = safe_unwrap_to_arithmetic_slice(f_arg, line!());
+        if is_template{ // check that all the arguments are known
+            for value in MemorySlice::get_reference_values(&safe_f_arg){
+                if !AExpr::is_number(&value){
+                    treat_result_with_execution_error(
+                        Result::Err(ExecutionError::UnknownTemplate),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                }
+            }
+        }
+        arg_values.push(safe_f_arg);
     }
     if program_archive.contains_function(id){ // in this case we execute
         let new_environment = prepare_environment_for_call(id, &arg_values, program_archive);
@@ -1001,7 +1020,8 @@ fn perform_assign(
             )?
         }
         else if let Some(a_slice) = r_folded.arithmetic_slice {
-            let value = AExpressionSlice::unwrap_to_single(a_slice);
+            
+            let value = AExpressionSlice::unwrap_to_single(a_slice);   
             match value {
                 ArithmeticExpressionGen::Number { value } => {
                     let possible_tag = reference_to_tags.get(&tag.clone());
@@ -1026,8 +1046,15 @@ fn perform_assign(
                         }
                     } else {unreachable!()} 
                 },
-                _ => unreachable!(),
-            }   
+
+                _ =>{
+                    treat_result_with_execution_error(
+                        Result::Err(ExecutionError::NonValidTagAssignment),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                },            }   
         }
         else { 
             unreachable!() 
@@ -2487,6 +2514,14 @@ fn treat_result_with_execution_error<C>(
             let report = match execution_error {
                 NonQuadraticConstraint => Report::error(
                     "Non quadratic constraints are not allowed!".to_string(),
+                    ReportCode::RuntimeError,
+                ),
+                UnknownTemplate => Report::error(
+                    "Every component instantiation must be resolved during the constraint generation phase. This component declaration uses a value that can be unknown during the constraint generation phase.".to_string(),
+                    ReportCode::RuntimeError,
+                ),
+                NonValidTagAssignment => Report::error(
+                    "Tags cannot be assigned to values that can be unknown during the constraint generation phase".to_string(),
                     ReportCode::RuntimeError,
                 ),
                 FalseAssert => {
