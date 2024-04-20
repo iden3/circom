@@ -85,9 +85,7 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
             initial_expression.get_meta(),
             &mut analysis_information.reports,
         );
-    }
-
-    if check_main_has_tags(initial_expression, program_archive) {
+    } else if check_main_has_tags(initial_expression, program_archive) {
             add_report(
                 ReportCode::MainComponentWithTags,
                 initial_expression.get_meta(),
