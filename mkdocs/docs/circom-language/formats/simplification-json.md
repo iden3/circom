@@ -4,7 +4,7 @@ description: >-
 ---
 # Simplification substitution json format
 
-The file contains a dictionary where the entries are the numbers of the simplified signals as a string and the values are the linear expresion that has replaced the signal.
+The file contains a dictionary where the entries are the numbers of the simplified signals as a string and the values are the linear expression that has replaced the signal.
 ```
 {
 "sig_num_1": lin_expr_1,
