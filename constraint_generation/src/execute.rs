@@ -315,7 +315,7 @@ fn execute_statement(
                     }
 
                     if !needs_double_arrow.is_empty() && flags.inspect{
-                        // in case we can subsitute the complete expression to ==>
+                        // in case we can substitute the complete expression to ==>
                         if needs_double_arrow.len() == AExpressionSlice::get_number_of_cells(&constrained.right){
                             let err : Result<(),ExecutionWarning> = 
                                 Result::Err(ExecutionWarning::CanBeQuadraticConstraintSingle());

@@ -65,7 +65,7 @@ For every template instantiation create two functions:
 Every name_run or circom_function has:
 =====================================
 
-//array of PFrElements for auxiliars in expression computation (known size);
+//array of PFrElements for auxiliarys in expression computation (known size);
 PFrElements expaux[];
 
 //array of PFrElements for local vars (known size)
