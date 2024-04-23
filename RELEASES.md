@@ -1,5 +1,17 @@
 # Release notes
+## April 23, 2024 circom 2.1.9
 
+#### Extensions 
+- Improvement on error messages: giving more descriptive errors.
+- Improvement on documentation and new sections: explanation of simplification and circom constraint formats.
+
+#### Fixed bugs
+- Removing non-determinism in R1CS generation: fixing assignment order of anonymous components inputs.
+- Fixing an error when computing array accesses involving complex expressions in multidimensional arrays.
+- Improving known/unknown analysis: case arrays of variables combining known/unknown positions.
+- Fixing minor panics: case main component not calling to a template, anonymous component with wrong number of arguments, log messages containing line breaks...
+
+  
 ## Jan 17, 2024 circom 2.1.8
 
 #### Extensions
