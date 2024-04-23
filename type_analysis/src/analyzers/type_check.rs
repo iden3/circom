@@ -74,17 +74,8 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
     let initial_expression = program_archive.get_main_expression();
     let type_analysis_response =
         type_expression(initial_expression, program_archive, &mut analysis_information);
-    let first_type = if let Result::Ok(t) = type_analysis_response {
-        t
-    } else {
+    if type_analysis_response.is_err(){
         return Result::Err(analysis_information.reports);
-    };
-    if !first_type.is_template() {
-        add_report(
-            ReportCode::WrongTypesInAssignOperationTemplate,
-            initial_expression.get_meta(),
-            &mut analysis_information.reports,
-        );
     }
 
     check_main_has_tags(initial_expression, program_archive, &mut analysis_information.reports);
