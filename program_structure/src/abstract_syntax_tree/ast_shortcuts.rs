@@ -125,7 +125,13 @@ pub fn split_declaration_into_single_nodes_and_multisubstitution(
     }
     if let Some( tuple) = init {
         let (op,expression) = tuple.tuple_init;
-        let multi_sub = build_mult_substitution(meta.clone(), build_tuple(meta.clone(), values), op, expression);
+        let multi_sub = if values.len() == 1 {
+            if let Expression::Variable { name, .. } = values.get(0).unwrap() {
+                build_substitution(meta.clone(), name.clone(), Vec::new(), op, expression)
+            } else { unreachable!();}
+        } else{
+            build_mult_substitution(meta.clone(), build_tuple(meta.clone(),values), op, expression)
+        };
         initializations.push(multi_sub);
     }
     build_initialization_block(meta, xtype, initializations)

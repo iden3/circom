@@ -52,10 +52,10 @@ uint Circom_CalcWit::getInputSignalHashPosition(u64 h) {
   uint pos = (uint)(h % (u64)n);
   if (circuit->InputHashMap[pos].hash!=h){
     uint inipos = pos;
-    pos++;
+    pos = (pos+1)%n; 
     while (pos != inipos) {
-      if (circuit->InputHashMap[pos].hash==h) return pos;
-      if (circuit->InputHashMap[pos].hash==0) {
+      if (circuit->InputHashMap[pos].hash == h) return pos;
+      if (circuit->InputHashMap[pos].signalid == 0) {
 	fprintf(stderr, "Signal not found\n");
 	assert(false);
       }
