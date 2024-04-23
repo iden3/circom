@@ -1064,6 +1064,16 @@ fn perform_assign(
         debug_assert!(accessing_information.signal_access.is_none());
         debug_assert!(accessing_information.after_signal.is_empty());
 
+        // to ensure that input signals are not assigned twice, improving error message
+        if ExecutionEnvironment::has_input(&runtime.environment, symbol) {
+            treat_result_with_memory_error(
+                Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentInput(symbol.to_string()))),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?
+        }
+
         let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
         let (reference_to_tags, reference_to_tags_defined, reference_to_signal_content) = treat_result_with_environment_error(
             environment_response,
@@ -2314,6 +2324,11 @@ fn treat_result_with_memory_error_void(
                             Report::error("Exception caused by invalid assignment: signal already assigned".to_string(),
                                 RuntimeError)
                         },
+                        TypeAssignmentError::AssignmentInput(signal) => Report::error(
+                            format!("Invalid assignment: input signals of a template already have a value when the template is executed and cannot be re-assigned. \n Problematic input signal: {}",
+                                signal),
+                            RuntimeError,
+                        ),
                         TypeAssignmentError::AssignmentOutput =>{
                             Report::error("Exception caused by invalid assignment: trying to assign a value to an output signal of a component".to_string(),
                                 RuntimeError)
@@ -2417,6 +2432,11 @@ fn treat_result_with_memory_error<C>(
                             Report::error("Exception caused by invalid assignment: signal already assigned".to_string(),
                                 RuntimeError)
                         },
+                        TypeAssignmentError::AssignmentInput(signal) => Report::error(
+                            format!("Invalid assignment: input signals of a template already have a value when the template is executed and cannot be re-assigned. \n Problematic input signal: {}",
+                                signal),
+                            RuntimeError,
+                        ),
                         TypeAssignmentError::AssignmentOutput =>{
                             Report::error("Exception caused by invalid assignment: trying to assign a value to an output signal of a component".to_string(),
                                 RuntimeError)

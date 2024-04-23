@@ -11,7 +11,8 @@ pub enum TypeInvalidAccess {
 pub enum TypeAssignmentError {
     MultipleAssignments,
     AssignmentOutput,
-    NoInitializedComponent
+    NoInitializedComponent,
+    AssignmentInput(String),
 }
 
 pub enum MemoryError {
