@@ -67,21 +67,28 @@ pub fn split_declaration_into_single_nodes(
         let possible_init = symbol.init;
         let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone());
         initializations.push(single_declaration);
-        if let Option::Some(init) = possible_init {
-            let substitution =
-                build_substitution(meta.clone(), symbol.name, vec![], op, init);
-            initializations.push(substitution);
-        }
-        else if xtype == Var {
+        
+        // For the variables, we need to initialize them to 0 in case:
+        //     - They are not initialized to other value
+        //     - They are arrays (and maybe not all positions are initialized)
+
+        if xtype == Var && (possible_init.is_none() || dimensions.len() > 0){
             let mut value = Expression:: Number(meta.clone(), BigInt::from(0));
             for dim_expr in dimensions.iter().rev(){
                 value = build_uniform_array(meta.clone(), value, dim_expr.clone());
             }
 
             let substitution = 
-                build_substitution(meta.clone(), symbol.name, vec![], op, value);
+                build_substitution(meta.clone(), symbol.name.clone(), vec![], op, value);
             initializations.push(substitution);
         }
+        
+        if let Option::Some(init) = possible_init {
+            let substitution =
+                build_substitution(meta.clone(), symbol.name, vec![], op, init);
+            initializations.push(substitution);
+        }
+
     }
     build_initialization_block(meta, xtype, initializations)
 }
