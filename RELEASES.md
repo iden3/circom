@@ -2,8 +2,9 @@
 ## April 23, 2024 circom 2.1.9
 
 #### Extensions 
-- Improvement on error messages: providing more descriptive messages.
-- Improvement on documentation and new sections: detailed explanation of applied simplification techniques and precise description circom of constraint related output formats.
+- Improvement of error messages: providing more descriptive messages.
+- Improvement of documentation and new sections: detailed explanation of the applied simplification techniques and precise description of constraint-related output formats.
+- Allowing arbitrary number of different input names in the main component.
 
 #### Fixed bugs
 - Removing non-determinism in R1CS generation: fixing assignment order of anonymous components inputs.
