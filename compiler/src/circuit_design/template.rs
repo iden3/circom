@@ -100,7 +100,7 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(format!(" (local {} i32)", producer.get_create_loop_counter_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
         let local_info_size_u32 = producer.get_local_info_size_u32(); // in the future we can add some info like pointer to run father or text father
-                                                                      //set lvar (start of auxiliar memory for vars)
+                                                                      //set lvar (start of auxiliary memory for vars)
         instructions.push(set_constant("0"));
         instructions.push(load32(None));
         let var_start = local_info_size_u32 * 4; // starts after local info
@@ -109,7 +109,7 @@ impl WriteWasm for TemplateCodeInfo {
             instructions.push(add32());
         }
         instructions.push(set_local(producer.get_lvar_tag()));
-        //set expaux (start of auxiliar memory for expressions)
+        //set expaux (start of auxiliary memory for expressions)
         instructions.push(get_local(producer.get_lvar_tag()));
         let var_stack_size = self.var_stack_depth * 4 * (producer.get_size_32_bit() + 2); // starts after vars
         instructions.push(set_constant(&var_stack_size.to_string()));

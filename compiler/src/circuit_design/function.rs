@@ -52,7 +52,7 @@ impl WriteWasm for FunctionCodeInfo {
         instructions.push(format!("(local {} i32)", producer.get_call_lvar_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
         let local_info_size_u32 = producer.get_local_info_size_u32();
-        //set lvar (start of auxiliar memory for vars)
+        //set lvar (start of auxiliary memory for vars)
         instructions.push(set_constant("0"));
         instructions.push(load32(None)); // current stack size
         let var_start = local_info_size_u32 * 4; // starts after local info
@@ -61,7 +61,7 @@ impl WriteWasm for FunctionCodeInfo {
             instructions.push(add32());
         }
         instructions.push(set_local(producer.get_lvar_tag()));
-        //set expaux (start of auxiliar memory for expressions)
+        //set expaux (start of auxiliary memory for expressions)
         instructions.push(get_local(producer.get_lvar_tag()));
         let var_stack_size = self.max_number_of_vars * 4 * (producer.get_size_32_bits_in_memory()); // starts after vars
         instructions.push(set_constant(&var_stack_size.to_string()));
