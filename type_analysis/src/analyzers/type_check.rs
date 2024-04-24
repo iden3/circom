@@ -1,7 +1,7 @@
-use program_structure::ast::Expression::Call;
 use super::type_given_function::type_given_function;
 use super::type_register::TypeRegister;
 use program_structure::ast::*;
+use program_structure::ast::Expression::Call;
 use program_structure::environment::CircomEnvironment;
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
@@ -11,8 +11,10 @@ use std::collections::HashSet;
 
 type ArithmeticType = usize;
 type ComponentInfo = (Option<String>, ArithmeticType);
-type BusInfo = (Option<String>, ArithmeticType);
-type TypingEnvironment = CircomEnvironment<ComponentInfo,  (ArithmeticType, std::vec::Vec<std::string::String>), ArithmeticType, BusInfo>;
+type BusInfo = (Option<String>, ArithmeticType, std::vec::Vec<std::string::String>);
+type SignalInfo = (ArithmeticType, std::vec::Vec<std::string::String>);
+type VarInfo = ArithmeticType;
+type TypingEnvironment = CircomEnvironment<ComponentInfo, SignalInfo, VarInfo, BusInfo>;
 type CallRegister = TypeRegister<ArithmeticType>;
 
 struct AnalysisInformation {
@@ -25,18 +27,28 @@ struct AnalysisInformation {
 }
 
 struct FoldedType {
+    // var dimension
     arithmetic: Option<ArithmeticType>,
+    // template name
     template: Option<String>,
+    // bus type name
+    bus: Option<String>,
 }
 impl FoldedType {
     pub fn arithmetic_type(dimensions: ArithmeticType) -> FoldedType {
-        FoldedType { arithmetic: Option::Some(dimensions), template: Option::None }
+        FoldedType { arithmetic: Option::Some(dimensions), template: Option::None, bus: Option::None }
     }
     pub fn template(name: &str) -> FoldedType {
-        FoldedType { template: Option::Some(name.to_string()), arithmetic: Option::None }
+        FoldedType { template: Option::Some(name.to_string()), arithmetic: Option::None, bus: Option::None }
     }
     pub fn is_template(&self) -> bool {
         self.template.is_some() && self.arithmetic.is_none()
+    }
+    pub fn bus(name: &str, dimensions: ArithmeticType) -> FoldedType {
+        FoldedType { bus: Option::Some(name.to_string()), arithmetic: Option::Some(dimensions), template: Option::None }
+    }
+    pub fn is_bus(&self) -> bool {
+        self.bus.is_some()
     }
     pub fn dim(&self) -> usize {
         if let Option::Some(dim) = &self.arithmetic {
@@ -47,10 +59,11 @@ impl FoldedType {
     }
     pub fn same_type(left: &FoldedType, right: &FoldedType) -> bool {
         let mut equal = false;
-        if let (Option::Some(l_template), Option::Some(r_template)) =
-            (&left.template, &right.template)
-        {
+        if let (Option::Some(l_template), Option::Some(r_template)) = (&left.template, &right.template) {
             equal = l_template.eq(r_template);
+        }
+        if let (Option::Some(l_bus), Option::Some(r_bus)) = (&left.bus, &right.bus) {
+            equal = l_bus.eq(r_bus);
         }
         if let (Option::Some(l_dim), Option::Some(r_dim)) = (&left.arithmetic, &right.arithmetic) {
             equal = *l_dim == *r_dim;
@@ -105,7 +118,7 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
 }
 
 fn check_main_has_tags(initial_expression: &Expression, program_archive: &ProgramArchive) -> bool {
-    if let  Call { id, .. } = initial_expression{
+    if let Call { id, .. } = initial_expression {
         let inputs = program_archive.get_template_data(id).get_inputs();
         let mut tag_in_inputs = false;
         for input in inputs {
@@ -141,6 +154,13 @@ fn type_statement(
                         &mut analysis_information.reports,
                     );
                 }
+                else if dim_type.is_bus() {
+                    add_report(
+                        ReportCode::InvalidArraySizeB,
+                        dim_expression.get_meta(),
+                        &mut analysis_information.reports,
+                    );
+                }
                 else if dim_type.dim() > 0 {
                     add_report(
                         ReportCode::InvalidArraySize(dim_type.dim()),
@@ -151,17 +171,21 @@ fn type_statement(
             }
             match xtype {
                 VariableType::Signal(s_type, tags) => {
-                    if let SignalType::Input = s_type {
-                        analysis_information.environment.add_input(name, (dimensions.len(),tags.clone()));
-                    } else if let SignalType::Output = s_type {
-                        analysis_information.environment.add_output(name, (dimensions.len(),tags.clone()));
-                    } else {
-                        analysis_information.environment.add_intermediate(name, (dimensions.len(),tags.clone()));
+                    match s_type {
+                        SignalType::Input => analysis_information
+                            .environment
+                            .add_input(name, (dimensions.len(),tags.clone())),
+                        SignalType::Output => analysis_information
+                            .environment
+                            .add_output(name, (dimensions.len(),tags.clone())),
+                        SignalType::Intermediate => analysis_information
+                            .environment
+                            .add_intermediate(name, (dimensions.len(),tags.clone())),
                     }
                 }
-                VariableType::Var => {
-                    analysis_information.environment.add_variable(name, dimensions.len())
-                }
+                VariableType::Var => analysis_information
+                    .environment
+                    .add_variable(name, dimensions.len()),
                 VariableType::Component => analysis_information
                     .environment
                     .add_component(name, (meta.component_inference.clone(), dimensions.len())),
@@ -169,8 +193,17 @@ fn type_statement(
                     .environment
                     .add_component(name, (meta.component_inference.clone(), dimensions.len())),
                 VariableType::Bus(tname, stype, tags) => {
-                    // TODO: 
-                    unreachable!("TODO")
+                    match s_type {
+                        SignalType::Input => analysis_information
+                            .environment
+                            .add_input_bus(name, (Option::Some(tname), dimensions.len(), tags.clone())),
+                        SignalType::Output => analysis_information
+                            .environment
+                            .add_output_bus(name, (Option::Some(tname), dimensions.len(), tags.clone())),
+                        SignalType::Intermediate => analysis_information
+                            .environment
+                            .add_intermediate_bus(name, (Option::Some(tname), dimensions.len(), tags.clone())),
+                    }
                 }
             }
         }
@@ -216,10 +249,13 @@ fn type_statement(
             match (&symbol_information, op) {
                 (SymbolInformation::Signal(_), AssignOp::AssignConstraintSignal)
                 | (SymbolInformation::Signal(_), AssignOp::AssignSignal)
+                | (SymbolInformation::Bus(_), AssignOp::AssignConstraintSignal)
+                | (SymbolInformation::Bus(_), AssignOp::AssignSignal)
+                | (SymbolInformation::Bus(_), AssignOp::AssignVar)
                 | (SymbolInformation::Var(_), AssignOp::AssignVar)
-                | (SymbolInformation::Component(_), AssignOp::AssignVar) => {}
+                | (SymbolInformation::Component(_), AssignOp::AssignVar)
                 | (SymbolInformation::Tag, AssignOp::AssignVar) => {}
-                (SymbolInformation::Signal(_), AssignOp::AssignVar)=>{
+                (SymbolInformation::Signal(_), AssignOp::AssignVar) => {
                     return add_report(
                         ReportCode::WrongTypesInAssignOperationOperatorSignal,
                         meta,
@@ -235,14 +271,14 @@ fn type_statement(
                 }
             }
             match symbol_information {
-                SymbolInformation::Component(possible_template) =>{
-                    if rhe_type.is_template(){
-                        if possible_template.is_none(){
+                SymbolInformation::Component(possible_template) => {
+                    if rhe_type.is_template() {
+                        if possible_template.is_none() {
                             let (current_template, _) = analysis_information
                                 .environment
                                 .get_mut_component_or_break(var, file!(), line!());
                             *current_template = rhe_type.template;
-                        } else{
+                        } else {
                             let template = possible_template.unwrap();
                             let r_template = rhe_type.template.unwrap();
                             if template != r_template {
@@ -253,7 +289,7 @@ fn type_statement(
                                 )
                             }
                         }
-                    } else{
+                    } else {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationTemplate,
                             meta,
@@ -261,53 +297,69 @@ fn type_statement(
                         )
                     }
                 }
-                SymbolInformation::Signal(dim) =>{
-                    if rhe_type.is_template(){
+                SymbolInformation::Bus(possible_bus, dim) => {
+                    if rhe_type.is_bus() {
+                        if dim != rhe_type.dim() {
+                            add_report(
+                                ReportCode::WrongTypesInAssignOperationDims(dim, rhe_type.dim()),
+                                meta,
+                                &mut analysis_information.reports,
+                            )
+                        }
+                        else if possible_bus.is_none() {
+                            let (current_bus, _) = analysis_information
+                                .environment
+                                .get_mut_bus_or_break(var, file!(), line!());
+                            *current_bus = rhe_type.bus;
+                        } else {
+                            let bus = possible_bus.unwrap();
+                            let r_bus = rhe_type.bus.unwrap();
+                            if bus != r_bus {
+                                add_report(
+                                    ReportCode::WrongTypesInAssignOperationArrayBuses,
+                                    meta,
+                                    &mut analysis_information.reports,
+                                )
+                            }
+                        }
+                    } else {
+                        add_report(
+                            ReportCode::WrongTypesInAssignOperationBus,
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    }
+                }
+                SymbolInformation::Signal(dim)
+                | SymbolInformation::Var(dim) => {
+                    if rhe_type.is_template() || rhe_type.is_bus() {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationExpression,
                             meta,
                             &mut analysis_information.reports,
                         )
-                    } else if dim != rhe_type.dim(){
+                    } else if dim != rhe_type.dim() {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationDims(dim, rhe_type.dim()),
                             meta,
                             &mut analysis_information.reports,
                         )
                     }
-                    
                 }
-                SymbolInformation::Var(dim) =>{
-                    if rhe_type.is_template(){
+                SymbolInformation::Tag => {
+                    if rhe_type.is_template() || rhe_type.is_bus() {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationExpression,
                             meta,
                             &mut analysis_information.reports,
                         )
-                    } else if dim != rhe_type.dim(){
-                        add_report(
-                            ReportCode::WrongTypesInAssignOperationDims(dim, rhe_type.dim()), 
-                            meta,
-                            &mut analysis_information.reports,
-                        )
-                    }
-                    
-                }
-                SymbolInformation::Tag =>{
-                    if rhe_type.is_template(){
-                        add_report(
-                            ReportCode::WrongTypesInAssignOperationExpression,
-                            meta,
-                            &mut analysis_information.reports,
-                        )
-                    } else if 0 != rhe_type.dim(){
+                    } else if 0 != rhe_type.dim() {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationDims(0, rhe_type.dim()),
                             meta,
                             &mut analysis_information.reports,
                         )
                     }
-                    
                 }
             }
         }
@@ -355,7 +407,7 @@ fn type_statement(
                     } else {
                         return;
                     };
-                    if arg_type.is_template()  {
+                    if arg_type.is_template() || arg_type.is_bus() {
                         add_report(
                             ReportCode::MustBeSingleArithmeticT,
                             meta,
@@ -378,7 +430,7 @@ fn type_statement(
             } else {
                 return;
             };
-            if arg_type.is_template() {
+            if arg_type.is_template() || arg_type.is_bus() {
                 add_report(
                     ReportCode::MustBeSingleArithmeticT,
                     meta,
@@ -421,13 +473,13 @@ fn type_statement(
             } else {
                 return;
             };
-            if cond_type.is_template(){
+            if cond_type.is_template() || cond_type.is_bus() {
                 add_report(
                     ReportCode::MustBeSingleArithmeticT,
                     cond.get_meta(),
                     &mut analysis_information.reports,
                 )
-            }else if cond_type.dim() > 0 {
+            } else if cond_type.dim() > 0 {
                 add_report(
                     ReportCode::MustBeSingleArithmetic(cond_type.dim()),
                     cond.get_meta(),
@@ -443,7 +495,7 @@ fn type_statement(
             } else {
                 return;
             };
-            if cond_type.is_template(){
+            if cond_type.is_template() || cond_type.is_bus() {
                 add_report(
                     ReportCode::MustBeSingleArithmeticT,
                     cond.get_meta(),
@@ -472,7 +524,7 @@ fn type_statement(
             } else {
                 return;
             };
-            if rhe_type.is_template() {
+            if rhe_type.is_template() || rhe_type.is_bus() {
                 add_report(
                     ReportCode::MustBeArithmetic,
                     rhe.get_meta(),
@@ -482,6 +534,7 @@ fn type_statement(
         },
     }
 }
+
 fn type_expression(
     expression: &Expression,
     program_archive: &ProgramArchive,
@@ -502,7 +555,7 @@ fn type_expression(
             }
             let inferred_dim = values_types[0].dim();
             for (expression, value_type) in values.iter().zip(values_types.iter()) {
-                if value_type.is_template() {
+                if value_type.is_template() || value_type.is_bus() {
                     add_report(
                         ReportCode::InvalidArrayType,
                         expression.get_meta(),
@@ -528,7 +581,7 @@ fn type_expression(
                 );
             };
             let dim_type = type_expression(dimension, program_archive, analysis_information)?;
-            if dim_type.is_template() {
+            if dim_type.is_template() || dim_type.is_bus() {
                 add_report(
                     ReportCode::InvalidArrayType,
                     expression.get_meta(),
@@ -541,8 +594,11 @@ fn type_expression(
                     &mut analysis_information.reports,
                 );
             }
-            
-            Result::Ok(FoldedType::arithmetic_type(value_type.dim() + 1))
+            if let Some(iden) = &value_type.bus {
+                Result::Ok(FoldedType::bus(iden.clone(), value_type.dim() + 1))
+            } else {
+                Result::Ok(FoldedType::arithmetic_type(value_type.dim() + 1))
+            }
         }
         InfixOp { lhe, rhe, .. } => {
             let lhe_response = type_expression(lhe, program_archive, analysis_information);
@@ -550,14 +606,14 @@ fn type_expression(
             let lhe_type = lhe_response?;
             let rhe_type = rhe_response?;
             let mut successful = Result::Ok(());
-            if lhe_type.is_template() || lhe_type.dim() > 0 {
+            if lhe_type.is_template() || lhe_type.is_bus() || lhe_type.dim() > 0 {
                 successful = add_report_and_end(
                     ReportCode::InfixOperatorWithWrongTypes,
                     lhe.get_meta(),
                     &mut analysis_information.reports,
                 );
             }
-            if rhe_type.is_template() || rhe_type.dim() > 0 {
+            if rhe_type.is_template() || rhe_type.is_bus() || rhe_type.dim() > 0 {
                 successful = add_report_and_end(
                     ReportCode::InfixOperatorWithWrongTypes,
                     rhe.get_meta(),
@@ -569,7 +625,7 @@ fn type_expression(
         }
         PrefixOp { rhe, .. } => {
             let rhe_type = type_expression(rhe, program_archive, analysis_information)?;
-            if rhe_type.is_template() || rhe_type.dim() > 0 {
+            if rhe_type.is_template() || rhe_type.is_bus() || rhe_type.dim() > 0 {
                 add_report_and_end(
                     ReportCode::PrefixOperatorWithWrongTypes,
                     rhe.get_meta(),
@@ -579,9 +635,9 @@ fn type_expression(
                 Result::Ok(FoldedType::arithmetic_type(0))
             }
         }
-        ParallelOp {rhe, .. } =>{
+        ParallelOp {rhe, .. } => {
             let rhe_type = type_expression(rhe, program_archive, analysis_information)?;
-            if rhe_type.is_template()  {
+            if rhe_type.is_template() {
                 Result::Ok(rhe_type)
             } else {
                 add_report_and_end(
@@ -594,8 +650,7 @@ fn type_expression(
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             let cond_response = type_expression(cond, program_archive, analysis_information);
             let if_true_response = type_expression(if_true, program_archive, analysis_information);
-            let if_false_response =
-                type_expression(if_false, program_archive, analysis_information);
+            let if_false_response = type_expression(if_false, program_archive, analysis_information);
             let if_true_type = if_true_response?;
 
             let cond_type = if let Result::Ok(f) = cond_response {
@@ -603,7 +658,7 @@ fn type_expression(
             } else {
                 return Result::Ok(if_true_type);
             };
-            if cond_type.is_template(){
+            if cond_type.is_template() || cond_type.is_bus() {
                 add_report(
                     ReportCode::MustBeSingleArithmeticT,
                     cond.get_meta(),
@@ -650,14 +705,20 @@ fn type_expression(
                 SymbolInformation::Component(possible_template) if possible_template.is_some() => {
                     Result::Ok(FoldedType::template(&possible_template.unwrap()))
                 }
+                SymbolInformation::Component(possible_template) if possible_template.is_none() => {
+                    add_report_and_end(ReportCode::UninitializedSymbolInExpression, meta, reports)
+                }
+                SymbolInformation::Bus(possible_bus, dim) if possible_bus.is_some() => {
+                    Result::Ok(FoldedType::bus(&possible_bus.unwrap(), dim))
+                }
+                SymbolInformation::Bus(possible_bus, _) if possible_bus.is_none() => {
+                    add_report_and_end(ReportCode::UninitializedSymbolInExpression, meta, reports)
+                }
                 SymbolInformation::Var(dim) | SymbolInformation::Signal(dim) => {
                     Result::Ok(FoldedType::arithmetic_type(dim))
                 }
                 SymbolInformation::Tag => {
                     Result::Ok(FoldedType::arithmetic_type(0))
-                }
-                SymbolInformation::Component(possible_template) if possible_template.is_none() => {
-                    add_report_and_end(ReportCode::UninitializedSymbolInExpression, meta, reports)
                 }
                 _ => unreachable!(),
             }
@@ -673,7 +734,7 @@ fn type_expression(
             let mut concrete_types = Vec::new();
             let mut success = Result::Ok(());
             for (arg_expr, arg_type) in args.iter().zip(arg_types.iter()) {
-                if arg_type.is_template() {
+                if arg_type.is_template() || arg_type.is_bus() {
                     success = add_report_and_end(
                         ReportCode::InvalidArgumentInCall,
                         arg_expr.get_meta(),
@@ -750,13 +811,13 @@ fn treat_access(
             ArrayAccess(index) => {
                 let index_response = type_expression(&index, program_archive, analysis_information);
                 
-                if access_info.2.is_some(){
+                if access_info.2.is_some() {
                     add_report(
                         ReportCode::InvalidArrayAccess(0, 1),
                         index.get_meta(),
                         &mut analysis_information.reports,
                     );
-                } else{
+                } else {
                     if let Option::Some(signal_info) = &mut access_info.1 {
                         signal_info.1 += 1;
                     } else {
@@ -782,7 +843,7 @@ fn treat_access(
             }
             ComponentAccess(name) => {
                 if let Option::Some(_signal_info) = & access_info.1 {
-                    if access_info.2.is_none(){
+                    if access_info.2.is_none() {
                         access_info.2 = Some(name.clone())
                     } else{
                         add_report(
@@ -800,13 +861,14 @@ fn treat_access(
     Result::Ok(access_info)
 }
 
-
 enum SymbolInformation {
     Component(Option<String>),
     Var(ArithmeticType),
     Signal(ArithmeticType),
+    Bus(Option<String>, ArithmeticType),
     Tag,
 }
+
 fn apply_access_to_symbol(
     symbol: &str,
     meta: &Meta,
@@ -1021,6 +1083,9 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         }
         InvalidArraySizeT =>{
             "Array indexes and lengths must be single arithmetic expressions.\n Found component instead of expression.".to_string()
+        }
+        InvalidArraySizeB =>{
+            "Array indexes and lengths must be single arithmetic expressions.\n Found bus instead of expression.".to_string()
         }
         InvalidArrayAccess(expected, given) => {
             format!("Array access does not match the dimensions of the expression. \n Expected {} dimensions, given {}.",
