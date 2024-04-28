@@ -23,27 +23,26 @@ include "escalarmul/escalarmulfix.circom";
 
 // The templates and functions of this file only work for prime field bn128 (21888242871839275222246405745257275088548364400416034343698204186575808495617)
 
-
-/*
-*** BabyAdd(): template that receives two points of the Baby Jubjub curve in Edwards form and returns the addition of the points.
-        - Inputs: p1 = (p1.x, p1.y) -> two field values representing a point of the curve in Edwards form
-                  p2 = (p2.x, p2.y) -> two field values representing a point of the curve in Edwards form
-        - Outputs: pout = (pout.x, pout.y) -> two field values representing a point of the curve in Edwards form, pout = p1 + p2
-         
-    Example:
-    
-    tau = d * p1.x * p2.x * p1.y * p2.y
-    
-    
-                          p1.x * p2.y + p1.y * p2.x     p1.y * p2.y - p1.x * p2.x
-    [pout.x, pout.y] = [ --------------------------- , --------------------------- ]
-                                 1 + d * tau                   1 - d * tau     
-    
-*/
-
 bus Point {
     signal {bn128} x,y;
 }
+
+/*
+*** BabyAdd(): template that receives two points of the Baby Jubjub curve in Edwards form and returns the addition of the points.
+        - Inputs: p1 = (x1, y1) -> bus representing a point of the curve in Edwards form
+                  p2 = (x2, y2) -> bus representing a point of the curve in Edwards form
+        - Outputs: pout = (xout, yout) -> bus representing a point of the curve in Edwards form, pout = p1 + p2
+         
+    Example:
+    
+    tau = d * x1 * x2 * y1 * y2
+    
+    
+                        x1 * y2 + y1 * x2         y1 * y2 - x1 * x2
+    [xout, yout] = [ ----------------------- , ----------------------- ]
+                           1 + d * tau               1 - d * tau     
+    
+*/
 
 template BabyAdd() {
     Point input {babyedwards} p1,p2;
@@ -73,8 +72,8 @@ template BabyAdd() {
 
 /*
 *** BabyDouble(): template that receives a point pin of the Baby Jubjub curve in Edwards form and returns the point 2 * pin.
-        - Inputs: pin = (pin.x, pin.y) -> two field values representing a point of the curve in Edwards form
-        - Outputs: pout = (pout.x, pout.y) -> two field values representing a point of the curve in Edwards form, 2 * pin = pout
+        - Inputs: pin = (x1, y1) -> bus representing a point of the curve in Edwards form
+        - Outputs: pout = (x2, y2) -> bus representing a point of the curve in Edwards form, 2 * pin = pout
          
     Example: BabyDouble()(p) = BabyAdd()(p, p)
     
@@ -93,9 +92,9 @@ template BabyDbl() {
 
 
 /*
-*** BabyCheck(): template that receives an input point pin = (pin.x, pin.y) and checks if it belongs to the Baby Jubjub curve.
-        - Inputs: pin = (pin.x, pin.y) -> two field values representing the point that we want to check
-        - Outputs: pout = (pout.x, pout.y) -> two field values representing the same point as the input but with the babyedwards tag
+*** BabyCheck(): template that receives an input point pin and checks if it belongs to the Baby Jubjub curve.
+        - Inputs: pin = (x1, y1) -> bus representing the point that we want to check
+        - Outputs: pout = (x2, y2) -> two field values representing the same point as the input but with the babyedwards tag
                                               to point out it is a point of the Baby Jubjub curve in Edwards form
         
     Example: The set of solutions of BabyCheck()(p) are the points of the Baby Jubjub curve in Edwards form
@@ -129,7 +128,7 @@ template BabyCheck() {
 
 This template is used to extract the public key from the private key.
         - Inputs: in -> field value in [1,r-1]
-        - Outputs: A = (A.x, A.y) -> two field values representing a point of the curve in Edwards form, in * P = A
+        - Outputs: A = (x, y) -> two field values representing a point of the curve in Edwards form, in * P = A
     
 */
 
