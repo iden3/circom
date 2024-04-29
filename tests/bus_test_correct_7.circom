@@ -30,10 +30,15 @@ template AliasCheck() {
 
     component compConstant = CompConstant(-1);
 
-    for (var i=0; i<254; i++) {
+/*    for (var i=0; i<254; i++) {
         in[i] ==> compConstant.in[i];
         in[i] ==> out.bits[i];
     }
 
     compConstant.out === 0;
+*/
+    signal out_aux <== CompConstant(-1)(in);
+    out_aux === 0;
+    in ==> out.bits;
+    
 }
