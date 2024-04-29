@@ -9,7 +9,7 @@ bus Figure (N,dim) {
 }
 
 template Create (N,bitmax) {
-    Figure(N) output fig(N,3);
+    Figure(N,3) output fig;
 
     var c0 = 0;
     var c1 = 0;
