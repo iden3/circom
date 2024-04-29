@@ -28,9 +28,10 @@ template AliasCheck() {
     signal input {binary} in[254];
     BinaryNumber output {unique} out;
 
+/*
     component compConstant = CompConstant(-1);
 
-/*    for (var i=0; i<254; i++) {
+    for (var i=0; i<254; i++) {
         in[i] ==> compConstant.in[i];
         in[i] ==> out.bits[i];
     }
