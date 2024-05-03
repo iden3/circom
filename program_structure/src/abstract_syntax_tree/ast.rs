@@ -394,11 +394,11 @@ pub enum ExpressionPrefixOpcode {
 
 // Knowledge buckets
 
-#[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq)]
+#[derive(Clone, PartialOrd, PartialEq, Ord, Eq)]
 pub enum TypeReduction {
     Variable,
-    Component,
-    Bus,
+    Component(Option<String>),
+    Bus(Option<String>),
     Signal,
     Tag,
 }
@@ -429,7 +429,7 @@ impl TypeKnowledge {
     }
     pub fn get_reduces_to(&self) -> TypeReduction {
         if let Option::Some(t) = &self.reduces_to {
-            *t
+            t.clone()
         } else {
             panic!("reduces_to knowledge is been look at without being initialized");
         }
@@ -437,8 +437,18 @@ impl TypeKnowledge {
     pub fn is_var(&self) -> bool {
         self.get_reduces_to() == TypeReduction::Variable
     }
+
+    pub fn is_initialized(&self) -> bool {
+        if let Option::Some(_) = &self.reduces_to {
+            true
+        } else {
+            false
+        }
+    }
     pub fn is_component(&self) -> bool {
-        self.get_reduces_to() == TypeReduction::Component
+        if let TypeReduction::Component(_) = self.get_reduces_to()  {
+                 true
+        } else { false }
     }
     pub fn is_signal(&self) -> bool {
         self.get_reduces_to() == TypeReduction::Signal
