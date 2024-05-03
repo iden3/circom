@@ -13,5 +13,3 @@ template Pipe (n) {
         pout.y[i] <== pin.y[i];
     }
 }
-
-component main = Pipe(3);
