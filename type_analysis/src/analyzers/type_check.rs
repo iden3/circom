@@ -192,17 +192,17 @@ fn type_statement(
                 VariableType::AnonymousComponent => analysis_information
                     .environment
                     .add_component(name, (meta.component_inference.clone(), dimensions.len())),
-                VariableType::Bus(tname, stype, tags) => {
-                    match s_type {
+                VariableType::Bus(tname, ss_type, tags) => {
+                    match ss_type {
                         SignalType::Input => analysis_information
                             .environment
-                            .add_input_bus(name, (Option::Some(tname), dimensions.len(), tags.clone())),
+                            .add_input_bus(name, (Option::Some(tname.clone()), dimensions.len(), tags.clone())),
                         SignalType::Output => analysis_information
                             .environment
-                            .add_output_bus(name, (Option::Some(tname), dimensions.len(), tags.clone())),
+                            .add_output_bus(name, (Option::Some(tname.clone()), dimensions.len(), tags.clone())),
                         SignalType::Intermediate => analysis_information
                             .environment
-                            .add_intermediate_bus(name, (Option::Some(tname), dimensions.len(), tags.clone())),
+                            .add_intermediate_bus(name, (Option::Some(tname.clone()), dimensions.len(), tags.clone())),
                     }
                 }
             }
@@ -249,9 +249,9 @@ fn type_statement(
             match (&symbol_information, op) {
                 (SymbolInformation::Signal(_), AssignOp::AssignConstraintSignal)
                 | (SymbolInformation::Signal(_), AssignOp::AssignSignal)
-                | (SymbolInformation::Bus(_), AssignOp::AssignConstraintSignal)
-                | (SymbolInformation::Bus(_), AssignOp::AssignSignal)
-                | (SymbolInformation::Bus(_), AssignOp::AssignVar)
+                | (SymbolInformation::Bus(_,_), AssignOp::AssignConstraintSignal)
+                | (SymbolInformation::Bus(_,_), AssignOp::AssignSignal)
+                | (SymbolInformation::Bus(_,_), AssignOp::AssignVar)
                 | (SymbolInformation::Var(_), AssignOp::AssignVar)
                 | (SymbolInformation::Component(_), AssignOp::AssignVar)
                 | (SymbolInformation::Tag, AssignOp::AssignVar) => {}
@@ -307,7 +307,7 @@ fn type_statement(
                             )
                         }
                         else if possible_bus.is_none() {
-                            let (current_bus, _) = analysis_information
+                            let (current_bus, _,_) = analysis_information
                                 .environment
                                 .get_mut_bus_or_break(var, file!(), line!());
                             *current_bus = rhe_type.bus;
@@ -595,7 +595,7 @@ fn type_expression(
                 );
             }
             if let Some(iden) = &value_type.bus {
-                Result::Ok(FoldedType::bus(iden.clone(), value_type.dim() + 1))
+                Result::Ok(FoldedType::bus(iden.clone().as_str(), value_type.dim() + 1))
             } else {
                 Result::Ok(FoldedType::arithmetic_type(value_type.dim() + 1))
             }

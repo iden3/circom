@@ -111,6 +111,7 @@ pub enum ReportCode {
     TupleError,
     InvalidSignalTagAccess,
     UninitializedComponent,
+    BusWrongNumberOfArguments,
 }
 
 impl fmt::Display for ReportCode {
@@ -223,6 +224,7 @@ impl fmt::Display for ReportCode {
             AnonymousCompError => "TAC01",
             TupleError => "TAC02",
             UnderscoreWithNoSignalWarning => "TAC03",
+            BusWrongNumberOfArguments => "BU01",
         };
         f.write_str(string_format)
     }

@@ -448,8 +448,33 @@ fn analyze_expression(
                 environment,
             );
         },
-        Expression::BusCall { args, .. } => 
+        Expression::BusCall { meta, id, args } => 
         {
+            if !bus_info.contains_key(id) {
+                let mut report =
+                    Report::error(format!("Calling symbol"), ReportCode::NonExistentSymbol);
+                report.add_primary(
+                    file_definition::generate_file_location(meta.get_start(), meta.get_end()),
+                    file_id.clone(),
+                    format!("Calling unknown symbol"),
+                );
+                reports.push(report);
+                return;
+            }
+            let expected_num_of_params = bus_info.get(id).unwrap().get_num_of_params();
+            if args.len() != expected_num_of_params {
+                let mut report = Report::error(
+                    format!("Instantiating bus with wrong number of arguments"),
+                    ReportCode::BusWrongNumberOfArguments,
+                );
+                report.add_primary(
+                    file_definition::generate_file_location(meta.get_start(), meta.get_end()),
+                    file_id.clone(),
+                    format!("Got {} params, {} where expected", args.len(), expected_num_of_params),
+                );
+                reports.push(report);
+                return;
+            }
             for arg in args.iter() {
                 analyze_expression(
                     arg,

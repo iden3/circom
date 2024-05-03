@@ -1,8 +1,8 @@
 use program_structure::ast::*;
+use program_structure::program_library::bus_data::BusData;
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition;
-use program_structure::bus_data::BusData;
 use std::collections::HashSet;
 
 pub fn free_of_invalid_statements(
@@ -48,20 +48,15 @@ fn analyse_statement(
             report.add_primary(location, file_id, "Using invalid statement".to_string());
             reports.push(report);
         },
-        Block { stmts, .. } => {
+        Block { stmts, .. }  => {
             for stmt in stmts.iter() {
                 analyse_statement(stmt, function_names, reports);
             }
         },
-        InitializationBlock { meta, .. } => {
-            let mut report = Report::error(
-                "Initialization statement used inside the bus".to_string(),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id, "Using invalid statement".to_string());
-            reports.push(report);
+        InitializationBlock { initializations, .. } => {
+            for stmt in initializations.iter() {
+                analyse_statement(stmt, function_names, reports);
+            }
         },
         Declaration { meta, xtype, dimensions, .. } => {
             match xtype {
