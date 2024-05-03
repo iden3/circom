@@ -46,7 +46,23 @@ pub fn custom_gate_analysis(
                             )
                         );
                         warnings.push(warning);
-                    }
+                    },
+                    Bus(_,SignalType::Intermediate, _) => {
+                        let mut warning = Report::warning(
+                            String::from("Intermediate bus inside custom template"),
+                            ReportCode::CustomGateIntermediateSignalWarning
+                        );
+                        warning.add_primary(
+                            meta.location.clone(),
+                            meta.file_id.unwrap(),
+                            format!(
+                                "Intermediate bus {} declared in custom template {}",
+                                name,
+                                custom_gate_name
+                            )
+                        );
+                        warnings.push(warning);
+                    },
                     Component | AnonymousComponent => {
                         let mut error = Report::error(
                             String::from("Component inside custom template"),

@@ -39,11 +39,17 @@ pub fn _handle_template_constants(template: &mut TemplateData) -> ReportCollecti
     expand_statement(template.get_mut_body(), &mut expression_holder);
     reports
 }
+
 pub fn handle_bus_constants(bus: &mut BusData) -> ReportCollection {
     let mut environment = Constants::new();
     let mut expression_holder = ExpressionHolder::new();
     for p in bus.get_name_of_params() {
-        environment.add_variable(p, false);
+        environment.add_variable(p, true);
+        let meta = bus.get_body().get_meta().clone();
+        let name = p.clone();
+        let access = vec![];
+        let expression = build_variable(meta, name, access);
+        expression_holder.add_variable(p, expression);
     }
     statement_constant_inference(bus.get_mut_body(), &mut environment);
     let reports = statement_invariant_check(bus.get_body(), &mut environment);
