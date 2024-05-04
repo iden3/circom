@@ -89,15 +89,17 @@ fn analyse_statement(
                 }
             }
         },
-        Substitution { meta, .. } | UnderscoreSubstitution { meta, .. } => {
-            let mut report = Report::error(
-                "Substitution statement used inside the bus".to_string(),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id, "Using invalid statement".to_string());
-            reports.push(report);
+        Substitution { meta, rhe, .. } | UnderscoreSubstitution { meta, rhe,  .. } => {
+            if !rhe.is_bus_call(){
+                let mut report = Report::error(
+                    "Substitution statement used inside the bus".to_string(),
+                    ReportCode::UndefinedBus,
+                );
+                let location =
+                    file_definition::generate_file_location(meta.get_start(), meta.get_end());
+                report.add_primary(location, file_id, "Using invalid statement".to_string());
+                reports.push(report);
+            }
         },
         ConstraintEquality { meta, .. } => {
             let mut report = Report::error(

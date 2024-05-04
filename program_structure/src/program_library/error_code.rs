@@ -113,6 +113,7 @@ pub enum ReportCode {
     InvalidSignalTagAccess,
     UninitializedComponent,
     BusWrongNumberOfArguments,
+    InvalidSignalAccessInBus,
 }
 
 impl fmt::Display for ReportCode {
@@ -227,6 +228,7 @@ impl fmt::Display for ReportCode {
             UnderscoreWithNoSignalWarning => "TAC03",
             BusWrongNumberOfArguments => "BU01",
             InvalidArgumentInBusInstantiation => "BU02",
+            InvalidSignalAccessInBus => "BU03",
         };
         f.write_str(string_format)
     }
