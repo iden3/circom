@@ -119,7 +119,14 @@ impl Expression {
             false
         }
     }
-
+    pub fn is_bus_call(&self) -> bool {
+        use Expression::*;
+        if let BusCall { .. } = self {
+            true
+        } else {
+            false
+        }
+    }
     pub fn is_anonymous_comp(&self) -> bool {
         use Expression::*;
         if let AnonymousComp { .. } = self {

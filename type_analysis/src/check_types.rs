@@ -106,12 +106,12 @@ fn template_level_analyses(program_archive: &ProgramArchive, reports: &mut Repor
 
 fn template_level_decorators(
     program_archive: &mut ProgramArchive,
-    _reports: &mut ReportCollection,
+    reports: &mut ReportCollection,
 ) {
     component_type_inference::inference(program_archive);
     let program_archive2 = program_archive.clone();
     for template_data in program_archive.get_mut_templates().values_mut() {
-        type_reduction::reduce_template(template_data,&program_archive2);
+        reports.append(&mut type_reduction::reduce_template(template_data,&program_archive2));
     }
 }
 
@@ -134,7 +134,7 @@ fn function_level_decorators(program_archive: &mut ProgramArchive, reports: &mut
     for function_data in program_archive.get_mut_functions().values_mut() {
         let mut constant_handler_reports =
             constants_handler::handle_function_constants(function_data);
-        type_reduction::reduce_function(function_data,&program_archive2);
+        reports.append(&mut type_reduction::reduce_function(function_data,&program_archive2));
         reports.append(&mut constant_handler_reports);
     }
 }
@@ -154,7 +154,7 @@ fn bus_level_decorators(program_archive: &mut ProgramArchive, reports: &mut Repo
     for bus_data in program_archive.get_mut_buses().values_mut() {
         let mut constant_handler_reports =
             constants_handler::handle_bus_constants(bus_data);
-        type_reduction::reduce_bus(bus_data,&program_archive2);
+        reports.append(&mut type_reduction::reduce_bus(bus_data,&program_archive2));
         reports.append(&mut constant_handler_reports);
     }
 }

@@ -2,6 +2,7 @@ use super::ast::{FillMeta, Statement, VariableType, SignalType};
 use super::file_definition::{FileID, FileLocation};
 use super::wire_data::*;
 use std::collections::{HashMap};
+use std::num::IntErrorKind;
 
 pub type BusInfo = HashMap<String, BusData>;
 
@@ -122,7 +123,7 @@ fn fill_fields(
 ) {
     use Statement::*;
     match bus_statement {
-        Block { stmts, .. } => {
+        Block { stmts, .. } | InitializationBlock { initializations : stmts, .. } => {
             for stmt in stmts.iter() {
                 fill_fields(stmt, fields, field_declarations);
             }
