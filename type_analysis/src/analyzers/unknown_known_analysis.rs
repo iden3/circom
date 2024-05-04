@@ -29,20 +29,32 @@ enum Tag {
 type Environment = CircomEnvironment<Tag, Tag, Tag, Tag>;
 
 pub fn unknown_known_analysis(
-    template_name: &str,
+    name: &str,
     program_archive: &ProgramArchive,
 ) -> Result<(), ReportCollection> {
     debug_assert!(Tag::Known < Tag::Unknown);
-    let template_data = program_archive.get_template_data(template_name);
-    let template_body = template_data.get_body();
-    let file_id = template_data.get_file_id();
     let mut environment = Environment::new();
-    for arg in template_data.get_name_of_params() {
-        environment.add_variable(arg, Tag::Known);
-    }
+    let (body, file_id) = if program_archive.contains_template(name) {
+        let template_data = program_archive.get_template_data(name);
+        let template_body = template_data.get_body();
+        let file_id = template_data.get_file_id();
+        for arg in template_data.get_name_of_params() {
+            environment.add_variable(arg, Tag::Known);
+        }
+        (template_body, file_id)
+    } else {
+        debug_assert!(program_archive.contains_bus(name));
+        let bus_data = program_archive.get_bus_data(name);
+        let bus_body = bus_data.get_body();
+        let file_id = bus_data.get_file_id();
+        for arg in bus_data.get_name_of_params() {
+            environment.add_variable(arg, Tag::Known);
+        }
+        (bus_body, file_id)
+    };
 
     let entry = EntryInformation { file_id, environment };
-    let result = analyze(template_body, entry);
+    let result = analyze(body, entry);
     if result.reports.is_empty() {
         Result::Ok(())
     } else {
@@ -144,7 +156,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     *value = max(expression_tag, access_tag);
                     modified_variables.insert(var.clone());
                 }
-                TypeReduction::Component => {
+                TypeReduction::Component(_) => {
                     constraints_declared = true;
                     if expression_tag == Unknown {
                         add_report(ReportCode::UnknownTemplate, rhe.get_meta(), file_id, &mut reports);
@@ -153,7 +165,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                         add_report(ReportCode::UnknownTemplate, meta, file_id, &mut reports);
                     }
                 }
-                TypeReduction::Bus => {
+                TypeReduction::Bus(_) => {
                     constraints_declared = true;
                     if expression_tag == Unknown {
                         add_report(ReportCode::UnknownBus, rhe.get_meta(), file_id, &mut reports);
@@ -363,8 +375,8 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
             match reduced_type {
                 TypeReduction::Variable => *environment.get_variable_or_break(name, file!(), line!()),
                 TypeReduction::Signal => *environment.get_intermediate_or_break(name, file!(), line!()),
-                TypeReduction::Bus => *environment.get_intermediate_bus_or_break(name, file!(), line!()),
-                TypeReduction::Component => *environment.get_component_or_break(name, file!(), line!()),
+                TypeReduction::Bus(_) => *environment.get_intermediate_bus_or_break(name, file!(), line!()),
+                TypeReduction::Component(_) => *environment.get_component_or_break(name, file!(), line!()),
                 TypeReduction::Tag => Known,
             }
         }
