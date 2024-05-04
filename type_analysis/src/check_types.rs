@@ -164,6 +164,12 @@ fn semantic_analyses(
     errors: &mut ReportCollection,
     warnings: &mut ReportCollection,
 ) {
+    for bus_name in program_archive.get_bus_names().iter() {
+        if let Result::Err(mut unknown_known_report) =
+            unknown_known_analysis(&bus_name, program_archive) {
+                errors.append(&mut unknown_known_report);
+            }
+    }
     for template_name in program_archive.get_template_names().iter() {
         if let Result::Err(mut unknown_known_report) =
             unknown_known_analysis(template_name, program_archive) {

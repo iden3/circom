@@ -63,6 +63,7 @@ pub enum ReportCode {
     ParallelOperatorWithWrongTypes,
     InfixOperatorWithWrongTypes,
     InvalidArgumentInCall,
+    InvalidArgumentInBusInstantiation,
     InconsistentReturnTypesInBlock,
     InconsistentStaticInformation,
     InvalidArrayAccess(usize, usize),
@@ -225,6 +226,7 @@ impl fmt::Display for ReportCode {
             TupleError => "TAC02",
             UnderscoreWithNoSignalWarning => "TAC03",
             BusWrongNumberOfArguments => "BU01",
+            InvalidArgumentInBusInstantiation => "BU02",
         };
         f.write_str(string_format)
     }
