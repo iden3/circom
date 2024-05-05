@@ -90,7 +90,19 @@ fn analyse_statement(
             }
         },
         Substitution { meta, rhe, .. } | UnderscoreSubstitution { meta, rhe,  .. } => {
-            if !rhe.is_bus_call(){
+            let mut throw_undefined_bus = false;
+            match rhe {
+                Expression::BusCall {.. } => {},
+                Expression::UniformArray {  value, .. } => {
+                    if !value.is_bus_call(){
+                        throw_undefined_bus = true;
+                    }
+                },
+                _ => {
+                    throw_undefined_bus = true;
+                }
+            }
+            if throw_undefined_bus {
                 let mut report = Report::error(
                     "Substitution statement used inside the bus".to_string(),
                     ReportCode::UndefinedBus,
@@ -100,7 +112,7 @@ fn analyse_statement(
                 report.add_primary(location, file_id, "Using invalid statement".to_string());
                 reports.push(report);
             }
-        },
+        }
         ConstraintEquality { meta, .. } => {
             let mut report = Report::error(
                 "Constraint statement used inside the bus".to_string(),

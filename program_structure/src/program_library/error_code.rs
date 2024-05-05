@@ -114,6 +114,8 @@ pub enum ReportCode {
     UninitializedComponent,
     BusWrongNumberOfArguments,
     InvalidSignalAccessInBus,
+    MustBeSameBus,
+    MustBeBus,
 }
 
 impl fmt::Display for ReportCode {
@@ -229,6 +231,8 @@ impl fmt::Display for ReportCode {
             BusWrongNumberOfArguments => "BU01",
             InvalidArgumentInBusInstantiation => "BU02",
             InvalidSignalAccessInBus => "BU03",
+            MustBeSameBus => "BU04",
+            MustBeBus => "BU04",
         };
         f.write_str(string_format)
     }

@@ -93,7 +93,10 @@ fn reduce_types_in_expression(expression: &mut Expression, environment: &Environ
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             reduce_types_in_inline_switch(cond, if_true, if_false, environment,program_archive)
         }
-        Call { args, .. } => reduce_types_in_vec_of_expressions(args, environment,program_archive),
+        Call { args, id, meta, .. } => {
+            meta.get_mut_type_knowledge().set_reduces_to(TypeReduction::Component(Some(id.clone())));
+            reduce_types_in_vec_of_expressions(args, environment,program_archive)
+        },
         ArrayInLine { values, .. } => reduce_types_in_vec_of_expressions(values, environment,program_archive),
         UniformArray { value, dimension, .. } => {
             let mut reports = reduce_types_in_expression(value, environment,program_archive);
@@ -101,7 +104,8 @@ fn reduce_types_in_expression(expression: &mut Expression, environment: &Environ
             reports
         }
         Number(..) => { Vec::new() }
-        BusCall { args, .. } => {
+        BusCall { args, meta, id, .. } => {
+            meta.get_mut_type_knowledge().set_reduces_to(TypeReduction::Bus(Some(id.clone())));
             reduce_types_in_vec_of_expressions(args, environment,program_archive)
         },
         _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
