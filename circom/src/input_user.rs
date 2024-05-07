@@ -405,9 +405,9 @@ mod input_processing {
             )
             .arg(
                 Arg::with_name("print_ir")
-                    .long("irout")
+                    .long("print_ir")
                     .takes_value(false)
-                    .hidden(true)
+                    .hidden(false)
                     .display_order(360)
                     .help("Outputs the low-level IR of the given circom program"),
             )

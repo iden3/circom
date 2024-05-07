@@ -48,7 +48,7 @@ fn start() -> Result<(), ()> {
     let circuit = execution_user::execute_project(program_archive, config)?;
     let compilation_config = CompilerConfig {
         vcp: circuit,
-        debug_output: user_input.print_ir_flag(),
+        print_ir: user_input.print_ir_flag(),
         c_flag: user_input.c_flag(),
         wasm_flag: user_input.wasm_flag(),
         wat_flag: user_input.wat_flag(),

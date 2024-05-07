@@ -19,7 +19,7 @@ pub struct CompilerConfig {
     pub wat_flag: bool,
     pub wasm_flag: bool,
     pub c_flag: bool,
-    pub debug_output: bool,
+    pub print_ir: bool,
     pub produce_input_log: bool,
     pub vcp: VCP,
 }
@@ -27,10 +27,10 @@ pub struct CompilerConfig {
 pub fn compile(config: CompilerConfig) -> Result<(), ()> {
 
 
-    if config.c_flag || config.wat_flag || config.wasm_flag{
+    if config.c_flag || config.wat_flag || config.wasm_flag || config.print_ir{
         let circuit = compiler_interface::run_compiler(
             config.vcp,
-            Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
+            Config { print_ir: config.print_ir, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
             VERSION
         )?;
     

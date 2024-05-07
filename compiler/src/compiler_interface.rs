@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::BufWriter;
 
 pub struct Config {
-    pub debug_output: bool,
+    pub print_ir: bool,
     pub produce_input_log: bool,
     pub wat_flag: bool,
 }
@@ -12,8 +12,8 @@ pub struct Config {
 pub fn run_compiler(vcp: VCP, config: Config, version: &str) -> Result<Circuit, ()> {
     let flags = CompilationFlags { main_inputs_log: config.produce_input_log, wat_flag: config.wat_flag };
     let circuit = Circuit::build(vcp, flags, version);
-    if config.debug_output {
-        produce_debug_output(&circuit)?;
+    if config.print_ir {
+        print_ir_representation(&circuit)?;
     }
     Ok(circuit)
 }
@@ -42,7 +42,12 @@ pub fn write_c(circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str
     circuit.produce_c(c_folder, c_run_name, &mut c_file, &mut dat_file)
 }
 
-fn produce_debug_output(circuit: &Circuit) -> Result<(), ()> {
+fn print_ir_representation(circuit: &Circuit) -> Result<(), ()> {
+
+    // To obtain the information about the number of inputs
+    let _main_inputs = circuit.c_producer.get_main_input_list();
+    let _signals_in_witness = circuit.c_producer.get_witness_to_signal_list();
+
     use std::io::Write;
     use std::path::Path;
     let path = format!("ir_log");
