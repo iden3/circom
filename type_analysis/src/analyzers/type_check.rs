@@ -1021,9 +1021,12 @@ fn apply_access_to_symbol(
             let (accessed_element, accessed_dim) = buses_and_signals.get(pos).unwrap().clone();
             if kind == WireType::Signal {
                     if tags.contains(&accessed_element) {
-                        if pos == buses_and_signals.len()-1 && current_dim == 0 && accessed_dim == 0{
+                        let prev_dim_access = if buses_and_signals.len()>1 {buses_and_signals.get(buses_and_signals.len()-2).unwrap().1}
+                                                  else {access_information.0}; 
+                        //Tags cannot be partially accessed. Then, the previous bus or signal cannot be array accessed.
+                        if pos == buses_and_signals.len()-1 && 0 == prev_dim_access && accessed_dim == 0{
                             return Result::Ok(SymbolInformation::Tag);
-                        } else if current_dim > 0 {
+                        } else if prev_dim_access > 0 {
                             return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
                         } else{
                                 return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
@@ -1055,9 +1058,11 @@ fn apply_access_to_symbol(
                         },
                         None => {
                             if tags.contains(&accessed_element) {
-                                if pos == buses_and_signals.len()-1 && current_dim == 0 && accessed_dim == 0{
+                                let prev_dim_access = if buses_and_signals.len()>1 {buses_and_signals.get(buses_and_signals.len()-2).unwrap().1}
+                                                            else {access_information.0}; 
+                                if pos == buses_and_signals.len()-1 && prev_dim_access == 0 && accessed_dim == 0{
                                     return Result::Ok(SymbolInformation::Tag);
-                                } else if current_dim > 0 {
+                                } else if prev_dim_access > 0 {
                                     return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
                                 } else{
                                         return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
