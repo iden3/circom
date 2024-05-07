@@ -25,3 +25,37 @@ pub struct BusData {
     pub goes_to: NodePointer,
 }
 
+/*
+    Usable representation of a series of accesses performed over a symbol representing a bus.
+    AccessingInformationBus {
+        pub undefined: bool ===> true if one of the index values could not be transformed into a SliceCapacity during the process,
+        pub array_access: Vec<SliceCapacity> 
+        pub field_access: Option<String> // may not appear
+        pub remaining_access: Option<AccessingInformation>, // may not appear
+    }
+*/
+pub struct AccessingInformationBus {
+    pub undefined: bool,
+    pub array_access: Vec<usize>,
+    pub field_access: Option<String>,
+    pub remaining_access: Option<Box<AccessingInformationBus>>,
+}
+
+
+/*
+    Usable representation of a series of accesses performed over a symbol.
+    AccessingInformation {
+        pub undefined: bool ===> true if one of the index values could not be transformed into a SliceCapacity during the process,
+        pub before_signal: Vec<SliceCapacity>,
+        pub signal_access: Option<String> ==> may not appear,
+        pub after_signal: Vec<SliceCapacity>
+        pub tag_access: Option<String> ==> may not appear,
+    }
+*/
+pub struct AccessingInformation {
+    pub undefined: bool,
+    pub before_signal: Vec<usize>,
+    pub signal_access: Option<String>,
+    pub after_signal: Vec<usize>,
+    pub tag_access: Option<String>
+}

@@ -18,6 +18,7 @@ use program_structure::constants::UsefulConstants;
 
 use super::execution_data::analysis::Analysis;
 use super::execution_data::{ExecutedBus, ExecutedProgram, ExecutedTemplate, PreExecutedTemplate, NodePointer};
+use super::execution_data::type_definitions::{AccessingInformationBus, AccessingInformation};
 
 use super::{
     ast::*, ArithmeticError, FileID, ProgramArchive, Report, ReportCode, ReportCollection
@@ -2033,7 +2034,7 @@ fn execute_bus(
                 tags_propagated.insert(tag.clone(), None);
             }
         }
-        // Check that all the buses are completely assigned
+        // Check that all the buses are completely assigned?
 
         for i in 0..BusSlice::get_number_of_cells(&bus_slice){
             let value_left = treat_result_with_memory_error(
@@ -2093,7 +2094,15 @@ fn execute_bus(
             }
 
         } else{
-            // Case we are accessing a field of the component
+            // Case we are accessing a field of the bus
+            let resulting_component = safe_unwrap_to_single(bus_slice, line!());
+            
+            if meta.get_type_knowledge().is_bus(){
+                // Case we return a bus
+            } else if meta.get_type_knowledge().is_signal(){
+                // Case we return a signal
+                let access_result = resulting_component.get_signal_field(&access_information.field_access.unwrap(), access_information.remaining_access); 
+            }
             Ok(FoldedValue{..FoldedValue::default()})
 
         }
@@ -2575,23 +2584,6 @@ fn cast_index(ae_index: &AExpr) -> Option<SliceCapacity> {
     }
 }
 
-/*
-    Usable representation of a series of accesses performed over a symbol.
-    AccessingInformation {
-        pub undefined: bool ===> true if one of the index values could not be transformed into a SliceCapacity during the process,
-        pub before_signal: Vec<SliceCapacity>,
-        pub signal_access: Option<String> ==> may not appear,
-        pub after_signal: Vec<SliceCapacity>
-        pub tag_access: Option<String> ==> may not appear,
-    }
-*/
-struct AccessingInformation {
-    pub undefined: bool,
-    pub before_signal: Vec<SliceCapacity>,
-    pub signal_access: Option<String>,
-    pub after_signal: Vec<SliceCapacity>,
-    pub tag_access: Option<String>
-}
 fn treat_accessing(
     meta: &Meta,
     access: &[Access],
@@ -2631,21 +2623,6 @@ fn treat_accessing(
 }
 
 
-/*
-    Usable representation of a series of accesses performed over a symbol representing a bus.
-    AccessingInformationBus {
-        pub undefined: bool ===> true if one of the index values could not be transformed into a SliceCapacity during the process,
-        pub array_access: Vec<SliceCapacity> 
-        pub field_access: Option<String> // may not appear
-        pub remaining_access: Option<AccessingInformation>, // may not appear
-    }
-*/
-struct AccessingInformationBus {
-    pub undefined: bool,
-    pub array_access: Vec<SliceCapacity>,
-    pub field_access: Option<String>,
-    pub remaining_access: Option<Box<AccessingInformationBus>>,
-}
 fn treat_accessing_bus(
     meta: &Meta,
     access: &[Access],

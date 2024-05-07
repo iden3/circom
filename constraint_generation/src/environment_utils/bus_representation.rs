@@ -1,15 +1,8 @@
-use super::slice_types::{MemoryError, TypeInvalidAccess, TypeAssignmentError, SignalSlice, BusSlice, SliceCapacity,TagInfo};
-use crate::execution_data::type_definitions::NodePointer;
+use super::slice_types::{FieldTypes, MemoryError, TypeInvalidAccess, TypeAssignmentError, SignalSlice, BusSlice, SliceCapacity,TagInfo};
+use crate::execution_data::type_definitions::{NodePointer, AccessingInformationBus};
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap, HashSet};
 use crate::ast::Meta;
-
-#[derive(Clone)]
-struct FieldTypes { // For each field, we store the info depending on if it is a signal o a bus
-                    // Depending on the case we store a different slice
-    pub signal: Option<SignalSlice>,
-    pub bus: Option<BusSlice>,
-}
 
 pub struct BusRepresentation {
     pub node_pointer: Option<NodePointer>,
@@ -94,11 +87,34 @@ impl BusRepresentation {
         Result::Ok(())
     }
 
-    pub fn get_field(&self, field_name: &str) -> Result<(&TagInfo, &SignalSlice), MemoryError> {
+    pub fn get_signal_field(
+        &self, 
+        field_name: &str,
+        access: Option<Box<AccessingInformationBus>>,
+    ) -> Result<(&TagInfo, &FieldTypes), MemoryError> {
+
+        let field = self.fields.get(field_name).unwrap();
+        let field_tags = self.field_tags.get(field_name).unwrap();
+
+        match access{
+            None => {
+                Ok((field_tags, field))
+            }
+            Some(access) =>{
+                let memory_response = MemorySlice::access_values(&field, &access_information.array_access);
+                let bus_slice = treat_result_with_memory_error(
+                    memory_response,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                Ok((field_tags, field))
+            }
+        }
 
         // Devuelve las tags y la SignalSlice con los valores
         // Si es un bus, llamar a que cada uno devuelva todo (get_all_fields)
-        unreachable!()
+        //unreachable!()
     }
 
     pub fn has_unassigned_fields(&self) -> bool{
