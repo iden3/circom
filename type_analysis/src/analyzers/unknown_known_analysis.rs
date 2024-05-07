@@ -374,8 +374,8 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
             let reduced_type = meta.get_type_knowledge().get_reduces_to();
             match reduced_type {
                 TypeReduction::Variable => *environment.get_variable_or_break(name, file!(), line!()),
-                TypeReduction::Signal => *environment.get_intermediate_or_break(name, file!(), line!()),
-                TypeReduction::Bus(_) => *environment.get_intermediate_bus_or_break(name, file!(), line!()),
+                TypeReduction::Signal => Unknown,//*environment.get_intermediate_or_break(name, file!(), line!()),
+                TypeReduction::Bus(_) => Unknown,//*environment.get_intermediate_bus_or_break(name, file!(), line!()),
                 TypeReduction::Component(_) => *environment.get_component_or_break(name, file!(), line!()),
                 TypeReduction::Tag => Known,
             }
