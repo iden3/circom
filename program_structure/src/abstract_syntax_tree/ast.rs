@@ -456,6 +456,9 @@ impl TypeKnowledge {
     pub fn is_tag(&self) -> bool {
         self.get_reduces_to() == TypeReduction::Tag
     }
+    pub fn is_bus(&self) -> bool {
+        self.get_reduces_to() == TypeReduction::Bus
+    }
 }
 
 #[derive(Default, Clone)]
