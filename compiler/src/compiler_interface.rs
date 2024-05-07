@@ -47,6 +47,7 @@ fn print_ir_representation(circuit: &Circuit) -> Result<(), ()> {
     // To obtain the information about the number of inputs
     let _main_inputs = circuit.c_producer.get_main_input_list();
     let _signals_in_witness = circuit.c_producer.get_witness_to_signal_list();
+    let _main_header = circuit.c_producer.get_main_header();
 
     use std::io::Write;
     use std::path::Path;
