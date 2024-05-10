@@ -15,6 +15,18 @@ pub fn canonicalize_physical_path(path: &str) -> String {
         .to_string()
 }
 
+pub fn normalize_physical_path(path: &str) -> String {
+    let mut res = Path::new(".")
+        .canonicalize()
+        .unwrap();
+
+    res.push(path);
+
+    res.to_str()
+        .unwrap()
+        .to_string()
+}
+
 pub fn physical_path_exists(path: &str) -> bool {
     Path::new(path).exists()
 }
