@@ -1,5 +1,5 @@
 use vfs::FileSystem;
-use vfs_utils::{canonicalize_physical_path, rimraf};
+use vfs_utils::{rimraf, SimplePath};
 
 pub use crate::circuit_design::circuit::{Circuit, CompilationFlags};
 pub use crate::hir::very_concrete_program::VCP;
@@ -11,11 +11,11 @@ pub struct Config {
     pub wat_flag: bool,
 }
 
-pub fn run_compiler(fs: &dyn FileSystem, vcp: VCP, config: Config, version: &str) -> Result<Circuit, ()> {
+pub fn run_compiler(fs: &dyn FileSystem, cwd: &str, vcp: VCP, config: Config, version: &str) -> Result<Circuit, ()> {
     let flags = CompilationFlags { main_inputs_log: config.produce_input_log, wat_flag: config.wat_flag };
-    let circuit = Circuit::build(fs, vcp, flags, version);
+    let circuit = Circuit::build(fs, cwd, vcp, flags, version);
     if config.debug_output {
-        produce_debug_output(fs, &circuit)?;
+        produce_debug_output(fs, cwd, &circuit)?;
     }
     Ok(circuit)
 }
@@ -38,13 +38,15 @@ pub fn write_c(fs: &dyn FileSystem, circuit: &Circuit, c_folder: &str, c_run_nam
     circuit.produce_c(fs, c_folder, c_run_name, &mut c_file, &mut dat_file)
 }
 
-fn produce_debug_output(fs: &dyn FileSystem, circuit: &Circuit) -> Result<(), ()> {
+fn produce_debug_output(fs: &dyn FileSystem, cwd: &str, circuit: &Circuit) -> Result<(), ()> {
     use std::io::Write;
     let path = format!("ir_log");
     rimraf(fs, &path).map_err(|_err| {})?;
     fs.create_dir(&path).map_err(|_err| {})?;
     for id in 0..circuit.templates.len() {
-        let file = canonicalize_physical_path(&format!("ir_log/template_{}.txt", id));
+        let mut file = SimplePath::new(cwd);
+        file.push(&format!("ir_log/template_{}.txt", id));
+        let file = file.to_string();
         let file_signals = fs.create_file(&file).map_err(|_err| {})?;
         let mut writer = BufWriter::new(file_signals);
         let body = circuit.produce_ir_string_for_template(id);
@@ -52,7 +54,9 @@ fn produce_debug_output(fs: &dyn FileSystem, circuit: &Circuit) -> Result<(), ()
         writer.flush().map_err(|_err| {})?;
     }
     for id in 0..circuit.functions.len() {
-        let file = canonicalize_physical_path(&format!("ir_log/function_{}.txt", id));
+        let mut file = SimplePath::new(cwd);
+        file.push(&format!("ir_log/function_{}.txt", id));
+        let file = file.to_string();
         let file_signals = fs.create_file(&file).map_err(|_err| {})?;
         let mut writer = BufWriter::new(file_signals);
         let body = circuit.produce_ir_string_for_function(id);
