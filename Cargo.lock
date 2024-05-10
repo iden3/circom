@@ -690,6 +690,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "vfs",
+ "vfs_utils",
 ]
 
 [[package]]

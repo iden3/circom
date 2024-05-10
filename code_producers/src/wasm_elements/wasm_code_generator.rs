@@ -1,8 +1,8 @@
 use super::*;
 use num_bigint_dig::BigInt;
 use vfs::FileSystem;
+use vfs_utils::SimplePath;
 use std::io::prelude::*;
-use std::path::PathBuf;
 
 pub fn wasm_hexa(nbytes: usize, num: &BigInt) -> String {
     let inbytes = num.to_str_radix(16).to_string();
@@ -1628,13 +1628,13 @@ pub fn generate_utils_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
 }
  */
 
-pub fn generate_generate_witness_js_file(fs: &dyn FileSystem, js_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_generate_witness_js_file(fs: &dyn FileSystem, js_folder: &SimplePath) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("generate_witness");
     file_path.set_extension("js");
-    let file_name = file_path.to_str().unwrap();
-    let mut js_file = BufWriter::new(fs.create_file(file_name).unwrap());
+    let file_name = file_path.to_string();
+    let mut js_file = BufWriter::new(fs.create_file(&file_name).unwrap());
     let mut code = "".to_string();
     let file = include_str!("common/generate_witness.js");
     for line in file.lines() {
@@ -1645,13 +1645,13 @@ pub fn generate_generate_witness_js_file(fs: &dyn FileSystem, js_folder: &PathBu
     Ok(())
 }
 
-pub fn generate_witness_calculator_js_file(fs: &dyn FileSystem, js_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_witness_calculator_js_file(fs: &dyn FileSystem, js_folder: &SimplePath) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("witness_calculator");
     file_path.set_extension("js");
-    let file_name = file_path.to_str().unwrap();
-    let mut js_file = BufWriter::new(fs.create_file(file_name).unwrap());
+    let file_name = file_path.to_string();
+    let mut js_file = BufWriter::new(fs.create_file(&file_name).unwrap());
     let mut code = "".to_string();
     let file = include_str!("common/witness_calculator.js");
     for line in file.lines() {
@@ -1665,11 +1665,10 @@ pub fn generate_witness_calculator_js_file(fs: &dyn FileSystem, js_folder: &Path
 #[cfg(test)]
 mod tests {
     use FileSystem;
-    use vfs_utils::VfsBufWriter;
+    use vfs_utils::{canonicalize_physical_path, VfsBufWriter};
 
     use super::*;
     use std::io::{BufRead, BufReader, BufWriter, Write};
-    use std::path::Path;
     const LOCATION: &'static str = "../target/code_generator_test";
 
     fn create_producer() -> WASMProducer {
@@ -1677,8 +1676,8 @@ mod tests {
     }
 
     fn create_writer() -> VfsBufWriter {
-        let fs = vfs::PhysicalFS::new(Path::new("/"));
-        let location = Path::new(LOCATION).canonicalize().unwrap().to_str().unwrap().to_string();
+        let fs = vfs::PhysicalFS::new("/");
+        let location = canonicalize_physical_path(LOCATION);
         let _ = fs.create_dir(&location);
         let path = format!("{}/code.wat", location);
         let file = fs.create_file(&path).unwrap();
@@ -1718,7 +1717,7 @@ mod tests {
 
     #[test]
     fn produce_code() {
-        let fs = vfs::PhysicalFS::new(Path::new("/"));
+        let fs = vfs::PhysicalFS::new("/");
 
         let producer = create_producer();
         let mut writer = create_writer();

@@ -1,19 +1,19 @@
-use std::path::PathBuf;
+use vfs_utils::SimplePath;
 
 pub struct Input {
-    pub input_program: PathBuf,
-    pub out_r1cs: PathBuf,
-    pub out_json_constraints: PathBuf,
-    pub out_json_substitutions: PathBuf,
-    pub out_wat_code: PathBuf,
-    pub out_wasm_code: PathBuf,
+    pub input_program: SimplePath,
+    pub out_r1cs: SimplePath,
+    pub out_json_constraints: SimplePath,
+    pub out_json_substitutions: SimplePath,
+    pub out_wat_code: SimplePath,
+    pub out_wasm_code: SimplePath,
     pub out_wasm_name: String,
-    pub out_js_folder: PathBuf,
+    pub out_js_folder: SimplePath,
     pub out_c_run_name: String,
-    pub out_c_folder: PathBuf,
-    pub out_c_code: PathBuf,
-    pub out_c_dat: PathBuf,
-    pub out_sym: PathBuf,
+    pub out_c_folder: SimplePath,
+    pub out_c_code: SimplePath,
+    pub out_c_dat: SimplePath,
+    pub out_sym: SimplePath,
     //pub field: &'static str,
     pub c_flag: bool,
     pub wasm_flag: bool,
@@ -32,7 +32,7 @@ pub struct Input {
     pub no_rounds: usize,
     pub flag_verbose: bool,
     pub prime: String,
-    pub link_libraries : Vec<PathBuf>
+    pub link_libraries : Vec<SimplePath>
 }
 
 
@@ -52,7 +52,7 @@ impl Input {
         use input_processing::SimplificationStyle;
         let matches = input_processing::view();
         let input = input_processing::get_input(&matches)?;
-        let mut file_name = input.file_stem().unwrap().to_str().unwrap().to_string();
+        let mut file_name = input.file_stem().unwrap();
         let output_path = input_processing::get_output_path(&matches)?;
 
         let c_flag = input_processing::get_c(&matches);
@@ -109,63 +109,63 @@ impl Input {
         })
     }
 
-    fn build_folder(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
+    fn build_folder(output_path: &SimplePath, filename: &str, ext: &str) -> SimplePath {
         let mut file = output_path.clone();
 	    let folder_name = format!("{}_{}",filename,ext);
-	    file.push(folder_name);
+	    file.push(&folder_name);
 	    file
     }
     
-    fn build_output(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
+    fn build_output(output_path: &SimplePath, filename: &str, ext: &str) -> SimplePath {
         let mut file = output_path.clone();
-        file.push(format!("{}.{}",filename,ext));
+        file.push(&format!("{}.{}",filename,ext));
         file
     }
 
-    pub fn get_link_libraries(&self) -> &Vec<PathBuf> {
+    pub fn get_link_libraries(&self) -> &Vec<SimplePath> {
         &self.link_libraries
     }
 
-    pub fn input_file(&self) -> &str {
-        &self.input_program.to_str().unwrap()
+    pub fn input_file(&self) -> String {
+        self.input_program.to_string()
     }
-    pub fn r1cs_file(&self) -> &str {
-        self.out_r1cs.to_str().unwrap()
+    pub fn r1cs_file(&self) -> String {
+        self.out_r1cs.to_string()
     }
-    pub fn sym_file(&self) -> &str {
-        self.out_sym.to_str().unwrap()
+    pub fn sym_file(&self) -> String {
+        self.out_sym.to_string()
     }
-    pub fn wat_file(&self) -> &str {
-        self.out_wat_code.to_str().unwrap()
+    pub fn wat_file(&self) -> String {
+        self.out_wat_code.to_string()
     }
-    pub fn wasm_file(&self) -> &str {
-        self.out_wasm_code.to_str().unwrap()
+    pub fn wasm_file(&self) -> String {
+        self.out_wasm_code.to_string()
     }
-    pub fn js_folder(&self) -> &str {
-        self.out_js_folder.to_str().unwrap()
+    pub fn js_folder(&self) -> String {
+        self.out_js_folder.to_string()
     }
     pub fn wasm_name(&self) -> String {
         self.out_wasm_name.clone()
     }
 
-    pub fn c_folder(&self) -> &str {
-        self.out_c_folder.to_str().unwrap()
+    pub fn c_folder(&self) -> String {
+        self.out_c_folder.to_string()
     }
     pub fn c_run_name(&self) -> String {
         self.out_c_run_name.clone()
     }
 
-    pub fn c_file(&self) -> &str {
-        self.out_c_code.to_str().unwrap()
+    pub fn c_file(&self) -> String {
+        self.out_c_code.to_string()
     }
-    pub fn dat_file(&self) -> &str {
-        self.out_c_dat.to_str().unwrap()
+    pub fn dat_file(&self) -> String {
+        self.out_c_dat.to_string()
     }
-    pub fn json_constraints_file(&self) -> &str {
-        self.out_json_constraints.to_str().unwrap()
+    pub fn json_constraints_file(&self) -> String {
+        self.out_json_constraints.to_string()
     }
-    pub fn json_substitutions_file(&self) -> &str {
-        self.out_json_substitutions.to_str().unwrap()
+    pub fn json_substitutions_file(&self) -> String {
+        self.out_json_substitutions.to_string()
     }
     pub fn wasm_flag(&self) -> bool {
         self.wasm_flag
@@ -222,25 +222,24 @@ impl Input {
 mod input_processing {
     use ansi_term::Colour;
     use clap::{App, Arg, ArgMatches};
-    use std::path::{Path, PathBuf};
+    use vfs_utils::{canonicalize_physical_path, SimplePath};
     use crate::VERSION;
 
-    pub fn get_input(matches: &ArgMatches) -> Result<PathBuf, ()> {
-        let route = Path::new(matches.value_of("input").unwrap()).to_path_buf();
-        if route.is_file() {
-            Result::Ok(route)
+    pub fn get_input(matches: &ArgMatches) -> Result<SimplePath, ()> {
+        let route = canonicalize_physical_path(matches.value_of("input").unwrap());
+        if std::path::Path::new(&route).is_file() {
+            Ok(route.into())
         } else {
-            let route = if route.to_str().is_some() { ": ".to_owned() + route.to_str().unwrap()} else { "".to_owned() };
-            Result::Err(eprintln!("{}", Colour::Red.paint("Input file does not exist".to_owned() + &route)))
+            Err(eprintln!("{}", Colour::Red.paint("Input file does not exist".to_owned() + &route)))
         }
     }
 
-    pub fn get_output_path(matches: &ArgMatches) -> Result<PathBuf, ()> {
-        let route = Path::new(matches.value_of("output").unwrap()).to_path_buf();
-        if route.is_dir() {
-            Result::Ok(route)
+    pub fn get_output_path(matches: &ArgMatches) -> Result<SimplePath, ()> {
+        let route = canonicalize_physical_path(matches.value_of("output").unwrap());
+        if std::path::Path::new(&route).is_dir() {
+            Ok(route.into())
         } else {
-            Result::Err(eprintln!("{}", Colour::Red.paint("invalid output path")))
+            Err(eprintln!("{}", Colour::Red.paint("invalid output path")))
         }
     }
 
@@ -512,12 +511,12 @@ mod input_processing {
             .get_matches()
     }
 
-    pub fn get_link_libraries(matches: &ArgMatches) -> Vec<PathBuf> {
-        let mut link_libraries = Vec::new();
+    pub fn get_link_libraries(matches: &ArgMatches) -> Vec<SimplePath> {
+        let mut link_libraries = Vec::<SimplePath>::new();
         let m = matches.values_of("link_libraries");
         if let Some(paths) = m {
             for path in paths.into_iter() {
-                link_libraries.push(Path::new(path).to_path_buf());
+                link_libraries.push(canonicalize_physical_path(path).into());
             }
         }
         link_libraries

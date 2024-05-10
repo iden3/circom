@@ -8,8 +8,8 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use program_structure::file_definition::FileLibrary;
 use vfs::FileSystem;
+use vfs_utils::canonicalize_physical_path;
 use std::collections::{BTreeMap, HashMap};
-use std::path::Path;
 
 #[cfg(debug_assertions)]
 fn matching_lengths_and_offsets(list: &InputOutputList) {
@@ -330,7 +330,7 @@ fn write_main_inputs_log(fs: &dyn FileSystem, vcp: &VCP) {
     use program_structure::ast::SignalType::*;
     use std::io::{BufWriter, Write};
 
-    let input_log = Path::new("./log_input_signals.txt").canonicalize().unwrap().to_str().unwrap().to_string();
+    let input_log = canonicalize_physical_path("./log_input_signals.txt");
     let main = vcp.get_main_instance().unwrap();
     let mut writer = BufWriter::new(fs.create_file(&input_log).unwrap());
     for signal in &main.signals {

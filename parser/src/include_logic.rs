@@ -1,51 +1,47 @@
 use program_structure::ast::produce_report_with_message;
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::Report;
+use vfs::FileSystem;
+use vfs_utils::{is_file, SimplePath};
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 
 pub struct FileStack {
-    current_location: PathBuf,
-    black_paths: HashSet<PathBuf>,
-    stack: Vec<PathBuf>,
+    current_location: SimplePath,
+    black_paths: HashSet<SimplePath>,
+    stack: Vec<SimplePath>,
 }
 
 impl FileStack {
-    pub fn new(src: PathBuf) -> FileStack {
+    pub fn new(src: SimplePath) -> FileStack {
         let mut location = src.clone();
         location.pop();
         FileStack { current_location: location, black_paths: HashSet::new(), stack: vec![src] }
     }
 
     pub fn add_include(
+        fs: &dyn FileSystem,
         f_stack: &mut FileStack,
         name: String,
-        libraries: &Vec<PathBuf>,
+        libraries: &Vec<SimplePath>,
     ) -> Result<String, Report> {
         let mut libraries2 = Vec::new();
         libraries2.push(f_stack.current_location.clone());
         libraries2.append(&mut libraries.clone());
         for lib in libraries2 {
-            let mut path = PathBuf::new();
-            path.push(lib);
-            path.push(name.clone());
-            let path = std::fs::canonicalize(path);
-            match path {
-                Err(_) => {}
-                Ok(path) => {
-                    if path.is_file() {
-                        if !f_stack.black_paths.contains(&path) {
-                            f_stack.stack.push(path.clone());
-                        }
-                        return Result::Ok(path.to_str().unwrap().to_string());
-                    }
+            let mut path = lib.clone();
+            path.push(&name);
+
+            if is_file(fs, &path.to_string()) {
+                if !f_stack.black_paths.contains(&path) {
+                    f_stack.stack.push(path.clone());
                 }
+                return Ok(path.to_string());
             }
         }
-        Result::Err(produce_report_with_message(ReportCode::IncludeNotFound, name))
+        Err(produce_report_with_message(ReportCode::IncludeNotFound, name))
     }
 
-    pub fn take_next(f_stack: &mut FileStack) -> Option<PathBuf> {
+    pub fn take_next(f_stack: &mut FileStack) -> Option<SimplePath> {
         loop {
             match f_stack.stack.pop() {
                 None => {
@@ -64,14 +60,14 @@ impl FileStack {
 }
 
 pub struct IncludesNode {
-    pub path: PathBuf,
+    pub path: SimplePath,
     pub custom_gates_pragma: bool,
 }
 
 #[derive(Default)]
 pub struct IncludesGraph {
     nodes: Vec<IncludesNode>,
-    adjacency: HashMap<PathBuf, Vec<usize>>,
+    adjacency: HashMap<SimplePath, Vec<usize>>,
     custom_gates_nodes: Vec<usize>,
 }
 
@@ -80,7 +76,7 @@ impl IncludesGraph {
         IncludesGraph::default()
     }
 
-    pub fn add_node(&mut self, path: PathBuf, custom_gates_pragma: bool, custom_gates_usage: bool) {
+    pub fn add_node(&mut self, path: SimplePath, custom_gates_pragma: bool, custom_gates_usage: bool) {
         self.nodes.push(IncludesNode { path, custom_gates_pragma });
         if custom_gates_usage {
             self.custom_gates_nodes.push(self.nodes.len() - 1);
@@ -88,16 +84,12 @@ impl IncludesGraph {
     }
 
     pub fn add_edge(&mut self, old_path: String) -> Result<(), Report> {
-        let mut crr = PathBuf::new();
-        crr.push(old_path.clone());
-        let path = std::fs::canonicalize(crr)
-            .map_err(|_e| produce_report_with_message(ReportCode::FileOs, old_path))?;
-        let edges = self.adjacency.entry(path).or_insert(vec![]);
+        let edges = self.adjacency.entry(old_path.into()).or_insert(vec![]);
         edges.push(self.nodes.len() - 1);
         Ok(())
     }
 
-    pub fn get_problematic_paths(&self) -> Vec<Vec<PathBuf>> {
+    pub fn get_problematic_paths(&self) -> Vec<Vec<SimplePath>> {
         let mut problematic_paths = Vec::new();
         for from in &self.custom_gates_nodes {
             problematic_paths.append(&mut self.traverse(*from, Vec::new(), HashSet::new()));
@@ -108,9 +100,9 @@ impl IncludesGraph {
     fn traverse(
         &self,
         from: usize,
-        path: Vec<PathBuf>,
+        path: Vec<SimplePath>,
         traversed_edges: HashSet<(usize, usize)>,
-    ) -> Vec<Vec<PathBuf>> {
+    ) -> Vec<Vec<SimplePath>> {
         let mut problematic_paths = Vec::new();
         let (from_path, using_pragma) = {
             let node = &self.nodes[from];
@@ -144,10 +136,10 @@ impl IncludesGraph {
         problematic_paths
     }
 
-    pub fn display_path(path: &Vec<PathBuf>) -> String {
+    pub fn display_path(path: &Vec<SimplePath>) -> String {
         let mut res = String::new();
         let mut sep = "";
-        for file in path.iter().map(|file| file.display().to_string()) {
+        for file in path.iter().map(|file| file.to_string()) {
             res.push_str(sep);
             let result_split = file.rsplit_once("/");
             if result_split.is_some(){

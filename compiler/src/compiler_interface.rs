@@ -1,5 +1,5 @@
 use vfs::FileSystem;
-use vfs_utils::rimraf;
+use vfs_utils::{canonicalize_physical_path, rimraf};
 
 pub use crate::circuit_design::circuit::{Circuit, CompilationFlags};
 pub use crate::hir::very_concrete_program::VCP;
@@ -40,12 +40,11 @@ pub fn write_c(fs: &dyn FileSystem, circuit: &Circuit, c_folder: &str, c_run_nam
 
 fn produce_debug_output(fs: &dyn FileSystem, circuit: &Circuit) -> Result<(), ()> {
     use std::io::Write;
-    use std::path::Path;
     let path = format!("ir_log");
     rimraf(fs, &path).map_err(|_err| {})?;
     fs.create_dir(&path).map_err(|_err| {})?;
     for id in 0..circuit.templates.len() {
-        let file = Path::new(&format!("ir_log/template_{}.txt", id)).canonicalize().unwrap().to_str().unwrap().to_string();
+        let file = canonicalize_physical_path(&format!("ir_log/template_{}.txt", id));
         let file_signals = fs.create_file(&file).map_err(|_err| {})?;
         let mut writer = BufWriter::new(file_signals);
         let body = circuit.produce_ir_string_for_template(id);
@@ -53,7 +52,7 @@ fn produce_debug_output(fs: &dyn FileSystem, circuit: &Circuit) -> Result<(), ()
         writer.flush().map_err(|_err| {})?;
     }
     for id in 0..circuit.functions.len() {
-        let file = Path::new(&format!("ir_log/function_{}.txt", id)).canonicalize().unwrap().to_str().unwrap().to_string();
+        let file = canonicalize_physical_path(&format!("ir_log/function_{}.txt", id));
         let file_signals = fs.create_file(&file).map_err(|_err| {})?;
         let mut writer = BufWriter::new(file_signals);
         let body = circuit.produce_ir_string_for_function(id);

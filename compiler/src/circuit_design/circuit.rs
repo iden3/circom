@@ -6,6 +6,7 @@ use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use vfs::FileSystem;
+use vfs_utils::SimplePath;
 use std::io::Write;
 
 pub struct CompilationFlags {
@@ -578,8 +579,7 @@ impl Circuit {
         self.functions[id].to_string()
     }
     pub fn produce_c<W: Write>(&self, fs: &dyn FileSystem, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
-        use std::path::Path;
-        let c_folder_path = Path::new(c_folder).to_path_buf();
+        let c_folder_path = SimplePath::new(c_folder);
         c_code_generator::generate_main_cpp_file(fs, &c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_circom_hpp_file(fs, &c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_fr_hpp_file(fs, &c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
@@ -592,8 +592,7 @@ impl Circuit {
         self.write_c(c_circuit, &self.c_producer)
     }
     pub fn produce_wasm<W: Write>(&self, fs: &dyn FileSystem, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
-	use std::path::Path;
-	let js_folder_path = Path::new(js_folder).to_path_buf();
+	    let js_folder_path = SimplePath::new(js_folder);
         wasm_code_generator::generate_generate_witness_js_file(fs, &js_folder_path).map_err(|_err| {})?;
         wasm_code_generator::generate_witness_calculator_js_file(fs, &js_folder_path).map_err(|_err| {})?;
         self.write_wasm(writer, &self.wasm_producer)

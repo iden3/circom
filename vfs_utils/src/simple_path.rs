@@ -6,7 +6,7 @@ use std::path::PathBuf;
  * 
  * (Eg path.exists() is not available.)
  */
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SimplePath(pub PathBuf);
 
 impl SimplePath {
@@ -24,6 +24,14 @@ impl SimplePath {
 
     pub fn push(&mut self, path: &str) {
         self.0.push(path);
+    }
+
+    pub fn pop(&mut self) {
+        self.0.pop();
+    }
+
+    pub fn set_extension(&mut self, ext: &str) {
+        self.0.set_extension(ext);
     }
 
     pub fn file_stem(&self) -> Option<String> {

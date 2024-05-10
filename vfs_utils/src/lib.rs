@@ -15,6 +15,10 @@ pub fn canonicalize_physical_path(path: &str) -> String {
         .to_string()
 }
 
+pub fn physical_path_exists(path: &str) -> bool {
+    Path::new(path).exists()
+}
+
 pub fn rimraf(fs: &dyn FileSystem, path: &str) -> VfsResult<()> {
     if path == "" || path == "/" {
         panic!("Refused `rm -rf /` catastrophe");
@@ -33,6 +37,20 @@ pub fn rimraf(fs: &dyn FileSystem, path: &str) -> VfsResult<()> {
 
             fs.remove_dir(path)
         }
+    }
+}
+
+pub fn is_file(fs: &dyn FileSystem, path: &str) -> bool {
+    match fs.metadata(path) {
+        Ok(metadata) => metadata.file_type == vfs::VfsFileType::File,
+        Err(_) => false,
+    }
+}
+
+pub fn is_dir(fs: &dyn FileSystem, path: &str) -> bool {
+    match fs.metadata(path) {
+        Ok(metadata) => metadata.file_type == vfs::VfsFileType::Directory,
+        Err(_) => false,
     }
 }
 

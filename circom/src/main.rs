@@ -6,8 +6,6 @@ mod type_analysis_user;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-use std::path::Path;
-
 use ansi_term::Colour;
 use input_user::Input;
 fn main() {
@@ -25,7 +23,7 @@ fn start() -> Result<(), ()> {
     use compilation_user::CompilerConfig;
     use execution_user::ExecutionConfig;
 
-    let fs = vfs::PhysicalFS::new(Path::new("/"));
+    let fs = vfs::PhysicalFS::new("/");
 
     let user_input = Input::new()?;
     let mut program_archive = parser_user::parse_project(&fs, &user_input)?;
@@ -51,7 +49,7 @@ fn start() -> Result<(), ()> {
     };
     let circuit = execution_user::execute_project(&fs, program_archive, config)?;
     let compilation_config = CompilerConfig {
-        fs: Box::new(vfs::PhysicalFS::new(Path::new("/"))),
+        fs: Box::new(vfs::PhysicalFS::new("/")),
         vcp: circuit,
         debug_output: user_input.print_ir_flag(),
         c_flag: user_input.c_flag(),
