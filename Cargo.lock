@@ -262,6 +262,7 @@ dependencies = [
  "constraint_writers",
  "json",
  "program_structure",
+ "vfs",
 ]
 
 [[package]]

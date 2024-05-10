@@ -300,16 +300,16 @@ pub struct DAG {
 }
 
 impl ConstraintExporter for DAG {
-    fn r1cs(&self, out: &str, custom_gates: bool) -> Result<(), ()> {
-        DAG::generate_r1cs_output(self, out, custom_gates)
+    fn r1cs(&self, fs: &dyn vfs::FileSystem, out: &str, custom_gates: bool) -> Result<(), ()> {
+        DAG::generate_r1cs_output(self, fs, out, custom_gates)
     }
 
-    fn json_constraints(&self, writer: &DebugWriter) -> Result<(), ()> {
-        DAG::generate_json_constraints(self, writer)
+    fn json_constraints(&self, fs: &dyn vfs::FileSystem, writer: &DebugWriter) -> Result<(), ()> {
+        DAG::generate_json_constraints(self, fs, writer)
     }
 
-    fn sym(&self, out: &str) -> Result<(), ()> {
-        DAG::generate_sym_output(self, out)
+    fn sym(&self, fs: &dyn vfs::FileSystem, out: &str) -> Result<(), ()> {
+        DAG::generate_sym_output(self, fs, out)
     }
 }
 
@@ -471,16 +471,16 @@ impl DAG {
         constraint_correctness_analysis::clean_constraints(&mut self.nodes);
     }
 
-    pub fn generate_r1cs_output(&self, output_file: &str, custom_gates: bool) -> Result<(), ()> {
-        r1cs_porting::write(self, output_file, custom_gates)
+    pub fn generate_r1cs_output(&self, fs: &dyn vfs::FileSystem, output_file: &str, custom_gates: bool) -> Result<(), ()> {
+        r1cs_porting::write(fs, self, output_file, custom_gates)
     }
 
-    pub fn generate_sym_output(&self, output_file: &str) -> Result<(), ()> {
-        sym_porting::write(self, output_file)
+    pub fn generate_sym_output(&self, fs: &dyn vfs::FileSystem, output_file: &str) -> Result<(), ()> {
+        sym_porting::write(fs, self, output_file)
     }
 
-    pub fn generate_json_constraints(&self, debug: &DebugWriter) -> Result<(), ()> {
-        json_porting::port_constraints(self, debug)
+    pub fn generate_json_constraints(&self, fs: &dyn vfs::FileSystem, debug: &DebugWriter) -> Result<(), ()> {
+        json_porting::port_constraints(fs, self, debug)
     }
 
     pub fn produce_witness(&self) -> Vec<usize> {
@@ -531,8 +531,8 @@ impl DAG {
         }
     }
 
-    pub fn map_to_list(self, flags: SimplificationFlags) -> ConstraintList {
-        map_to_constraint_list::map(self, flags)
+    pub fn map_to_list(self, fs: &dyn vfs::FileSystem, flags: SimplificationFlags) -> ConstraintList {
+        map_to_constraint_list::map(fs, self, flags)
     }
 }
 

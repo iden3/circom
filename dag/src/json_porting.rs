@@ -39,8 +39,8 @@ fn visit_tree(tree: &Tree, writer: &mut ConstraintJSON) -> Result<(), ()> {
     Result::Ok(())
 }
 
-pub fn port_constraints(dag: &DAG, debug: &DebugWriter) -> Result<(), ()> {
-    let mut writer = debug.build_constraints_file()?;
+pub fn port_constraints(fs: &dyn vfs::FileSystem, dag: &DAG, debug: &DebugWriter) -> Result<(), ()> {
+    let mut writer = debug.build_constraints_file(fs)?;
     visit_tree(&Tree::new(dag), &mut writer)?;
     writer.end()
 }
