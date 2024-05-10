@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use ansi_term::Colour;
 use compiler::compiler_interface;
 use compiler::compiler_interface::{Config, VCP};
@@ -8,6 +10,7 @@ use crate::VERSION;
 
 
 pub struct CompilerConfig {
+    pub fs: Rc<dyn vfs::FileSystem>,
     pub js_folder: String,
     pub wasm_name: String,
     pub wat_file: String,
@@ -61,7 +64,7 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
             (true, true) => {
                 compiler_interface::write_wasm(&circuit, &config.js_folder, &config.wasm_name, &config.wat_file)?;
                 println!("{} {}", Colour::Green.paint("Written successfully:"), config.wat_file);
-                let result = wat_to_wasm(&config.wat_file, &config.wasm_file);
+                let result = wat_to_wasm(config.fs.as_ref(), &config.wat_file, &config.wasm_file);
                 match result {
                     Result::Err(report) => {
                         Report::print_reports(&[report], &FileLibrary::new());
@@ -74,8 +77,8 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
             }
             (false, true) => {
                 compiler_interface::write_wasm(&circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
-                let result = wat_to_wasm(&config.wat_file, &config.wasm_file);
-                std::fs::remove_file(&config.wat_file).unwrap();
+                let result = wat_to_wasm(config.fs.as_ref(), &config.wat_file, &config.wasm_file);
+                config.fs.remove_file(&config.wat_file).unwrap();
                 match result {
                     Result::Err(report) => {
                         Report::print_reports(&[report], &FileLibrary::new());
@@ -99,15 +102,15 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
 }
 
 
-fn wat_to_wasm(wat_file: &str, wasm_file: &str) -> Result<(), Report> {
-    use std::fs::read_to_string;
-    use std::fs::File;
+fn wat_to_wasm(fs: &dyn vfs::FileSystem, wat_file: &str, wasm_file: &str) -> Result<(), Report> {
     use std::io::BufWriter;
     use std::io::Write;
     use wast::Wat;
     use wast::parser::{self, ParseBuffer};
 
-    let wat_contents = read_to_string(wat_file).unwrap();
+    let mut wat_contents = String::new();
+    fs.open_file(wat_file).unwrap().read_to_string(&mut wat_contents).unwrap();
+
     let buf = ParseBuffer::new(&wat_contents).unwrap();
     let result_wasm_contents = parser::parse::<Wat>(&buf);
     match result_wasm_contents {
@@ -127,7 +130,7 @@ fn wat_to_wasm(wat_file: &str, wasm_file: &str) -> Result<(), Report> {
                     ))
                 }
                 Result::Ok(wasm_contents) => {
-                    let file = File::create(wasm_file).unwrap();
+                    let file = fs.create_file(wasm_file).unwrap();
                     let mut writer = BufWriter::new(file);
                     writer.write_all(&wasm_contents).map_err(|_err| Report::error(
                         format!("Error writing the circuit. Exception generated: {}", _err),

@@ -1,7 +1,7 @@
 use super::*;
 use num_bigint_dig::{BigInt, Sign};
 use serde_json::json;
-use std::fs::File;
+use vfs::VfsResult;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -765,13 +765,13 @@ pub fn generate_function_release_memory_circuit() -> Vec<String>{
     instructions
   }
 
-pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_main_cpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("main");
     file_path.set_extension("cpp");
     let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut c_file = BufWriter::new(fs.create_file(file_name).unwrap());
     let mut code = "".to_string();
     let file = include_str!("common/main.cpp");
     for line in file.lines() {
@@ -782,13 +782,13 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_circom_hpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("circom");
     file_path.set_extension("hpp");
     let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut c_file = BufWriter::new(fs.create_file(file_name).unwrap());
     let mut code = "".to_string();
     let file = include_str!("common/circom.hpp");
     for line in file.lines() {
@@ -799,13 +799,13 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_fr_hpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
     file_path.set_extension("hpp");
     let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut c_file = BufWriter::new(fs.create_file(file_name).unwrap());
     let mut code = "".to_string();
     let file = match prime.as_ref(){
         "bn128" => include_str!("bn128/fr.hpp"),
@@ -825,13 +825,13 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     Ok(())
 }
 
-pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_calcwit_hpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
     file_path.set_extension("hpp");
     let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut c_file = BufWriter::new(fs.create_file(file_name).unwrap());
     let mut code = "".to_string();
     let file = include_str!("common/calcwit.hpp");
     for line in file.lines() {
@@ -842,13 +842,13 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_fr_cpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
     file_path.set_extension("cpp");
     let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut c_file = BufWriter::new(fs.create_file(file_name).unwrap());
     let mut code = "".to_string();
     let file = match prime.as_ref(){
         "bn128" => include_str!("bn128/fr.cpp"),
@@ -869,13 +869,13 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     Ok(())
 }
 
-pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_calcwit_cpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
     file_path.set_extension("cpp");
     let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut c_file = BufWriter::new(fs.create_file(file_name).unwrap());
     let mut code = "".to_string();
     let file = include_str!("common/calcwit.cpp");
     for line in file.lines() {
@@ -886,13 +886,13 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_fr_asm_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
     file_path.set_extension("asm");
     let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut c_file = BufWriter::new(fs.create_file(file_name).unwrap());
     let mut code = "".to_string();
     let file = match prime.as_ref(){
         "bn128" => include_str!("bn128/fr.asm"),
@@ -913,6 +913,7 @@ pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
 }
 
 pub fn generate_make_file(
+    fs: &dyn vfs::FileSystem,
     c_folder: &PathBuf,
     run_name: &str,
     producer: &CProducer,
@@ -935,15 +936,15 @@ pub fn generate_make_file(
     let mut file_path = c_folder.clone();
     file_path.push("Makefile");
     let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut c_file = BufWriter::new(fs.create_file(file_name).unwrap());
     c_file.write_all(code.as_bytes())?;
     c_file.flush()?;
     Ok(())
 }
 
-pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()> {
+pub fn generate_c_file(fs: &dyn vfs::FileSystem, name: String, producer: &CProducer) -> VfsResult<()> {
     let full_name = name + ".cpp";
-    let mut cfile = File::create(full_name)?;
+    let mut cfile = fs.create_file(&full_name)?;
     let mut code = vec![];
     let len = producer.get_input_hash_map_entry_size();
     code.push("#include <stdio.h>".to_string());
@@ -993,6 +994,8 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
 mod tests {
     //    use std::io::{BufWriter,BufReader,BufRead};
     use std::path::Path;
+    use vfs::FileSystem;
+
     //    use std::fs::File;
     use super::*;
     const LOCATION: &'static str = "../target/code_generator_test";
@@ -1003,16 +1006,19 @@ mod tests {
 
     #[test]
     fn produce_dat() {
-        if !Path::new(LOCATION).is_dir() {
-            std::fs::create_dir(LOCATION).unwrap();
+        let fs = vfs::PhysicalFS::new(Path::new("/"));
+        let location = Path::new(LOCATION).canonicalize().unwrap().to_str().unwrap().to_string();
+
+        if !fs.read_dir(&location).is_ok() {
+            fs.create_dir(&location).unwrap();
         }
-        let path = format!("{}/code", LOCATION);
+        let path = format!("{}/code", location);
         let producer = create_producer();
-        let mut dat_file = File::create(path + ".dat").unwrap();
+        let mut dat_file = fs.create_file(&(path + ".dat")).unwrap();
         let _rd = generate_dat_file(&mut dat_file, &producer);
         assert!(true);
-        let pathc = format!("{}/code", LOCATION);
-        let _rc = generate_c_file(pathc, &producer);
+        let pathc = format!("{}/code", location);
+        let _rc = generate_c_file(&fs, pathc, &producer);
         assert!(true);
     }
 }
