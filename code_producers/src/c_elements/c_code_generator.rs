@@ -1009,9 +1009,7 @@ mod tests {
         let fs = vfs::PhysicalFS::new(Path::new("/"));
         let location = Path::new(LOCATION).canonicalize().unwrap().to_str().unwrap().to_string();
 
-        if !fs.read_dir(&location).is_ok() {
-            fs.create_dir(&location).unwrap();
-        }
+        let _ = fs.create_dir(&location);
         let path = format!("{}/code", location);
         let producer = create_producer();
         let mut dat_file = fs.create_file(&(path + ".dat")).unwrap();

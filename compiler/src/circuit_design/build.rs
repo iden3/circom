@@ -8,6 +8,7 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use program_structure::file_definition::FileLibrary;
 use std::collections::{BTreeMap, HashMap};
+use std::path::Path;
 
 #[cfg(debug_assertions)]
 fn matching_lengths_and_offsets(list: &InputOutputList) {
@@ -324,14 +325,13 @@ fn build_input_output_list(instance: &TemplateInstance, database: &TemplateDB) -
     io_list
 }
 
-fn write_main_inputs_log(vcp: &VCP) {
+fn write_main_inputs_log(fs: &dyn vfs::FileSystem, vcp: &VCP) {
     use program_structure::ast::SignalType::*;
-    use std::fs::File;
     use std::io::{BufWriter, Write};
 
-    const INPUT_LOG: &str = "./log_input_signals.txt";
+    let input_log = Path::new("./log_input_signals.txt").canonicalize().unwrap().to_str().unwrap().to_string();
     let main = vcp.get_main_instance().unwrap();
-    let mut writer = BufWriter::new(File::create(INPUT_LOG).unwrap());
+    let mut writer = BufWriter::new(fs.create_file(&input_log).unwrap());
     for signal in &main.signals {
         if signal.xtype == Input {
             let name = format!("main.{}", &signal.name);
@@ -359,10 +359,10 @@ struct CircuitInfo {
     template_database: TemplateDB,
 }
 
-pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit {
+pub fn build_circuit(fs: &dyn vfs::FileSystem, vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit {
     use crate::ir_processing::set_arena_size_in_calls;
     if flag.main_inputs_log {
-        write_main_inputs_log(&vcp);
+        write_main_inputs_log(fs, &vcp);
     }
     let template_database = TemplateDB::build(&vcp.templates);
     let mut circuit = Circuit::default();

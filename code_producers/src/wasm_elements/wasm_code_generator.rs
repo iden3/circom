@@ -1679,9 +1679,7 @@ mod tests {
     fn create_writer() -> VfsBufWriter {
         let fs = vfs::PhysicalFS::new(Path::new("/"));
         let location = Path::new(LOCATION).canonicalize().unwrap().to_str().unwrap().to_string();
-        if !fs.read_dir(&location).is_ok() {
-            fs.create_dir(&location).unwrap();
-        }
+        let _ = fs.create_dir(&location);
         let path = format!("{}/code.wat", location);
         let file = fs.create_file(&path).unwrap();
         BufWriter::new(file)

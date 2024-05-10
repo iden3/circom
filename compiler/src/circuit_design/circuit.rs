@@ -548,9 +548,9 @@ impl WriteC for Circuit {
 }
 
 impl Circuit {
-    pub fn build(vcp: VCP, flags: CompilationFlags, version: &str) -> Self {
+    pub fn build(fs: &dyn vfs::FileSystem, vcp: VCP, flags: CompilationFlags, version: &str) -> Self {
         use super::build::build_circuit;
-        build_circuit(vcp, flags, version)
+        build_circuit(fs, vcp, flags, version)
     }
     pub fn add_template_code(&mut self, template_info: TemplateCodeInfo) -> ID {
         let id = self.templates.len();
@@ -576,25 +576,25 @@ impl Circuit {
     pub fn produce_ir_string_for_function(&self, id: ID) -> String {
         self.functions[id].to_string()
     }
-    pub fn produce_c<W: Write>(&self, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
-	use std::path::Path;
-	let c_folder_path = Path::new(c_folder).to_path_buf();
-        c_code_generator::generate_main_cpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_circom_hpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_hpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_cpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_asm_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_make_file(&c_folder_path,run_name,&self.c_producer).map_err(|_err| {})?;
+    pub fn produce_c<W: Write>(&self, fs: &dyn vfs::FileSystem, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
+        use std::path::Path;
+        let c_folder_path = Path::new(c_folder).to_path_buf();
+        c_code_generator::generate_main_cpp_file(fs, &c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_circom_hpp_file(fs, &c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_fr_hpp_file(fs, &c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_calcwit_hpp_file(fs, &c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_fr_cpp_file(fs, &c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_calcwit_cpp_file(fs, &c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_fr_asm_file(fs, &c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_make_file(fs, &c_folder_path,run_name,&self.c_producer).map_err(|_err| {})?;
         c_code_generator::generate_dat_file(c_dat, &self.c_producer).map_err(|_err| {})?;
         self.write_c(c_circuit, &self.c_producer)
     }
-    pub fn produce_wasm<W: Write>(&self, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
+    pub fn produce_wasm<W: Write>(&self, fs: &dyn vfs::FileSystem, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let js_folder_path = Path::new(js_folder).to_path_buf();
-        wasm_code_generator::generate_generate_witness_js_file(&js_folder_path).map_err(|_err| {})?;
-        wasm_code_generator::generate_witness_calculator_js_file(&js_folder_path).map_err(|_err| {})?;
+        wasm_code_generator::generate_generate_witness_js_file(fs, &js_folder_path).map_err(|_err| {})?;
+        wasm_code_generator::generate_witness_calculator_js_file(fs, &js_folder_path).map_err(|_err| {})?;
         self.write_wasm(writer, &self.wasm_producer)
     }
 }
