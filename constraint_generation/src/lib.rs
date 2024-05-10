@@ -42,7 +42,7 @@ pub struct FlagsExecution{
 
 pub type ConstraintWriter = Box<dyn ConstraintExporter>;
 type BuildResponse = Result<(ConstraintWriter, VCP), ()>;
-pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildResponse {
+pub fn build_circuit(fs: &dyn vfs::FileSystem, program: ProgramArchive, config: BuildConfig) -> BuildResponse {
     let files = program.file_library.clone();
     let flags = FlagsExecution{
         verbose: config.flag_verbose,
@@ -62,14 +62,14 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
         sync_dag_and_vcp(&mut vcp, &mut dag);
         if config.flag_json_sub { 
             use constraint_writers::json_writer::SubstitutionJSON;
-            let substitution_log = SubstitutionJSON::new(&config.json_substitutions).unwrap();
+            let substitution_log = SubstitutionJSON::new(fs, &config.json_substitutions).unwrap();
             let _ = substitution_log.end();
             println!("{} {}", Colour::Green.paint("Written successfully:"), config.json_substitutions);
         };
 
         Result::Ok((Box::new(dag), vcp))
     } else {
-        let list = simplification_process(&mut vcp, dag, &config);
+        let list = simplification_process(fs, &mut vcp, dag, &config);
         if config.flag_json_sub { 
             println!("{} {}", Colour::Green.paint("Written successfully:"), config.json_substitutions);
         };
@@ -102,7 +102,7 @@ fn sync_dag_and_vcp(vcp: &mut VCP, dag: &mut DAG) {
     VCP::add_witness_list(vcp, Rc::clone(&witness));
 }
 
-fn simplification_process(vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> ConstraintList {
+fn simplification_process(fs: &dyn vfs::FileSystem, vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> ConstraintList {
     use dag::SimplificationFlags;
     let flags = SimplificationFlags {
         flag_s: config.flag_s,
@@ -113,7 +113,7 @@ fn simplification_process(vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> Cons
         flag_old_heuristics: config.flag_old_heuristics,
         prime : config.prime.clone(),
     };
-    let list = DAG::map_to_list(dag, flags);
+    let list = dag.map_to_list(fs, flags);
     VCP::add_witness_list(vcp, Rc::new(list.get_witness_as_vec()));
     list
 }

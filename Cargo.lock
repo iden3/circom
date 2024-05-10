@@ -204,6 +204,7 @@ dependencies = [
  "num-bigint-dig",
  "num-traits",
  "program_structure",
+ "vfs",
 ]
 
 [[package]]

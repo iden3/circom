@@ -14,3 +14,4 @@ program_structure = { path = "../program_structure" }
 constraint_writers = { path = "../constraint_writers" }
 constraint_list = { path = "../constraint_list" }
 dag = { path = "../dag" }
+vfs = "0.12.0"
