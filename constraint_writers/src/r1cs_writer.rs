@@ -1,7 +1,8 @@
 use circom_algebra::num_bigint::BigInt;
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::{BufWriter, Seek, SeekFrom, Write};
+
+type VfsBufWriter = std::io::BufWriter<Box<(dyn vfs::SeekAndWrite + Send + 'static)>>;
 
 const SECTIONS: u8 = 5;
 const MAGIC: &[u8] = b"r1cs";
@@ -27,7 +28,7 @@ fn bigint_as_bytes(number: &BigInt, with_bytes: usize) -> (Vec<u8>, usize) {
     into_format(&value, with_bytes)
 }
 
-fn initialize_section(writer: &mut BufWriter<File>, header: &[u8]) -> Result<u64, ()> {
+fn initialize_section(writer: &mut VfsBufWriter, header: &[u8]) -> Result<u64, ()> {
     writer.write_all(header).map_err(|_err| {})?;
     //writer.flush().map_err(|_err| {})?;
     let go_back = writer.seek(SeekFrom::Current(0)).map_err(|_err| {})?;
@@ -36,7 +37,7 @@ fn initialize_section(writer: &mut BufWriter<File>, header: &[u8]) -> Result<u64
     Result::Ok(go_back)
 }
 
-fn end_section(writer: &mut BufWriter<File>, go_back: u64, size: usize) -> Result<(), ()> {
+fn end_section(writer: &mut VfsBufWriter, go_back: u64, size: usize) -> Result<(), ()> {
     let go_back_1 = writer.seek(SeekFrom::Current(0)).map_err(|_err| {})?;
     writer.seek(SeekFrom::Start(go_back)).map_err(|_err| {})?;
     let (stream, _) = bigint_as_bytes(&BigInt::from(size), 8);
@@ -72,7 +73,7 @@ fn obtain_linear_combination_block<T>(
 }
 
 fn write_constraint<T>(
-    file: &mut BufWriter<File>,
+    file: &mut VfsBufWriter,
     a: &HashMap<T, BigInt>,
     b: &HashMap<T, BigInt>,
     c: &HashMap<T, BigInt>,
@@ -90,7 +91,7 @@ fn write_constraint<T>(
     Result::Ok(size_a + size_b + size_c)
 }
 
-fn initialize_file(writer: &mut BufWriter<File>, num_sections: u8) -> Result<(), ()> {
+fn initialize_file(writer: &mut VfsBufWriter, num_sections: u8) -> Result<(), ()> {
     writer.write_all(MAGIC).map_err(|_err| {})?;
     //writer.flush().map_err(|_err| {})?;
     writer.write_all(VERSION).map_err(|_err| {})?;
@@ -102,12 +103,12 @@ fn initialize_file(writer: &mut BufWriter<File>, num_sections: u8) -> Result<(),
 
 pub struct R1CSWriter {
     field_size: usize,
-    writer: BufWriter<File>,
+    writer: VfsBufWriter,
     sections: [bool; SECTIONS as usize]
 }
 
 pub struct HeaderSection {
-    writer: BufWriter<File>,
+    writer: VfsBufWriter,
     go_back: u64,
     size: usize,
     index: usize,
@@ -116,7 +117,7 @@ pub struct HeaderSection {
 }
 
 pub struct ConstraintSection {
-    writer: BufWriter<File>,
+    writer: VfsBufWriter,
     number_of_constraints: usize,
     go_back: u64,
     size: usize,
@@ -126,7 +127,7 @@ pub struct ConstraintSection {
 }
 
 pub struct SignalSection {
-    writer: BufWriter<File>,
+    writer: VfsBufWriter,
     go_back: u64,
     size: usize,
     index: usize,
@@ -135,7 +136,7 @@ pub struct SignalSection {
 }
 
 pub struct CustomGatesUsedSection {
-    writer: BufWriter<File>,
+    writer: VfsBufWriter,
     go_back: u64,
     size: usize,
     index: usize,
@@ -144,7 +145,7 @@ pub struct CustomGatesUsedSection {
 }
 
 pub struct CustomGatesAppliedSection {
-    writer: BufWriter<File>,
+    writer: VfsBufWriter,
     go_back: u64,
     size: usize,
     index: usize,
@@ -154,6 +155,7 @@ pub struct CustomGatesAppliedSection {
 
 impl R1CSWriter {
     pub fn new(
+        fs: &dyn vfs::FileSystem,
         output_file: String,
         field_size: usize,
         custom_gates: bool
@@ -161,7 +163,7 @@ impl R1CSWriter {
         let sections = [false; SECTIONS as usize];
         let num_sections: u8 = if custom_gates { 5 } else { 3 };
         let mut writer =
-            File::create(&output_file).map_err(|_err| {}).map(|f| BufWriter::new(f))?;
+            fs.create_file(&output_file).map_err(|_err| {}).map(|f| BufWriter::new(f))?;
         initialize_file(&mut writer, num_sections)?;
         Result::Ok(R1CSWriter { writer, sections, field_size })
     }

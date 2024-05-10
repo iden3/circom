@@ -1,5 +1,6 @@
-use std::fs::File;
 use std::io::{BufWriter, Write};
+
+type VfsBufWriter = std::io::BufWriter<Box<(dyn vfs::SeekAndWrite + Send + 'static)>>;
 
 pub struct SymElem {
     pub original: i64,
@@ -14,12 +15,12 @@ impl ToString for SymElem {
 }
 
 pub struct SymFile {
-    writer: BufWriter<File>,
+    writer: VfsBufWriter,
 }
 
 impl SymFile {
-    pub fn new(file: &str) -> Result<SymFile, ()> {
-        let file = File::create(file).map_err(|_err| {})?;
+    pub fn new(fs: &dyn vfs::FileSystem, file: &str) -> Result<SymFile, ()> {
+        let file = fs.create_file(file).map_err(|_err| {})?;
         let writer = BufWriter::new(file);
         Result::Ok(SymFile { writer })
     }

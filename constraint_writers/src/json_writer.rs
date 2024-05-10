@@ -1,14 +1,15 @@
-use std::fs::File;
 use std::io::{BufWriter, Write};
 
+type VfsBufWriter = std::io::BufWriter<Box<(dyn vfs::SeekAndWrite + Send + 'static)>>;
+
 pub struct ConstraintJSON {
-    writer_constraints: BufWriter<File>,
+    writer_constraints: VfsBufWriter,
     constraints_flag: bool,
 }
 
 impl ConstraintJSON {
-    pub fn new(file: &str) -> Result<ConstraintJSON, ()> {
-        let file_constraints = File::create(file).map_err(|_err| {})?;
+    pub fn new(fs: &dyn vfs::FileSystem, file: &str) -> Result<ConstraintJSON, ()> {
+        let file_constraints = fs.create_file(file).map_err(|_err| {})?;
         let mut writer_constraints = BufWriter::new(file_constraints);
 
         writer_constraints.write_all(b"{").map_err(|_err| {})?;
@@ -39,11 +40,11 @@ impl ConstraintJSON {
 }
 
 pub struct SignalsJSON {
-    writer_signals: BufWriter<File>,
+    writer_signals: VfsBufWriter,
 }
 impl SignalsJSON {
-    pub fn new(file: &str) -> Result<SignalsJSON, ()> {
-        let file_signals = File::create(file).map_err(|_err| {})?;
+    pub fn new(fs: &dyn vfs::FileSystem, file: &str) -> Result<SignalsJSON, ()> {
+        let file_signals = fs.create_file(file).map_err(|_err| {})?;
         let mut writer_signals = BufWriter::new(file_signals);
         writer_signals.write_all(b"{").map_err(|_err| {})?;
         writer_signals.flush().map_err(|_err| {})?;
@@ -66,13 +67,13 @@ impl SignalsJSON {
 }
 
 pub struct SubstitutionJSON {
-    writer_substitutions: BufWriter<File>,
+    writer_substitutions: VfsBufWriter,
     first: bool,
 }
 impl SubstitutionJSON {
-    pub fn new(file: &str) -> Result<SubstitutionJSON, ()> {
+    pub fn new(fs: &dyn vfs::FileSystem, file: &str) -> Result<SubstitutionJSON, ()> {
         let first = true;
-        let file_substitutions = File::create(file).map_err(|_err| {})?;
+        let file_substitutions = fs.create_file(file).map_err(|_err| {})?;
         let mut writer_substitutions = BufWriter::new(file_substitutions);
         writer_substitutions.write_all(b"{").map_err(|_err| {})?;
         writer_substitutions.flush().map_err(|_err| {})?;

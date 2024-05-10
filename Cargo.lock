@@ -224,6 +224,7 @@ version = "2.1.8"
 dependencies = [
  "circom_algebra",
  "json",
+ "vfs",
 ]
 
 [[package]]

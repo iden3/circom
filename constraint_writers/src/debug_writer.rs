@@ -9,7 +9,7 @@ impl DebugWriter {
         Result::Ok(DebugWriter { json_constraints: c })
     }
 
-    pub fn build_constraints_file(&self) -> Result<ConstraintJSON, ()> {
-        ConstraintJSON::new(&self.json_constraints)
+    pub fn build_constraints_file(&self, fs: &dyn vfs::FileSystem) -> Result<ConstraintJSON, ()> {
+        ConstraintJSON::new(fs, &self.json_constraints)
     }
 }
