@@ -301,15 +301,15 @@ pub struct DAG {
 
 impl ConstraintExporter for DAG {
     fn r1cs(&self, fs: &dyn vfs::FileSystem, out: &str, custom_gates: bool) -> Result<(), ()> {
-        DAG::generate_r1cs_output(self, fs, out, custom_gates)
+        self.generate_r1cs_output(fs, out, custom_gates)
     }
 
     fn json_constraints(&self, fs: &dyn vfs::FileSystem, writer: &DebugWriter) -> Result<(), ()> {
-        DAG::generate_json_constraints(self, fs, writer)
+        self.generate_json_constraints(fs, writer)
     }
 
     fn sym(&self, fs: &dyn vfs::FileSystem, out: &str) -> Result<(), ()> {
-        DAG::generate_sym_output(self, fs, out)
+        self.generate_sym_output(fs, out)
     }
 }
 
