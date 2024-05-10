@@ -118,6 +118,7 @@ dependencies = [
  "program_structure",
  "type_analysis",
  "vfs",
+ "vfs_utils",
  "wast",
 ]
 
@@ -154,6 +155,7 @@ dependencies = [
  "num-bigint-dig",
  "serde_json",
  "vfs",
+ "vfs_utils",
 ]
 
 [[package]]
@@ -185,6 +187,7 @@ dependencies = [
  "num-traits",
  "program_structure",
  "vfs",
+ "vfs_utils",
 ]
 
 [[package]]
@@ -227,6 +230,7 @@ dependencies = [
  "circom_algebra",
  "json",
  "vfs",
+ "vfs_utils",
 ]
 
 [[package]]
@@ -1132,6 +1136,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "654cd097e182a71dbf899178e6b5662c2157dd0b8afd5975de18008f6fc173d1"
 dependencies = [
  "filetime",
+]
+
+[[package]]
+name = "vfs_utils"
+version = "0.1.0"
+dependencies = [
+ "vfs",
 ]
 
 [[package]]

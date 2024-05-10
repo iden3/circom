@@ -1,0 +1,7 @@
+[package]
+name = "vfs_utils"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+vfs = "0.12.0"

@@ -11,5 +11,6 @@ members = [
     "constraint_writers",
     "constant_tracking",
     "code_producers",
-    "dag"
+    "dag",
+    "vfs_utils",
 ]

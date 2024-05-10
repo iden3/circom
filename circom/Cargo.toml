@@ -25,3 +25,4 @@ ansi_term = "0.12.1"
 wast = "39.0.0"
 exitcode = "1.1.2"
 vfs = "0.12.0"
+vfs_utils = { path = "../vfs_utils" }

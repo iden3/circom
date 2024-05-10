@@ -1,6 +1,6 @@
 use std::io::{BufWriter, Write};
 
-type VfsBufWriter = std::io::BufWriter<Box<(dyn vfs::SeekAndWrite + Send + 'static)>>;
+use vfs_utils::VfsBufWriter;
 
 pub struct ConstraintJSON {
     writer_constraints: VfsBufWriter,

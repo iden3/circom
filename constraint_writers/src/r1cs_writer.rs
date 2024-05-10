@@ -1,8 +1,7 @@
 use circom_algebra::num_bigint::BigInt;
+use vfs_utils::VfsBufWriter;
 use std::collections::HashMap;
 use std::io::{BufWriter, Seek, SeekFrom, Write};
-
-type VfsBufWriter = std::io::BufWriter<Box<(dyn vfs::SeekAndWrite + Send + 'static)>>;
 
 const SECTIONS: u8 = 5;
 const MAGIC: &[u8] = b"r1cs";

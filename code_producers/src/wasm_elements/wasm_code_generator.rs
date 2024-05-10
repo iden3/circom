@@ -3,8 +3,6 @@ use num_bigint_dig::BigInt;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
-type VfsBufWriter = std::io::BufWriter<Box<(dyn vfs::SeekAndWrite + Send + 'static)>>;
-
 pub fn wasm_hexa(nbytes: usize, num: &BigInt) -> String {
     let inbytes = num.to_str_radix(16).to_string();
     assert!(
@@ -1666,6 +1664,7 @@ pub fn generate_witness_calculator_js_file(fs: &dyn vfs::FileSystem, js_folder: 
 #[cfg(test)]
 mod tests {
     use vfs::FileSystem;
+    use vfs_utils::VfsBufWriter;
 
     use super::*;
     use std::io::{BufRead, BufReader, BufWriter, Write};

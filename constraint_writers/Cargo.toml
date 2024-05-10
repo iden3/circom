@@ -8,3 +8,4 @@ edition = "2018"
 circom_algebra = { path = "../circom_algebra" }
 json = "0.12.4"
 vfs = "0.12.0"
+vfs_utils = { path = "../vfs_utils" }
