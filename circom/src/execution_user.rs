@@ -4,7 +4,6 @@ use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::ConstraintExporter;
 use program_structure::program_archive::ProgramArchive;
 
-
 pub struct ExecutionConfig {
     pub r1cs: String,
     pub sym: String,
@@ -25,6 +24,7 @@ pub struct ExecutionConfig {
 }
 
 pub fn execute_project(
+    fs: &dyn vfs::FileSystem,
     program_archive: ProgramArchive,
     config: ExecutionConfig,
 ) -> Result<VCP, ()> {
@@ -43,21 +43,21 @@ pub fn execute_project(
         prime : config.prime,
     };
     let custom_gates = program_archive.custom_gates;
-    let (exporter, vcp) = build_circuit(program_archive, build_config)?;
+    let (exporter, vcp) = build_circuit(fs, program_archive, build_config)?;
     if config.r1cs_flag {
-        generate_output_r1cs(&config.r1cs, exporter.as_ref(), custom_gates)?;
+        generate_output_r1cs(fs, &config.r1cs, exporter.as_ref(), custom_gates)?;
     }
     if config.sym_flag {
-        generate_output_sym(&config.sym, exporter.as_ref())?;
+        generate_output_sym(fs, &config.sym, exporter.as_ref())?;
     }
     if config.json_constraint_flag {
-        generate_json_constraints(&debug, exporter.as_ref())?;
+        generate_json_constraints(fs, &debug, exporter.as_ref())?;
     }
     Result::Ok(vcp)
 }
 
-fn generate_output_r1cs(file: &str, exporter: &dyn ConstraintExporter, custom_gates: bool) -> Result<(), ()> {
-    if let Result::Ok(()) = exporter.r1cs(file, custom_gates) {
+fn generate_output_r1cs(fs: &dyn vfs::FileSystem, file: &str, exporter: &dyn ConstraintExporter, custom_gates: bool) -> Result<(), ()> {
+    if let Result::Ok(()) = exporter.r1cs(fs, file, custom_gates) {
         println!("{} {}", Colour::Green.paint("Written successfully:"), file);
         Result::Ok(())
     } else {
@@ -66,8 +66,8 @@ fn generate_output_r1cs(file: &str, exporter: &dyn ConstraintExporter, custom_ga
     }
 }
 
-fn generate_output_sym(file: &str, exporter: &dyn ConstraintExporter) -> Result<(), ()> {
-    if let Result::Ok(()) = exporter.sym(file) {
+fn generate_output_sym(fs: &dyn vfs::FileSystem, file: &str, exporter: &dyn ConstraintExporter) -> Result<(), ()> {
+    if let Result::Ok(()) = exporter.sym(fs, file) {
         println!("{} {}", Colour::Green.paint("Written successfully:"), file);
         Result::Ok(())
     } else {
@@ -77,10 +77,11 @@ fn generate_output_sym(file: &str, exporter: &dyn ConstraintExporter) -> Result<
 }
 
 fn generate_json_constraints(
+    fs: &dyn vfs::FileSystem,
     debug: &DebugWriter,
     exporter: &dyn ConstraintExporter,
 ) -> Result<(), ()> {
-    if let Ok(()) = exporter.json_constraints(&debug) {
+    if let Ok(()) = exporter.json_constraints(fs, &debug) {
         println!("{} {}", Colour::Green.paint("Constraints written in:"), debug.json_constraints);
         Result::Ok(())
     } else {

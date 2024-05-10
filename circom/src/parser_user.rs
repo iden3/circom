@@ -4,9 +4,9 @@ use program_structure::program_archive::ProgramArchive;
 use crate::VERSION;
 
 
-pub fn parse_project(input_info: &Input) -> Result<ProgramArchive, ()> {
+pub fn parse_project(fs: &dyn vfs::FileSystem, input_info: &Input) -> Result<ProgramArchive, ()> {
     let initial_file = input_info.input_file().to_string();
-    let result_program_archive = parser::run_parser(initial_file, VERSION, input_info.get_link_libraries().to_vec());
+    let result_program_archive = parser::run_parser(fs, initial_file, VERSION, input_info.get_link_libraries().to_vec());
     match result_program_archive {
         Result::Err((file_library, report_collection)) => {
             Report::print_reports(&report_collection, &file_library);

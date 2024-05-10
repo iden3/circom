@@ -8,7 +8,6 @@ use program_structure::error_code::ReportCode;
 use program_structure::file_definition::FileLibrary;
 use crate::VERSION;
 
-
 pub struct CompilerConfig {
     pub fs: Rc<dyn vfs::FileSystem>,
     pub js_folder: String,
@@ -28,17 +27,16 @@ pub struct CompilerConfig {
 }
 
 pub fn compile(config: CompilerConfig) -> Result<(), ()> {
-
-
-    if config.c_flag || config.wat_flag || config.wasm_flag{
+    if config.c_flag || config.wat_flag || config.wasm_flag {
         let circuit = compiler_interface::run_compiler(
+            config.fs.as_ref(),
             config.vcp,
             Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
             VERSION
         )?;
     
         if config.c_flag {
-            compiler_interface::write_c(&circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
+            compiler_interface::write_c(config.fs.as_ref(), &circuit, &config.c_folder, &config.c_run_name, &config.c_file, &config.dat_file)?;
             println!(
                 "{} {} and {}",
                 Colour::Green.paint("Written successfully:"),
@@ -62,7 +60,7 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
     
         match (config.wat_flag, config.wasm_flag) {
             (true, true) => {
-                compiler_interface::write_wasm(&circuit, &config.js_folder, &config.wasm_name, &config.wat_file)?;
+                compiler_interface::write_wasm(config.fs.as_ref(), &circuit, &config.js_folder, &config.wasm_name, &config.wat_file)?;
                 println!("{} {}", Colour::Green.paint("Written successfully:"), config.wat_file);
                 let result = wat_to_wasm(config.fs.as_ref(), &config.wat_file, &config.wasm_file);
                 match result {
@@ -76,7 +74,7 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 }
             }
             (false, true) => {
-                compiler_interface::write_wasm(&circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
+                compiler_interface::write_wasm(config.fs.as_ref(), &circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
                 let result = wat_to_wasm(config.fs.as_ref(), &config.wat_file, &config.wasm_file);
                 config.fs.remove_file(&config.wat_file).unwrap();
                 match result {
@@ -90,17 +88,15 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 }
             }
             (true, false) => {
-                compiler_interface::write_wasm(&circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
+                compiler_interface::write_wasm(config.fs.as_ref(), &circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
                 println!("{} {}", Colour::Green.paint("Written successfully:"), config.wat_file);
             }
             (false, false) => {}
         }
     }
     
-
     Ok(())
 }
-
 
 fn wat_to_wasm(fs: &dyn vfs::FileSystem, wat_file: &str, wasm_file: &str) -> Result<(), Report> {
     use std::io::BufWriter;
