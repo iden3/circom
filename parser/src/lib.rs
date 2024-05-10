@@ -16,16 +16,17 @@ use program_structure::ast::{produce_compiler_version_report, produce_report, pr
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::ReportCollection;
 use program_structure::error_definition::Report;
-use program_structure::file_definition::{FileLibrary};
+use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
 use std::path::{PathBuf, Path};
-use syntax_sugar_remover::{apply_syntactic_sugar};
+use syntax_sugar_remover::apply_syntactic_sugar;
 
 use std::str::FromStr;
 
 pub type Version = (usize, usize, usize);
 
 pub fn find_file(
+    fs: &dyn vfs::FileSystem,
     crr_file: PathBuf,
     ext_link_libraries: Vec<PathBuf>,
 ) -> (bool, String, String, PathBuf, Vec<Report>) {
@@ -41,7 +42,7 @@ pub fn find_file(
         p.push(aux);
         p.push(crr_file.clone());
         crr_str_file = p;
-        match open_file(crr_str_file.clone()) {
+        match open_file(fs, crr_str_file.clone()) {
             Ok((new_path, new_src)) => {
                 path = new_path;
                 src = new_src;
@@ -57,6 +58,7 @@ pub fn find_file(
 }
 
 pub fn run_parser(
+    fs: &dyn vfs::FileSystem,
     file: String,
     version: &str,
     link_libraries: Vec<PathBuf>,
@@ -72,7 +74,7 @@ pub fn run_parser(
     ext_link_libraries.append(&mut link_libraries2);
     while let Some(crr_file) = FileStack::take_next(&mut file_stack) {
         let (found, path, src, crr_str_file, reports) =
-            find_file(crr_file, ext_link_libraries.clone());
+            find_file(fs, crr_file, ext_link_libraries.clone());
         if !found {
             return Result::Err((file_library.clone(), reports));
         }
@@ -175,12 +177,17 @@ fn produce_report_with_main_components(main_components: Vec<(usize, (Vec<String>
     r
 }
 
-fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src */ {
-    use std::fs::read_to_string;
-    let path_str = format!("{:?}", path);
-    read_to_string(path)
-        .map(|contents| (path_str.clone(), contents))
-        .map_err(|_| produce_report_with_message(ReportCode::FileOs, path_str.clone()))
+fn open_file(fs: &dyn vfs::FileSystem, path: PathBuf) -> Result<(String, String), Report> /* path, src */ {
+    let path_string = path.canonicalize().unwrap().to_str().unwrap().to_string();
+
+    let mut file = fs.open_file(&path_string)
+        .map_err(|_| produce_report_with_message(ReportCode::FileOs, path_string.clone()))?;
+
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .map_err(|_| produce_report_with_message(ReportCode::FileOs, path_string.clone()))?;
+
+    Ok((path_string.clone(), contents))
 }
 
 fn parse_number_version(version: &str) -> Version {

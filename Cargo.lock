@@ -682,6 +682,7 @@ dependencies = [
  "rustc-hex",
  "serde",
  "serde_derive",
+ "vfs",
 ]
 
 [[package]]
