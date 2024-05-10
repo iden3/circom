@@ -2,9 +2,9 @@ use super::{ConstraintList, EncodingIterator, IteratorSignal, SignalMap};
 use circom_algebra::num_traits::AsPrimitive;
 use constraint_writers::sym_writer::*;
 
-pub fn port_sym(list: &ConstraintList, file_name: &str) -> Result<(), ()> {
+pub fn port_sym(fs: &dyn vfs::FileSystem, list: &ConstraintList, file_name: &str) -> Result<(), ()> {
     let iter = EncodingIterator::new(&list.dag_encoding);
-    let mut dot_sym = SymFile::new(file_name)?;
+    let mut dot_sym = SymFile::new(fs, file_name)?;
     signal_iteration(iter, &list.signal_map, &mut dot_sym)?;
     SymFile::finish_writing(dot_sym)?;
     //SymFile::close(dot_sym);

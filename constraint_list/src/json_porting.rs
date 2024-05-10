@@ -33,11 +33,12 @@ pub fn port_substitution(sub: &S) -> (String, String) {
 }
 
 pub fn port_constraints(
+    fs: &dyn vfs::FileSystem,
     storage: &ConstraintStorage,
     map: &SignalMap,
     debug: &DebugWriter,
 ) -> Result<(), ()> {
-    let mut writer = debug.build_constraints_file()?;
+    let mut writer = debug.build_constraints_file(fs)?;
     for c_id in storage.get_ids() {
         let constraint = storage.read_constraint(c_id).unwrap();
         let constraint = C::apply_correspondence(&constraint, map);

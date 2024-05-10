@@ -216,6 +216,7 @@ dependencies = [
  "num_cpus",
  "program_structure",
  "threadpool",
+ "vfs",
 ]
 
 [[package]]

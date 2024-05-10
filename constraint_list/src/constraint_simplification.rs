@@ -439,7 +439,7 @@ fn remove_not_relevant(substitutions: &mut SEncoded, relevant: &HashSet<usize>) 
 
 
 // returns the constraints, the assignment of the witness and the number of inputs in the witness
-pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, usize) {
+pub fn simplification(fs: &dyn vfs::FileSystem, smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, usize) {
     use super::non_linear_utils::obtain_and_simplify_non_linear;
     use circom_algebra::simplification_utils::build_encoded_fast_substitutions;
     use circom_algebra::simplification_utils::fast_encoded_constraint_substitution;
@@ -447,7 +447,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
 
     let mut substitution_log =
         if smp.port_substitution { 
-            Some(SubstitutionJSON::new(&smp.json_substitutions).unwrap()) 
+            Some(SubstitutionJSON::new(fs, &smp.json_substitutions).unwrap()) 
         } else {
              None 
         };
