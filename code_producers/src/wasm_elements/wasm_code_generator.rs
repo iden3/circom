@@ -1,5 +1,6 @@
 use super::*;
 use num_bigint_dig::BigInt;
+use vfs::FileSystem;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -1537,7 +1538,7 @@ pub fn main_sample_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
 }
  */
 
-fn get_file_instructions(fs: &dyn vfs::FileSystem, name: &str) -> Vec<WasmInstruction> {
+fn get_file_instructions(fs: &dyn FileSystem, name: &str) -> Vec<WasmInstruction> {
     use std::io::BufReader;
     let mut instructions = vec![];
     let path = format!("./{}.wat", name);
@@ -1627,7 +1628,7 @@ pub fn generate_utils_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
 }
  */
 
-pub fn generate_generate_witness_js_file(fs: &dyn vfs::FileSystem, js_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_generate_witness_js_file(fs: &dyn FileSystem, js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("generate_witness");
@@ -1644,7 +1645,7 @@ pub fn generate_generate_witness_js_file(fs: &dyn vfs::FileSystem, js_folder: &P
     Ok(())
 }
 
-pub fn generate_witness_calculator_js_file(fs: &dyn vfs::FileSystem, js_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_witness_calculator_js_file(fs: &dyn FileSystem, js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path  = js_folder.clone();
     file_path.push("witness_calculator");
@@ -1663,7 +1664,7 @@ pub fn generate_witness_calculator_js_file(fs: &dyn vfs::FileSystem, js_folder: 
 
 #[cfg(test)]
 mod tests {
-    use vfs::FileSystem;
+    use FileSystem;
     use vfs_utils::VfsBufWriter;
 
     use super::*;
@@ -1684,7 +1685,7 @@ mod tests {
         BufWriter::new(file)
     }
 
-    fn get_instructions_from_file(fs: &dyn vfs::FileSystem, name: &str) -> Vec<WasmInstruction> {
+    fn get_instructions_from_file(fs: &dyn FileSystem, name: &str) -> Vec<WasmInstruction> {
         //return content of LOCATION/name.wat
         let mut instructions = vec![];
         let path = format!("{}/{}.wat", LOCATION, name);

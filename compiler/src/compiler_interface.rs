@@ -1,3 +1,4 @@
+use vfs::FileSystem;
 use vfs_utils::rimraf;
 
 pub use crate::circuit_design::circuit::{Circuit, CompilationFlags};
@@ -10,7 +11,7 @@ pub struct Config {
     pub wat_flag: bool,
 }
 
-pub fn run_compiler(fs: &dyn vfs::FileSystem, vcp: VCP, config: Config, version: &str) -> Result<Circuit, ()> {
+pub fn run_compiler(fs: &dyn FileSystem, vcp: VCP, config: Config, version: &str) -> Result<Circuit, ()> {
     let flags = CompilationFlags { main_inputs_log: config.produce_input_log, wat_flag: config.wat_flag };
     let circuit = Circuit::build(fs, vcp, flags, version);
     if config.debug_output {
@@ -19,7 +20,7 @@ pub fn run_compiler(fs: &dyn vfs::FileSystem, vcp: VCP, config: Config, version:
     Ok(circuit)
 }
 
-pub fn write_wasm(fs: &dyn vfs::FileSystem, circuit: &Circuit, js_folder: &str, wasm_name: &str, file: &str) -> Result<(), ()> {
+pub fn write_wasm(fs: &dyn FileSystem, circuit: &Circuit, js_folder: &str, wasm_name: &str, file: &str) -> Result<(), ()> {
     rimraf(fs, js_folder).map_err(|_err| {})?;
     fs.create_dir(js_folder).map_err(|_err| {})?;
     let file = fs.create_file(file).map_err(|_err| {})?;
@@ -27,7 +28,7 @@ pub fn write_wasm(fs: &dyn vfs::FileSystem, circuit: &Circuit, js_folder: &str, 
     circuit.produce_wasm(fs, js_folder, wasm_name, &mut writer)
 }
 
-pub fn write_c(fs: &dyn vfs::FileSystem, circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str, dat_file: &str) -> Result<(), ()> {
+pub fn write_c(fs: &dyn FileSystem, circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str, dat_file: &str) -> Result<(), ()> {
     rimraf(fs, c_folder).map_err(|_err| {})?;
     fs.create_dir(c_folder).map_err(|_err| {})?;
     let dat_file = fs.create_file(dat_file).map_err(|_err| {})?;
@@ -37,7 +38,7 @@ pub fn write_c(fs: &dyn vfs::FileSystem, circuit: &Circuit, c_folder: &str, c_ru
     circuit.produce_c(fs, c_folder, c_run_name, &mut c_file, &mut dat_file)
 }
 
-fn produce_debug_output(fs: &dyn vfs::FileSystem, circuit: &Circuit) -> Result<(), ()> {
+fn produce_debug_output(fs: &dyn FileSystem, circuit: &Circuit) -> Result<(), ()> {
     use std::io::Write;
     use std::path::Path;
     let path = format!("ir_log");

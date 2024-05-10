@@ -10,6 +10,7 @@ use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::ConstraintExporter;
 use program_structure::constants::UsefulConstants;
 use program_structure::error_definition::ReportCollection;
+use vfs::FileSystem;
 use std::collections::{HashMap, HashSet};
 type Signal = usize;
 type Constraint = circom_algebra::algebra::Constraint<usize>;
@@ -300,15 +301,15 @@ pub struct DAG {
 }
 
 impl ConstraintExporter for DAG {
-    fn r1cs(&self, fs: &dyn vfs::FileSystem, out: &str, custom_gates: bool) -> Result<(), ()> {
+    fn r1cs(&self, fs: &dyn FileSystem, out: &str, custom_gates: bool) -> Result<(), ()> {
         self.generate_r1cs_output(fs, out, custom_gates)
     }
 
-    fn json_constraints(&self, fs: &dyn vfs::FileSystem, writer: &DebugWriter) -> Result<(), ()> {
+    fn json_constraints(&self, fs: &dyn FileSystem, writer: &DebugWriter) -> Result<(), ()> {
         self.generate_json_constraints(fs, writer)
     }
 
-    fn sym(&self, fs: &dyn vfs::FileSystem, out: &str) -> Result<(), ()> {
+    fn sym(&self, fs: &dyn FileSystem, out: &str) -> Result<(), ()> {
         self.generate_sym_output(fs, out)
     }
 }
@@ -471,15 +472,15 @@ impl DAG {
         constraint_correctness_analysis::clean_constraints(&mut self.nodes);
     }
 
-    pub fn generate_r1cs_output(&self, fs: &dyn vfs::FileSystem, output_file: &str, custom_gates: bool) -> Result<(), ()> {
+    pub fn generate_r1cs_output(&self, fs: &dyn FileSystem, output_file: &str, custom_gates: bool) -> Result<(), ()> {
         r1cs_porting::write(fs, self, output_file, custom_gates)
     }
 
-    pub fn generate_sym_output(&self, fs: &dyn vfs::FileSystem, output_file: &str) -> Result<(), ()> {
+    pub fn generate_sym_output(&self, fs: &dyn FileSystem, output_file: &str) -> Result<(), ()> {
         sym_porting::write(fs, self, output_file)
     }
 
-    pub fn generate_json_constraints(&self, fs: &dyn vfs::FileSystem, debug: &DebugWriter) -> Result<(), ()> {
+    pub fn generate_json_constraints(&self, fs: &dyn FileSystem, debug: &DebugWriter) -> Result<(), ()> {
         json_porting::port_constraints(fs, self, debug)
     }
 
@@ -531,7 +532,7 @@ impl DAG {
         }
     }
 
-    pub fn map_to_list(self, fs: &dyn vfs::FileSystem, flags: SimplificationFlags) -> ConstraintList {
+    pub fn map_to_list(self, fs: &dyn FileSystem, flags: SimplificationFlags) -> ConstraintList {
         map_to_constraint_list::map(fs, self, flags)
     }
 }

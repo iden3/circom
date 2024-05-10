@@ -19,6 +19,7 @@ use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::FileID;
 use program_structure::program_archive::ProgramArchive;
+use vfs::FileSystem;
 use std::rc::Rc;
 
 pub struct BuildConfig {
@@ -42,7 +43,7 @@ pub struct FlagsExecution{
 
 pub type ConstraintWriter = Box<dyn ConstraintExporter>;
 type BuildResponse = Result<(ConstraintWriter, VCP), ()>;
-pub fn build_circuit(fs: &dyn vfs::FileSystem, program: ProgramArchive, config: BuildConfig) -> BuildResponse {
+pub fn build_circuit(fs: &dyn FileSystem, program: ProgramArchive, config: BuildConfig) -> BuildResponse {
     let files = program.file_library.clone();
     let flags = FlagsExecution{
         verbose: config.flag_verbose,
@@ -102,7 +103,7 @@ fn sync_dag_and_vcp(vcp: &mut VCP, dag: &mut DAG) {
     VCP::add_witness_list(vcp, Rc::clone(&witness));
 }
 
-fn simplification_process(fs: &dyn vfs::FileSystem, vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> ConstraintList {
+fn simplification_process(fs: &dyn FileSystem, vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> ConstraintList {
     use dag::SimplificationFlags;
     let flags = SimplificationFlags {
         flag_s: config.flag_s,

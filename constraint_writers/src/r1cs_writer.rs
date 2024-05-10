@@ -1,4 +1,5 @@
 use circom_algebra::num_bigint::BigInt;
+use vfs::FileSystem;
 use vfs_utils::VfsBufWriter;
 use std::collections::HashMap;
 use std::io::{BufWriter, Seek, SeekFrom, Write};
@@ -154,7 +155,7 @@ pub struct CustomGatesAppliedSection {
 
 impl R1CSWriter {
     pub fn new(
-        fs: &dyn vfs::FileSystem,
+        fs: &dyn FileSystem,
         output_file: String,
         field_size: usize,
         custom_gates: bool

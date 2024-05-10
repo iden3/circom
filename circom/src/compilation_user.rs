@@ -1,15 +1,14 @@
-use std::rc::Rc;
-
 use ansi_term::Colour;
 use compiler::compiler_interface;
 use compiler::compiler_interface::{Config, VCP};
 use program_structure::error_definition::Report;
 use program_structure::error_code::ReportCode;
 use program_structure::file_definition::FileLibrary;
+use vfs::FileSystem;
 use crate::VERSION;
 
 pub struct CompilerConfig {
-    pub fs: Rc<dyn vfs::FileSystem>,
+    pub fs: Box<dyn FileSystem>,
     pub js_folder: String,
     pub wasm_name: String,
     pub wat_file: String,
@@ -98,7 +97,7 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
     Ok(())
 }
 
-fn wat_to_wasm(fs: &dyn vfs::FileSystem, wat_file: &str, wasm_file: &str) -> Result<(), Report> {
+fn wat_to_wasm(fs: &dyn FileSystem, wat_file: &str, wasm_file: &str) -> Result<(), Report> {
     use std::io::BufWriter;
     use std::io::Write;
     use wast::Wat;

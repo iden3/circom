@@ -5,6 +5,7 @@ use crate::hir::very_concrete_program::VCP;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
+use vfs::FileSystem;
 use std::io::Write;
 
 pub struct CompilationFlags {
@@ -548,7 +549,7 @@ impl WriteC for Circuit {
 }
 
 impl Circuit {
-    pub fn build(fs: &dyn vfs::FileSystem, vcp: VCP, flags: CompilationFlags, version: &str) -> Self {
+    pub fn build(fs: &dyn FileSystem, vcp: VCP, flags: CompilationFlags, version: &str) -> Self {
         use super::build::build_circuit;
         build_circuit(fs, vcp, flags, version)
     }
@@ -576,7 +577,7 @@ impl Circuit {
     pub fn produce_ir_string_for_function(&self, id: ID) -> String {
         self.functions[id].to_string()
     }
-    pub fn produce_c<W: Write>(&self, fs: &dyn vfs::FileSystem, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
+    pub fn produce_c<W: Write>(&self, fs: &dyn FileSystem, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
         use std::path::Path;
         let c_folder_path = Path::new(c_folder).to_path_buf();
         c_code_generator::generate_main_cpp_file(fs, &c_folder_path).map_err(|_err| {})?;
@@ -590,7 +591,7 @@ impl Circuit {
         c_code_generator::generate_dat_file(c_dat, &self.c_producer).map_err(|_err| {})?;
         self.write_c(c_circuit, &self.c_producer)
     }
-    pub fn produce_wasm<W: Write>(&self, fs: &dyn vfs::FileSystem, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
+    pub fn produce_wasm<W: Write>(&self, fs: &dyn FileSystem, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let js_folder_path = Path::new(js_folder).to_path_buf();
         wasm_code_generator::generate_generate_witness_js_file(fs, &js_folder_path).map_err(|_err| {})?;

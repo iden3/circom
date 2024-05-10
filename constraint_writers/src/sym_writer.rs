@@ -1,5 +1,6 @@
 use std::io::{BufWriter, Write};
 
+use vfs::FileSystem;
 use vfs_utils::VfsBufWriter;
 
 pub struct SymElem {
@@ -19,7 +20,7 @@ pub struct SymFile {
 }
 
 impl SymFile {
-    pub fn new(fs: &dyn vfs::FileSystem, file: &str) -> Result<SymFile, ()> {
+    pub fn new(fs: &dyn FileSystem, file: &str) -> Result<SymFile, ()> {
         let file = fs.create_file(file).map_err(|_err| {})?;
         let writer = BufWriter::new(file);
         Result::Ok(SymFile { writer })

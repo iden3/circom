@@ -7,6 +7,7 @@ use crate::intermediate_representation::translate::{CodeInfo, FieldTracker, Temp
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use program_structure::file_definition::FileLibrary;
+use vfs::FileSystem;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
@@ -325,7 +326,7 @@ fn build_input_output_list(instance: &TemplateInstance, database: &TemplateDB) -
     io_list
 }
 
-fn write_main_inputs_log(fs: &dyn vfs::FileSystem, vcp: &VCP) {
+fn write_main_inputs_log(fs: &dyn FileSystem, vcp: &VCP) {
     use program_structure::ast::SignalType::*;
     use std::io::{BufWriter, Write};
 
@@ -359,7 +360,7 @@ struct CircuitInfo {
     template_database: TemplateDB,
 }
 
-pub fn build_circuit(fs: &dyn vfs::FileSystem, vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit {
+pub fn build_circuit(fs: &dyn FileSystem, vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit {
     use crate::ir_processing::set_arena_size_in_calls;
     if flag.main_inputs_log {
         write_main_inputs_log(fs, &vcp);

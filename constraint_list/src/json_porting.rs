@@ -3,6 +3,7 @@ use crate::SignalMap;
 use circom_algebra::num_bigint::BigInt;
 use constraint_writers::debug_writer::DebugWriter;
 use json::JsonValue;
+use vfs::FileSystem;
 use std::collections::HashMap;
 
 pub fn transform_constraint_to_json(constraint: &C) -> JsonValue {
@@ -33,7 +34,7 @@ pub fn port_substitution(sub: &S) -> (String, String) {
 }
 
 pub fn port_constraints(
-    fs: &dyn vfs::FileSystem,
+    fs: &dyn FileSystem,
     storage: &ConstraintStorage,
     map: &SignalMap,
     debug: &DebugWriter,

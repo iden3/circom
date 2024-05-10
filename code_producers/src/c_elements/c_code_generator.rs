@@ -1,7 +1,7 @@
 use super::*;
 use num_bigint_dig::{BigInt, Sign};
 use serde_json::json;
-use vfs::VfsResult;
+use vfs::{FileSystem, VfsResult};
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -765,7 +765,7 @@ pub fn generate_function_release_memory_circuit() -> Vec<String>{
     instructions
   }
 
-pub fn generate_main_cpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_main_cpp_file(fs: &dyn FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("main");
@@ -782,7 +782,7 @@ pub fn generate_main_cpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -> s
     Ok(())
 }
 
-pub fn generate_circom_hpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_circom_hpp_file(fs: &dyn FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("circom");
@@ -799,7 +799,7 @@ pub fn generate_circom_hpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) ->
     Ok(())
 }
 
-pub fn generate_fr_hpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_fr_hpp_file(fs: &dyn FileSystem, c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -825,7 +825,7 @@ pub fn generate_fr_hpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf, prime:
     Ok(())
 }
 
-pub fn generate_calcwit_hpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_calcwit_hpp_file(fs: &dyn FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
@@ -842,7 +842,7 @@ pub fn generate_calcwit_hpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -
     Ok(())
 }
 
-pub fn generate_fr_cpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_fr_cpp_file(fs: &dyn FileSystem, c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -869,7 +869,7 @@ pub fn generate_fr_cpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf, prime:
     Ok(())
 }
 
-pub fn generate_calcwit_cpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_calcwit_cpp_file(fs: &dyn FileSystem, c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
@@ -886,7 +886,7 @@ pub fn generate_calcwit_cpp_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf) -
     Ok(())
 }
 
-pub fn generate_fr_asm_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_fr_asm_file(fs: &dyn FileSystem, c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -913,7 +913,7 @@ pub fn generate_fr_asm_file(fs: &dyn vfs::FileSystem, c_folder: &PathBuf, prime:
 }
 
 pub fn generate_make_file(
-    fs: &dyn vfs::FileSystem,
+    fs: &dyn FileSystem,
     c_folder: &PathBuf,
     run_name: &str,
     producer: &CProducer,
@@ -942,7 +942,7 @@ pub fn generate_make_file(
     Ok(())
 }
 
-pub fn generate_c_file(fs: &dyn vfs::FileSystem, name: String, producer: &CProducer) -> VfsResult<()> {
+pub fn generate_c_file(fs: &dyn FileSystem, name: String, producer: &CProducer) -> VfsResult<()> {
     let full_name = name + ".cpp";
     let mut cfile = fs.create_file(&full_name)?;
     let mut code = vec![];
@@ -994,7 +994,7 @@ pub fn generate_c_file(fs: &dyn vfs::FileSystem, name: String, producer: &CProdu
 mod tests {
     //    use std::io::{BufWriter,BufReader,BufRead};
     use std::path::Path;
-    use vfs::FileSystem;
+    use FileSystem;
 
     //    use std::fs::File;
     use super::*;

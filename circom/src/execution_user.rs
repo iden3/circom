@@ -3,6 +3,7 @@ use compiler::hir::very_concrete_program::VCP;
 use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::ConstraintExporter;
 use program_structure::program_archive::ProgramArchive;
+use vfs::FileSystem;
 
 pub struct ExecutionConfig {
     pub r1cs: String,
@@ -24,7 +25,7 @@ pub struct ExecutionConfig {
 }
 
 pub fn execute_project(
-    fs: &dyn vfs::FileSystem,
+    fs: &dyn FileSystem,
     program_archive: ProgramArchive,
     config: ExecutionConfig,
 ) -> Result<VCP, ()> {
@@ -56,7 +57,7 @@ pub fn execute_project(
     Result::Ok(vcp)
 }
 
-fn generate_output_r1cs(fs: &dyn vfs::FileSystem, file: &str, exporter: &dyn ConstraintExporter, custom_gates: bool) -> Result<(), ()> {
+fn generate_output_r1cs(fs: &dyn FileSystem, file: &str, exporter: &dyn ConstraintExporter, custom_gates: bool) -> Result<(), ()> {
     if let Result::Ok(()) = exporter.r1cs(fs, file, custom_gates) {
         println!("{} {}", Colour::Green.paint("Written successfully:"), file);
         Result::Ok(())
@@ -66,7 +67,7 @@ fn generate_output_r1cs(fs: &dyn vfs::FileSystem, file: &str, exporter: &dyn Con
     }
 }
 
-fn generate_output_sym(fs: &dyn vfs::FileSystem, file: &str, exporter: &dyn ConstraintExporter) -> Result<(), ()> {
+fn generate_output_sym(fs: &dyn FileSystem, file: &str, exporter: &dyn ConstraintExporter) -> Result<(), ()> {
     if let Result::Ok(()) = exporter.sym(fs, file) {
         println!("{} {}", Colour::Green.paint("Written successfully:"), file);
         Result::Ok(())
@@ -77,7 +78,7 @@ fn generate_output_sym(fs: &dyn vfs::FileSystem, file: &str, exporter: &dyn Cons
 }
 
 fn generate_json_constraints(
-    fs: &dyn vfs::FileSystem,
+    fs: &dyn FileSystem,
     debug: &DebugWriter,
     exporter: &dyn ConstraintExporter,
 ) -> Result<(), ()> {

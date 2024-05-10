@@ -1,8 +1,9 @@
 use super::{Constraint, Tree, DAG};
 use constraint_writers::log_writer::Log;
 use constraint_writers::r1cs_writer::{ConstraintSection, CustomGatesAppliedData, HeaderData, R1CSWriter};
+use vfs::FileSystem;
 
-pub fn write(fs: &dyn vfs::FileSystem, dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
+pub fn write(fs: &dyn FileSystem, dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
     let tree = Tree::new(dag);
     let field_size = if tree.field.bits() % 64 == 0 {
         tree.field.bits() / 8

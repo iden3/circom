@@ -1,3 +1,5 @@
+use vfs::FileSystem;
+
 use super::json_writer::ConstraintJSON;
 
 #[derive(Clone)]
@@ -9,7 +11,7 @@ impl DebugWriter {
         Result::Ok(DebugWriter { json_constraints: c })
     }
 
-    pub fn build_constraints_file(&self, fs: &dyn vfs::FileSystem) -> Result<ConstraintJSON, ()> {
+    pub fn build_constraints_file(&self, fs: &dyn FileSystem) -> Result<ConstraintJSON, ()> {
         ConstraintJSON::new(fs, &self.json_constraints)
     }
 }

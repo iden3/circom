@@ -3,6 +3,7 @@ use super::{ConstraintStorage, EncodingIterator, SEncoded, Simplifier, A, C, S};
 use crate::SignalMap;
 use circom_algebra::num_bigint::BigInt;
 use constraint_writers::json_writer::SubstitutionJSON;
+use vfs::FileSystem;
 use std::collections::{HashMap, HashSet, LinkedList, BTreeSet};
 use std::sync::Arc;
 
@@ -439,7 +440,7 @@ fn remove_not_relevant(substitutions: &mut SEncoded, relevant: &HashSet<usize>) 
 
 
 // returns the constraints, the assignment of the witness and the number of inputs in the witness
-pub fn simplification(fs: &dyn vfs::FileSystem, smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, usize) {
+pub fn simplification(fs: &dyn FileSystem, smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, usize) {
     use super::non_linear_utils::obtain_and_simplify_non_linear;
     use circom_algebra::simplification_utils::build_encoded_fast_substitutions;
     use circom_algebra::simplification_utils::fast_encoded_constraint_substitution;

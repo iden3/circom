@@ -18,6 +18,7 @@ use program_structure::error_definition::ReportCollection;
 use program_structure::error_definition::Report;
 use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
+use vfs::FileSystem;
 use std::path::{PathBuf, Path};
 use syntax_sugar_remover::apply_syntactic_sugar;
 
@@ -26,7 +27,7 @@ use std::str::FromStr;
 pub type Version = (usize, usize, usize);
 
 pub fn find_file(
-    fs: &dyn vfs::FileSystem,
+    fs: &dyn FileSystem,
     crr_file: PathBuf,
     ext_link_libraries: Vec<PathBuf>,
 ) -> (bool, String, String, PathBuf, Vec<Report>) {
@@ -58,7 +59,7 @@ pub fn find_file(
 }
 
 pub fn run_parser(
-    fs: &dyn vfs::FileSystem,
+    fs: &dyn FileSystem,
     file: String,
     version: &str,
     link_libraries: Vec<PathBuf>,
@@ -177,7 +178,7 @@ fn produce_report_with_main_components(main_components: Vec<(usize, (Vec<String>
     r
 }
 
-fn open_file(fs: &dyn vfs::FileSystem, path: PathBuf) -> Result<(String, String), Report> /* path, src */ {
+fn open_file(fs: &dyn FileSystem, path: PathBuf) -> Result<(String, String), Report> /* path, src */ {
     let path_string = path.canonicalize().unwrap().to_str().unwrap().to_string();
 
     let mut file = fs.open_file(&path_string)

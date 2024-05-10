@@ -2,7 +2,7 @@ mod simple_path;
 
 use std::path::Path;
 
-use vfs::VfsResult;
+use vfs::{FileSystem, VfsResult};
 
 pub use simple_path::SimplePath;
 
@@ -15,7 +15,7 @@ pub fn canonicalize_physical_path(path: &str) -> String {
         .to_string()
 }
 
-pub fn rimraf(fs: &dyn vfs::FileSystem, path: &str) -> VfsResult<()> {
+pub fn rimraf(fs: &dyn FileSystem, path: &str) -> VfsResult<()> {
     if path == "" || path == "/" {
         panic!("Refused `rm -rf /` catastrophe");
     }

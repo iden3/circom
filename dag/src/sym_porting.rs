@@ -1,9 +1,10 @@
 use super::{Tree, DAG};
 use circom_algebra::num_traits::AsPrimitive;
 use constraint_writers::sym_writer::*;
+use vfs::FileSystem;
 use std::collections::HashMap;
 
-pub fn write(fs: &dyn vfs::FileSystem, dag: &DAG, file_name: &str) -> Result<(), ()> {
+pub fn write(fs: &dyn FileSystem, dag: &DAG, file_name: &str) -> Result<(), ()> {
     let tree = Tree::new(dag);
     let mut dot_sym = SymFile::new(fs, file_name)?;
     visit_tree(&tree, &mut dot_sym)?;

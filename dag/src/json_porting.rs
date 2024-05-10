@@ -4,6 +4,7 @@ use circom_algebra::num_bigint::BigInt;
 use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::json_writer::ConstraintJSON;
 use json::JsonValue;
+use vfs::FileSystem;
 use std::collections::HashMap;
 
 type C = Constraint<usize>;
@@ -39,7 +40,7 @@ fn visit_tree(tree: &Tree, writer: &mut ConstraintJSON) -> Result<(), ()> {
     Result::Ok(())
 }
 
-pub fn port_constraints(fs: &dyn vfs::FileSystem, dag: &DAG, debug: &DebugWriter) -> Result<(), ()> {
+pub fn port_constraints(fs: &dyn FileSystem, dag: &DAG, debug: &DebugWriter) -> Result<(), ()> {
     let mut writer = debug.build_constraints_file(fs)?;
     visit_tree(&Tree::new(dag), &mut writer)?;
     writer.end()

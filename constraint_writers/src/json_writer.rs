@@ -1,5 +1,6 @@
 use std::io::{BufWriter, Write};
 
+use vfs::FileSystem;
 use vfs_utils::VfsBufWriter;
 
 pub struct ConstraintJSON {
@@ -8,7 +9,7 @@ pub struct ConstraintJSON {
 }
 
 impl ConstraintJSON {
-    pub fn new(fs: &dyn vfs::FileSystem, file: &str) -> Result<ConstraintJSON, ()> {
+    pub fn new(fs: &dyn FileSystem, file: &str) -> Result<ConstraintJSON, ()> {
         let file_constraints = fs.create_file(file).map_err(|_err| {})?;
         let mut writer_constraints = BufWriter::new(file_constraints);
 
@@ -43,7 +44,7 @@ pub struct SignalsJSON {
     writer_signals: VfsBufWriter,
 }
 impl SignalsJSON {
-    pub fn new(fs: &dyn vfs::FileSystem, file: &str) -> Result<SignalsJSON, ()> {
+    pub fn new(fs: &dyn FileSystem, file: &str) -> Result<SignalsJSON, ()> {
         let file_signals = fs.create_file(file).map_err(|_err| {})?;
         let mut writer_signals = BufWriter::new(file_signals);
         writer_signals.write_all(b"{").map_err(|_err| {})?;
@@ -71,7 +72,7 @@ pub struct SubstitutionJSON {
     first: bool,
 }
 impl SubstitutionJSON {
-    pub fn new(fs: &dyn vfs::FileSystem, file: &str) -> Result<SubstitutionJSON, ()> {
+    pub fn new(fs: &dyn FileSystem, file: &str) -> Result<SubstitutionJSON, ()> {
         let first = true;
         let file_substitutions = fs.create_file(file).map_err(|_err| {})?;
         let mut writer_substitutions = BufWriter::new(file_substitutions);
