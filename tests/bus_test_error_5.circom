@@ -42,6 +42,8 @@ template Main () {
     busC.b <== busA;
     busB <== busC;
     busB <== busC.b;
+    busC.b <== busB;
+    busC.b <-- busC.b;
 
     busC.b.b1 <== busA.a2 + busC.b.b2;
     busB.b2 + busC.b.b2 === busB.b1 + busA.a1;
