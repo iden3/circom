@@ -33,7 +33,7 @@ template Main (m,n) {
 
     for (var i=0; i<m; i++) {
         d.c2[i].a.a.tag1 = 0;
-        d.c2[i].b[0].b1.a <== c.b[0].b2.a;
+        d.c2[i].b[0].b1.a <== c[i].b[0].b2.a;
     }
 }
 
