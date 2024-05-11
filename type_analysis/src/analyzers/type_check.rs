@@ -1,7 +1,6 @@
 use super::type_given_function::type_given_function;
 use super::type_register::TypeRegister;
-use num_traits::sign;
-use program_structure::{ast::*, template_data};
+use program_structure::ast::*;
 use program_structure::ast::Expression::Call;
 use program_structure::environment::CircomEnvironment;
 use program_structure::error_code::ReportCode;
@@ -10,8 +9,7 @@ use program_structure::file_definition::{generate_file_location, FileID};
 use program_structure::program_archive::ProgramArchive;
 use program_structure::wire_data::WireType;
 use std::collections::HashSet;
-use std::fmt::Error;
-use std::thread::current;
+
 
 type ArithmeticType = usize;
 type ComponentInfo = (Option<String>, ArithmeticType);
@@ -218,7 +216,7 @@ fn type_statement(
             };
 
             let access_information_result =
-                treat_access(access, meta, program_archive, analysis_information);
+                treat_access(access, program_archive, analysis_information);
 
             let access_information = if let Result::Ok(info) = access_information_result {
                 info
@@ -729,7 +727,7 @@ fn type_expression(
         Variable { name, access, meta, .. } => {
             debug_assert!(analysis_information.environment.has_symbol(name));
             let access_information =
-                treat_access( access, meta, program_archive, analysis_information)?;
+                treat_access( access, program_archive, analysis_information)?;
             let environment = &analysis_information.environment;
             let reports = &mut analysis_information.reports;
             let symbol_information = apply_access_to_symbol(
@@ -888,7 +886,6 @@ fn treat_sequence_of_statements(
 type AccessInfo = (ArithmeticType, Option<Vec<(String, ArithmeticType)>>);
 fn treat_access(
     accesses: &[Access],
-    meta: &Meta,
     program_archive: &ProgramArchive,
     analysis_information: &mut AnalysisInformation,
 ) -> Result<AccessInfo, ()> {

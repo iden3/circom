@@ -1,8 +1,8 @@
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
-use program_structure::program_archive::{self, ProgramArchive};
+use program_structure::program_archive::ProgramArchive;
 use program_structure::wire_data::WireType;
-use program_structure::{ast::*, bus_data};
+use program_structure::ast::*;
 use program_structure::bus_data::BusData;
 use program_structure::environment::CircomEnvironment;
 use program_structure::function_data::FunctionData;
