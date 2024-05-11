@@ -16,11 +16,13 @@ bus OutputPoint (n) {
 }
 
 template Pipe (n) {
-    Point(n) input {babyedwards} pin;
-    Point(n) output {babyedwards} pout;
+    InputPoint(n) input {babyedwards} pin;
+    OutputPoint(n) output {babyedwards} pout;
 
     for (var i=0; i<n; i++) {
         pout.x[i] <== pin.x[i];
         pout.y[i] <== pin.y[i];
     }
 }
+
+component main {public [pin]} = Pipe(3);

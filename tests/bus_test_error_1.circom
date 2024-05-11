@@ -11,12 +11,32 @@ bus {babyedwards} Point (n) {
     signal {binary} x[n], y[n];
 }
 
+template Main(n) {
+    Point(n) output pout;
+
+    Point(n) pin;
+    for (var i=0; i<n; i++) {
+        pin.x[i] <== 1;
+        pin.y[i] <== 0;
+    }
+
+    component pipe = Pipe(n);
+    pipe.pin <== pin;
+    pout <== pipe.pout;
+}
+
 template Pipe (n) {
     Point(n) input pin;
     Point(n) output pout;
+    Point(n) p;
 
     for (var i=0; i<n; i++) {
-        pout.x[i] <== pin.x[i];
-        pout.y[i] <== pin.y[i];
+        p.x[i] <== pin.x[i];
+        p.y[i] <== pin.y[i];
     }
+    
+    pout.x <== p.x;
+    pout.y <== p.y;
 }
+
+component main = Main(255);
