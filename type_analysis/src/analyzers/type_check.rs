@@ -1065,7 +1065,7 @@ fn apply_access_to_symbol(
                             if pos == buses_and_signals.len()-1 {
                                 match wire.get_type() {
                                     WireType::Signal => {return Result::Ok(SymbolInformation::Signal(current_dim));},
-                                    WireType::Bus(_) => {return Result::Ok(SymbolInformation::Bus(Some(b_name), current_dim))},
+                                    WireType::Bus(b_name2) => {return Result::Ok(SymbolInformation::Bus(Some(b_name2.clone()), current_dim))},
                                 }
                             } else {
                                 kind = wire.get_type();
