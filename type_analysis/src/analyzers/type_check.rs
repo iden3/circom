@@ -243,11 +243,15 @@ fn type_statement(
             match (&symbol_information, op) {
                 (SymbolInformation::Signal(_), AssignOp::AssignConstraintSignal)
                 | (SymbolInformation::Signal(_), AssignOp::AssignSignal)
-                | (SymbolInformation::Bus(_,_), AssignOp::AssignConstraintSignal)
-                | (SymbolInformation::Bus(_,_), AssignOp::AssignSignal)
-                | (SymbolInformation::Bus(_,_), AssignOp::AssignVar)
                 | (SymbolInformation::Var(_), AssignOp::AssignVar)
                 | (SymbolInformation::Component(_), AssignOp::AssignVar)
+                | (SymbolInformation::Bus(_,_), AssignOp::AssignConstraintSignal)
+                | (SymbolInformation::Bus(_,_), AssignOp::AssignSignal)  => {}
+                | (SymbolInformation::Bus(_,_), AssignOp::AssignVar) => {
+                    if !rhe.is_bus_call() && !rhe.is_bus_call_array(){
+                        return add_report(ReportCode::WrongTypesInAssignOperationBus, meta, &mut analysis_information.reports);
+                    }
+                }
                 | (SymbolInformation::Tag, AssignOp::AssignVar) => {
                     //If the tag comes from an output wire, it cannot be modified.
                     if analysis_information.environment.has_component(var){
@@ -322,11 +326,20 @@ fn type_statement(
                             let bus = possible_bus.unwrap();
                             let r_bus = rhe_type.bus.unwrap();
                             if bus != r_bus {
-                                add_report(
-                                    ReportCode::WrongTypesInAssignOperationArrayBuses,
-                                    meta,
-                                    &mut analysis_information.reports,
-                                )
+                                if dim > 0 {
+                                    add_report(
+                                        ReportCode::WrongTypesInAssignOperationArrayBuses,
+                                        meta,
+                                        &mut analysis_information.reports,
+                                    )
+                                }
+                                else {
+                                    add_report(
+                                        ReportCode::WrongTypesInAssignOperationBus,
+                                        meta,
+                                        &mut analysis_information.reports,
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -965,6 +978,9 @@ fn apply_access_to_symbol(
      if let Option::Some(buses_and_signals) = access_information.1{
         assert!(buses_and_signals.len() > 0);
         let mut pos = 0;
+        if current_dim > 0 && (pos < buses_and_signals.len()- 1 || !possible_tags.contains(&buses_and_signals.get(0).unwrap().0)){
+            return add_report_and_end(ReportCode::InvalidArrayAccess(current_dim+access_information.0,access_information.0), meta, reports);
+        }
         if current_template_or_bus.is_none() && environment.has_bus(symbol){
             return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
         } else if current_template_or_bus.is_none() && environment.has_component(symbol){
@@ -991,13 +1007,13 @@ fn apply_access_to_symbol(
             };
             
             if *accessed_dim > dim {
-                return add_report_and_end(ReportCode::InvalidArrayAccess(*accessed_dim, dim), meta, reports);
+                return add_report_and_end(ReportCode::InvalidArrayAccess(dim, *accessed_dim), meta, reports);
             }
             current_dim = dim - accessed_dim;
             if pos == buses_and_signals.len()-1 {
                 match kind {
                     WireType::Signal => {return Result::Ok(SymbolInformation::Signal(current_dim));},
-                    WireType::Bus(_) => {return Result::Ok(SymbolInformation::Bus(Some(accessed_element.clone()),current_dim))},
+                    WireType::Bus(b_name) => {return Result::Ok(SymbolInformation::Bus(Some(b_name.clone()),current_dim))},
                 }
             }
             pos += 1;
@@ -1019,6 +1035,9 @@ fn apply_access_to_symbol(
         };
         while pos < buses_and_signals.len() {
             let (accessed_element, accessed_dim) = buses_and_signals.get(pos).unwrap().clone();
+            if current_dim > 0 && (pos < buses_and_signals.len()- 1 || !tags.contains(&accessed_element)){
+                return add_report_and_end(ReportCode::InvalidArrayAccess(current_dim,accessed_dim), meta, reports);
+            }
             if kind == WireType::Signal {
                     if tags.contains(&accessed_element) {
                         let prev_dim_access = if buses_and_signals.len()>1 {buses_and_signals.get(buses_and_signals.len()-2).unwrap().1}
@@ -1049,9 +1068,6 @@ fn apply_access_to_symbol(
                                     WireType::Bus(_) => {return Result::Ok(SymbolInformation::Bus(Some(b_name), current_dim))},
                                 }
                             } else {
-                                if current_dim > 0 {
-                                    return add_report_and_end(ReportCode::InvalidArrayAccess(wire.get_dimension(),accessed_dim), meta, reports);
-                                }
                                 kind = wire.get_type();
                                 tags = wire.get_tags().clone();
                             }
@@ -1258,7 +1274,9 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
             format!("The operator does not match the types of the assigned elements.\n Only assignments to signals allow the operators <== and <--, try using = instead")
         }
         WrongTypesInAssignOperationArrayTemplates => "Assignee and assigned types do not match.\n All components of an array must be instances of the same template.".to_string(),
-        WrongTypesInAssignOperationTemplate => "Assignee and assigned types do not match.\n Expected template found expression.".to_string(),
+        WrongTypesInAssignOperationTemplate => "Assignee and assigned types do not match.\n Expected template but found expression.".to_string(),
+        WrongTypesInAssignOperationArrayBuses => "Assignee and assigned types do not match.\n All buses of an array must be the same type.".to_string(),
+        WrongTypesInAssignOperationBus => "Assignee and assigned types do not match.\n Expected bus but found a different expression.".to_string(),
         WrongTypesInAssignOperationExpression => "Assignee and assigned types do not match.\n Expected expression found template.".to_string(),
         WrongTypesInAssignOperationDims(expected, found) => {
             format!("Assignee and assigned types do not match. \n Expected dimensions: {}, found {}",
@@ -1290,7 +1308,6 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         MustBeSameBus => "Both kind of buses must be equals".to_string(),
         MustBeBus => "Expected to be a bus".to_string(),
         InvalidSignalAccessInBus => format!("Field not defined in bus"),
-        WrongTypesInAssignOperationBus=> "Assignee and assigned types do not match.".to_string(),
         e => panic!("Unimplemented error code: {}", e),
     };
     report.add_primary(location, file_id, message);
