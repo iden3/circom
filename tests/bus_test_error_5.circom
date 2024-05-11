@@ -2,8 +2,7 @@ pragma circom 2.0.0;
 
 /*
 
-    This code should fail because field accesses and array accesses do not match
-    with the types and dimensions of the expresions.
+    This code should fail because of type mismatches.
 
 */
 
@@ -42,6 +41,8 @@ template Main () {
     busC.b <== busA;
     busB <== busC;
     busB <== busC.b;
+    busC.b === busB;
+    busC.b <-- busC.b;
 
     busC.b.b1 <== busA.a2 + busC.b.b2;
     busB.b2 + busC.b.b2 === busB.b1 + busA.a1;
