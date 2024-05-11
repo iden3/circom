@@ -20,6 +20,7 @@ impl Expression {
             | BusCall { meta, .. } => meta,
         }
     }
+
     pub fn get_mut_meta(&mut self) -> &mut Meta {
         use Expression::*;
         match self {
@@ -75,6 +76,7 @@ impl Expression {
             false
         }
     }
+
     pub fn is_switch(&self) -> bool {
         use Expression::*;
         if let InlineSwitchOp { .. } = self {
@@ -119,6 +121,7 @@ impl Expression {
             false
         }
     }
+
     pub fn is_bus_call(&self) -> bool {
         use Expression::*;
         if let BusCall { .. } = self {
@@ -127,6 +130,18 @@ impl Expression {
             false
         }
     }
+
+    pub fn is_bus_call_array(&self) -> bool {
+        use Expression::*;
+        if let BusCall { .. } = self {
+            true
+        } else if let UniformArray { value, .. } = self {
+            value.is_bus_call_array()
+        } else {
+            false
+        }
+    }
+
     pub fn is_anonymous_comp(&self) -> bool {
         use Expression::*;
         if let AnonymousComp { .. } = self {

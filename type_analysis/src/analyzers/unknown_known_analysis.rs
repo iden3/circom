@@ -166,12 +166,19 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     }
                 }
                 TypeReduction::Bus(_) => {
-                    constraints_declared = true;
-                    if expression_tag == Unknown {
-                        add_report(ReportCode::UnknownBus, rhe.get_meta(), file_id, &mut reports);
+                    if *op == AssignOp::AssignConstraintSignal {
+                        constraints_declared = true;
                     }
-                    if access_tag == Unknown {
+                    if  *op == AssignOp::AssignVar && expression_tag == Unknown {
                         add_report(ReportCode::UnknownBus, meta, file_id, &mut reports);
+                    }
+                    if *op == AssignOp::AssignConstraintSignal { 
+                        if is_non_quadratic(rhe, &environment) {
+                            add_report(ReportCode::UnknownTemplate, rhe.get_meta(), file_id, &mut reports);
+                        }
+                        if access_tag == Unknown {
+                            add_report(ReportCode::NonQuadratic, meta, file_id, &mut reports);
+                        }
                     }
                 }
                 TypeReduction::Tag => {
@@ -380,7 +387,9 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
                 TypeReduction::Tag => Known,
             }
         }
-        ArrayInLine { values, .. } | Call { args: values, .. } => {
+        ArrayInLine { values, .. } 
+        | Call { args: values, .. } 
+        | BusCall { args: values, .. }=> {
             expression_iterator(values, Known, Unknown, environment)
         }
         UniformArray { value, dimension, .. } => {
@@ -513,7 +522,7 @@ fn add_report(
     let message = match error_code {
         UnknownDimension => "The length of every array must known during the constraint generation phase".to_string(),
         UnknownTemplate => "Every component instantiation must be resolved during the constraint generation phase".to_string(),
-        UnknownBus => "Every bus instantiation must be resolved during the constraint generation phase".to_string(),
+        UnknownBus => "Parameters of a bus must be known during the constraint generation phase".to_string(),
         NonQuadratic => "Non-quadratic constraint was detected statically, using unknown index will cause the constraint to be non-quadratic".to_string(),
         UnreachableConstraints => "There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
         UnreachableTags => "There are tag assignments depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
