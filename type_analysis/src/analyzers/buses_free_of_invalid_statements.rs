@@ -29,24 +29,10 @@ fn analyse_statement(
     match stmt {
         MultSubstitution { .. } => unreachable!(),
         IfThenElse { meta, .. } => {
-            let mut report = Report::error(
-                "Conditional statement used inside the bus".to_string(),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id, "Using invalid statement".to_string());
-            reports.push(report);
+            report_undefined_bus_error(meta, "Conditional statement used inside the bus",file_id, None, reports);
         },
         While { meta, .. } => {
-            let mut report = Report::error(
-                "Loop statement used inside the bus".to_string(),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id, "Using invalid statement".to_string());
-            reports.push(report);
+            report_undefined_bus_error(meta, "Loop statement used inside the bus", file_id, None, reports);
         },
         Block { stmts, .. }  => {
             for stmt in stmts.iter() {
@@ -67,25 +53,11 @@ fn analyse_statement(
                             analyse_expression(dimension, function_names, reports);
                         }
                     } else {
-                        let mut report = Report::error(
-                            "Template elements declared inside the bus".to_string(),
-                            ReportCode::UndefinedBus,
-                        );
-                        let location =
-                            file_definition::generate_file_location(meta.get_start(), meta.get_end());
-                        report.add_primary(location, file_id, "Declaring template element".to_string());
-                        reports.push(report);
+                        report_undefined_bus_error(meta, "Template elements declared inside the bus", file_id, None, reports)
                     }
                 },
                 _ => {
-                    let mut report = Report::error(
-                        "Template elements declared inside the bus".to_string(),
-                        ReportCode::UndefinedBus,
-                    );
-                    let location =
-                        file_definition::generate_file_location(meta.get_start(), meta.get_end());
-                    report.add_primary(location, file_id, "Declaring template element".to_string());
-                    reports.push(report);
+                    report_undefined_bus_error(meta, "Template elements declared inside the bus", file_id, None, reports)
                 }
             }
         },
@@ -103,57 +75,34 @@ fn analyse_statement(
                 }
             }
             if throw_undefined_bus {
-                let mut report = Report::error(
-                    "Substitution statement used inside the bus".to_string(),
-                    ReportCode::UndefinedBus,
-                );
-                let location =
-                    file_definition::generate_file_location(meta.get_start(), meta.get_end());
-                report.add_primary(location, file_id, "Using invalid statement".to_string());
-                reports.push(report);
+                report_undefined_bus_error(meta, "Substitution statement used inside the bus", file_id, None, reports);
             }
         }
         ConstraintEquality { meta, .. } => {
-            let mut report = Report::error(
-                "Constraint statement used inside the bus".to_string(),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id, "Using invalid statement".to_string());
-            reports.push(report);
+            report_undefined_bus_error(meta, "Constraint statement used inside the bus", file_id, None, reports);
         },
         LogCall { meta, .. } => {
-            let mut report = Report::error(
-                "I/O statement used inside the bus".to_string(),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id, "Using invalid statement".to_string());
-            reports.push(report);
+            report_undefined_bus_error(meta, "I/O statement used inside the bus", file_id, None, reports)
         },
         Assert { meta, .. } => {
-            let mut report = Report::error(
-                "Assert statement used inside the bus".to_string(),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id, "Using invalid statement".to_string());
-            reports.push(report);
+            report_undefined_bus_error(meta, "Assert statement used inside the bus", file_id, None, reports)
         },
         Return { meta, .. } => {
-            let mut report = Report::error(
-                "Return statement used inside the bus".to_string(),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id, "Using invalid statement".to_string());
-            reports.push(report);
+            report_undefined_bus_error(meta, "Return statement used inside the bus", file_id, None, reports)
         },
     }
+}
+
+fn report_undefined_bus_error(meta: &Meta, msg : &str, file_id: usize, primary_msg : Option<&str>, reports: &mut Vec<Report>) {
+    let mut report = Report::error(
+        msg.to_string(),
+        ReportCode::UndefinedBus,
+    );
+    let location =
+        file_definition::generate_file_location(meta.get_start(), meta.get_end());
+    let primary_msg = if let Some(msg) = primary_msg  { msg } else  {"Using invalid statement"};
+    report.add_primary(location, file_id, primary_msg.to_string());
+    reports.push(report);
 }
 
 fn analyse_expression(
@@ -183,14 +132,7 @@ fn analyse_expression(
         Number(..) => {}
         Call { meta, id, args, .. } => {
             if !function_names.contains(id) {
-                let mut report = Report::error(
-                    format!("Unknown call in bus"),
-                    ReportCode::UndefinedBus,
-                );
-                let location =
-                    file_definition::generate_file_location(meta.get_start(), meta.get_end());
-                report.add_primary(location, file_id.clone(), format!("Is not a function call"));
-                reports.push(report);
+                report_undefined_bus_error(meta, "Unknown call in bus", file_id, Some("Is not a function call"), reports)
             }
             for arg in args.iter() {
                 analyse_expression(arg, function_names, reports);
@@ -206,14 +148,7 @@ fn analyse_expression(
             analyse_expression(dimension, function_names, reports);
         }
         BusCall { meta, .. } => {
-            let mut report = Report::error(
-                "Template elements declared inside the bus".to_string(),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id, "Declaring template element".to_string());
-            reports.push(report);
+            report_undefined_bus_error(meta, "Template elements declared inside the bus", file_id, Some("Declaring template element"), reports)
         },
         _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
@@ -230,14 +165,7 @@ fn analyse_access(
         if let Access::ArrayAccess(index) = acc {
             analyse_expression(index, function_names, reports);
         } else {
-            let mut report = Report::error(
-                format!("Bus uses component operators"),
-                ReportCode::UndefinedBus,
-            );
-            let location =
-                file_definition::generate_file_location(meta.get_start(), meta.get_end());
-            report.add_primary(location, file_id.clone(), format!("Template operator found"));
-            reports.push(report);
+            report_undefined_bus_error(meta, "Bus uses name-access operators", file_id, Some("Template operator found"), reports)
         }
     }
 }
