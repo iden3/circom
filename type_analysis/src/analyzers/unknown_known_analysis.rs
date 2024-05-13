@@ -166,13 +166,11 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     }
                 }
                 TypeReduction::Bus(_) => {
-                    if *op == AssignOp::AssignConstraintSignal {
-                        constraints_declared = true;
-                    }
                     if  *op == AssignOp::AssignVar && expression_tag == Unknown {
                         add_report(ReportCode::UnknownBus, meta, file_id, &mut reports);
                     }
-                    if *op == AssignOp::AssignConstraintSignal { 
+                    if *op == AssignOp::AssignConstraintSignal {
+                        constraints_declared = true;
                         if is_non_quadratic(rhe, &environment) {
                             add_report(ReportCode::UnknownTemplate, rhe.get_meta(), file_id, &mut reports);
                         }
@@ -526,7 +524,7 @@ fn add_report(
         NonQuadratic => "Non-quadratic constraint was detected statically, using unknown index will cause the constraint to be non-quadratic".to_string(),
         UnreachableConstraints => "There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
         UnreachableTags => "There are tag assignments depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
-        UnreachableSignals => "There are signal or component declarations depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
+        UnreachableSignals => "There are signal, bus or component declarations depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
         _ => panic!("Unimplemented error code")
     };
     report.add_primary(location, file_id, message);
