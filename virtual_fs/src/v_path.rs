@@ -50,7 +50,7 @@ impl VPath {
      * Does not follow symlinks.
      */
     pub fn normalize(&self, cwd: &VPath) -> FsResult<Self> {
-        if !cwd.0.is_absolute() {
+        if !cwd.0.has_root() {
             return Err(FsError::CwdInvalidError);
         }
 
