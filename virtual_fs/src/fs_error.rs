@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug)]
 pub enum FsError {
     IoError(std::io::Error),
@@ -26,5 +28,11 @@ impl From<std::io::Error> for FsError {
 impl From<std::string::FromUtf8Error> for FsError {
     fn from(err: std::string::FromUtf8Error) -> Self {
         FsError::FromUtf8Error(err)
+    }
+}
+
+impl Display for FsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
