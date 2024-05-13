@@ -26,11 +26,11 @@ pub struct TemplateCodeInfo {
 }
 impl ToString for TemplateCodeInfo {
     fn to_string(&self) -> String {
-        let mut body = "".to_string();
+        let mut lbody = vec![];
         for i in &self.body {
-            body = format!("{}{}\n", body, i.to_string());
+            lbody.push(i.to_string());
         }
-        format!("{{\"TEMPLATE\":\n{{\"Header\": \"{}\",\n\"Body\":{} }}\n}}", self.header, body)
+        format!("{{\"TEMPLATE\":\n{{\"Header\": \"{}\",\n\"Body\": [\n{}] }}\n}}", self.header, lbody.join(",\n"))
     }
 }
 impl WriteWasm for TemplateCodeInfo {

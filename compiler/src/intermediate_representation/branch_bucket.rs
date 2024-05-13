@@ -46,7 +46,7 @@ impl ToString for BranchBucket {
             else_body.push(i.to_string());
         }
         format!("{{\"IF\":{{\"Line\":{},\"Template_message_id\":{},\"Condition\":{}, \"If_branch\":[{}], \"Else_branch\":[{}] }} }}",
-            line, template_id, cond, if_body.join(","), else_body.join(",")
+            line, template_id, cond, if_body.join(",\n"), else_body.join(",\n")
         )
     }
 }

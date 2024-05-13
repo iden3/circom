@@ -56,17 +56,29 @@ fn print_ir_representation(circuit: &Circuit) -> Result<(), ()> {
 	let main_inputs = circuit.c_producer.get_main_input_list();
 	let signals_in_witness = circuit.c_producer.get_witness_to_signal_list();
 	let main_header = circuit.c_producer.get_main_header();
+	let message_list = circuit.c_producer.get_message_list();
+	let constant_list = circuit.c_producer.get_field_constant_list();
 	std::fs::create_dir(&path).map_err(|_err| {})?;
 	let gen_file = format!("ir_log/global_info.json");
 	let file_global = File::create(gen_file).map_err(|_err| {})?;
 	let mut writer = BufWriter::new(file_global);
 	let mut lbody = vec![];
 	lbody.push("{".to_string());
-	lbody.push(format!("\"main\":\"{}\",",main_header.to_string()));
-	let s_main_inputs: Vec<String> = main_inputs.into_iter().map(|(x1,x2,x3)| format!("[{},{},{}]",x1.to_string(),x2.to_string(),x3.to_string())).collect();
-	lbody.push(format!("\"inputs\":[{}],",s_main_inputs.join(",\n")));
+	lbody.push(format!("\"Main\":\"{}\",",main_header.to_string()));
+	let s_main_inputs: Vec<String> = main_inputs.into_iter().map(|(x1,x2,x3)| format!("[\"{}\",{},{}]",x1.to_string(),x2.to_string(),x3.to_string())).collect();
+	lbody.push(format!("\"Inputs\":[{}],",s_main_inputs.join(",\n")));
 	let s_signals_in_witness: Vec<String> = signals_in_witness.into_iter().map(|x| x.to_string()).collect();
-	lbody.push(format!("\"signals_in_witness\":[{}]",s_signals_in_witness.join(",\n")));	
+	lbody.push(format!("\"Signals_in_witness\":[{}],",s_signals_in_witness.join(",\n")));	
+	let mut lconst = vec![];
+	for c in constant_list  {
+            lconst.push(format!("\"{}\"",c.clone()));
+        }
+	lbody.push(format!("\"Constants\":[{}],",lconst.join(",\n")));	
+	let mut lmes = vec![];
+	for m in message_list  {
+            lmes.push(format!("\"{}\"",m.clone()));
+        }
+	lbody.push(format!("\"Template_messages\":[{}]",lmes.join(",\n")));	
         lbody.push("}".to_string());
 	let body = lbody.join("\n");
 	writer.write_all(body.as_bytes()).map_err(|_err| {})?;

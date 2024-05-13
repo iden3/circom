@@ -41,7 +41,7 @@ impl ToString for LoopBucket {
         for i in &self.body {
             lbody.push(i.to_string());
         }
-        format!("{{\"LOOP\": {{ \"Line\": {}, \"Template_message_id\": {}, \"Condition\": {}, \"Loop_body\": [{}] }} }}", line, template_id, cond, lbody.join(","))
+        format!("{{\"LOOP\": {{ \"Line\": {}, \"Template_message_id\": {}, \"Condition\": {}, \"Loop_body\": [{}] }} }}", line, template_id, cond, lbody.join(",\n"))
     }
 }
 
