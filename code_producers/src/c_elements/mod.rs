@@ -74,7 +74,7 @@ impl Default for CProducer {
                 0, 1, 2, 3, 4, 5, 6, 12, 16, 19, 24, 27, 33, 42, 46, 50, 51, 65, 78, 79,
             ]
             .to_vec(), //[].to_vec(),
-            message_list: ["Main".to_string(), "Hola Herme".to_string(), "Hola Albert".to_string()]
+            message_list: ["Main".to_string()]
                 .to_vec(), //[].to_vec(),
             field_tracking: [
                 "1884242871839275222246405745257275088548364400416034343698204186575808495617"

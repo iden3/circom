@@ -56,7 +56,7 @@ fn print_ir_representation(circuit: &Circuit) -> Result<(), ()> {
 	let main_inputs = circuit.c_producer.get_main_input_list();
 	let signals_in_witness = circuit.c_producer.get_witness_to_signal_list();
 	let main_header = circuit.c_producer.get_main_header();
-	let message_list = circuit.c_producer.get_message_list();
+	let message_list = circuit.wasm_producer.get_message_list();
 	let constant_list = circuit.c_producer.get_field_constant_list();
 	std::fs::create_dir(&path).map_err(|_err| {})?;
 	let gen_file = format!("ir_log/global_info.json");
