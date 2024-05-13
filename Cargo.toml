@@ -13,4 +13,5 @@ members = [
     "code_producers",
     "dag",
     "vfs_utils",
+    "virtual_fs"
 ]
