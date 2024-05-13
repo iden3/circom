@@ -1,9 +1,9 @@
 use super::{Constraint, Tree, DAG};
 use constraint_writers::log_writer::Log;
 use constraint_writers::r1cs_writer::{ConstraintSection, CustomGatesAppliedData, HeaderData, R1CSWriter};
-use vfs::FileSystem;
+use virtual_fs::{FileSystem, FsResult};
 
-pub fn write(fs: &dyn FileSystem, dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
+pub fn write(fs: &mut dyn FileSystem, dag: &DAG, output: &str, custom_gates: bool) -> FsResult<()> {
     let tree = Tree::new(dag);
     let field_size = if tree.field.bits() % 64 == 0 {
         tree.field.bits() / 8
@@ -11,13 +11,13 @@ pub fn write(fs: &dyn FileSystem, dag: &DAG, output: &str, custom_gates: bool) -
         (tree.field.bits() / 64 + 1) * 8
     };
     let mut log = Log::new();
-    let r1cs = R1CSWriter::new(fs, output.to_string(), field_size, custom_gates)?;
+    let r1cs = R1CSWriter::new(field_size, custom_gates);
 
-    let mut constraint_section = R1CSWriter::start_constraints_section(r1cs)?;
-    let wires = write_constraint_section(&mut constraint_section, &mut log, &tree)? + 1; // adding 1 to include the signal used to represent value 1 in the field (signal one)
+    let mut constraint_section = R1CSWriter::start_constraints_section(r1cs);
+    let wires = write_constraint_section(&mut constraint_section, &mut log, &tree) + 1; // adding 1 to include the signal used to represent value 1 in the field (signal one)
     let labels = wires;
     let constraint_counter = constraint_section.constraints_written();
-    let r1cs = constraint_section.end_section()?;
+    let r1cs = constraint_section.end_section();
 
     let header_data = HeaderData {
         field: tree.field.clone(),
@@ -36,20 +36,18 @@ pub fn write(fs: &dyn FileSystem, dag: &DAG, output: &str, custom_gates: bool) -
     log.no_labels = labels;
     log.no_wires = wires;
 
-    let mut header_section = R1CSWriter::start_header_section(r1cs)?;
-    header_section.write_section(header_data)?;
-    let r1cs = header_section.end_section()?;
+    let mut header_section = R1CSWriter::start_header_section(r1cs);
+    header_section.write_section(header_data);
+    let r1cs = header_section.end_section();
 
-    let mut signal_section = R1CSWriter::start_signal_section(r1cs)?;
+    let mut signal_section = R1CSWriter::start_signal_section(r1cs);
     for signal in 0..labels {
-        signal_section.write_signal_usize(signal)?;
+        signal_section.write_signal_usize(signal);
     }
-    let r1cs = signal_section.end_section()?;
+    let mut r1cs = signal_section.end_section();
     
-    if !custom_gates {
-	R1CSWriter::finish_writing(r1cs)?;
-    } else {
-        let mut custom_gates_used_section = R1CSWriter::start_custom_gates_used_section(r1cs)?;
+    if custom_gates {
+        let mut custom_gates_used_section = R1CSWriter::start_custom_gates_used_section(r1cs);
         let (usage_data, occurring_order) = {
             let mut usage_data = vec![];
             let mut occurring_order = vec![];
@@ -63,10 +61,10 @@ pub fn write(fs: &dyn FileSystem, dag: &DAG, output: &str, custom_gates: bool) -
             }
             (usage_data, occurring_order)
         };
-        custom_gates_used_section.write_custom_gates_usages(usage_data)?;
-        let r1cs = custom_gates_used_section.end_section()?;
+        custom_gates_used_section.write_custom_gates_usages(usage_data);
+        r1cs = custom_gates_used_section.end_section();
 
-        let mut custom_gates_applied_section = R1CSWriter::start_custom_gates_applied_section(r1cs)?;
+        let mut custom_gates_applied_section = R1CSWriter::start_custom_gates_applied_section(r1cs);
         let application_data = {
             fn find_indexes(
                 occurring_order: Vec<String>,
@@ -104,10 +102,11 @@ pub fn write(fs: &dyn FileSystem, dag: &DAG, output: &str, custom_gates: bool) -
             traverse_tree(&tree, &mut application_data);
             find_indexes(occurring_order, application_data)
         };
-        custom_gates_applied_section.write_custom_gates_applications(application_data)?;
-        let r1cs = custom_gates_applied_section.end_section()?;
-        R1CSWriter::finish_writing(r1cs)?;
+        custom_gates_applied_section.write_custom_gates_applications(application_data);
+        r1cs = custom_gates_applied_section.end_section();
     }
+
+    fs.write(&output.into(), &r1cs.data)?;
 
     Log::print(&log);
     Result::Ok(())
@@ -117,7 +116,7 @@ fn write_constraint_section(
     constraint_section: &mut ConstraintSection,
     log: &mut Log,
     tree: &Tree,
-) -> Result<usize, ()> {
+) -> usize {
     let mut no_signals = tree.signals.len();
     for c in &tree.constraints {
         if Constraint::is_linear(c) {
@@ -125,12 +124,12 @@ fn write_constraint_section(
         } else {
             log.no_non_linear += 1;
         }
-        ConstraintSection::write_constraint_usize(constraint_section, c.a(), c.b(), c.c())?;
+        ConstraintSection::write_constraint_usize(constraint_section, c.a(), c.b(), c.c());
     }
     for edge in Tree::get_edges(tree) {
         let subtree = Tree::go_to_subtree(tree, edge);
-        let subtree_signals = write_constraint_section(constraint_section, log, &subtree)?;
+        let subtree_signals = write_constraint_section(constraint_section, log, &subtree);
         no_signals += subtree_signals;
     }
-    Result::Ok(no_signals)
+    no_signals
 }

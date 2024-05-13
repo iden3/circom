@@ -1,6 +1,6 @@
 use std::{fs::File, io::{Read, Write}, path::PathBuf};
 
-use crate::{file_system::FileSystem, v_path::VPath, virtual_fs_result::VirtualFsResult};
+use crate::{file_system::FileSystem, v_path::VPath, fs_result::FsResult};
 
 pub struct RealFs {}
 
@@ -11,49 +11,50 @@ impl RealFs {
 }
 
 impl FileSystem for RealFs {
-    fn cwd(&self) -> VirtualFsResult<VPath> {
+    fn cwd(&self) -> FsResult<VPath> {
         let cwd = std::env::current_dir()?;
         Ok(VPath(cwd))
     }
 
-    fn set_cwd<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()> {
-        let path = path.into().0;
-        std::env::set_current_dir(path)?;
+    fn set_cwd(&mut self, path: &VPath) -> FsResult<()> {
+        std::env::set_current_dir(&path.0)?;
 
         Ok(())
     }
 
-    fn read<P: Into<VPath>>(&self, path: P) -> VirtualFsResult<Vec<u8>> {
-        let mut file = File::open(path.into().0)?;
+    fn exists(&self, path: &VPath) -> FsResult<bool> {
+        Ok(path.0.exists())
+    }
+
+    fn read(&self, path: &VPath) -> FsResult<Vec<u8>> {
+        let mut file = File::open(&path.0)?;
         let mut data = Vec::new();
         file.read_to_end(&mut data)?;
 
         Ok(data)
     }
 
-    fn write<P: Into<VPath>>(&mut self, path: P, data: &[u8]) -> VirtualFsResult<()> {
-        let mut file = File::create(path.into().0)?;
+    fn write(&mut self, path: &VPath, data: &[u8]) -> FsResult<()> {
+        let mut file = File::create(&path.0)?;
         file.write_all(data)?;
 
         Ok(())
     }
 
-    fn create_dir<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()> {
-        let path = path.into().0;
-        std::fs::create_dir_all(path)?;
+    fn create_dir(&mut self, path: &VPath) -> FsResult<()> {
+        std::fs::create_dir_all(&path.0)?;
 
         Ok(())
     }
 
-    fn create_dir_all<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()> {
-        let path = path.into().0;
-        std::fs::create_dir_all(path)?;
+    fn create_dir_all(&mut self, path: &VPath) -> FsResult<()> {
+        std::fs::create_dir_all(&path.0)?;
 
         Ok(())
     }
 
-    fn rimraf<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()> {
-        let path: PathBuf = path.into().0;
+    fn rimraf(&mut self, path: &VPath) -> FsResult<()> {
+        let path: &PathBuf = &path.0;
 
         if path.parent().is_none() {
             panic!("Refused `rm -rf /` catastrophe");
@@ -66,9 +67,7 @@ impl FileSystem for RealFs {
         match path.metadata()?.is_dir() {
             true => {
                 for entry in path.read_dir()? {
-                    let path = entry?.path();
-                    let child = path.to_str().unwrap();
-                    self.rimraf(child)?;
+                    self.rimraf(&VPath(entry?.path()))?;
                 }
 
                 std::fs::remove_dir(path)?;
@@ -77,6 +76,12 @@ impl FileSystem for RealFs {
                 std::fs::remove_file(path)?;
             }
         };
+
+        Ok(())
+    }
+
+    fn remove_file(&mut self, path: &VPath) -> FsResult<()> {
+        std::fs::remove_file(&path.0)?;
 
         Ok(())
     }

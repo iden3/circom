@@ -1,8 +1,6 @@
 use super::*;
 use num_bigint_dig::BigInt;
-use vfs::FileSystem;
-use vfs_utils::SimplePath;
-use std::io::prelude::*;
+use virtual_fs::{FileSystem, FsError, VPath};
 
 pub fn wasm_hexa(nbytes: usize, num: &BigInt) -> String {
     let inbytes = num.to_str_radix(16).to_string();
@@ -1538,22 +1536,12 @@ pub fn main_sample_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
 }
  */
 
-fn get_file_instructions(fs: &dyn FileSystem, name: &str) -> Vec<WasmInstruction> {
-    use std::io::BufReader;
-    let mut instructions = vec![];
+fn get_file_instructions(fs: &mut dyn FileSystem, name: &str) -> Vec<WasmInstruction> {
     let path = format!("./{}.wat", name);
-    if fs.exists(&path).unwrap() {
-        let file = fs.open_file(&path).unwrap();
-        let reader = BufReader::new(file);
-        for rline in reader.lines() {
-            if let Result::Ok(line) = rline {
-                instructions.push(line);
-            }
-        }
-    } else {
-        panic!("FILE NOT FOUND {}", name);
-    }
-    instructions
+
+    let content = fs.read_string(&path.into()).unwrap();
+    
+    content.lines().map(String::from).collect()
 }
 
 pub fn fr_types(prime: &String) -> Vec<WasmInstruction> {
@@ -1628,79 +1616,57 @@ pub fn generate_utils_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
 }
  */
 
-pub fn generate_generate_witness_js_file(fs: &dyn FileSystem, js_folder: &SimplePath) -> std::io::Result<()> {
-    use std::io::BufWriter;
+pub fn generate_generate_witness_js_file(fs: &mut dyn FileSystem, js_folder: &VPath) -> std::io::Result<()> {
     let mut file_path  = js_folder.clone();
     file_path.push("generate_witness");
     file_path.set_extension("js");
-    let file_name = file_path.to_string();
-    let mut js_file = BufWriter::new(fs.create_file(&file_name).unwrap());
     let mut code = "".to_string();
     let file = include_str!("common/generate_witness.js");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
-    js_file.write_all(code.as_bytes())?;
-    js_file.flush()?;
-    Ok(())
+    fs.write(&file_path, code.as_bytes()).map_err(FsError::into_io_error)
 }
 
-pub fn generate_witness_calculator_js_file(fs: &dyn FileSystem, js_folder: &SimplePath) -> std::io::Result<()> {
-    use std::io::BufWriter;
+pub fn generate_witness_calculator_js_file(fs: &mut dyn FileSystem, js_folder: &VPath) -> std::io::Result<()> {
     let mut file_path  = js_folder.clone();
     file_path.push("witness_calculator");
     file_path.set_extension("js");
-    let file_name = file_path.to_string();
-    let mut js_file = BufWriter::new(fs.create_file(&file_name).unwrap());
     let mut code = "".to_string();
     let file = include_str!("common/witness_calculator.js");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
-    js_file.write_all(code.as_bytes())?;
-    js_file.flush()?;
+    fs.write(&file_path, code.as_bytes()).map_err(FsError::into_io_error)?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use FileSystem;
-    use vfs_utils::{canonicalize_physical_path, VfsBufWriter};
+    use virtual_fs::RealFs;
 
     use super::*;
-    use std::io::{BufRead, BufReader, BufWriter, Write};
     const LOCATION: &'static str = "../target/code_generator_test";
 
     fn create_producer() -> WASMProducer {
         WASMProducer::default()
     }
 
-    fn create_writer() -> VfsBufWriter {
-        let fs = vfs::PhysicalFS::new("/");
-        let location = canonicalize_physical_path(LOCATION);
+    fn write_code(data: &[u8]) {
+        let mut fs = RealFs::new();
+        let location: VPath = LOCATION.into();
         let _ = fs.create_dir(&location);
-        let path = format!("{}/code.wat", location);
-        let file = fs.create_file(&path).unwrap();
-        BufWriter::new(file)
+        let mut path = location.clone(); // format!("{}/code.wat", location);
+        path.push("code.wat");
+        fs.write(&path, data).unwrap();
     }
 
-    fn get_instructions_from_file(fs: &dyn FileSystem, name: &str) -> Vec<WasmInstruction> {
+    fn get_instructions_from_file(fs: &mut dyn FileSystem, name: &str) -> Vec<WasmInstruction> {
         //return content of LOCATION/name.wat
-        let mut instructions = vec![];
-        let path = format!("{}/{}.wat", LOCATION, name);
-        if fs.exists(&path).unwrap() {
-            let file = fs.open_file(&path).unwrap();
-            let reader = BufReader::new(file);
-            for rline in reader.lines() {
-                if let Result::Ok(line) = rline {
-                    instructions.push(line);
-                    //                    println!("line added");
-                }
-            }
-        } else {
-            eprintln!("NO FILE FOUND");
-        }
-        instructions
+        let mut path: VPath = LOCATION.into();
+        path.push(&format!("{}.wat", name));
+
+        fs.read_string(&path).unwrap().lines().map(String::from).collect()
     }
 
     /*
@@ -1709,18 +1675,16 @@ mod tests {
             eprintln!("EOF reached");
         }
     */
-    fn write_block(writer: &mut VfsBufWriter, code: Vec<WasmInstruction>) {
-        let data = merge_code(code);
-        writer.write_all(data.as_bytes()).unwrap();
-        writer.flush().unwrap();
+    fn write_block(data: &mut Vec<u8>, code: Vec<WasmInstruction>) {
+        data.extend_from_slice(merge_code(code).as_bytes());
     }
 
     #[test]
     fn produce_code() {
-        let fs = vfs::PhysicalFS::new("/");
+        let mut fs = RealFs::new();
 
         let producer = create_producer();
-        let mut writer = create_writer();
+        let mut data = Vec::<u8>::new();
         // For every block of code that you want to write in code.wat the following two lines.
         // In the first line the code you want tow write is produced. Then, to write that code the
         // test function "write_block" is called.
@@ -1731,7 +1695,7 @@ mod tests {
         code_aux = generate_memory_def_list(&producer);
         code.append(&mut code_aux);
 
-        code_aux = get_instructions_from_file(&fs, "fr-types");
+        code_aux = get_instructions_from_file(&mut fs, "fr-types");
         code.append(&mut code_aux);
 
         code_aux = generate_types_list();
@@ -1739,7 +1703,7 @@ mod tests {
         code_aux = generate_exports_list();
         code.append(&mut code_aux);
 
-        code_aux = get_instructions_from_file(&fs, "fr-code");
+        code_aux = get_instructions_from_file(&mut fs, "fr-code");
         code.append(&mut code_aux);
 
         code_aux = desp_io_subcomponent_generator(&producer);
@@ -1800,7 +1764,7 @@ mod tests {
         //code_aux = main_sample_generator(&producer);
         //code.append(&mut code_aux);
 
-        code_aux = get_instructions_from_file(&fs, "fr-data");
+        code_aux = get_instructions_from_file(&mut fs, "fr-data");
         code.append(&mut code_aux);
 
         code_aux = generate_data_list(&producer);
@@ -1808,7 +1772,7 @@ mod tests {
 
         code.push(")".to_string());
 
-        write_block(&mut writer, code);
+        write_block(&mut data, code);
 
         //let num = BigInt::parse_bytes(b"2240", 10).unwrap();
         // println!("Hexa: {}",wasm_hexa(4,&num));

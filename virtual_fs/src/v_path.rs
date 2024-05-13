@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{virtual_fs_error::VirtualFsError, virtual_fs_result::VirtualFsResult};
+use crate::{fs_error::FsError, fs_result::FsResult};
 
 /**
  * A wrapper around PathBuf that provides a more clear separation from the
@@ -49,9 +49,9 @@ impl VPath {
      *
      * Does not follow symlinks.
      */
-    pub fn normalize(&self, cwd: &VPath) -> VirtualFsResult<Self> {
+    pub fn normalize(&self, cwd: &VPath) -> FsResult<Self> {
         if !cwd.0.is_absolute() {
-            return Err(VirtualFsError::CwdInvalidError);
+            return Err(FsError::CwdInvalidError);
         }
 
         let mut combined_path = cwd.0.clone();
@@ -80,12 +80,20 @@ impl VPath {
         Ok(VPath(normal_path))
     }
 
-    pub fn real_canonicalize(&self) -> VirtualFsResult<Self> {
+    pub fn real_canonicalize(&self) -> FsResult<Self> {
         Ok(VPath(self.0.canonicalize()?))
     }
 
     pub fn real_exists(&self) -> bool {
         self.0.exists()
+    }
+
+    pub fn real_is_file(&self) -> bool {
+        self.0.is_file()
+    }
+
+    pub fn real_is_dir(&self) -> bool {
+        self.0.is_dir()
     }
 }
 

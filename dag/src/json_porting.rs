@@ -1,10 +1,9 @@
 use super::{Tree, DAG};
 use circom_algebra::algebra::Constraint;
 use circom_algebra::num_bigint::BigInt;
-use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::json_writer::ConstraintJSON;
 use json::JsonValue;
-use vfs::FileSystem;
+use virtual_fs::{FileSystem, FsResult, VPath};
 use std::collections::HashMap;
 
 type C = Constraint<usize>;
@@ -28,20 +27,20 @@ fn hashmap_as_json(values: &HashMap<usize, BigInt>) -> JsonValue {
     correspondence
 }
 
-fn visit_tree(tree: &Tree, writer: &mut ConstraintJSON) -> Result<(), ()> {
+fn visit_tree(tree: &Tree, writer: &mut ConstraintJSON) {
     for constraint in &tree.constraints {
         let json_value = transform_constraint_to_json(&constraint);
-        writer.write_constraint(&json_value.to_string())?;
+        writer.write_constraint(&json_value.to_string());
     }
     for edge in Tree::get_edges(tree) {
         let subtree = Tree::go_to_subtree(tree, edge);
-        visit_tree(&subtree, writer)?;
+        visit_tree(&subtree, writer);
     }
-    Result::Ok(())
 }
 
-pub fn port_constraints(fs: &dyn FileSystem, dag: &DAG, debug: &DebugWriter) -> Result<(), ()> {
-    let mut writer = debug.build_constraints_file(fs)?;
-    visit_tree(&Tree::new(dag), &mut writer)?;
-    writer.end()
+pub fn port_constraints(fs: &mut dyn FileSystem, dag: &DAG, json_constraints_file: &VPath) -> FsResult<()> {
+    let mut writer = ConstraintJSON::new();
+    visit_tree(&Tree::new(dag), &mut writer);
+
+    fs.write(&json_constraints_file, &writer.data)
 }

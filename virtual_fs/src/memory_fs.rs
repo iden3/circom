@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{v_path::VPath, virtual_fs_error::VirtualFsError, virtual_fs_result::VirtualFsResult, FileSystem};
+use crate::{v_path::VPath, fs_error::FsError, fs_result::FsResult, FileSystem};
 
 pub struct MemoryFs {
     cwd: VPath,
@@ -8,53 +8,58 @@ pub struct MemoryFs {
 }
 
 impl MemoryFs {
-    pub fn new<P: Into<VPath>>(cwd: P) -> Self {
+    pub fn new(cwd: VPath) -> Self {
         MemoryFs {
-            cwd: cwd.into(),
+            cwd,
             files: BTreeMap::new(),
         }
     }
 }
 
 impl FileSystem for MemoryFs {
-    fn cwd(&self) -> VirtualFsResult<VPath> {
+    fn cwd(&self) -> FsResult<VPath> {
         Ok(self.cwd.clone())
     }
 
-    fn set_cwd<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()> {
-        self.cwd = path.into();
+    fn set_cwd(&mut self, path: &VPath) -> FsResult<()> {
+        self.cwd = path.clone();
         Ok(())
     }
 
-    fn read<P: Into<VPath>>(&self, path: P) -> VirtualFsResult<Vec<u8>> {
+    fn exists(&self, path: &VPath) -> FsResult<bool> {
         let path = self.normalize(path)?.to_string();
-        
+        Ok(self.files.contains_key(&path))
+    }
+
+    fn read(&self, path: &VPath) -> FsResult<Vec<u8>> {
+        let path = self.normalize(path)?.to_string();
+
         self.files
             .get(&path)
             .cloned()
-            .ok_or(VirtualFsError::IoError(std::io::Error::new(
+            .ok_or(FsError::IoError(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("File not found: {}", path),
             )))
     }
 
-    fn write<P: Into<VPath>>(&mut self, path: P, data: &[u8]) -> VirtualFsResult<()> {
+    fn write(&mut self, path: &VPath, data: &[u8]) -> FsResult<()> {
         let path = self.normalize(path)?.to_string();
         self.files.insert(path, data.into());
         Ok(())
     }
 
-    fn create_dir<P: Into<VPath>>(&mut self, _path: P) -> VirtualFsResult<()> {
+    fn create_dir(&mut self, _path: &VPath) -> FsResult<()> {
         // MemoryFs doesn't actually use directories
         Ok(())
     }
 
-    fn create_dir_all<P: Into<VPath>>(&mut self, _path: P) -> VirtualFsResult<()> {
+    fn create_dir_all(&mut self, _path: &VPath) -> FsResult<()> {
         // MemoryFs doesn't actually use directories
         Ok(())
     }
 
-    fn rimraf<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()> {
+    fn rimraf(&mut self, path: &VPath) -> FsResult<()> {
         let path = self.normalize(path)?.to_string();
 
         if path == "" || path == "/" {
@@ -84,6 +89,12 @@ impl FileSystem for MemoryFs {
             self.files.remove(&p);
         }
 
+        Ok(())
+    }
+
+    fn remove_file(&mut self, path: &VPath) -> FsResult<()> {
+        let path = self.normalize(path)?.to_string();
+        self.files.remove(&path);
         Ok(())
     }
 }

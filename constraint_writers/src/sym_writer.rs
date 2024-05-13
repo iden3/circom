@@ -1,8 +1,3 @@
-use std::io::{BufWriter, Write};
-
-use vfs::FileSystem;
-use vfs_utils::VfsBufWriter;
-
 pub struct SymElem {
     pub original: i64,
     pub witness: i64,
@@ -16,25 +11,16 @@ impl ToString for SymElem {
 }
 
 pub struct SymFile {
-    writer: VfsBufWriter,
+    pub data: Vec<u8>,
 }
 
 impl SymFile {
-    pub fn new(fs: &dyn FileSystem, file: &str) -> Result<SymFile, ()> {
-        let file = fs.create_file(file).map_err(|_err| {})?;
-        let writer = BufWriter::new(file);
-        Result::Ok(SymFile { writer })
+    pub fn new() -> SymFile {
+        SymFile { data: vec![] }
     }
 
-    pub fn write_sym_elem(sym: &mut SymFile, elem: SymElem) -> Result<(), ()> {
-        sym.writer.write_all(elem.to_string().as_bytes()).map_err(|_err| {})?;
-        sym.writer.write_all(b"\n").map_err(|_err| {}) //?;
-        //sym.writer.flush().map_err(|_err| {})
+    pub fn write_sym_elem(sym: &mut SymFile, elem: SymElem) {
+        sym.data.extend_from_slice(elem.to_string().as_bytes());
+        sym.data.extend_from_slice(b"\n");
     }
-    
-    pub fn finish_writing(mut sym: SymFile) -> Result<(), ()> {
-	sym.writer.flush().map_err(|_err| {})
-    }
-
-    // pub fn close(_sym: SymFile) {}
 }

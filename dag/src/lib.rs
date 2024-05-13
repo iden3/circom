@@ -6,11 +6,10 @@ mod sym_porting;
 mod witness_producer;
 use circom_algebra::num_bigint::BigInt;
 use constraint_list::ConstraintList;
-use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::ConstraintExporter;
 use program_structure::constants::UsefulConstants;
 use program_structure::error_definition::ReportCollection;
-use vfs::FileSystem;
+use virtual_fs::{FileSystem, FsResult, VPath};
 use std::collections::{HashMap, HashSet};
 type Signal = usize;
 type Constraint = circom_algebra::algebra::Constraint<usize>;
@@ -301,15 +300,15 @@ pub struct DAG {
 }
 
 impl ConstraintExporter for DAG {
-    fn r1cs(&self, fs: &dyn FileSystem, out: &str, custom_gates: bool) -> Result<(), ()> {
+    fn r1cs(&self, fs: &mut dyn FileSystem, out: &str, custom_gates: bool) -> FsResult<()> {
         self.generate_r1cs_output(fs, out, custom_gates)
     }
 
-    fn json_constraints(&self, fs: &dyn FileSystem, writer: &DebugWriter) -> Result<(), ()> {
-        self.generate_json_constraints(fs, writer)
+    fn json_constraints(&self, fs: &mut dyn FileSystem, json_constraints_path: &VPath) -> FsResult<()> {
+        self.generate_json_constraints(fs, json_constraints_path)
     }
 
-    fn sym(&self, fs: &dyn FileSystem, out: &str) -> Result<(), ()> {
+    fn sym(&self, fs: &mut dyn FileSystem, out: &str) -> FsResult<()> {
         self.generate_sym_output(fs, out)
     }
 }
@@ -472,16 +471,16 @@ impl DAG {
         constraint_correctness_analysis::clean_constraints(&mut self.nodes);
     }
 
-    pub fn generate_r1cs_output(&self, fs: &dyn FileSystem, output_file: &str, custom_gates: bool) -> Result<(), ()> {
+    pub fn generate_r1cs_output(&self, fs: &mut dyn FileSystem, output_file: &str, custom_gates: bool) -> FsResult<()> {
         r1cs_porting::write(fs, self, output_file, custom_gates)
     }
 
-    pub fn generate_sym_output(&self, fs: &dyn FileSystem, output_file: &str) -> Result<(), ()> {
+    pub fn generate_sym_output(&self, fs: &mut dyn FileSystem, output_file: &str) -> FsResult<()> {
         sym_porting::write(fs, self, output_file)
     }
 
-    pub fn generate_json_constraints(&self, fs: &dyn FileSystem, debug: &DebugWriter) -> Result<(), ()> {
-        json_porting::port_constraints(fs, self, debug)
+    pub fn generate_json_constraints(&self, fs: &mut dyn FileSystem, constraint_json_path: &VPath) -> FsResult<()> {
+        json_porting::port_constraints(fs, self, constraint_json_path)
     }
 
     pub fn produce_witness(&self) -> Vec<usize> {
@@ -532,7 +531,7 @@ impl DAG {
         }
     }
 
-    pub fn map_to_list(self, fs: &dyn FileSystem, flags: SimplificationFlags) -> ConstraintList {
+    pub fn map_to_list(self, fs: &mut dyn FileSystem, flags: SimplificationFlags) -> ConstraintList {
         map_to_constraint_list::map(fs, self, flags)
     }
 }

@@ -1,9 +1,9 @@
 use super::{ConstraintStorage, C, S};
 use crate::SignalMap;
 use circom_algebra::num_bigint::BigInt;
-use constraint_writers::debug_writer::DebugWriter;
+use constraint_writers::json_writer::ConstraintJSON;
 use json::JsonValue;
-use vfs::FileSystem;
+use virtual_fs::{FileSystem, FsResult, VPath};
 use std::collections::HashMap;
 
 pub fn transform_constraint_to_json(constraint: &C) -> JsonValue {
@@ -34,17 +34,19 @@ pub fn port_substitution(sub: &S) -> (String, String) {
 }
 
 pub fn port_constraints(
-    fs: &dyn FileSystem,
+    fs: &mut dyn FileSystem,
     storage: &ConstraintStorage,
     map: &SignalMap,
-    debug: &DebugWriter,
-) -> Result<(), ()> {
-    let mut writer = debug.build_constraints_file(fs)?;
+    json_constraints_path: &VPath,
+) -> FsResult<()> {
+    let mut constraint_json = ConstraintJSON::new();
     for c_id in storage.get_ids() {
         let constraint = storage.read_constraint(c_id).unwrap();
         let constraint = C::apply_correspondence(&constraint, map);
         let json_value = transform_constraint_to_json(&constraint);
-        writer.write_constraint(&json_value.to_string())?;
+        constraint_json.write_constraint(&json_value.to_string());
     }
-    writer.end()
+    constraint_json.end();
+
+    fs.write(json_constraints_path, &constraint_json.data)
 }

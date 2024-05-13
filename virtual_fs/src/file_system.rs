@@ -1,23 +1,25 @@
-use crate::{v_path::VPath, virtual_fs_result::VirtualFsResult};
+use crate::{v_path::VPath, fs_result::FsResult};
 
 pub trait FileSystem {
-    fn cwd(&self) -> VirtualFsResult<VPath>;
-    fn set_cwd<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()>;
+    fn cwd(&self) -> FsResult<VPath>;
+    fn set_cwd(&mut self, path: &VPath) -> FsResult<()>;
 
-    fn normalize<P: Into<VPath>>(&self, path: P) -> VirtualFsResult<VPath> {
+    fn normalize(&self, path: &VPath) -> FsResult<VPath> {
         let cwd = self.cwd()?;
-        Ok(path.into().normalize(&cwd)?)
+        Ok(path.normalize(&cwd)?)
     }
 
-    fn read<P: Into<VPath>>(&self, path: P) -> VirtualFsResult<Vec<u8>>;
-    fn write<P: Into<VPath>>(&mut self, path: P, data: &[u8]) -> VirtualFsResult<()>;
+    fn exists(&self, path: &VPath) -> FsResult<bool>;
+    fn read(&self, path: &VPath) -> FsResult<Vec<u8>>;
+    fn write(&mut self, path: &VPath, data: &[u8]) -> FsResult<()>;
 
-    fn read_string<P: Into<VPath>>(&self, path: P) -> VirtualFsResult<String> {
+    fn read_string(&self, path: &VPath) -> FsResult<String> {
         let data = self.read(path)?;
         Ok(String::from_utf8(data)?)
     }
 
-    fn create_dir<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()>;
-    fn create_dir_all<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()>;
-    fn rimraf<P: Into<VPath>>(&mut self, path: P) -> VirtualFsResult<()>;
+    fn create_dir(&mut self, path: &VPath) -> FsResult<()>;
+    fn create_dir_all(&mut self, path: &VPath) -> FsResult<()>;
+    fn rimraf(&mut self, path: &VPath) -> FsResult<()>;
+    fn remove_file(&mut self, path: &VPath) -> FsResult<()>;
 }

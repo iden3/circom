@@ -3,7 +3,7 @@ use super::{ConstraintStorage, EncodingIterator, SEncoded, Simplifier, A, C, S};
 use crate::SignalMap;
 use circom_algebra::num_bigint::BigInt;
 use constraint_writers::json_writer::SubstitutionJSON;
-use vfs::FileSystem;
+use virtual_fs::FileSystem;
 use std::collections::{HashMap, HashSet, LinkedList, BTreeSet};
 use std::sync::Arc;
 
@@ -12,7 +12,7 @@ fn log_substitutions(substitutions: &LinkedList<S>, writer: &mut Option<Substitu
     if let Some(w) = writer {
         for s in substitutions {
             let (from, to) = port_substitution(s);
-            w.write_substitution(&from, &to).unwrap();
+            w.write_substitution(&from, &to);
         }
     }
 }
@@ -440,7 +440,7 @@ fn remove_not_relevant(substitutions: &mut SEncoded, relevant: &HashSet<usize>) 
 
 
 // returns the constraints, the assignment of the witness and the number of inputs in the witness
-pub fn simplification(fs: &dyn FileSystem, smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, usize) {
+pub fn simplification(fs: &mut dyn FileSystem, smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, usize) {
     use super::non_linear_utils::obtain_and_simplify_non_linear;
     use circom_algebra::simplification_utils::build_encoded_fast_substitutions;
     use circom_algebra::simplification_utils::fast_encoded_constraint_substitution;
@@ -448,9 +448,9 @@ pub fn simplification(fs: &dyn FileSystem, smp: &mut Simplifier) -> (ConstraintS
 
     let mut substitution_log =
         if smp.port_substitution { 
-            Some(SubstitutionJSON::new(fs, &smp.json_substitutions).unwrap()) 
+            Some(SubstitutionJSON::new(/*fs, &smp.json_substitutions*/)) 
         } else {
-             None 
+            None 
         };
     let apply_linear = !smp.flag_s;
     let use_old_heuristics = smp.flag_old_heuristics;
@@ -720,13 +720,10 @@ pub fn simplification(fs: &dyn FileSystem, smp: &mut Simplifier) -> (ConstraintS
         }
     }
 
-
-    if let Some(w) = substitution_log {
-        w.end().unwrap();
+    if let Some(mut w) = substitution_log {
+        w.end();
+        fs.write(&"substitutions.json".into(), &w.data).unwrap();
     }
     // println!("NO CONSTANTS: {}", constraint_storage.no_constants());
     (constraint_storage, signal_map, smp.no_private_inputs - deleted_inputs)
 }
-
-
-

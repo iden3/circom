@@ -117,8 +117,7 @@ dependencies = [
  "parser",
  "program_structure",
  "type_analysis",
- "vfs",
- "vfs_utils",
+ "virtual_fs",
  "wast",
 ]
 
@@ -154,8 +153,7 @@ dependencies = [
  "lz_fnv",
  "num-bigint-dig",
  "serde_json",
- "vfs",
- "vfs_utils",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -186,8 +184,7 @@ dependencies = [
  "num-bigint-dig",
  "num-traits",
  "program_structure",
- "vfs",
- "vfs_utils",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -207,7 +204,7 @@ dependencies = [
  "num-bigint-dig",
  "num-traits",
  "program_structure",
- "vfs",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -220,7 +217,7 @@ dependencies = [
  "num_cpus",
  "program_structure",
  "threadpool",
- "vfs",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -229,8 +226,7 @@ version = "2.1.8"
 dependencies = [
  "circom_algebra",
  "json",
- "vfs",
- "vfs_utils",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -267,7 +263,7 @@ dependencies = [
  "constraint_writers",
  "json",
  "program_structure",
- "vfs",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -689,8 +685,7 @@ dependencies = [
  "rustc-hex",
  "serde",
  "serde_derive",
- "vfs",
- "vfs_utils",
+ "virtual_fs",
 ]
 
 [[package]]

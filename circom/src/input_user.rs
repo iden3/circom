@@ -1,19 +1,19 @@
-use vfs_utils::SimplePath;
+use virtual_fs::VPath;
 
 pub struct Input {
-    pub input_program: SimplePath,
-    pub out_r1cs: SimplePath,
-    pub out_json_constraints: SimplePath,
-    pub out_json_substitutions: SimplePath,
-    pub out_wat_code: SimplePath,
-    pub out_wasm_code: SimplePath,
+    pub input_program: VPath,
+    pub out_r1cs: VPath,
+    pub out_json_constraints: VPath,
+    pub out_json_substitutions: VPath,
+    pub out_wat_code: VPath,
+    pub out_wasm_code: VPath,
     pub out_wasm_name: String,
-    pub out_js_folder: SimplePath,
+    pub out_js_folder: VPath,
     pub out_c_run_name: String,
-    pub out_c_folder: SimplePath,
-    pub out_c_code: SimplePath,
-    pub out_c_dat: SimplePath,
-    pub out_sym: SimplePath,
+    pub out_c_folder: VPath,
+    pub out_c_code: VPath,
+    pub out_c_dat: VPath,
+    pub out_sym: VPath,
     //pub field: &'static str,
     pub c_flag: bool,
     pub wasm_flag: bool,
@@ -32,7 +32,7 @@ pub struct Input {
     pub no_rounds: usize,
     pub flag_verbose: bool,
     pub prime: String,
-    pub link_libraries : Vec<SimplePath>
+    pub link_libraries : Vec<VPath>
 }
 
 
@@ -109,20 +109,20 @@ impl Input {
         })
     }
 
-    fn build_folder(output_path: &SimplePath, filename: &str, ext: &str) -> SimplePath {
+    fn build_folder(output_path: &VPath, filename: &str, ext: &str) -> VPath {
         let mut file = output_path.clone();
 	    let folder_name = format!("{}_{}",filename,ext);
 	    file.push(&folder_name);
 	    file
     }
     
-    fn build_output(output_path: &SimplePath, filename: &str, ext: &str) -> SimplePath {
+    fn build_output(output_path: &VPath, filename: &str, ext: &str) -> VPath {
         let mut file = output_path.clone();
         file.push(&format!("{}.{}",filename,ext));
         file
     }
 
-    pub fn get_link_libraries(&self) -> &Vec<SimplePath> {
+    pub fn get_link_libraries(&self) -> &Vec<VPath> {
         &self.link_libraries
     }
 
@@ -222,21 +222,21 @@ impl Input {
 mod input_processing {
     use ansi_term::Colour;
     use clap::{App, Arg, ArgMatches};
-    use vfs_utils::{canonicalize_physical_path, SimplePath};
+    use virtual_fs::VPath;
     use crate::VERSION;
 
-    pub fn get_input(matches: &ArgMatches) -> Result<SimplePath, ()> {
-        let route = canonicalize_physical_path(matches.value_of("input").unwrap());
-        if std::path::Path::new(&route).is_file() {
+    pub fn get_input(matches: &ArgMatches) -> Result<VPath, ()> {
+        let route = VPath::new(matches.value_of("input").unwrap()).real_canonicalize().unwrap();
+        if route.real_exists() {
             Ok(route.into())
         } else {
-            Err(eprintln!("{}", Colour::Red.paint("Input file does not exist".to_owned() + &route)))
+            Err(eprintln!("{}", Colour::Red.paint("Input file does not exist".to_owned() + route.to_string().as_str())))
         }
     }
 
-    pub fn get_output_path(matches: &ArgMatches) -> Result<SimplePath, ()> {
-        let route = canonicalize_physical_path(matches.value_of("output").unwrap());
-        if std::path::Path::new(&route).is_dir() {
+    pub fn get_output_path(matches: &ArgMatches) -> Result<VPath, ()> {
+        let route = VPath::new(matches.value_of("output").unwrap()).real_canonicalize().unwrap();
+        if route.real_is_dir() {
             Ok(route.into())
         } else {
             Err(eprintln!("{}", Colour::Red.paint("invalid output path")))
@@ -511,12 +511,12 @@ mod input_processing {
             .get_matches()
     }
 
-    pub fn get_link_libraries(matches: &ArgMatches) -> Vec<SimplePath> {
-        let mut link_libraries = Vec::<SimplePath>::new();
+    pub fn get_link_libraries(matches: &ArgMatches) -> Vec<VPath> {
+        let mut link_libraries = Vec::<VPath>::new();
         let m = matches.values_of("link_libraries");
         if let Some(paths) = m {
             for path in paths.into_iter() {
-                link_libraries.push(canonicalize_physical_path(path).into());
+                link_libraries.push(VPath::new(path).real_canonicalize().unwrap());
             }
         }
         link_libraries

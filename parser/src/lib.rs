@@ -18,19 +18,18 @@ use program_structure::error_definition::ReportCollection;
 use program_structure::error_definition::Report;
 use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
-use vfs::FileSystem;
-use vfs_utils::SimplePath;
 use syntax_sugar_remover::apply_syntactic_sugar;
+use virtual_fs::{FileSystem, VPath};
 
 use std::str::FromStr;
 
 pub type Version = (usize, usize, usize);
 
 pub fn find_file(
-    fs: &dyn FileSystem,
-    crr_file: SimplePath,
-    ext_link_libraries: Vec<SimplePath>,
-) -> (bool, String, String, SimplePath, Vec<Report>) {
+    fs: &mut dyn FileSystem,
+    crr_file: VPath,
+    ext_link_libraries: Vec<VPath>,
+) -> (bool, String, String, VPath, Vec<Report>) {
     let mut found = false;
     let mut path = "".to_string();
     let mut src = "".to_string();
@@ -57,19 +56,19 @@ pub fn find_file(
 }
 
 pub fn run_parser(
-    fs: &dyn FileSystem,
+    fs: &mut dyn FileSystem,
     file: String,
     version: &str,
-    link_libraries: Vec<SimplePath>,
+    link_libraries: Vec<VPath>,
 ) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
     let mut file_library = FileLibrary::new();
     let mut definitions = Vec::new();
     let mut main_components = Vec::new();
-    let mut file_stack = FileStack::new(SimplePath::new(&file));
+    let mut file_stack = FileStack::new(file.into());
     let mut includes_graph = IncludesGraph::new();
     let mut warnings = Vec::new();
     let mut link_libraries2 = link_libraries.clone();
-    let mut ext_link_libraries = vec![SimplePath::new("")];
+    let mut ext_link_libraries = vec!["".into()];
     ext_link_libraries.append(&mut link_libraries2);
     while let Some(crr_file) = FileStack::take_next(&mut file_stack) {
         let (found, path, src, crr_str_file, reports) =
@@ -176,13 +175,10 @@ fn produce_report_with_main_components(main_components: Vec<(usize, (Vec<String>
     r
 }
 
-fn open_file(fs: &dyn FileSystem, path: SimplePath) -> Result<(String, String), Report> /* path, src */ {
-    let mut file = fs.open_file(&path.to_string())
-        .map_err(|_| produce_report_with_message(ReportCode::FileOs, path.to_string()))?;
-
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)
-        .map_err(|_| produce_report_with_message(ReportCode::FileOs, path.to_string()))?;
+fn open_file(fs: &mut dyn FileSystem, path: VPath) -> Result<(String, String), Report> /* path, src */ {
+    let contents = fs.read_string(&path).map_err(|_| 
+        produce_report_with_message(ReportCode::FileOs, path.to_string())
+    )?;
 
     Ok((path.to_string(), contents))
 }

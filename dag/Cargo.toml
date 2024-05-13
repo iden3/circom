@@ -10,4 +10,4 @@ constraint_writers = { path = "../constraint_writers" }
 circom_algebra = { path = "../circom_algebra" }
 program_structure = { path = "../program_structure" }
 json = "0.12.4"
-vfs = "0.12.0"
+virtual_fs = { path = "../virtual_fs" }

@@ -5,9 +5,7 @@ use crate::hir::very_concrete_program::VCP;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
-use vfs::FileSystem;
-use vfs_utils::SimplePath;
-use std::io::Write;
+use virtual_fs::{FileSystem, FsResult, VPath};
 
 pub struct CompilationFlags {
     pub main_inputs_log: bool,
@@ -87,7 +85,7 @@ impl WriteWasm for Circuit {
         code.append(&mut code_aux);
 
         code_aux = get_input_size_generator(&producer);
-        code.append(&mut code_aux);	
+        code.append(&mut code_aux);    
 
         code_aux = get_witness_size_generator(&producer);
         code.append(&mut code_aux);
@@ -133,166 +131,165 @@ impl WriteWasm for Circuit {
         code
     }
 
-    fn write_wasm<T: Write>(&self, writer: &mut T, producer: &WASMProducer) -> Result<(), ()> {
+    fn write_wasm(&self, data: &mut Vec<u8>, producer: &WASMProducer) {
         use code_producers::wasm_elements::wasm_code_generator::*;
 
-        writer.write_all("(module".as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice("(module".as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         let mut code_aux = generate_imports_list();
         let mut code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = generate_memory_def_list(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = fr_types(&producer.prime_str);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = generate_types_list();
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = generate_exports_list();
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = fr_code(&producer.prime_str);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = desp_io_subcomponent_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = get_version_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = get_shared_rw_memory_start_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = read_shared_rw_memory_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = write_shared_rw_memory_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = reserve_stack_fr_function_generator();
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = init_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = set_input_signal_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = get_input_signal_size_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = get_raw_prime_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = get_field_num_len32_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = get_input_size_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
-	
+    
         code_aux = get_witness_size_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = get_witness_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = copy_32_in_shared_rw_memory_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = copy_fr_in_shared_rw_memory_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = get_message_char_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = build_buffer_message_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = build_log_message_generator(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         // Actual code from the program
 
         for f in &self.functions {
-            f.write_wasm(writer, producer)?;
+            f.write_wasm(data, producer);
             //writer.flush().map_err(|_| {})?;
         }
 
         for t in &self.templates {
-            t.write_wasm(writer, producer)?;
+            t.write_wasm(data, producer);
             //writer.flush().map_err(|_| {})?;
         }
 
         code_aux = generate_table_of_template_runs(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = fr_data(&producer.prime_str);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
         code_aux = generate_data_list(&producer);
         code = merge_code(code_aux);
-        writer.write_all(code.as_bytes()).map_err(|_| {})?;
+        data.extend_from_slice(code.as_bytes());
         //writer.flush().map_err(|_| {})?;
 
-        writer.write_all(")".as_bytes()).map_err(|_| {})?;
-        writer.flush().map_err(|_| {})
+        data.extend_from_slice(")".as_bytes());
     }
 }
 
@@ -328,14 +325,14 @@ impl WriteC for Circuit {
         ));
 
         code.push(format!("Circom_TemplateFunction {}[{}] = {{ {} }};",
-        function_table_parallel(), producer.get_number_of_template_instances(), func_list_parallel,
-    ));
+            function_table_parallel(), producer.get_number_of_template_instances(), func_list_parallel,
+        ));
 
         code.push(format!(
             "uint get_main_input_signal_start() {{return {};}}\n",
             producer.get_number_of_main_outputs()
         ));
-	
+    
         code.push(format!(
             "uint get_main_input_signal_no() {{return {};}}\n",
             producer.get_number_of_main_inputs()
@@ -404,7 +401,7 @@ impl WriteC for Circuit {
         };
         let mut run_args = vec![];
         // run_args.push(CTX_INDEX.to_string());
-	run_args.push("0".to_string());
+        run_args.push("0".to_string());
         run_args.push(CIRCOM_CALC_WIT.to_string());
         let run_call = format!("{};", build_call(main_template_run, run_args.clone()));
 
@@ -413,11 +410,11 @@ impl WriteC for Circuit {
         (code, "".to_string())
     }
 
-    fn write_c<T: Write>(&self, writer: &mut T, producer: &CProducer) -> Result<(), ()> {
-	use code_producers::wasm_elements::wasm_code_generator::merge_code;
+    fn write_c(&self, data: &mut Vec<u8>, producer: &CProducer) {
+        use code_producers::wasm_elements::wasm_code_generator::merge_code;
         use c_code_generator::*;
         let mut code = vec![];
-	let mut code_write;
+        let mut code_write;
         // Prologue
         code.push("#include <stdio.h>".to_string());
         code.push("#include <iostream>".to_string());
@@ -425,7 +422,7 @@ impl WriteC for Circuit {
         code.push("#include \"circom.hpp\"".to_string());
         code.push("#include \"calcwit.hpp\"".to_string());
 
-	
+    
         let mut template_headers = collect_template_headers(producer.get_template_instance_list());
         let function_headers: Vec<_> = self.functions
             .iter()
@@ -447,14 +444,14 @@ impl WriteC for Circuit {
         ));
 
         code.push(format!("Circom_TemplateFunction {}[{}] = {{ {} }};",
-        function_table_parallel(), producer.get_number_of_template_instances(), func_list_parallel,
-	));
+            function_table_parallel(), producer.get_number_of_template_instances(), func_list_parallel,
+        ));
 
         code.push(format!(
             "uint get_main_input_signal_start() {{return {};}}\n",
             producer.get_number_of_main_outputs()
         ));
-	
+    
         code.push(format!(
             "uint get_main_input_signal_no() {{return {};}}\n",
             producer.get_number_of_main_inputs()
@@ -489,29 +486,28 @@ impl WriteC for Circuit {
 
         // Actual code of the circuit
 
-	code_write = merge_code(code);
-        writer.write_all(code_write.as_bytes()).map_err(|_| {})?;
-	
+        code_write = merge_code(code);
+        data.extend_from_slice(code_write.as_bytes());
+    
         code_write = "// function declarations\n".to_string();
-        writer.write_all(code_write.as_bytes()).map_err(|_| {})?;
-	
+        data.extend_from_slice(code_write.as_bytes());
+    
         for f in &self.functions {
             let (f_code, _) = f.produce_c(producer, None);
             //code.append(&mut f_code);
-	    code_write = merge_code(f_code);
-            writer.write_all(code_write.as_bytes()).map_err(|_| {})?;
+        code_write = merge_code(f_code);
+            data.extend_from_slice(code_write.as_bytes());
         }
-	
-	code_write = "// template declarations\n".to_string();
-        writer.write_all(code_write.as_bytes()).map_err(|_| {})?;
-	
+    
+        code_write = "// template declarations\n".to_string();
+        data.extend_from_slice(code_write.as_bytes());
+    
         for t in &self.templates {
             let (t_code, _) = t.produce_c(producer, None);
-	    code_write = merge_code(t_code);
-            writer.write_all(code_write.as_bytes()).map_err(|_| {})?;
+            code_write = merge_code(t_code);
+            data.extend_from_slice(code_write.as_bytes());
             //code.append(&mut t_code);
         }
-
 
         // Epilogue
         let run_circuit = "void run".to_string();
@@ -536,23 +532,20 @@ impl WriteC for Circuit {
         };
         let mut run_args = vec![];
         // run_args.push(CTX_INDEX.to_string());
-	run_args.push("0".to_string());
+        run_args.push("0".to_string());
         run_args.push(CIRCOM_CALC_WIT.to_string());
         let run_call = format!("{};", build_call(main_template_run, run_args.clone()));
 
         let main_run_body = vec![ctx_index, run_call];
-	code_write = build_callable(run_circuit, run_circuit_args, main_run_body) + "\n";
-        writer.write_all(code_write.as_bytes()).map_err(|_| {})?;
-        writer.flush().map_err(|_| {})
-	    
+        code_write = build_callable(run_circuit, run_circuit_args, main_run_body) + "\n";
+        data.extend_from_slice(code_write.as_bytes());
     }
-
 }
 
 impl Circuit {
-    pub fn build(fs: &dyn FileSystem, cwd: &str, vcp: VCP, flags: CompilationFlags, version: &str) -> Self {
+    pub fn build(fs: &mut dyn FileSystem, vcp: VCP, flags: CompilationFlags, version: &str) -> Self {
         use super::build::build_circuit;
-        build_circuit(fs, cwd, vcp, flags, version)
+        build_circuit(fs, vcp, flags, version)
     }
     pub fn add_template_code(&mut self, template_info: TemplateCodeInfo) -> ID {
         let id = self.templates.len();
@@ -578,23 +571,27 @@ impl Circuit {
     pub fn produce_ir_string_for_function(&self, id: ID) -> String {
         self.functions[id].to_string()
     }
-    pub fn produce_c<W: Write>(&self, fs: &dyn FileSystem, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
-        let c_folder_path = SimplePath::new(c_folder);
-        c_code_generator::generate_main_cpp_file(fs, &c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_circom_hpp_file(fs, &c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_hpp_file(fs, &c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_hpp_file(fs, &c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_cpp_file(fs, &c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_cpp_file(fs, &c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_asm_file(fs, &c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_make_file(fs, &c_folder_path,run_name,&self.c_producer).map_err(|_err| {})?;
-        c_code_generator::generate_dat_file(c_dat, &self.c_producer).map_err(|_err| {})?;
-        self.write_c(c_circuit, &self.c_producer)
+    pub fn produce_c(&self, fs: &mut dyn FileSystem, c_folder: &str, run_name: &str, c_circuit: &mut Vec<u8>, c_dat: &mut Vec<u8>) -> FsResult<()> {
+        let c_folder_path: VPath = c_folder.into();
+        c_code_generator::generate_main_cpp_file(fs, &c_folder_path)?;
+        c_code_generator::generate_circom_hpp_file(fs, &c_folder_path)?;
+        c_code_generator::generate_fr_hpp_file(fs, &c_folder_path, &self.c_producer.prime_str)?;
+        c_code_generator::generate_calcwit_hpp_file(fs, &c_folder_path)?;
+        c_code_generator::generate_fr_cpp_file(fs, &c_folder_path, &self.c_producer.prime_str)?;
+        c_code_generator::generate_calcwit_cpp_file(fs, &c_folder_path)?;
+        c_code_generator::generate_fr_asm_file(fs, &c_folder_path, &self.c_producer.prime_str)?;
+        c_code_generator::generate_make_file(fs, &c_folder_path,run_name,&self.c_producer)?;
+        c_code_generator::generate_dat_file(c_dat, &self.c_producer)?;
+        self.write_c(c_circuit, &self.c_producer);
+
+        Ok(())
     }
-    pub fn produce_wasm<W: Write>(&self, fs: &dyn FileSystem, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
-	    let js_folder_path = SimplePath::new(js_folder);
-        wasm_code_generator::generate_generate_witness_js_file(fs, &js_folder_path).map_err(|_err| {})?;
-        wasm_code_generator::generate_witness_calculator_js_file(fs, &js_folder_path).map_err(|_err| {})?;
-        self.write_wasm(writer, &self.wasm_producer)
+    pub fn produce_wasm(&self, fs: &mut dyn FileSystem, js_folder: &str, _wasm_name: &str, data: &mut Vec<u8>) -> FsResult<()> {
+        let js_folder_path: VPath = js_folder.into();
+        wasm_code_generator::generate_generate_witness_js_file(fs, &js_folder_path)?;
+        wasm_code_generator::generate_witness_calculator_js_file(fs, &js_folder_path)?;
+        self.write_wasm(data, &self.wasm_producer);
+
+        Ok(())
     }
 }
