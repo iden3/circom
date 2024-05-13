@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{error::Error, fmt::Display};
 
 #[derive(Debug)]
 pub enum FsError {
@@ -34,5 +34,15 @@ impl From<std::string::FromUtf8Error> for FsError {
 impl Display for FsError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl Error for FsError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            FsError::IoError(ref err) => Some(err),
+            FsError::FromUtf8Error(ref err) => Some(err),
+            _ => None,
+        }
     }
 }
