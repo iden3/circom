@@ -1,6 +1,11 @@
-use virtual_fs::{canonicalize_physical_path, normalize_physical_path};
+use virtual_fs::{FileSystem, RealFs};
 
 fn main() {
-    println!("{}", canonicalize_physical_path("."));
-    println!("{}", normalize_physical_path("foo/bar"));
+    let fs = RealFs::new();
+
+    println!("{}", fs.normalize(".").unwrap());
+    println!("{}", fs.normalize("foo/bar").unwrap());
+    println!("{}", fs.normalize("./foo/bar").unwrap());
+    println!("{}", fs.normalize("../foo/bar").unwrap());
+    println!("{}", fs.normalize("/foo/bar").unwrap());
 }
