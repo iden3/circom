@@ -61,20 +61,14 @@ fn analyse_statement(
                 }
             }
         },
-        Substitution { meta, rhe, .. } | UnderscoreSubstitution { meta, rhe,  .. } => {
-            let mut throw_undefined_bus = false;
-            match rhe {
-                Expression::BusCall {.. } => {},
-                Expression::UniformArray {  value, .. } => {
-                    if !value.is_bus_call(){
-                        throw_undefined_bus = true;
-                    }
-                },
-                _ => {
-                    throw_undefined_bus = true;
-                }
+        Substitution { meta, rhe, access, .. } =>{
+            if rhe.is_bus_call_array(){
+                report_undefined_bus_error(meta, "Substitution statement used inside the bus", file_id, None, reports);
             }
-            if throw_undefined_bus {
+            analyse_access(access, meta, function_names, reports)
+        }
+        UnderscoreSubstitution { meta, rhe,  .. } => {
+            if rhe.is_bus_call_array(){
                 report_undefined_bus_error(meta, "Substitution statement used inside the bus", file_id, None, reports);
             }
         }
