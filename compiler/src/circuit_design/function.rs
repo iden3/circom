@@ -24,7 +24,7 @@ impl ToString for FunctionCodeInfo {
         for i in &self.body {
             body = format!("{}{}\n", body, i.to_string());
         }
-        format!("FUNCTION({})(\n{})", self.header, body)
+        format!("{{\"FUNCTION\":\n{{\"Header\":{},\n\"Body\":{}}}\n}}", self.header, body)
     }
 }
 

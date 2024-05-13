@@ -51,15 +51,20 @@ impl ToString for LogBucket {
     fn to_string(&self) -> String {
         let line = self.line.to_string();
         let template_id = self.message_id.to_string();
-        let mut ret = String::new();
+        let mut lret = vec![];
         for print in self.argsprint.clone() {
-            if let LogBucketArg::LogExp(exp) = print {
-                let print = exp.to_string();
-                let log = format!("LOG(line: {},template_id: {},evaluate: {})", line, template_id, print);
-                ret = ret + &log;
+            match print {
+		LogBucketArg::LogExp(exp) => {
+                    let log = format!("{{\"LOGEXP\":{{\"Line\": {}, \"Template_message_id\": {}, \"Evaluate\": {} }} }}", line, template_id, exp.to_string());
+                    lret.push(log);
+		}
+		LogBucketArg::LogStr(n) => {
+                    let log = format!("{{\"LOGSTR\":{{\"Line\": {}, \"Template_message_id\": {}, \"StringNo\": {} }} }}", line, template_id, n.to_string());
+                    lret.push(log);
+		}
             }
-        }
-        ret
+	}
+        format!("{{\"LOGLIST\": [{}]}}",lret.join(","))
     }
 }
 

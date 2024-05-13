@@ -36,7 +36,7 @@ impl ToString for AssertBucket {
         let line = self.line.to_string();
         let template_id = self.message_id.to_string();
         let evaluate = self.evaluate.to_string();
-        format!("ASSERT(line: {},template_id: {},evaluate: {})", line, template_id, evaluate)
+	format!("{{\"ASSERT\":{{\"Line\":{},\"Template_message_id\":{},\"Evaluate\":{} }} }}", line, template_id, evaluate)
     }
 }
 

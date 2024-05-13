@@ -30,7 +30,7 @@ impl ToString for TemplateCodeInfo {
         for i in &self.body {
             body = format!("{}{}\n", body, i.to_string());
         }
-        format!("TEMPLATE({})(\n{})", self.header, body)
+        format!("{{\"TEMPLATE\":\n{{\"Header\": \"{}\",\n\"Body\":{} }}\n}}", self.header, body)
     }
 }
 impl WriteWasm for TemplateCodeInfo {

@@ -43,8 +43,8 @@ impl ToString for StoreBucket {
         let dest = self.dest.to_string();
         let src = self.src.to_string();
         format!(
-            "STORE(line:{},template_id:{},dest_type:{},dest:{},src:{})",
-            line, template_id, dest_type, dest, src
+            "{{ \"STORE\": {{ \"Line\": {}, \"Template_message_id\": {}, \"Size_to_store\": {}, \"Dest_is_output\": {}, \"Destination_type\": {}, \"Destination\": {}, \"Source\":{} }} }}",
+            line, template_id, self.dest_is_output, self.context.size, dest_type, dest, src
         )
     }
 }

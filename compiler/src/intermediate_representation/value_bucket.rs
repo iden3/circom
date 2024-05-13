@@ -41,7 +41,7 @@ impl ToString for ValueBucket {
         let op_aux_number = self.op_aux_no.to_string();
         let value = self.value.clone();
         format!(
-            "VALUE(line:{},template_id:{},as:{},op_number:{},value:{})",
+            "{{ \"CONSTANT\": {{ \"Line\":{},\"Template_message_id\":{},\"Constant_type\":{},\"Op_number\":{},\"Value_or_id\":{} }} }}",
             line, template_id, parse_as, op_aux_number, value
         )
     }

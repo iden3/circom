@@ -37,11 +37,11 @@ impl ToString for LoopBucket {
         let line = self.line.to_string();
         let template_id = self.message_id.to_string();
         let cond = self.continue_condition.to_string();
-        let mut body = "".to_string();
+        let mut lbody = vec![];
         for i in &self.body {
-            body = format!("{}{};", body, i.to_string());
+            lbody.push(i.to_string());
         }
-        format!("LOOP(line:{},template_id:{},cond:{},body:{})", line, template_id, cond, body)
+        format!("{{\"LOOP\": {{ \"Line\": {}, \"Template_message_id\": {}, \"Condition\": {}, \"Loop_body\": [{}] }} }}", line, template_id, cond, lbody.join(","))
     }
 }
 

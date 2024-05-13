@@ -37,17 +37,16 @@ impl ToString for BranchBucket {
         let line = self.line.to_string();
         let template_id = self.message_id.to_string();
         let cond = self.cond.to_string();
-        let mut if_body = "".to_string();
+        let mut if_body = vec![];
         for i in &self.if_branch {
-            if_body = format!("{}{};", if_body, i.to_string());
+            if_body.push(i.to_string());
         }
-        let mut else_body = "".to_string();
+        let mut else_body = vec![];
         for i in &self.else_branch {
-            else_body = format!("{}{};", else_body, i.to_string());
+            else_body.push(i.to_string());
         }
-        format!(
-            "IF(line:{},template_id:{},cond:{},if:{},else{})",
-            line, template_id, cond, if_body, else_body
+        format!("{{\"IF\":{{\"Line\":{},\"Template_message_id\":{},\"Condition\":{}, \"If_branch\":[{}], \"Else_branch\":[{}] }} }}",
+            line, template_id, cond, if_body.join(","), else_body.join(",")
         )
     }
 }

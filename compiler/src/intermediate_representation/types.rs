@@ -7,8 +7,8 @@ pub enum ValueType {
 impl ToString for ValueType {
     fn to_string(&self) -> String {
         match self {
-            ValueType::U32 => "U32",
-            ValueType::BigInt => "BigInt",
+            ValueType::U32 => "\"U32\"",
+            ValueType::BigInt => "\"BigInt\"",
         }
         .to_string()
     }

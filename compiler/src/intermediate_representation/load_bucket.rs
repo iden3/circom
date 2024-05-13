@@ -39,9 +39,10 @@ impl ToString for LoadBucket {
         let template_id = self.message_id.to_string();
         let address = self.address_type.to_string();
         let src = self.src.to_string();
+	let size = self.context.size.to_string();
         format!(
-            "LOAD(line:{},template_id:{},address_type:{},src:{})",
-            line, template_id, address, src
+            "{{\"LOAD\": {{\"Line\":{},\"Template_message_id\":{}, \"Location_type\":{}, \"Location\":{}, \"Location_size\": {} }} }}",
+            line, template_id, address, src, size
         )
     }
 }

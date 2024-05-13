@@ -12,13 +12,13 @@ impl ToString for LocationRule {
         match self {
             Indexed { location, template_header } => {
                 let location_msg = location.to_string();
-                let header_msg = template_header.as_ref().map_or("NONE".to_string(), |v| v.clone());
-                format!("INDEXED: ({}, {})", location_msg, header_msg)
+                let header_msg = template_header.as_ref().map_or("\"Nothing\"".to_string(), |v| v.clone());
+                format!("{{\"INDEXED\": {{ \"Location\":{}, \"Template_header\":{} }} }}", location_msg, header_msg)
             }
             Mapped { signal_code, indexes } => {
                 let code_msg = signal_code.to_string();
                 let index_mgs: Vec<String> = indexes.iter().map(|i| i.to_string()).collect();
-                format!("MAPPED: ({}, {:?})", code_msg, index_mgs)
+                format!("{{\"MAPPED\": {{ \"Signal_code\":{}, \"Indexes\":{:?} }} }}", code_msg, index_mgs)
             }
         }
     }

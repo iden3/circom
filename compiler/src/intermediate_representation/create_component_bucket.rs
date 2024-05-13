@@ -58,7 +58,7 @@ impl ToString for CreateCmpBucket {
         let template_id = self.message_id.to_string();
         let id_no = self.sub_cmp_id.to_string();
         format!(
-            "CREATE_CMP(line:{},template_id:{},name:{},id_no:{})",
+            "{{ \"CREATE_COMPONENT\": {{ \"Line\": {}, \"Template_message_id\": {}, \"Template_name\": {}, \"Subcomp_pos\": {} }} }}",
             line, template_id, self.symbol, id_no
         )
     }

@@ -37,7 +37,7 @@ impl ToString for ReturnBucket {
         let line = self.line.to_string();
         let template_id = self.message_id.to_string();
         let value = self.value.to_string();
-        format!("RETURN(line: {},template_id: {},value: {})", line, template_id, value)
+        format!("{{ \"RETURN\": {{\"Line\": {}, \"Template_message_id\": {}, \"Size_of_value\": {}, \"Value\": {} }} }}", line, template_id, self.with_size, value)
     }
 }
 

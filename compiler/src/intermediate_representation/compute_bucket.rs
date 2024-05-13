@@ -52,34 +52,34 @@ impl ToString for OperatorType {
     fn to_string(&self) -> String {
         use OperatorType::*;
 	if let Eq(n) = self {
-	    format!("EQ({})", n)
+	    format!("{{ \"EQ\": {} }}", n)
 	} else {
         match self {
-            Mul => "MUL",
-            Div => "DIV",
-            Add => "ADD",
-            Sub => "SUB",
-            Pow => "POW",
-            IntDiv => "INT_DIV",
-            Mod => "MOD",
-            ShiftL => "SHIFT_L",
-            ShiftR => "SHIFT_R",
-            LesserEq => "LESSER_EQ",
-            GreaterEq => "GREATER_EQ",
-            Lesser => "LESSER",
-            Greater => "GREATER",
-            NotEq => "NOT_EQ",
-            BoolOr => "BOOL_OR",
-            BoolAnd => "BOOL_AND",
-            BitOr => "BITOR",
-            BitAnd => "BITAND",
-            BitXor => "BITXOR",
-            PrefixSub => "PREFIX_SUB",
-            BoolNot => "BOOL_NOT",
-            Complement => "COMPLEMENT",
-            ToAddress => "TO_ADDRESS",
-            MulAddress => "MUL_ADDRESS",
-            AddAddress => "ADD_ADDRESS",
+            Mul => "\"MUL\"",
+            Div => "\"DIV\"",
+            Add => "\"ADD\"",
+            Sub => "\"SUB\"",
+            Pow => "\"POW\"",
+            IntDiv => "\"INT_DIV\"",
+            Mod => "\"MOD\"",
+            ShiftL => "\"SHIFT_L\"",
+            ShiftR => "\"SHIFT_R\"",
+            LesserEq => "\"LESSER_EQ\"",
+            GreaterEq => "\"GREATER_EQ\"",
+            Lesser => "\"LESSER\"",
+            Greater => "\"GREATER\"",
+            NotEq => "\"NOT_EQ\"",
+            BoolOr => "\"BOOL_OR\"",
+            BoolAnd => "\"BOOL_AND\"",
+            BitOr => "\"BITOR\"",
+            BitAnd => "\"BITAND\"",
+            BitXor => "\"BITXOR\"",
+            PrefixSub => "\"PREFIX_SUB\"",
+            BoolNot => "\"BOOL_NOT\"",
+            Complement => "\"COMPLEMENT\"",
+            ToAddress => "\"TO_ADDRESS\"",
+            MulAddress => "\"MUL_ADDRESS\"",
+            AddAddress => "\"ADD_ADDRESS\"",
 	    _ => "",
         }
         .to_string()
@@ -123,13 +123,13 @@ impl ToString for ComputeBucket {
         let template_id = self.message_id.to_string();
         let op = self.op.to_string();
         let op_number = self.op_aux_no.to_string();
-        let mut stack = "".to_string();
+        let mut lstack = vec![];
         for i in &self.stack {
-            stack = format!("{}{};", stack, i.to_string());
+            lstack.push(i.to_string());
         }
         format!(
-            "COMPUTE(line:{},template_id:{},op_number:{},op:{},stack:{})",
-            line, template_id, op_number, op, stack
+            "{{ \"COMPUTE\": {{ \"Line\":{}, \"Template_message_id\":{},\"Operation\":{},\"Op_number\":{},\"Arguments\":[{}] }} }}",
+            line, template_id, op_number, op, lstack.join(",")
         )
     }
 }

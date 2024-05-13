@@ -6,10 +6,18 @@ use code_producers::wasm_elements::*;
 #[derive(Clone)]
 pub struct FinalData {
     // greater than one only with signals.
-    pub context: InstrContext,
+    pub context: InstrContext,  // contains only the size in number of field numbers
     pub dest_is_output: bool,
-    pub dest_address_type: AddressType,
-    pub dest: LocationRule,
+    pub dest_address_type: AddressType, //addressType where the results should be stored
+    pub dest: LocationRule, 
+}
+
+impl ToString for FinalData {
+    fn to_string(&self) -> String {
+	format!("{{ \"Size\": {}, \"Dest_is_output\":{}, \"Dest_address_type\":{}, \"Dest_location\":{} }}",
+		self.context.size.to_string(), self.dest_is_output.to_string(),
+		self.dest_is_output.to_string(), self.dest.to_string())
+    }
 }
 
 #[derive(Clone)]
@@ -21,12 +29,13 @@ pub enum ReturnType {
 #[derive(Clone)]
 pub struct CallBucket {
     pub line: usize,
-    pub message_id: usize,
-    pub symbol: String,
-    pub argument_types: Vec<InstrContext>,
-    pub arguments: InstructionList,
-    pub arena_size: usize,
-    pub return_info: ReturnType,
+    pub message_id: usize,  //template message identifier
+    pub symbol: String,     //template name
+    pub argument_types: Vec<InstrContext>, // contains only the size in number of field numbers of the actual parameters
+    pub arguments: InstructionList, // list of intsructions to compute each of the actual parameters
+    pub arena_size: usize,         // space needed for params and local vars (in number of field values) 
+    pub return_info: ReturnType,   // Whether the call is inside and expression (Itermediate) or assigned to a signal or var (Final)
+                                   // currently all are Final
 }
 
 impl IntoInstruction for CallBucket {
@@ -54,15 +63,15 @@ impl ToString for CallBucket {
     fn to_string(&self) -> String {
         let line = self.line.to_string();
         let template_id = self.message_id.to_string();
+	let args: Vec<String> = self.arguments.iter().map(|i| i.to_string()).collect();
+	let argsi: Vec<String> = self.argument_types.iter().map(|i| i.size.to_string()).collect();
+	let block_size = self.arena_size.to_string();
 	let ret = match &self.return_info {
-            ReturnType::Intermediate { op_aux_no } => {format!("Intermediate({})",op_aux_no.to_string())}
-	    _ => {format!("Final")}
+            ReturnType::Intermediate { op_aux_no } => {format!("{{ \"Intermediate\":{}}}",op_aux_no.to_string())}
+	    ReturnType::Final(data) => {format!("{{ \"Final\": {} }}",data.to_string())}
 	};
-        let mut args = "".to_string();
-        for i in &self.arguments {
-            args = format!("{}{},", args, i.to_string());
-        }
-        format!("CALL(line:{},template_id:{},id:{},return_type:{},args:{})", line, template_id, self.symbol, ret, args)
+        format!("{{ \"CALL\": {{ \"Line\":{}, \"Template_message_id\":{}, \"Template_name\":{}, \"Param_sizes\":{:?}, \"Param_intructions\":{:?}, \"Block_size\": {}, \"Return_type\":{}}} }}",
+		line, template_id, self.symbol, args, argsi, block_size, ret )
     }
 }
 
