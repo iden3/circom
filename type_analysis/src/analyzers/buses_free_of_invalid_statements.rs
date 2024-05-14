@@ -61,14 +61,14 @@ fn analyse_statement(
                 }
             }
         },
-        Substitution { meta, rhe, access, .. } =>{
-            if rhe.is_bus_call_array(){
+        Substitution { meta, rhe, access, .. } => {
+            if !rhe.is_bus_call() {
                 report_undefined_bus_error(meta, "Substitution statement used inside the bus", file_id, None, reports);
             }
             analyse_access(access, meta, function_names, reports)
         }
         UnderscoreSubstitution { meta, rhe,  .. } => {
-            if rhe.is_bus_call_array(){
+            if !rhe.is_bus_call() {
                 report_undefined_bus_error(meta, "Substitution statement used inside the bus", file_id, None, reports);
             }
         }
