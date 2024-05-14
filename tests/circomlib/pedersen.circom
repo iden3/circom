@@ -22,21 +22,15 @@ include "montgomery.circom";
 include "mux3.circom";
 include "babyjub.circom";
 
-bus Point {
-    signal {bn128} x,y;
-}
-
 template Window4() {
-    signal input {binary} in[4];
+    BinaryNumber(4) input in;
     Point input {babymontgomery} base;
     Point output {babymontgomery} out;
     Point output {babymontgomery} out8;   // Returns 8*Base (To be linked)
 
     component mux = MultiMux3(2);
 
-    mux.s[0] <== in[0];
-    mux.s[1] <== in[1];
-    mux.s[2] <== in[2];
+    mux.s <== in.bits;
 
     component dbl2 = MontgomeryDouble();
     component adr3 = MontgomeryAdd();
@@ -52,7 +46,7 @@ template Window4() {
     mux.c[1][0] <== base.y;
 
 // in[1] -> 2*BASE
-    dbl2.in <== base;
+    dbl2.pin <== base;
     mux.c[0][1] <== dbl2.pout.x;
     mux.c[1][1] <== dbl2.pout.y;
 
@@ -95,12 +89,12 @@ template Window4() {
     out8 <== adr8.pout;
 
     out.x <== mux.out[0];
-    out.y <== - mux.out[1]*2*in[3] + mux.out[1];  // Negate y if in[3] is one
+    out.y <== - mux.out[1]*2*in.bits[3] + mux.out[1];  // Negate y if in[3] is one
 }
 
 
 template Segment(nWindows) {
-    signal input {binary} in[nWindows*4];
+    BinaryNumber(nWindows*4) input in;
     Point input {babyedwards} base;
     Point output {babyedwards} out;
 
@@ -116,10 +110,11 @@ template Segment(nWindows) {
     component doublers1[nWindows-1];
     component doublers2[nWindows-1];
     component adders[nWindows-1];
+
     for (i=0; i<nWindows; i++) {
         windows[i] = Window4();
         for (j=0; j<4; j++) {
-            windows[i].in[j] <== in[4*i+j];
+            windows[i].in.bits[j] <== in.bits[4*i+j];
         }
         if (i==0) {
             windows[i].base <== e2m.pout;
@@ -137,7 +132,7 @@ template Segment(nWindows) {
             } else {
                 adders[i-1].pin1 <== adders[i-2].pout;
             }
-            adders[i-1].pin2 <== windows[i].pout;
+            adders[i-1].pin2 <== windows[i].out;
         }
     }
 
@@ -153,7 +148,7 @@ template Segment(nWindows) {
 }
 
 template Pedersen(n) {
-    signal input {binary} in[n];
+    BinaryNumber(n) input in;
     Point output {babyedwards} pout;
 
     var BASE[10][2] = [
@@ -185,11 +180,11 @@ template Pedersen(n) {
         segments[i].base.x <== BASE[i][0];
         segments[i].base.y <== BASE[i][1];
         for (j = 0; j<nBits; j++) {
-            segments[i].in[j] <== in[i*200+j];
+            segments[i].in.bits[j] <== in.bits[i*200+j];
         }
         // Fill padding bits
         for (j = nBits; j < nWindows*4; j++) {
-            segments[i].in[j] <== 0;
+            segments[i].in.bits[j] <== 0;
         }
     }
 

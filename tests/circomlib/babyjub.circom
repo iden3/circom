@@ -19,13 +19,10 @@
 pragma circom 2.1.5;
 
 include "bitify.circom";
-include "escalarmul/escalarmulfix.circom";
+include "montgomery.circom";
+include "escalarmulfix.circom";
 
 // The templates and functions of this file only work for prime field bn128 (21888242871839275222246405745257275088548364400416034343698204186575808495617)
-
-bus Point {
-    signal {bn128} x,y;
-}
 
 /*
 *** BabyAdd(): template that receives two points of the Baby Jubjub curve in Edwards form and returns the addition of the points.
@@ -84,9 +81,9 @@ template BabyDbl() {
     Point output {babyedwards} pout;
 
     component adder = BabyAdd();
+
     adder.p1 <== pin;
     adder.p2 <== pin;
-
     adder.pout ==> pout;
 }
 
@@ -133,7 +130,7 @@ This template is used to extract the public key from the private key.
 */
 
 template BabyPbk() {
-    signal input {minvalue,maxvalue} in;
+    signal input {minvalue, maxvalue} in;
     Point output {babyedwards} A;
 
 
@@ -149,10 +146,6 @@ template BabyPbk() {
 
     component mulFix = EscalarMulFix(253, BASE8);
 
-    var i;
-    for (i=0; i<253; i++) {
-        mulFix.e[i] <== pvkBits.out[i];
-    }
-
+    mulFix.e <== pvkBits.out;
     A <== mulFix.out;
 }
