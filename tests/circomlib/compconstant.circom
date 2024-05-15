@@ -24,7 +24,7 @@ include "bitify.circom";
 
 template CompConstant(ct) {
     BinaryNumber(254) input in;
-    signal output out;
+    signal output {binary} out;
 
     signal parts[127];
     signal sout;
