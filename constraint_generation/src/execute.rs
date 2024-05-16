@@ -1824,6 +1824,22 @@ fn create_symbol(symbol: &str, access_information: &AccessingInformation) -> Str
     format!("{}{}", symbol, appendix)
 }
 
+fn create_symbol_bus(symbol: &str, access_information: &AccessingInformationBus) -> String {
+    let mut appendix = symbol.to_string();
+    let bf_field = create_index_appendix(&access_information.array_access);
+    appendix.push_str(&bf_field);
+    if let Option::Some(field) = &access_information.field_access {
+        let field = format!(".{}", field);
+        appendix.push_str(&field);
+    }
+    if let Option::Some(after_field) = &access_information.remaining_access {
+        create_symbol_bus(&appendix, after_field)
+    } else{
+        appendix
+    }
+}
+
+
 fn create_index_appendix(indexing: &[usize]) -> String {
     let mut appendix = "".to_string();
     for index in indexing {
@@ -2095,15 +2111,53 @@ fn execute_bus(
 
         } else{
             // Case we are accessing a field of the bus
-            let resulting_component = safe_unwrap_to_single(bus_slice, line!());
+            let resulting_bus = safe_unwrap_to_single(bus_slice, line!());
+            let symbol = create_symbol_bus(symbol, &access_information);
+
             
             if meta.get_type_knowledge().is_bus(){
                 // Case we return a bus
+                
+                Result::Ok(FoldedValue{..FoldedValue::default()})
+
             } else if meta.get_type_knowledge().is_signal(){
                 // Case we return a signal
-                let access_result = resulting_component.get_signal_field(&access_information.field_access.unwrap(), access_information.remaining_access); 
+                
+                let (tags_signal, signal) = treat_result_with_memory_error(
+                    resulting_bus.get_field_signal(
+                        access_information.field_access.as_ref().unwrap(), 
+                        access_information.remaining_access.as_ref().unwrap()
+                    ),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                
+                let final_array_access = get_final_array_access_bus_accessing(&access_information);
+                
+                let slice = SignalSlice::access_values(signal, final_array_access);
+                let slice = treat_result_with_memory_error(
+                    slice,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                let result = signal_to_arith(symbol, slice)
+                    .map(|s| FoldedValue { 
+                        arithmetic_slice: Option::Some(s),
+                        tags: Option::Some(tags_signal.clone()),
+                        ..FoldedValue::default() 
+                    });
+                treat_result_with_memory_error(
+                    result,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )
             }
-            Ok(FoldedValue{..FoldedValue::default()})
+            else{
+                unreachable!()
+            }
 
         }
     }
@@ -2688,6 +2742,14 @@ fn treat_accessing_bus(
 
 }
 
+pub fn get_final_array_access_bus_accessing(access: &AccessingInformationBus)->&Vec<usize>{
+    let mut last_access = access;
+    while last_access.field_access.is_some(){
+        last_access = &last_access.remaining_access.as_ref().unwrap();
+    }
+    &last_access.array_access
+}
+
 
 //************************************************* Safe transformations *************************************************
 
@@ -2849,7 +2911,7 @@ fn treat_result_with_memory_error_void(
     }
 }
 
-fn treat_result_with_memory_error<C>(
+pub fn treat_result_with_memory_error<C>(
     memory_error: Result<C, MemoryError>,
     meta: &Meta,
     runtime_errors: &mut ReportCollection,

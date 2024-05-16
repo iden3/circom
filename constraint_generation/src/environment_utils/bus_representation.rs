@@ -1,4 +1,4 @@
-use super::slice_types::{FieldTypes, MemoryError, TypeInvalidAccess, TypeAssignmentError, SignalSlice, BusSlice, SliceCapacity,TagInfo};
+use super::slice_types::{AExpressionSlice, FieldTypes, MemoryError, TypeInvalidAccess, TypeAssignmentError, SignalSlice, BusSlice, SliceCapacity,TagInfo};
 use crate::execution_data::type_definitions::{NodePointer, AccessingInformationBus};
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap, HashSet};
@@ -87,34 +87,95 @@ impl BusRepresentation {
         Result::Ok(())
     }
 
-    pub fn get_signal_field(
+    pub fn get_field_signal(
         &self, 
         field_name: &str,
-        access: Option<Box<AccessingInformationBus>>,
-    ) -> Result<(&TagInfo, &FieldTypes), MemoryError> {
+        remaining_access: &AccessingInformationBus
+    ) -> Result<(&TagInfo, &SignalSlice), MemoryError> {
+
+        let field = self.fields.get(field_name).unwrap(); 
+        let field_tags = self.field_tags.get(field_name).unwrap();
+        if remaining_access.field_access.is_some(){
+            // we are still considering a bus
+            assert!(field.bus.is_some());
+            let bus_slice = field.bus.as_ref().unwrap();
+
+            let memory_response = BusSlice::access_values(
+                &bus_slice, 
+                &remaining_access.array_access
+            );
+            match memory_response{
+                Result::Ok(bus_slice) =>{
+                    assert!(bus_slice.is_single());
+                    let resulting_bus = 
+                        BusSlice::unwrap_to_single(bus_slice);
+                    resulting_bus.get_field_signal( 
+                        remaining_access.field_access.as_ref().unwrap(), 
+                        &remaining_access.remaining_access.as_ref().unwrap());
+                }
+                Result::Err(err)=>{
+                    return Err(err);
+                }
+            }
+
+            unreachable!()       
+        } else{
+            if field.signal.is_some(){
+                // Case it is just a signal or an array of signals, 
+                // in this case there is no need for recursion
+                let signals = field.signal.as_ref().unwrap();
+                assert!(remaining_access.field_access.is_none());
+                Ok((field_tags, signals))
+            } else{
+                unreachable!("should not enter here")
+            } 
+        }
+
+        // Returns the tags and a SignalSlice with true/false values
+    }
+
+    pub fn get_field_bus(
+        &self,
+        field_name: &str,
+        remaining_access: &AccessingInformationBus
+    ) -> Result<(&TagInfo, &BusSlice), MemoryError> {
 
         let field = self.fields.get(field_name).unwrap();
         let field_tags = self.field_tags.get(field_name).unwrap();
 
-        match access{
-            None => {
-                Ok((field_tags, field))
+        if remaining_access.field_access.is_some(){
+            // we are still considering an intermediate bus
+            assert!(field.bus.is_some());
+            let bus_slice = field.bus.as_ref().unwrap();
+
+            let memory_response = BusSlice::access_values(
+                &bus_slice, 
+                &remaining_access.array_access
+            );
+            match memory_response{
+                Result::Ok(bus_slice) =>{
+                    assert!(bus_slice.is_single());
+                    let resulting_bus = 
+                        BusSlice::unwrap_to_single(bus_slice);
+                    resulting_bus.get_field_bus( 
+                        remaining_access.field_access.as_ref().unwrap(), 
+                        &remaining_access.remaining_access.as_ref().unwrap());
+                }
+                Result::Err(err)=>{
+                    return Err(err);
+                }
             }
-            Some(access) =>{
-                let memory_response = MemorySlice::access_values(&field, &access_information.array_access);
-                let bus_slice = treat_result_with_memory_error(
-                    memory_response,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-                Ok((field_tags, field))
+
+            unreachable!()       
+        } else{
+            if field.bus.is_some(){
+                // Case it is the final array of buses that we must return
+                let buses = field.bus.as_ref().unwrap();
+                Ok((field_tags, buses))
+            } else{
+                unreachable!("should not enter here")
             }
         }
-
-        // Devuelve las tags y la SignalSlice con los valores
-        // Si es un bus, llamar a que cada uno devuelva todo (get_all_fields)
-        //unreachable!()
     }
 
     pub fn has_unassigned_fields(&self) -> bool{
