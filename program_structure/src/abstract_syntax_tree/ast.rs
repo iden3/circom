@@ -457,7 +457,11 @@ impl TypeKnowledge {
         self.get_reduces_to() == TypeReduction::Tag
     }
     pub fn is_bus(&self) -> bool {
-        self.get_reduces_to() == TypeReduction::Bus
+        if let TypeReduction::Component(_) = self.get_reduces_to()  {
+            true
+        } else {    
+            false 
+        }
     }
 }
 
