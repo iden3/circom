@@ -89,7 +89,7 @@ template Bits2Point_Strict() {
     in.bits[254] === 0;
 
     component b2nY = Bits2Num(254);
-    b2nY.in <== aliascheck.out;
+    b2nY.in <== aliasCheckY.out;
     pout.y <== b2nY.out;
 
     var a = 168700;
