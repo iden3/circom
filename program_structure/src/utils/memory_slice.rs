@@ -350,9 +350,11 @@ impl<C: Clone> MemorySlice<C> {
         let mut memory_slice = memory_slice;
         memory_slice.values.pop().unwrap()
     }
+
     pub fn destruct(self) -> (Vec<SliceCapacity>, Vec<C>) {
         (self.route, self.values)
     }
+
 }
 
 #[cfg(test)]

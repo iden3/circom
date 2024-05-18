@@ -24,8 +24,8 @@ pub type BusSlice = MemorySlice<BusRepresentation>;
 
 // To store the fields of a bus
 #[derive(Clone)]
-pub struct FieldTypes { // For each field, we store the info depending on if it is a signal o a bus
+pub enum FieldTypes { // For each field, we store the info depending on if it is a signal o a bus
                     // Depending on the case we store a different slice
-    pub signal: Option<SignalSlice>,
-    pub bus: Option<BusSlice>,
+    Signal(SignalSlice),
+    Bus(BusSlice),
 }
