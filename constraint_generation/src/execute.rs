@@ -646,6 +646,7 @@ fn execute_bus_statement(
             }
         }
         Substitution { meta, var, access, op, rhe, .. } => {
+            // different access information depending if bus or other variable
             let access_information = treat_accessing(meta, access, program_archive, runtime, flags)?;
             let r_folded = execute_expression(rhe, program_archive, runtime, flags)?;
             let _possible_constraint =
@@ -1066,11 +1067,18 @@ struct Constrained {
     left: String,
     right: AExpressionSlice,
 }
+
+struct TypesAccess{
+    bus_access: Option<AccessingInformationBus>,
+    other_access: Option<AccessingInformation>,
+}
+
+
 fn perform_assign(
     meta: &Meta,
     symbol: &str,
     op: AssignOp,
-    accessing_information: &AccessingInformation,
+    accessing_information: &TypesAccess,
     r_folded: FoldedValue,
     actual_node: &mut ExecutedStructure,
     runtime: &mut RuntimeInformation,
@@ -1078,10 +1086,17 @@ fn perform_assign(
     flags: FlagsExecution
 ) -> Result<Option<Constrained>, ()> {
     use super::execution_data::type_definitions::{SubComponentData, BusData};
-    let full_symbol = create_symbol(symbol, &accessing_information);
 
+    if accessing_information.bus_access.is_some(){
+        let full_symbol = create_symbol_bus(symbol, &accessing_information.bus_access.unwrap());
+
+    } else{
+        let full_symbol = create_symbol(symbol, &accessing_information.other_access.unwrap());
+    }
+    
     let possible_arithmetic_slice = if ExecutionEnvironment::has_variable(&runtime.environment, symbol)
     {
+        let accessing_information = accessing_information.other_access.unwrap();
         debug_assert!(accessing_information.signal_access.is_none());
         debug_assert!(accessing_information.after_signal.is_empty());
         let environment_result = ExecutionEnvironment::get_mut_variable_mut(&mut runtime.environment, symbol);
@@ -1135,8 +1150,10 @@ fn perform_assign(
             }
         }
         Option::None
-    } else if ExecutionEnvironment::has_signal(&runtime.environment, symbol) && 
-                    accessing_information.signal_access.is_some() {
+    } else if ExecutionEnvironment::has_signal(&runtime.environment, symbol){
+    let accessing_information = accessing_information.other_access.unwrap(); 
+    if accessing_information.signal_access.is_some() {
+        // it is a tag 
         if ExecutionEnvironment::has_input(&runtime.environment, symbol) {
             treat_result_with_memory_error(
                 Result::Err(MemoryError::AssignmentTagInput),
@@ -1201,7 +1218,8 @@ fn perform_assign(
             unreachable!() 
         }
         Option::None
-    } else if ExecutionEnvironment::has_signal(&runtime.environment, symbol) {
+    }else {
+        // it is just a signal
         debug_assert!(accessing_information.signal_access.is_none());
         debug_assert!(accessing_information.after_signal.is_empty());
 
@@ -1393,7 +1411,9 @@ fn perform_assign(
         )?;
 
         Option::Some(r_slice)
-    } else if ExecutionEnvironment::has_component(&runtime.environment, symbol) {
+    }} 
+    else if ExecutionEnvironment::has_component(&runtime.environment, symbol) {
+        let accessing_information = accessing_information.other_access.unwrap();
         if accessing_information.tag_access.is_some() {
             unreachable!()
         }
@@ -1618,13 +1638,15 @@ fn perform_assign(
             &runtime.call_trace,
         )?;
 
+        let accessing_information = accessing_information.bus_access.unwrap();
+
         if FoldedValue::valid_bus_node_pointer(&r_folded){
             // in this case we are performing an assigment of the type in the node_pointer
             // to the bus in the left
 
             let bus_pointer = r_folded.bus_node_pointer.unwrap();
-            debug_assert!(accessing_information.before_signal.len() == 0);
-            debug_assert!(accessing_information.signal_access.is_none());
+            debug_assert!(accessing_information.array_access.len() == 0);
+            debug_assert!(accessing_information.field_access.is_none());
 
             
 
@@ -2050,7 +2072,7 @@ fn execute_bus(
                 tags_propagated.insert(tag.clone(), None);
             }
         }
-        // Check that all the buses are completely assigned?
+        // Check that all the buses are completely assigned
 
         for i in 0..BusSlice::get_number_of_cells(&bus_slice){
             let value_left = treat_result_with_memory_error(
@@ -2117,9 +2139,49 @@ fn execute_bus(
             
             if meta.get_type_knowledge().is_bus(){
                 // Case we return a bus
-                
-                Result::Ok(FoldedValue{..FoldedValue::default()})
 
+                let (tags_bus, bus) = treat_result_with_memory_error(
+                    resulting_bus.get_field_bus(
+                        access_information.field_access.as_ref().unwrap(), 
+                        access_information.remaining_access.as_ref().unwrap()
+                    ),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+
+                let final_array_access = get_final_array_access_bus_accessing(&access_information);
+                
+                let slice = BusSlice::access_values(&bus, final_array_access);
+                let slice = treat_result_with_memory_error(
+                    slice,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+
+                // Check that all the buses are completely assigned
+
+                for i in 0..BusSlice::get_number_of_cells(&slice){
+                    let value_left = treat_result_with_memory_error(
+                    BusSlice::access_value_by_index(&slice, i),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                    )?;
+            
+                    if value_left.has_unassigned_fields(){
+                        treat_result_with_memory_error(
+                           Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedBus)),
+                           meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                       )?;
+                    }
+                }
+                
+                Result::Ok(FoldedValue{bus_slice: Some(slice), tags: Some(tags_bus.clone()), ..FoldedValue::default()})            
+            
             } else if meta.get_type_knowledge().is_signal(){
                 // Case we return a signal
                 
@@ -2135,7 +2197,7 @@ fn execute_bus(
                 
                 let final_array_access = get_final_array_access_bus_accessing(&access_information);
                 
-                let slice = SignalSlice::access_values(signal, final_array_access);
+                let slice = SignalSlice::access_values(&signal, final_array_access);
                 let slice = treat_result_with_memory_error(
                     slice,
                     meta,

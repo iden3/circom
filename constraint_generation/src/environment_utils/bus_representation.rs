@@ -56,7 +56,7 @@ impl BusRepresentation {
                 component.unassigned_fields
                     .insert(symbol.clone(), signal_slice_size);
             }
-            let field_signal = FieldTypes{signal: Some(signal_slice), bus:None};
+            let field_signal = FieldTypes::Signal(signal_slice);
             component.fields.insert(symbol.clone(), field_signal);
         }
 
@@ -77,7 +77,7 @@ impl BusRepresentation {
                 component.unassigned_fields
                     .insert(symbol.clone(), bus_slice_size);
             }
-            let field_bus = FieldTypes{bus: Some(bus_slice), signal:None};
+            let field_bus = FieldTypes::Bus(bus_slice);
             component.fields.insert(symbol.clone(), field_bus);
         }
 
@@ -91,44 +91,48 @@ impl BusRepresentation {
         &self, 
         field_name: &str,
         remaining_access: &AccessingInformationBus
-    ) -> Result<(&TagInfo, &SignalSlice), MemoryError> {
+    ) -> Result<(TagInfo, SignalSlice), MemoryError> {
+        // TODO: REMOVE CLONE
 
         let field = self.fields.get(field_name).unwrap(); 
         let field_tags = self.field_tags.get(field_name).unwrap();
         if remaining_access.field_access.is_some(){
             // we are still considering a bus
-            assert!(field.bus.is_some());
-            let bus_slice = field.bus.as_ref().unwrap();
+            match field{
+                FieldTypes::Bus(bus_slice)=>{
 
-            let memory_response = BusSlice::access_values(
-                &bus_slice, 
-                &remaining_access.array_access
-            );
-            match memory_response{
-                Result::Ok(bus_slice) =>{
-                    assert!(bus_slice.is_single());
-                    let resulting_bus = 
-                        BusSlice::unwrap_to_single(bus_slice);
-                    resulting_bus.get_field_signal( 
-                        remaining_access.field_access.as_ref().unwrap(), 
-                        &remaining_access.remaining_access.as_ref().unwrap());
+                    let memory_response = BusSlice::access_values(
+                    &bus_slice, 
+                        &remaining_access.array_access
+                    );
+                    match memory_response{
+                        Result::Ok(bus_slice) =>{
+                            assert!(bus_slice.is_single());
+                            let resulting_bus = 
+                                BusSlice::unwrap_to_single(bus_slice);
+                            resulting_bus.get_field_signal( 
+                            remaining_access.field_access.as_ref().unwrap(), 
+                            &remaining_access.remaining_access.as_ref().unwrap()
+                            )
+                        }
+                        Result::Err(err)=>{
+                            return Err(err);
+                        }
+                    }
                 }
-                Result::Err(err)=>{
-                    return Err(err);
-                }
+                FieldTypes::Signal(_) => unreachable!(),
             }
-
-            unreachable!()       
+ 
         } else{
-            if field.signal.is_some(){
-                // Case it is just a signal or an array of signals, 
-                // in this case there is no need for recursion
-                let signals = field.signal.as_ref().unwrap();
-                assert!(remaining_access.field_access.is_none());
-                Ok((field_tags, signals))
-            } else{
-                unreachable!("should not enter here")
-            } 
+            match field{
+                FieldTypes::Signal(signals) =>{
+                    // Case it is just a signal or an array of signals, 
+                    // in this case there is no need for recursion
+                    assert!(remaining_access.field_access.is_none());
+                    Ok((field_tags.clone(), signals.clone()))
+                }
+                FieldTypes::Bus(_) => unreachable!(),
+            }
         }
 
         // Returns the tags and a SignalSlice with true/false values
@@ -138,42 +142,45 @@ impl BusRepresentation {
         &self,
         field_name: &str,
         remaining_access: &AccessingInformationBus
-    ) -> Result<(&TagInfo, &BusSlice), MemoryError> {
-
+    ) -> Result<(TagInfo, BusSlice), MemoryError> {
+        // TODO: REMOVE CLONE
         let field = self.fields.get(field_name).unwrap();
         let field_tags = self.field_tags.get(field_name).unwrap();
 
         if remaining_access.field_access.is_some(){
             // we are still considering an intermediate bus
-            assert!(field.bus.is_some());
-            let bus_slice = field.bus.as_ref().unwrap();
+            match field{
+                FieldTypes::Bus(bus_slice)=>{
 
-            let memory_response = BusSlice::access_values(
+                let memory_response = BusSlice::access_values(
                 &bus_slice, 
-                &remaining_access.array_access
-            );
-            match memory_response{
-                Result::Ok(bus_slice) =>{
-                    assert!(bus_slice.is_single());
-                    let resulting_bus = 
-                        BusSlice::unwrap_to_single(bus_slice);
-                    resulting_bus.get_field_bus( 
+                    &remaining_access.array_access
+                );
+                match memory_response{
+                    Result::Ok(bus_slice) =>{
+                        assert!(bus_slice.is_single());
+                        let resulting_bus = 
+                            BusSlice::unwrap_to_single(bus_slice);
+                        resulting_bus.get_field_bus( 
                         remaining_access.field_access.as_ref().unwrap(), 
-                        &remaining_access.remaining_access.as_ref().unwrap());
-                }
-                Result::Err(err)=>{
-                    return Err(err);
+                        &remaining_access.remaining_access.as_ref().unwrap())
+                    }
+                    Result::Err(err)=>{
+                        return Err(err);
+                    }
                 }
             }
-
-            unreachable!()       
+            FieldTypes::Signal(_) => unreachable!(),
+        }       
         } else{
-            if field.bus.is_some(){
-                // Case it is the final array of buses that we must return
-                let buses = field.bus.as_ref().unwrap();
-                Ok((field_tags, buses))
-            } else{
-                unreachable!("should not enter here")
+            match field{
+                FieldTypes::Bus(buses) =>{
+                    // Case it is the final array of buses that we must return
+
+                    assert!(remaining_access.field_access.is_none());
+                    Ok((field_tags.clone(), buses.clone()))
+                }
+                FieldTypes::Signal(_) => unreachable!(),
             }
         }
     }
@@ -191,6 +198,50 @@ impl BusRepresentation {
     ) -> Result<(), MemoryError> {
         // TODO
         unreachable!()
+    }
+
+    pub fn get_accesses_bus(&self, name: &String) -> Vec<String>{
+
+        fn unfold_signals(current: String, dim: usize, lengths: &[usize], result: &mut Vec<String>) {
+            if dim == lengths.len() {
+                result.push(current);
+            } else {
+                for i in 0..lengths[dim] {
+                    unfold_signals(format!("{}[{}]", current, i), dim + 1, lengths, result)
+                }
+            }
+        }
+        
+        let mut result = Vec::new();
+        for field in &self.fields{
+            match field{
+                (field_name, FieldTypes::Bus(bus_slice)) => {
+                    let accessed_name = format!("{}.{}", name, field_name);
+                    let dims = bus_slice.route();
+                    let mut prefixes = Vec::new();
+                    unfold_signals(accessed_name, 0, dims, &mut prefixes);
+                    for i in 0..BusSlice::get_number_of_cells(&bus_slice){
+                        let access = BusSlice::access_value_by_index(&bus_slice, i);
+
+                        match access{
+                            Ok(bus) =>{
+                                let mut result_field = bus.get_accesses_bus(&prefixes[i]);
+                                result.append(&mut result_field);
+                            }   
+                            Err(_) =>{
+                                unreachable!()
+                            }
+                        }
+                    }
+                }
+                (field_name, FieldTypes::Signal(signal_slice)) =>{
+                    let accessed_name = format!("{}.{}", name, field_name);
+                    let dims = signal_slice.route();
+                    unfold_signals(accessed_name, 0, dims, &mut result);
+                }
+            }
+        }
+        result
     }
 
 
