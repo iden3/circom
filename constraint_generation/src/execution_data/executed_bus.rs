@@ -10,10 +10,10 @@ use crate::execution_data::TagInfo;
 
 
 pub struct BusConnexion{
-    full_name: String,
+    pub full_name: String,
     pub inspect: BusData,
-    dag_offset: usize,
-    dag_jump: usize,
+    pub dag_offset: usize,
+    pub dag_jump: usize,
 }
 
 
@@ -25,6 +25,7 @@ pub struct ExecutedBus {
     pub parameter_instances: ParameterContext,
     pub signal_to_tags: TagContext,
     pub bus_connexions: HashMap<String, BusConnexion>,
+    pub size: usize, 
 }
 
 impl ExecutedBus {
@@ -41,6 +42,7 @@ impl ExecutedBus {
             bus_fields: Vec::new(),
             signal_to_tags: TagContext::new(),
             bus_connexions: HashMap::new(),
+            size: 0,
         }
     }
 

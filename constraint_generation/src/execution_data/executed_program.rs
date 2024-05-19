@@ -176,7 +176,7 @@ impl ExecutedProgram {
         }
 
         for exe in &mut self.model {
-            exe.insert_in_dag(&mut dag);
+            exe.insert_in_dag(&mut dag, &self.model_buses);
         }
 
         for exe in self.model {
