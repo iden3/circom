@@ -9,11 +9,15 @@ pub struct ComponentRepresentation {
     pub is_parallel: bool,
     pub meta: Option<Meta>,
     unassigned_inputs: HashMap<String, SliceCapacity>,
+    unassigned_input_buses: HashMap<String, SliceCapacity>,
     unassigned_tags: HashSet<String>,
     to_assign_inputs: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>)>,
+    to_assign_input_buses: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>)>,
     inputs: HashMap<String, SignalSlice>,
+    input_buses: HashMap<String, SignalSlice>,
     pub inputs_tags: BTreeMap<String, TagInfo>,
     outputs: HashMap<String, SignalSlice>,
+    output_buses: HashMap<String, SignalSlice>,
     pub outputs_tags: BTreeMap<String, TagInfo>,
     pub is_initialized: bool,
 }
@@ -32,6 +36,10 @@ impl Default for ComponentRepresentation {
             outputs_tags: BTreeMap::new(),
             is_initialized: false,
             meta: Option::None,
+            unassigned_input_buses:  HashMap::new(),
+            to_assign_input_buses: Vec::new(),
+            input_buses: HashMap::new(),
+            output_buses: HashMap::new(),
         }
     }
 }
@@ -49,6 +57,10 @@ impl Clone for ComponentRepresentation {
             outputs_tags: self.outputs_tags.clone(),
             is_initialized: self.is_initialized,
             meta : self.meta.clone(),
+            unassigned_input_buses: self.unassigned_input_buses.clone(),
+            to_assign_input_buses: self.to_assign_input_buses.clone(),
+            input_buses: self.input_buses.clone(),
+            output_buses: self.output_buses.clone(),
         }
     }
 }
@@ -103,6 +115,10 @@ impl ComponentRepresentation {
             is_initialized: false,
             is_parallel,
             meta: Some(meta.clone()),
+            unassigned_input_buses: HashMap::new(),
+            to_assign_input_buses: Vec::new(),
+            input_buses: HashMap::new(),
+            output_buses: HashMap::new(),
         };
         Result::Ok(())
     }
@@ -127,9 +143,17 @@ impl ComponentRepresentation {
             component.inputs.insert(symbol.clone(), signal_slice);
         }
 
-        for (symbol, route) in node.outputs() {
-            component.outputs.insert(symbol.clone(), SignalSlice::new_with_route(route, &true));
-            
+        for (symbol, route) in node.bus_inputs() {
+            let signal_slice = SignalSlice::new_with_route(route, &false);
+            let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
+            if signal_slice_size > 0{
+                component.unassigned_input_buses
+                    .insert(symbol.clone(), signal_slice_size);
+            }
+            component.input_buses.insert(symbol.clone(), signal_slice);
+        }
+
+        fn insert_tags_output(node: &crate::execution_data::ExecutedTemplate, symbol: &String, component: &mut ComponentRepresentation) {
             let tags_output = node.signal_to_tags.get(symbol);
             let component_tags_output = component.outputs_tags.get_mut(symbol);
             if tags_output.is_some() && component_tags_output.is_some(){
@@ -143,13 +167,31 @@ impl ComponentRepresentation {
                 }
             }
         }
-        component.node_pointer = Option::Some(node_pointer);
-        let to_assign = component.to_assign_inputs.clone();
 
+        for (symbol, route) in node.outputs() {
+            component.outputs.insert(symbol.clone(), SignalSlice::new_with_route(route, &true));
+            insert_tags_output(node, symbol, component);
+        }
+        
+        for (symbol, route) in node.bus_outputs() {
+            component.output_buses.insert(symbol.clone(), SignalSlice::new_with_route(route, &true));
+            insert_tags_output(node, symbol, component);
+        }
+
+        component.node_pointer = Option::Some(node_pointer);
+
+        let to_assign = component.to_assign_inputs.clone();
         for s in to_assign{
             let tags_input = component.inputs_tags.get(&s.0).unwrap();
             ComponentRepresentation::assign_value_to_signal_init(component, &s.0, &s.1, &s.2, tags_input.clone())?;
         }
+
+        let to_assign = component.to_assign_input_buses.clone();
+        for s in to_assign{
+            let tags_input = component.inputs_tags.get(&s.0).unwrap();
+            ComponentRepresentation::assign_value_to_signal_init(component, &s.0, &s.1, &s.2, tags_input.clone())?;
+        }
+
         Result::Ok(())
     }
 /* 
@@ -364,7 +406,9 @@ impl ComponentRepresentation {
     }
 
     pub fn has_unassigned_inputs(&self) -> bool{
-        !self.unassigned_inputs.is_empty()
+        !self.unassigned_inputs.is_empty() || !self.unassigned_input_buses.is_empty()
     }
 
 }
+
+
