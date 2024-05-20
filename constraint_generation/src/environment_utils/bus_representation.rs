@@ -8,6 +8,8 @@ use crate::ast::Meta;
 use std::mem;
 use num_bigint_dig::BigInt;
 
+use crate::assignment_utils::perform_tag_propagation;
+
 pub struct BusRepresentation {
     pub node_pointer: Option<NodePointer>,
     pub meta: Option<Meta>,
@@ -246,64 +248,11 @@ impl BusRepresentation {
                 FieldTypes::Signal(ref mut signal_slice) =>{
                     
                     // First we add the tags --> similar to what we do in execute
-                    let (tags_defs, tags_info) = self.field_tags.get_mut(field_name).unwrap();
-                    let previous_tags = mem::take(tags_info);
+                    let (tags_definitions, tags_info) = self.field_tags.get_mut(field_name).unwrap();
      
                     let signal_is_init = SignalSlice::get_number_of_inserts(&signal_slice) > 0;
 
-                    for (tag, value) in previous_tags{
-                        let tag_state =  tags_defs.get(&tag).unwrap();
-                        if tag_state.defined{// is signal defined by user
-                            if tag_state.value_defined{
-                                // already with value, store the same value
-                                tags_info.insert(tag, value);
-                            } else{
-                                if signal_is_init {
-                                    // only keep value if same as previous
-                                    let to_store_value = if tags.contains_key(&tag){
-                                        let value_new = tags.get(&tag).unwrap();
-                                        if value != *value_new{
-                                            None
-                                        } else{
-                                            value
-                                        }
-                                    } else{
-                                        None
-                                    };
-                                    tags_info.insert(tag, to_store_value);
-                                } else{
-                                    // always keep
-                                    if tags.contains_key(&tag){
-                                        let value_new = tags.get(&tag).unwrap();
-                                        tags_info.insert(tag, value_new.clone());
-                                    } else{
-                                        tags_info.insert(tag, None);
-                                    }
-                                }
-                            }
-                        } else{
-                            // it is not defined by user
-                            if tags.contains_key(&tag){
-                                let value_new = tags.get(&tag).unwrap();
-                                if value == *value_new{
-                                    tags_info.insert(tag, value);
-                                } else{
-                                    tags_info.remove(&tag);
-                                }
-                            } else{
-                                tags_info.remove(&tag);
-                            }
-                        }
-                    } 
-                    if !signal_is_init{ // first init, add new tags
-                        for (tag, value) in tags{
-                            if !tags_info.contains_key(&tag){ // in case it is a new tag (not defined by user)
-                                tags_info.insert(tag.clone(), value.clone());
-                                let state = TagState{defined: false, value_defined: false, complete: false};
-                                tags_defs.insert(tag.clone(), state);
-                            }
-                        }
-                    }
+                    perform_tag_propagation(tags_info, tags_definitions, &tags, signal_is_init);
 
                     // Similar to what we do to assign components
 
@@ -495,8 +444,7 @@ impl BusRepresentation {
                 FieldTypes::Bus(ref mut bus_slice) =>{
                     
                     // First we add the tags --> similar to what we do in execute
-                    let (tags_defs, tags_info) = self.field_tags.get_mut(field_name).unwrap();
-                    let previous_tags = mem::take(tags_info);
+                    let (tags_definitions, tags_info) = self.field_tags.get_mut(field_name).unwrap();
                     
                     let mut bus_is_init = false;
                     for i in 0..BusSlice::get_number_of_cells(bus_slice){
@@ -508,59 +456,8 @@ impl BusRepresentation {
                         }
                     }
 
-                    for (tag, value) in previous_tags{
-                        let tag_state =  tags_defs.get(&tag).unwrap();
-                        if tag_state.defined{// is signal defined by user
-                            if tag_state.value_defined{
-                                // already with value, store the same value
-                                tags_info.insert(tag, value);
-                            } else{
-                                if bus_is_init {
-                                    // only keep value if same as previous
-                                    let to_store_value = if tags.contains_key(&tag){
-                                        let value_new = tags.get(&tag).unwrap();
-                                        if value != *value_new{
-                                            None
-                                        } else{
-                                            value
-                                        }
-                                    } else{
-                                        None
-                                    };
-                                    tags_info.insert(tag, to_store_value);
-                                } else{
-                                    // always keep
-                                    if tags.contains_key(&tag){
-                                        let value_new = tags.get(&tag).unwrap();
-                                        tags_info.insert(tag, value_new.clone());
-                                    } else{
-                                        tags_info.insert(tag, None);
-                                    }
-                                }
-                            }
-                        } else{
-                            // it is not defined by user
-                            if tags.contains_key(&tag){
-                                let value_new = tags.get(&tag).unwrap();
-                                if value == *value_new{
-                                    tags_info.insert(tag, value);
-                                } else{
-                                    tags_info.remove(&tag);
-                                }
-                            } else{
-                                tags_info.remove(&tag);
-                            }
-                        }
-                    } 
-                    if !bus_is_init{ // first init, add new tags
-                        for (tag, value) in tags{
-                            if !tags_info.contains_key(&tag){ // in case it is a new tag (not defined by user)
-                                tags_info.insert(tag.clone(), value.clone());
-                                let state = TagState{defined: false, value_defined: false, complete: false};
-                                tags_defs.insert(tag.clone(), state);
-                            }
-                        }
-                    }
+                    perform_tag_propagation(tags_info, tags_definitions, &tags, bus_is_init);
+                    
 
                     // We completely assign each one of the buses
 
@@ -636,62 +533,8 @@ impl BusRepresentation {
                 }
             };
 
-            let previous_tags = mem::take(tags_info);
-                
-            for (tag, value) in previous_tags{
-                let tag_state =  tags_definition.get(&tag).unwrap();
-                if tag_state.defined{// is signal defined by user
-                    if tag_state.value_defined{
-                        // already with value, store the same value
-                        tags_info.insert(tag, value);
-                    } else{
-                        if is_init {
-                            // only keep value if same as previous
-                            let to_store_value = if tags_propagated.contains_key(&tag){
-                                let value_new = tags_propagated.get(&tag).unwrap();
-                                if value != *value_new{
-                                    None
-                                } else{
-                                    value
-                                }
-                            } else{
-                                None
-                            };
-                            tags_info.insert(tag, to_store_value);
-                        } else{
-                            // always keep
-                            if tags_propagated.contains_key(&tag){
-                                let value_new = tags_propagated.get(&tag).unwrap();
-                                tags_info.insert(tag, value_new.clone());
-                            } else{
-                                tags_info.insert(tag, None);
-                            }
-                        }
-                    }
-                } else{
-                    // it is not defined by user
-                    if tags_propagated.contains_key(&tag){
-                        let value_new = tags_propagated.get(&tag).unwrap();
-                        if value == *value_new{
-                            tags_info.insert(tag, value);
-                        } else{
-                            tags_info.remove(&tag);
-                        }
-                    } else{
-                        tags_info.remove(&tag);
-                    }
-                }
-            } 
-            if !is_init{ // first init, add new tags
-                for (tag, value) in tags_propagated{
-                    if !tags_info.contains_key(&tag){ // in case it is a new tag (not defined by user)
-                        tags_info.insert(tag.clone(), value.clone());
-                        let state = TagState{defined: false, value_defined: false, complete: false};
-                        tags_definition.insert(tag.clone(), state);
-                    }
-                }
-            }
-
+            // perform the tag assignment
+            perform_tag_propagation(tags_info, tags_definition, &tags_propagated, is_init);
 
 
             match value{
