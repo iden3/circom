@@ -1549,7 +1549,7 @@ fn perform_assign(
 
             for i in 0..BusSlice::get_number_of_cells(&bus_slice){
                 let mut value_left = treat_result_with_memory_error(
-                    BusSlice::access_value_by_index(&bus_slice, i),
+                    BusSlice::get_mut_reference_to_single_value_by_index(bus_slice, i),
                     meta,
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
@@ -1641,7 +1641,7 @@ fn perform_assign(
 
                     for i in 0..BusSlice::get_number_of_cells(bus_content){
                         let accessed_bus = treat_result_with_memory_error(
-                            BusSlice::access_value_by_index(bus_content, i),
+                            BusSlice::get_reference_to_single_value_by_index(bus_content, i),
                             meta,
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
@@ -1730,6 +1730,7 @@ fn perform_assign(
                 unreachable!();
             }
         } else if FoldedValue::valid_bus_slice(&r_folded){
+            let assigned_bus_slice = r_folded.bus_slice.as_ref().unwrap();
             // case assigning a bus (complete or field)
             if accessing_information.field_access.is_none(){
 
@@ -1739,7 +1740,7 @@ fn perform_assign(
                     let mut bus_is_init = false;
                     for i in 0..BusSlice::get_number_of_cells(bus_slice){
                         let accessed_bus = treat_result_with_memory_error(
-                            BusSlice::access_value_by_index(bus_slice, i),
+                            BusSlice::get_reference_to_single_value_by_index(bus_slice, i),
                             meta,
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
@@ -1753,33 +1754,20 @@ fn perform_assign(
 
                 }
 
-                // We are assigning the original buses
-                let value_left = treat_result_with_memory_error(
-                    BusSlice::access_values(&bus_slice, &accessing_information.array_access),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-                
+                // We assign the original buses
+                let bus_assignment_response = perform_bus_assignment(bus_slice, &accessing_information.array_access, assigned_bus_slice);
+                treat_result_with_memory_error_void(
+                    bus_assignment_response,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
 
+                // Generate an arithmetic slice for the accessed buses
                 let mut signals_values: Vec<String> = Vec::new();
-                for i in 0..BusSlice::get_number_of_cells(&value_left){
-                    // We completely assign each one of them and generate
-                    // an arithmetic slice with the result
-                    let mut accessed_bus = treat_result_with_memory_error(
-                        BusSlice::access_value_by_index(&value_left, i),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
+                for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
                     let assigned_bus = treat_result_with_memory_error(
-                        BusSlice::access_value_by_index(r_folded.bus_slice.as_ref().unwrap(), i),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-                    treat_result_with_memory_error(
-                        accessed_bus.completely_assign_bus(&assigned_bus),
+                        BusSlice::get_reference_to_single_value_by_index(r_folded.bus_slice.as_ref().unwrap(), i),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
@@ -1792,7 +1780,7 @@ fn perform_assign(
                 let mut bus_is_completely_init = true;
                 for i in 0..BusSlice::get_number_of_cells(bus_slice){
                     let accessed_bus = treat_result_with_memory_error(
-                    BusSlice::access_value_by_index(bus_slice, i),
+                    BusSlice::get_reference_to_single_value_by_index(bus_slice, i),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
@@ -1864,7 +1852,7 @@ fn perform_assign(
                     // We generate an arithmetic slice with the result
 
                     let assigned_bus = treat_result_with_memory_error(
-                        BusSlice::access_value_by_index(&bus_slice, i),
+                        BusSlice::get_reference_to_single_value_by_index(&bus_slice, i),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
@@ -2265,7 +2253,7 @@ fn execute_bus(
 
         for i in 0..BusSlice::get_number_of_cells(&bus_slice){
             let value_left = treat_result_with_memory_error(
-                BusSlice::access_value_by_index(&bus_slice, i),
+                BusSlice::get_reference_to_single_value_by_index(&bus_slice, i),
                 meta,
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
@@ -2353,7 +2341,7 @@ fn execute_bus(
 
                 for i in 0..BusSlice::get_number_of_cells(&slice){
                     let value_left = treat_result_with_memory_error(
-                        BusSlice::access_value_by_index(&slice, i),
+                        BusSlice::get_reference_to_single_value_by_index(&slice, i),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,

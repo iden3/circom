@@ -326,6 +326,15 @@ impl<C: Clone> MemorySlice<C> {
         let cell = MemorySlice::get_initial_cell(memory_slice, access)?;
         Result::Ok(&mut memory_slice.values[cell])
     }
+    pub fn get_mut_reference_to_single_value_by_index<'a>(
+        memory_slice: &'a mut MemorySlice<C>,
+        index: usize,
+    ) -> Result<&'a mut C, MemoryError> {
+        if index > MemorySlice::get_number_of_cells(memory_slice) {
+            return Result::Err(MemoryError::OutOfBoundsError);
+        }
+        Result::Ok(&mut memory_slice.values[index])
+    }
     pub fn get_number_of_cells(memory_slice: &MemorySlice<C>) -> SliceCapacity {
         memory_slice.values.len()
     }
