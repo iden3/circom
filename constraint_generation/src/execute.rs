@@ -14,6 +14,9 @@ use super::environment_utils::{
     },
 };
 
+use crate::assignment_utils::perform_tag_propagation;
+
+
 use program_structure::constants::UsefulConstants;
 
 use super::execution_data::analysis::Analysis;
@@ -1248,6 +1251,22 @@ fn perform_assign(
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
+
+        // Perform the tag assignment
+      
+        let new_tags = if r_folded.tags.is_some() && op == AssignOp::AssignConstraintSignal{
+            r_folded.tags.clone().unwrap()
+        } else{
+            TagInfo::new()
+        };
+
+        let signal_is_init = SignalSlice::get_number_of_inserts(reference_to_signal_content) > 0;
+
+        perform_tag_propagation(reference_to_tags, reference_to_tags_defined, &new_tags, signal_is_init);
+
+        
+        // Perform the signal assignment
+
         let memory_response_for_signal_previous_value = SignalSlice::access_values(
             reference_to_signal_content,
             &accessing_information.before_signal,
@@ -1258,96 +1277,6 @@ fn perform_assign(
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-
-        // Study the tags: add the new ones and copy their content.
-        /*
-        Cases:
-
-            Inherance in arrays => We only have a tag in case it inherites the tag in all positions
-            
-            - Tag defined by user: 
-                * Already with value defined by user => do not copy new values
-                * No value defined by user
-                   - Already initialized:
-                     * If same value as previous preserve
-                     * If not set value to None
-                   - No initialized:
-                     * Set value to new one
-            - Tag not defined by user:
-                * Already initialized:
-                   - If contains same tag with same value preserve
-                   - No tag or different value => do not save tag or loose it
-                * No initialized:
-                   - Save tag
-
-
-        */
-        let previous_tags = mem::take(reference_to_tags);
-        
-        let new_tags = if r_folded.tags.is_some() && op == AssignOp::AssignConstraintSignal{
-            r_folded.tags.clone().unwrap()
-        } else{
-            TagInfo::new()
-        };
-
-        let signal_is_init = SignalSlice::get_number_of_inserts(reference_to_signal_content) > 0;
-
-        for (tag, value) in previous_tags{
-            let tag_state =  reference_to_tags_defined.get(&tag).unwrap();
-            if tag_state.defined{// is signal defined by user
-                if tag_state.value_defined{
-                    // already with value, store the same value
-                    reference_to_tags.insert(tag, value);
-                } else{
-                    if signal_is_init {
-                        // only keep value if same as previous
-                        let to_store_value = if new_tags.contains_key(&tag){
-                            let value_new = new_tags.get(&tag).unwrap();
-                            if value != *value_new{
-                                None
-                            } else{
-                                value
-                            }
-                        } else{
-                            None
-                        };
-                        reference_to_tags.insert(tag, to_store_value);
-                    } else{
-                        // always keep
-                        if new_tags.contains_key(&tag){
-                            let value_new = new_tags.get(&tag).unwrap();
-                            reference_to_tags.insert(tag, value_new.clone());
-                        } else{
-                            reference_to_tags.insert(tag, None);
-                        }
-                    }
-                }
-            } else{
-                // it is not defined by user
-                if new_tags.contains_key(&tag){
-                    let value_new = new_tags.get(&tag).unwrap();
-                    if value == *value_new{
-                        reference_to_tags.insert(tag, value);
-                    } else{
-                        reference_to_tags_defined.remove(&tag);
-                    }
-                } else{
-                    reference_to_tags_defined.remove(&tag);
-                }
-            }
-        } 
-
-        if !signal_is_init{ // first init, add new tags
-            for (tag, value) in new_tags{
-                if !reference_to_tags.contains_key(&tag){ // in case it is a new tag (not defined by user)
-                    reference_to_tags.insert(tag.clone(), value.clone());
-                    let state = TagState{defined: false, value_defined: false, complete: false};
-                    reference_to_tags_defined.insert(tag.clone(), state);
-                }
-            }
-        }
-
-
 
         let r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
         let new_value_slice = &SignalSlice::new_with_route(r_slice.route(), &true);
@@ -1858,8 +1787,10 @@ fn perform_assign(
 
                 // We assign the tags
                 if r_folded.tags.is_some(){
-                    let tags = r_folded.tags.unwrap();
-                    let previous_tags = mem::take(tags_info);
+
+                    // Perform the tag assignment
+
+                    let new_tags = r_folded.tags.unwrap();
                     
                     let mut bus_is_init = false;
                     for i in 0..BusSlice::get_number_of_cells(bus_slice){
@@ -1871,60 +1802,9 @@ fn perform_assign(
                         )?;
                         bus_is_init |= accessed_bus.has_assignment();
                     }
+                    perform_tag_propagation(tags_info, tags_definition, &new_tags, bus_is_init);
 
-                    for (tag, value) in previous_tags{
-                        let tag_state =  tags_definition.get(&tag).unwrap();
-                        if tag_state.defined{// is signal defined by user
-                            if tag_state.value_defined{
-                                // already with value, store the same value
-                                tags_info.insert(tag, value);
-                            } else{
-                                if bus_is_init {
-                                    // only keep value if same as previous
-                                    let to_store_value = if tags.contains_key(&tag){
-                                        let value_new = tags.get(&tag).unwrap();
-                                        if value != *value_new{
-                                            None
-                                        } else{
-                                            value
-                                        }
-                                    } else{
-                                        None
-                                    };
-                                    tags_info.insert(tag, to_store_value);
-                                } else{
-                                    // always keep
-                                    if tags.contains_key(&tag){
-                                        let value_new = tags.get(&tag).unwrap();
-                                        tags_info.insert(tag, value_new.clone());
-                                    } else{
-                                        tags_info.insert(tag, None);
-                                    }
-                                }
-                            }
-                        } else{
-                            // it is not defined by user
-                            if tags.contains_key(&tag){
-                                let value_new = tags.get(&tag).unwrap();
-                                if value == *value_new{
-                                    tags_info.insert(tag, value);
-                                } else{
-                                    tags_info.remove(&tag);
-                                }
-                            } else{
-                                tags_info.remove(&tag);
-                            }
-                        }
-                    } 
-                    if !bus_is_init{ // first init, add new tags
-                        for (tag, value) in tags{
-                            if !tags_info.contains_key(&tag){ // in case it is a new tag (not defined by user)
-                                tags_info.insert(tag.clone(), value.clone());
-                                let state = TagState{defined: false, value_defined: false, complete: false};
-                                tags_definition.insert(tag.clone(), state);
-                            }
-                        }
-                    }
+        
                 }
 
 
