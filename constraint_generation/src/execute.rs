@@ -1928,17 +1928,39 @@ fn perform_assign(
                 }
 
 
-                let signals_values = Vec::new();
+                let mut signals_values: Vec<String> = Vec::new();
                 for i in 0..BusSlice::get_number_of_cells(&bus_slice){
                     // We completely assign each one of them and generate
                     // an arithmetic slice with the result
+                    let mut accessed_bus = treat_result_with_memory_error(
+                        BusSlice::access_value_by_index(bus_slice, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    let assigned_bus = treat_result_with_memory_error(
+                        BusSlice::access_value_by_index(r_folded.bus_slice.as_ref().unwrap(), i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    treat_result_with_memory_error(
+                        accessed_bus.completely_assign_bus(&assigned_bus),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    signals_values.append(&mut accessed_bus.get_accesses_bus(symbol));
                     
-                
                 }
-
-
+                let mut ae_signals = Vec::new();
+                for signal_name in signals_values{
+                    ae_signals.push(AExpr::Signal { symbol: signal_name });
+                }
+                Some(AExpressionSlice::new_array([ae_signals.len()].to_vec(), ae_signals))
+            } else{
+                None
             }
-            None
         } else{
             unreachable!()
         }
