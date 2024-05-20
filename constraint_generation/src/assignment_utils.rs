@@ -94,3 +94,54 @@ pub fn perform_tag_propagation(tags_values: &mut TagInfo, tags_definitions: &mut
         }
 
 }
+
+
+pub fn perform_signal_assignment(signal_slice: &mut SignalSlice, array_access: &[SliceCapacity], new_route: &[SliceCapacity])-> Result<(), MemoryError>{
+    let memory_response_for_signal_previous_value = SignalSlice::access_values(
+        signal_slice,
+        array_access,
+    );
+    let signal_previous_value = match memory_response_for_signal_previous_value{
+        Ok(v) => v,
+        Err(err) => return Err(err)
+    };
+
+    let new_value_slice = &SignalSlice::new_with_route(new_route, &true);
+
+    let correct_dims_result = SignalSlice::check_correct_dims(
+        &signal_previous_value, 
+        &Vec::new(), 
+        &new_value_slice, 
+        true
+    );
+    match correct_dims_result{
+        Ok(_) => {},
+        Err(err) => return Err(err)
+    };
+
+    for i in 0..SignalSlice::get_number_of_cells(&signal_previous_value){
+        let memory_response_access = SignalSlice::access_value_by_index(&signal_previous_value, i);
+        let signal_was_assigned = match memory_response_access{
+            Ok(v) => v,
+            Err(err) => return Err(err)
+        };
+        if signal_was_assigned {
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
+        }
+    }
+
+    
+    
+    let access_response = SignalSlice::insert_values(
+        signal_slice,
+        array_access,
+        &new_value_slice,
+        true
+    );
+
+    match access_response{
+        Ok(_) => {},
+        Err(err) => return Err(err)
+    };
+    Result::Ok(())
+}

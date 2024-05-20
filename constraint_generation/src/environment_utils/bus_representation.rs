@@ -8,7 +8,7 @@ use crate::ast::Meta;
 use std::mem;
 use num_bigint_dig::BigInt;
 
-use crate::assignment_utils::perform_tag_propagation;
+use crate::assignment_utils::*;
 
 pub struct BusRepresentation {
     pub node_pointer: Option<NodePointer>,
@@ -254,38 +254,15 @@ impl BusRepresentation {
 
                     perform_tag_propagation(tags_info, tags_definitions, &tags, signal_is_init);
 
-                    // Similar to what we do to assign components
-
-                    let signal_previous_value = SignalSlice::access_values(
-                         &signal_slice,
-                         &remaining_access.array_access,
-                    )?;
-
-                    let new_value_slice = &SignalSlice::new_with_route(slice_route, &true);
-
-                    SignalSlice::check_correct_dims(
-                        &signal_previous_value, 
-                        &Vec::new(), 
-                        &new_value_slice, 
-                        true
-                    )?;
-                    
-                    let dim_slice: usize = SignalSlice::get_number_of_cells(new_value_slice);
-                    for i in 0..dim_slice{
-                        let signal_was_assigned = SignalSlice::access_value_by_index(&signal_previous_value, i)?;
-                        if signal_was_assigned {
-                            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
-                        }
-                    }
-        
-                    SignalSlice::insert_values(
-                        signal_slice,
-                        &remaining_access.array_access,
-                        &new_value_slice,
-                        true
-                    )?;
+                    // Perform the signal assignment
+                    perform_signal_assignment(signal_slice, &remaining_access.array_access, slice_route);
 
                     // Update the value of unnasigned fields
+                    let mut dim_slice = 1;
+                    for i in slice_route {
+                        dim_slice *= *i;
+                    }
+                    
                     match self.unassigned_fields.get_mut(field_name){
                         Some(left) => {
                             *left -= dim_slice;
@@ -294,6 +271,20 @@ impl BusRepresentation {
                             }
                         }
                         None => {}
+                    }
+
+                    // Update the value of the signal tags it is complete
+                    let signal_is_completely_initialized = 
+                        SignalSlice::get_number_of_inserts(signal_slice) == 
+                        SignalSlice::get_number_of_cells(signal_slice);
+
+                    if signal_is_completely_initialized {
+
+                        for (tag, value) in tags_info{
+                            let tag_state = tags_definitions.get_mut(tag).unwrap();
+                            tag_state.complete = true;
+                            
+                        }
                     }
 
                     Result::Ok(())
@@ -485,6 +476,26 @@ impl BusRepresentation {
                         None => {}
                     }
 
+                    // Update the value of the signal tags it is complete
+                    let mut bus_is_completely_init = true;
+                    for i in 0..BusSlice::get_number_of_cells(bus_slice){
+                        match BusSlice::access_value_by_index(bus_slice, i){
+                            Ok(bus) => {
+                                bus_is_init &= bus.has_assignment();
+                            }
+                            Err(_) => unreachable!()
+                        }
+                    }
+
+                    if bus_is_completely_init {
+
+                        for (tag, value) in tags_info{
+                            let tag_state = tags_definitions.get_mut(tag).unwrap();
+                            tag_state.complete = true;
+                            
+                        }
+                    }
+
                     Result::Ok(())
                 }
                 FieldTypes::Signal(_) => unreachable!(),
@@ -582,10 +593,17 @@ impl BusRepresentation {
                         true
                     )?;
                 }
+                
             }
 
             // Update the value of unnasigned fields
-            self.unassigned_fields.remove(field_name);       
+            self.unassigned_fields.remove(field_name);
+            // Update the value of the complete tags
+            for (tag, value) in tags_info{
+                let tag_state = tags_definition.get_mut(tag).unwrap();
+                tag_state.complete = true;
+                
+            }       
         }
         Ok(())
 
