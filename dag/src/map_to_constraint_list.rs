@@ -1,6 +1,7 @@
 use super::{Constraint, Edge, Node, SimplificationFlags, Tree, DAG};
 use constraint_list::{ConstraintList, DAGEncoding, EncodingEdge, EncodingNode, SignalInfo, Simplifier};
 use program_structure::utils::constants::UsefulConstants;
+use virtual_fs::FileSystem;
 use std::collections::{HashSet, LinkedList};
 #[derive(Default)]
 struct CHolder {
@@ -107,7 +108,7 @@ fn map_edge_to_encoding(edge: Edge) -> EncodingEdge {
     EncodingEdge { goes_to: edge.goes_to, path: edge.label, offset: edge.in_number }
 }
 
-pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
+pub fn map(fs: &mut dyn FileSystem, dag: DAG, flags: SimplificationFlags) -> ConstraintList {
     use std::time::SystemTime;
     // println!("Start of dag to list mapping");
     let now = SystemTime::now();
@@ -143,5 +144,5 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
         port_substitution: flags.port_substitution,
         json_substitutions: flags.json_substitutions,
     }
-    .simplify_constraints()
+    .simplify_constraints(fs)
 }

@@ -1,7 +1,8 @@
 use super::{ConstraintList, C, EncodingIterator, SignalMap};
 use constraint_writers::r1cs_writer::{ConstraintSection, CustomGatesAppliedData, HeaderData, R1CSWriter, SignalSection};
+use virtual_fs::{FileSystem, FsResult};
 
-pub fn port_r1cs(list: &ConstraintList, output: &str, custom_gates: bool) -> Result<(), ()> {
+pub fn port_r1cs(fs: &mut dyn FileSystem, list: &ConstraintList, output: &str, custom_gates: bool) -> FsResult<()> {
     use constraint_writers::log_writer::Log;
     let field_size = if list.field.bits() % 64 == 0 {
         list.field.bits() / 8
@@ -16,14 +17,14 @@ pub fn port_r1cs(list: &ConstraintList, output: &str, custom_gates: bool) -> Res
     log.no_public_inputs = list.no_public_inputs;
     log.no_public_outputs = list.no_public_outputs;
 
-    let r1cs = R1CSWriter::new(output.to_string(), field_size, custom_gates)?;
-    let mut constraint_section = R1CSWriter::start_constraints_section(r1cs)?;
+    let r1cs = R1CSWriter::new(field_size, custom_gates);
+    let mut constraint_section = R1CSWriter::start_constraints_section(r1cs);
     let mut written = 0;
 
     for c_id in list.constraints.get_ids() {
         let c = list.constraints.read_constraint(c_id).unwrap();
         let c = C::apply_correspondence(&c, &list.signal_map);
-        ConstraintSection::write_constraint_usize(&mut constraint_section, c.a(), c.b(), c.c())?;
+        ConstraintSection::write_constraint_usize(&mut constraint_section, c.a(), c.b(), c.c());
         if C::is_linear(&c) {
             log.no_linear += 1;
         } else {
@@ -32,8 +33,8 @@ pub fn port_r1cs(list: &ConstraintList, output: &str, custom_gates: bool) -> Res
         written += 1;
     }
 
-    let r1cs = constraint_section.end_section()?;
-    let mut header_section = R1CSWriter::start_header_section(r1cs)?;
+    let r1cs = constraint_section.end_section();
+    let mut header_section = R1CSWriter::start_header_section(r1cs);
     let header_data = HeaderData {
         field: list.field.clone(),
         public_outputs: list.no_public_outputs,
@@ -43,18 +44,16 @@ pub fn port_r1cs(list: &ConstraintList, output: &str, custom_gates: bool) -> Res
         number_of_labels: ConstraintList::no_labels(list),
         number_of_constraints: written,
     };
-    header_section.write_section(header_data)?;
-    let r1cs = header_section.end_section()?;
-    let mut signal_section = R1CSWriter::start_signal_section(r1cs)?;
+    header_section.write_section(header_data);
+    let r1cs = header_section.end_section();
+    let mut signal_section = R1CSWriter::start_signal_section(r1cs);
 
     for id in list.get_witness_as_vec() {
-        SignalSection::write_signal_usize(&mut signal_section, id)?;
+        SignalSection::write_signal_usize(&mut signal_section, id);
     }
-    let r1cs = signal_section.end_section()?;
-    if !custom_gates {
-	R1CSWriter::finish_writing(r1cs)?;
-    } else {
-        let mut custom_gates_used_section = R1CSWriter::start_custom_gates_used_section(r1cs)?;
+    let mut r1cs = signal_section.end_section();
+    if custom_gates {
+        let mut custom_gates_used_section = R1CSWriter::start_custom_gates_used_section(r1cs);
         let (usage_data, occurring_order) = {
             let mut usage_data = vec![];
             let mut occurring_order = vec![];
@@ -68,10 +67,10 @@ pub fn port_r1cs(list: &ConstraintList, output: &str, custom_gates: bool) -> Res
             }
             (usage_data, occurring_order)
         };
-        custom_gates_used_section.write_custom_gates_usages(usage_data)?;
-        let r1cs = custom_gates_used_section.end_section()?;
+        custom_gates_used_section.write_custom_gates_usages(usage_data);
+        r1cs = custom_gates_used_section.end_section();
 
-        let mut custom_gates_applied_section = R1CSWriter::start_custom_gates_applied_section(r1cs)?;
+        let mut custom_gates_applied_section = R1CSWriter::start_custom_gates_applied_section(r1cs);
         let application_data = {
             fn find_indexes(
                 occurring_order: Vec<String>,
@@ -115,10 +114,10 @@ pub fn port_r1cs(list: &ConstraintList, output: &str, custom_gates: bool) -> Res
             iterate(iterator, &list.signal_map, &mut application_data);
             find_indexes(occurring_order, application_data)
         };
-        custom_gates_applied_section.write_custom_gates_applications(application_data)?;
-        let r1cs = custom_gates_applied_section.end_section()?;
-	R1CSWriter::finish_writing(r1cs)?;
+        custom_gates_applied_section.write_custom_gates_applications(application_data);
+        r1cs = custom_gates_applied_section.end_section();
     }
+    fs.write(&output.into(), &r1cs.data)?;
     Log::print(&log);
     Ok(())
 }

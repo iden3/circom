@@ -1,15 +1,14 @@
 use super::json_writer::ConstraintJSON;
 
 #[derive(Clone)]
-pub struct DebugWriter {
-    pub json_constraints: String,
-}
+pub struct DebugWriter {}
+
 impl DebugWriter {
-    pub fn new(c: String) -> Result<DebugWriter, ()> {
-        Result::Ok(DebugWriter { json_constraints: c })
+    pub fn new() -> DebugWriter {
+        DebugWriter {}
     }
 
-    pub fn build_constraints_file(&self) -> Result<ConstraintJSON, ()> {
-        ConstraintJSON::new(&self.json_constraints)
+    pub fn build_constraints_file(&self) -> ConstraintJSON {
+        ConstraintJSON::new()
     }
 }
