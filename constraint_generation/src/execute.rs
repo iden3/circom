@@ -14,7 +14,7 @@ use super::environment_utils::{
     },
 };
 
-use crate::assignment_utils::perform_tag_propagation;
+use crate::assignment_utils::*;
 
 
 use program_structure::constants::UsefulConstants;
@@ -1266,61 +1266,19 @@ fn perform_assign(
 
         
         // Perform the signal assignment
-
-        let memory_response_for_signal_previous_value = SignalSlice::access_values(
-            reference_to_signal_content,
-            &accessing_information.before_signal,
-        );
-        let signal_previous_value = treat_result_with_memory_error(
-            memory_response_for_signal_previous_value,
-            meta,
-            &mut runtime.runtime_errors,
-            &runtime.call_trace,
-        )?;
-
         let r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
-        let new_value_slice = &SignalSlice::new_with_route(r_slice.route(), &true);
-
-        let correct_dims_result = SignalSlice::check_correct_dims(
-            &signal_previous_value, 
-            &Vec::new(), 
-            &new_value_slice, 
-            true
-        );
+        
+        let signal_assignment_response = perform_signal_assignment(reference_to_signal_content, &accessing_information.before_signal, &r_slice.route());
+        
         treat_result_with_memory_error_void(
-            correct_dims_result,
+            signal_assignment_response,
             meta,
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
 
-        for i in 0..SignalSlice::get_number_of_cells(&signal_previous_value){
-            let signal_was_assigned = treat_result_with_memory_error(
-                SignalSlice::access_value_by_index(&signal_previous_value, i),
-                meta,
-                &mut runtime.runtime_errors,
-                &runtime.call_trace,
-            )?;
-            if signal_was_assigned {
-                let access_response = Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
-                treat_result_with_memory_error(
-                    access_response,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-            }
-        }
 
-        
-        
-        let access_response = SignalSlice::insert_values(
-            reference_to_signal_content,
-            &accessing_information.before_signal,
-            &new_value_slice,
-            true
-        );
-
+        // Update complete tags if completely init
         let signal_is_completely_initialized = 
             SignalSlice::get_number_of_inserts(reference_to_signal_content) == 
             SignalSlice::get_number_of_cells(reference_to_signal_content);
@@ -1347,15 +1305,6 @@ fn perform_assign(
                 }
             }
         }
-
-
-
-        treat_result_with_memory_error_void(
-            access_response,
-            meta,
-            &mut runtime.runtime_errors,
-            &runtime.call_trace,
-        )?;
 
         Option::Some(r_slice)
     }} 
@@ -1783,15 +1732,10 @@ fn perform_assign(
         } else if FoldedValue::valid_bus_slice(&r_folded){
             // case assigning a bus (complete or field)
             if accessing_information.field_access.is_none(){
-                // We are assigning the original buses
 
                 // We assign the tags
                 if r_folded.tags.is_some(){
 
-                    // Perform the tag assignment
-
-                    let new_tags = r_folded.tags.unwrap();
-                    
                     let mut bus_is_init = false;
                     for i in 0..BusSlice::get_number_of_cells(bus_slice){
                         let accessed_bus = treat_result_with_memory_error(
@@ -1802,18 +1746,28 @@ fn perform_assign(
                         )?;
                         bus_is_init |= accessed_bus.has_assignment();
                     }
+
+                    // Perform the tag assignment
+                    let new_tags = r_folded.tags.unwrap();
                     perform_tag_propagation(tags_info, tags_definition, &new_tags, bus_is_init);
 
-        
                 }
 
+                // We are assigning the original buses
+                let value_left = treat_result_with_memory_error(
+                    BusSlice::access_values(&bus_slice, &accessing_information.array_access),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                
 
                 let mut signals_values: Vec<String> = Vec::new();
-                for i in 0..BusSlice::get_number_of_cells(&bus_slice){
+                for i in 0..BusSlice::get_number_of_cells(&value_left){
                     // We completely assign each one of them and generate
                     // an arithmetic slice with the result
                     let mut accessed_bus = treat_result_with_memory_error(
-                        BusSlice::access_value_by_index(bus_slice, i),
+                        BusSlice::access_value_by_index(&value_left, i),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
@@ -1833,6 +1787,38 @@ fn perform_assign(
                     signals_values.append(&mut assigned_bus.get_accesses_bus(symbol));
                     
                 }
+
+                // Update the final tags
+                let mut bus_is_completely_init = true;
+                for i in 0..BusSlice::get_number_of_cells(bus_slice){
+                    let accessed_bus = treat_result_with_memory_error(
+                    BusSlice::access_value_by_index(bus_slice, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    bus_is_completely_init &= accessed_bus.has_assignment();
+                }
+                if bus_is_completely_init{
+                    for (tag, value) in tags_info{
+                        let tag_state = tags_definition.get_mut(tag).unwrap();
+                        tag_state.complete = true;
+                        match actual_node{
+                            ExecutedStructure::Template(node) =>{
+                                if !tag_state.value_defined{
+                                    node.add_tag_signal(symbol, &tag, value.clone());
+                                }
+                            },
+                            ExecutedStructure::Bus(node) =>{
+                                unreachable!();
+                            },
+                            ExecutedStructure::None => {
+                                unreachable!();
+                            }
+                        }
+                    }
+                }
+
                 let mut ae_signals = Vec::new();
                 for signal_name in signals_values{
                     ae_signals.push(AExpr::Signal { symbol: signal_name });
@@ -1886,6 +1872,7 @@ fn perform_assign(
                     signals_values.append(&mut assigned_bus.get_accesses_bus(symbol));
                     
                 }
+
                 let mut ae_signals = Vec::new();
                 for signal_name in signals_values{
                     ae_signals.push(AExpr::Signal { symbol: signal_name });
