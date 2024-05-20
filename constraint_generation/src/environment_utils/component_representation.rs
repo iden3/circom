@@ -15,6 +15,8 @@ pub struct ComponentRepresentation {
     unassigned_tags: HashSet<String>,
     to_assign_inputs: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>)>,
     to_assign_input_buses: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>, BusSlice)>,
+    to_assign_input_bus_buses: Vec<(String, AccessingInformationBus, Vec<SliceCapacity>, BusSlice)>,
+    to_assign_input_signal_buses: Vec<(String, AccessingInformationBus, Vec<SliceCapacity>)>,
     inputs: HashMap<String, SignalSlice>,
     input_buses: HashMap<String, BusSlice>,
     pub inputs_tags: BTreeMap<String, TagInfo>,
@@ -41,6 +43,8 @@ impl Default for ComponentRepresentation {
             to_assign_input_buses: Vec::new(),
             input_buses: HashMap::new(),
             output_buses: HashMap::new(),
+            to_assign_input_bus_buses: Vec::new(),
+            to_assign_input_signal_buses: Vec::new(),
         }
     }
 }
@@ -61,6 +65,8 @@ impl Clone for ComponentRepresentation {
             to_assign_input_buses: self.to_assign_input_buses.clone(),
             input_buses: self.input_buses.clone(),
             output_buses: self.output_buses.clone(),
+            to_assign_input_bus_buses: Vec::new(),
+            to_assign_input_signal_buses: Vec::new(),
         }
     }
 }
@@ -118,6 +124,8 @@ impl ComponentRepresentation {
             to_assign_input_buses: Vec::new(),
             input_buses: HashMap::new(),
             output_buses: HashMap::new(),
+            to_assign_input_bus_buses: Vec::new(),
+            to_assign_input_signal_buses: Vec::new(),
         };
         Result::Ok(())
     }
@@ -143,7 +151,14 @@ impl ComponentRepresentation {
         }
 
         for (symbol, route) in node.bus_inputs() {
-            let bus_slice = BusSlice::new_with_route(route, &BusRepresentation::default());
+            let mut initial_value_bus = BusRepresentation::default();
+            let bus_node = node.bus_connexions.get(symbol).unwrap().inspect.goes_to;
+            BusRepresentation::initialize_bus(
+                &mut initial_value_bus,
+                bus_node,
+                scheme,
+            )?;
+            let bus_slice = BusSlice::new_with_route(route, &initial_value_bus);
             let bus_slice_size = BusSlice::get_number_of_cells(&bus_slice);
             if bus_slice_size > 0{
                 component.unassigned_inputs
@@ -398,6 +413,36 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
         Result::Ok(())
     }
 
+        //assign_value_to_bus_bus //y hay que llamar a assign_bus_field.
+    pub fn assign_value_to_bus_complete(
+            component: &mut ComponentRepresentation,
+            signal_name: &str,
+            access: &[SliceCapacity],
+            slice_route: &[SliceCapacity],
+            tags: TagInfo,
+            bus_slice: BusSlice
+        ) -> Result<(), MemoryError> {
+            if !component.is_initialized{
+                ComponentRepresentation::assign_value_to_bus_no_init(
+                    component, 
+                    signal_name, 
+                    access, 
+                    slice_route,
+                    tags,
+                    bus_slice
+                )
+            } else {
+                ComponentRepresentation::assign_value_to_bus_init(
+                    component,
+                    signal_name, 
+                    access, 
+                    slice_route,
+                    tags,
+                    &bus_slice
+                )
+            }
+        }
+
     pub fn assign_value_to_bus_no_init(
         component: &mut ComponentRepresentation,
         bus_name: &str,
@@ -547,4 +592,134 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
     pub fn has_unassigned_inputs(&self) -> bool{
         !self.unassigned_inputs.is_empty()
     }
+
+    fn check_input_errors(component: &mut ComponentRepresentation, bus_name: &str, tags: &TagInfo) -> Option<Result<(), MemoryError>> {
+        if !component.is_preinitialized() {
+            return Some(Result::Err(MemoryError::AssignmentError(TypeAssignmentError::NoInitializedComponent)));
+        }
+        if !component.input_buses.contains_key(bus_name){
+            return Some(Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput)));
+        }
+        let tags_input = component.inputs_tags.get_mut(bus_name).unwrap();
+            
+    
+        for (t, value) in tags_input{
+            if !tags.contains_key(t){
+                return Some(Result::Err(MemoryError::AssignmentMissingTags(bus_name.to_string(), t.clone())));
+            } else{            
+                // We are in the case where the component is initialized, so we 
+                // assume that all tags already have their value and check if it is
+                // the same as the one we are receiving
+                if value != tags.get(t).unwrap(){
+                    return Some(Result::Err(MemoryError::AssignmentTagInputTwice(bus_name.to_string(), t.clone())));
+                }
+            }
+        }
+        None
+    }
+
+      //assign_value_to_bus_signal y hay que llamar a assign_signal_field.
+      pub fn assign_value_to_bus_bus(
+        component: &mut ComponentRepresentation,
+        signal_name: &str,
+        remaining_access: AccessingInformationBus,
+        slice_route: &[SliceCapacity],
+        tags: TagInfo,
+        bus_slice: BusSlice
+    ) -> Result<(), MemoryError> {
+        if !component.is_initialized{
+            ComponentRepresentation::assign_value_to_bus_bus_no_init(
+                component, 
+                signal_name, 
+                remaining_access,
+                slice_route,
+                tags,
+                bus_slice
+            )
+        } else {
+            ComponentRepresentation::assign_value_to_bus_bus_init(
+                component,
+                signal_name, 
+                remaining_access,
+                slice_route,
+                tags,
+                &bus_slice
+            )
+        }
+    }
+
+    fn assign_value_to_bus_bus_init(component: &mut ComponentRepresentation, bus_name: &str, remaining_access: AccessingInformationBus, slice_route: &[usize], tags: TagInfo, bus_slice: &BusSlice) -> Result<(), MemoryError> {
+        if let Some(value) = ComponentRepresentation::check_input_errors(component, bus_name, &tags) {
+            return value;
+        }
+
+        let inputs_response = component.input_buses.get_mut(bus_name).unwrap();
+        let signal_previous_value = BusSlice::access_values(
+            inputs_response,
+            &remaining_access.array_access,
+        )?;
+
+        let initial_value = BusSlice::get_mut_reference_to_single_value(inputs_response, &remaining_access.array_access)?;
+        initial_value.assign_value_to_field_bus(bus_name, &remaining_access, slice_route, bus_slice, tags)
+
+    }
+
+    fn assign_value_to_bus_bus_no_init(component: &mut ComponentRepresentation, bus_name: &str, remaining_access: AccessingInformationBus, slice_route: &[usize], tags: TagInfo, bus_slice: BusSlice) -> Result<(), MemoryError> {
+        if let Some(value) = ComponentRepresentation::handle_tag_assignment(component, bus_name, tags) {
+            return value;
+        }
+        component.to_assign_input_bus_buses.push((bus_name.to_string(), remaining_access, slice_route.to_vec(),bus_slice));
+        Result::Ok(())
+    }
+
+    pub fn assign_value_to_bus_signal(
+        component: &mut ComponentRepresentation,
+        signal_name: &str,
+        remaining_access: AccessingInformationBus,
+        slice_route: &[SliceCapacity],
+        tags: TagInfo,
+    ) -> Result<(), MemoryError> {
+        if !component.is_initialized{
+            ComponentRepresentation::assign_value_to_bus_signal_no_init(
+                component, 
+                signal_name, 
+                remaining_access,
+                slice_route,
+                tags
+            )
+        } else {
+            ComponentRepresentation::assign_value_to_bus_signal_init(
+                component,
+                signal_name, 
+                remaining_access,
+                slice_route,
+                tags
+            )
+        }
+    }
+
+    fn assign_value_to_bus_signal_init(component: &mut ComponentRepresentation, bus_name: &str, remaining_access: AccessingInformationBus, slice_route: &[usize], tags: TagInfo) -> Result<(), MemoryError> {
+        if let Some(value) = ComponentRepresentation::check_input_errors(component, bus_name, &tags) {
+            return value;
+        }
+
+        let inputs_response = component.input_buses.get_mut(bus_name).unwrap();
+        let signal_previous_value = BusSlice::access_values(
+            inputs_response,
+            &remaining_access.array_access,
+        )?;
+
+        let initial_value = BusSlice::get_mut_reference_to_single_value(inputs_response, &remaining_access.array_access)?;
+        initial_value.assign_value_to_field_signal(bus_name, &remaining_access, slice_route, tags)
+
+    }
+
+    fn assign_value_to_bus_signal_no_init(component: &mut ComponentRepresentation, bus_name: &str, remaining_access: AccessingInformationBus, slice_route: &[usize], tags: TagInfo) -> Result<(), MemoryError> {
+        if let Some(value) = ComponentRepresentation::handle_tag_assignment(component, bus_name, tags) {
+            return value;
+        }
+        component.to_assign_input_signal_buses.push((bus_name.to_string(), remaining_access, slice_route.to_vec()));
+        Result::Ok(())
+    }
 }
+

@@ -85,7 +85,7 @@ pub struct ExecutedTemplate {
     pub is_custom_gate: bool,
     pub underscored_signals: Vec<String>,
     connexions: Vec<Connexion>,
-    bus_connexions: HashMap<String, BusConnexion>,
+    pub bus_connexions: HashMap<String, BusConnexion>,
 }
 
 impl ExecutedTemplate {
