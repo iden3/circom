@@ -1,4 +1,5 @@
-use super::slice_types::{BusSlice, MemoryError, SignalSlice, SliceCapacity, TagInfo, TypeAssignmentError, TypeInvalidAccess};
+use super::slice_types::{BusSlice, MemoryError, SignalSlice, SliceCapacity, TagDefinitions, TagInfo, TypeAssignmentError, TypeInvalidAccess};
+use crate::execution_data::type_definitions::AccessingInformationBus;
 use crate::{environment_utils::slice_types::BusRepresentation, execution_data::type_definitions::NodePointer};
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap, HashSet};
@@ -221,21 +222,62 @@ impl ComponentRepresentation {
     }
 */
 
-    pub fn get_bus(&self, bus_name: &str) -> Result<(&TagInfo, &BusSlice), MemoryError> {
+fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
+    if self.node_pointer.is_none() {
+        return (Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent)));
+    }
+    if self.output_buses.contains_key(bus_name) && !self.unassigned_inputs.is_empty() {
+        // we return the name of an input that has not been assigned
+        let ex_signal = self.unassigned_inputs.iter().next().unwrap().0.clone();
+        return (Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputs(ex_signal))));
+    }
 
-        if self.node_pointer.is_none() {
-            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent));
-        }
-        if self.output_buses.contains_key(bus_name) && !self.unassigned_inputs.is_empty() {
-            // we return the name of an input that has not been assigned
-            let ex_signal = self.unassigned_inputs.iter().next().unwrap().0.clone();
-            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputs(ex_signal)));
+    if !self.is_initialized {
+        // we return the name of an input with tags that has not been assigned
+        let ex_signal = self.unassigned_tags.iter().next().unwrap().clone();
+        return (Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputTags(ex_signal))));
+    }
+    Result::Ok(())
+}
+    pub fn get_signal_field_bus(&self, bus_name: &str,remaining_access: &AccessingInformationBus) -> Result<((TagDefinitions, TagInfo), SignalSlice), MemoryError> {
+        if let Result::Err(value) = self.check_initialized_inputs(bus_name) {
+            return Err(value);
         }
 
-        if !self.is_initialized {
-            // we return the name of an input with tags that has not been assigned
-            let ex_signal = self.unassigned_tags.iter().next().unwrap().clone();
-            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputTags(ex_signal)));
+        let bus_slice = if self.input_buses.contains_key(bus_name) {
+            (self.inputs_tags.get(bus_name).unwrap(), self.input_buses.get(bus_name).unwrap())
+        } else {
+            (self.outputs_tags.get(bus_name).unwrap(), self.output_buses.get(bus_name).unwrap())
+        };
+        let initial_value = BusSlice::get_reference_to_single_value(bus_slice.1, &[])?;
+        let (tags,slice) = initial_value.get_field_signal(
+            bus_name,
+            remaining_access
+        )?;
+        Result::Ok((tags,slice))
+    }
+
+    pub fn get_bus_field_bus(&self, bus_name: &str,remaining_access: &AccessingInformationBus) -> Result<((TagDefinitions, TagInfo), BusSlice), MemoryError> {
+        if let Result::Err(value) = self.check_initialized_inputs(bus_name) {
+            return Err(value);
+        }
+
+        let bus_slice = if self.input_buses.contains_key(bus_name) {
+            (self.inputs_tags.get(bus_name).unwrap(), self.input_buses.get(bus_name).unwrap())
+        } else {
+            (self.outputs_tags.get(bus_name).unwrap(), self.output_buses.get(bus_name).unwrap())
+        };
+        let initial_value = BusSlice::get_reference_to_single_value(bus_slice.1, &[])?;
+        let (tags,slice) = initial_value.get_field_bus(
+            bus_name,
+            remaining_access
+        )?;
+        Result::Ok((tags,slice))
+    }
+    
+    pub fn get_complete_bus(&self, bus_name: &str) -> Result<(&TagInfo, &BusSlice), MemoryError> {
+        if let Result::Err(value) = self.check_initialized_inputs(bus_name) {
+            return Err(value);
         }
 
         let slice = if self.input_buses.contains_key(bus_name) {
