@@ -1950,7 +1950,7 @@ fn perform_assign(
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    signals_values.append(&mut accessed_bus.get_accesses_bus(symbol));
+                    signals_values.append(&mut assigned_bus.get_accesses_bus(symbol));
                     
                 }
                 let mut ae_signals = Vec::new();
@@ -1959,9 +1959,62 @@ fn perform_assign(
                 }
                 Some(AExpressionSlice::new_array([ae_signals.len()].to_vec(), ae_signals))
             } else{
-                None
+
+                let value_left = treat_result_with_memory_error(
+                    BusSlice::access_values(&bus_slice, &accessing_information.array_access),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+    
+                let mut single_bus = safe_unwrap_to_single(value_left, line!());
+    
+    
+                assert!(accessing_information.field_access.is_some());
+                let bus_slice = r_folded.bus_slice.unwrap();
+                let tags = if r_folded.tags.is_some() {
+                    r_folded.tags.unwrap()
+                } else {
+                    TagInfo::new()
+                };
+    
+                let memory_response = single_bus.assign_value_to_field_bus(
+                    accessing_information.field_access.as_ref().unwrap(),
+                    accessing_information.remaining_access.as_ref().unwrap(),
+                    &bus_slice.route(),
+                    &bus_slice,
+                    tags,
+                );
+                treat_result_with_memory_error_void(
+                    memory_response,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+
+
+                let mut signals_values: Vec<String> = Vec::new();
+                for i in 0..BusSlice::get_number_of_cells(&bus_slice){
+                    // We generate an arithmetic slice with the result
+
+                    let assigned_bus = treat_result_with_memory_error(
+                        BusSlice::access_value_by_index(&bus_slice, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    signals_values.append(&mut assigned_bus.get_accesses_bus(symbol));
+                    
+                }
+                let mut ae_signals = Vec::new();
+                for signal_name in signals_values{
+                    ae_signals.push(AExpr::Signal { symbol: signal_name });
+                }
+                Some(AExpressionSlice::new_array([ae_signals.len()].to_vec(), ae_signals))
+                
             }
         } else{
+
             unreachable!()
         }
         
