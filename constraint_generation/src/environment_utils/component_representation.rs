@@ -5,6 +5,8 @@ use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap, HashSet};
 use crate::ast::Meta;
 
+use crate::assignment_utils::*;
+
 pub struct ComponentRepresentation {
     pub node_pointer: Option<NodePointer>,
     pub is_parallel: bool,
@@ -428,6 +430,8 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput));
         }
 
+        // Check that the assignment satisfies the tags requisites
+
         let tags_input = component.inputs_tags.get_mut(signal_name).unwrap();
         for (t, value) in tags_input{
             if !tags.contains_key(t){
@@ -442,38 +446,20 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
             }
         }
 
-        let inputs_response = component.inputs.get_mut(signal_name).unwrap();
-        let signal_previous_value = SignalSlice::access_values(
-            inputs_response,
-            &access,
-        )?;
-
-        let new_value_slice = &SignalSlice::new_with_route(slice_route, &true);
-
-        SignalSlice::check_correct_dims(
-            &signal_previous_value, 
-            &Vec::new(), 
-            &new_value_slice, 
-            true
-        )?;
-
-        for i in 0..SignalSlice::get_number_of_cells(&signal_previous_value){
-            let signal_was_assigned = SignalSlice::access_value_by_index(&signal_previous_value, i)?;
-            if signal_was_assigned {
-                return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
-            }
-        }
         
-        SignalSlice::insert_values(
-            inputs_response,
-            &access,
-            &new_value_slice,
-            true
-        )?;
-        let dim = SignalSlice::get_number_of_cells(new_value_slice);
+        // Perform the assignment
+        let inputs_response = component.inputs.get_mut(signal_name).unwrap();
+        
+        perform_signal_assignment(inputs_response, &access, slice_route)?;
+        
+        // Update the value of unnasigned fields
+        let mut dim_slice = 1;
+        for i in slice_route {
+            dim_slice *= *i;
+        }
         match component.unassigned_inputs.get_mut(signal_name){
             Some(left) => {
-                *left -= dim;
+                *left -= dim_slice;
                 if *left == 0 {
                     component.unassigned_inputs.remove(signal_name);
                 }
@@ -522,30 +508,20 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
             &access,
         )?;
 
-        let initial_value = BusSlice::get_reference_to_single_value(bus_slice, &access)?;
-        let new_value_slice = &BusSlice::new_with_route(slice_route, initial_value);
-
         BusSlice::check_correct_dims(
             &bus_previous_value, 
             &Vec::new(), 
-            &new_value_slice, 
+            &bus_slice, 
             true
         )?;
 
         for i in 0..BusSlice::get_number_of_cells(&bus_previous_value){
-            let bus = BusSlice::access_value_by_index(&bus_previous_value, i)?;
-            if bus.has_assignment() {
-                return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
-            }
+            let mut bus = BusSlice::access_value_by_index(&bus_previous_value, i)?;
+            let assigned_bus = BusSlice::access_value_by_index(&bus_previous_value, i)?;
+            bus.completely_assign_bus(&assigned_bus)?;
         }
         
-        BusSlice::insert_values(
-            inputs_response,
-            &access,
-            &new_value_slice,
-            true
-        )?;
-        let dim = BusSlice::get_number_of_cells(new_value_slice);
+        let dim = BusSlice::get_number_of_cells(&bus_previous_value);
         match component.unassigned_inputs.get_mut(bus_name){
             Some(left) => {
                 *left -= dim;
