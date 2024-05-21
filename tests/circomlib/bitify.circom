@@ -101,3 +101,15 @@ template Num2BitsNeg(n) {
 
     lc1 + isZero.out * maxpot === maxpot - in;
 }
+
+template Num2BitsNeg_strict() {
+    signal input in;
+    BinaryNumber(254) output {unique} out;
+
+    component aliasCheck = AliasCheck();
+    component n2bn = Num2BitsNeg(254);
+
+    in ==> n2bn.in;
+    n2bn.out ==> aliasCheck.in;
+    aliasCheck.out ==> out;
+}

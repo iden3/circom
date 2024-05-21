@@ -28,7 +28,7 @@
 */
 
 bus Point {
-    signal {bn128} x,y;
+    signal x,y;
 }
 
 /*
