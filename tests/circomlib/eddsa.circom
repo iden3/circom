@@ -26,9 +26,9 @@ include "escalarmulfix.circom";
 
 template EdDSAVerifier(n) {
     BinaryNumber(n) input msg;
-    BinaryNumber(256) input A;
-    BinaryNumber(256) input R8;
-    BinaryNumber(256) input S;
+    BinaryPoint(254) input A;
+    BinaryPoint(254) input R8;
+    BinaryPoint(254) input S;
 
     Point pA;
     Point pR8;
@@ -37,14 +37,11 @@ template EdDSAVerifier(n) {
 
 // Ensure S<Subgroup Order
 
-    component  compConstant = CompConstant(2736030358979909402780800718157159386076813972158567259200215660948447373040);
+    component compConstant = CompConstant(2736030358979909402780800718157159386076813972158567259200215660948447373040);
 
-    for (i=0; i<254; i++) {
-        S.bits[i] ==> compConstant.in.bits[i];
-    }
+    compConstant.in <== S.binY;
     compConstant.out === 0;
-    S.bits[254] === 0;
-    S.bits[255] === 0;
+    S.signX === 0;
 
 // Convert A to Field elements (And verify A)
 
@@ -64,10 +61,15 @@ template EdDSAVerifier(n) {
 
     component hash = Pedersen(512+n);
 
-    for (i=0; i<256; i++) {
-        hash.in.bits[i] <== R8.bits[i];
-        hash.in.bits[256+i] <== A.bits[i];
+    for (i=0; i<254; i++) {
+        hash.in.bits[i] <== R8.binY.bits[i];
+        hash.in.bits[256+i] <== A.binY.bits[i];
     }
+    hash.in.bits[254] <== 0;
+    hash.in.bits[510] <== 0;
+    hash.in.bits[255] <== R8.signX;
+    hash.in.bits[511] <== A.signY;
+    
     for (i=0; i<n; i++) {
         hash.in.bits[512+i] <== msg.bits[i];
     }

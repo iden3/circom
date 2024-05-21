@@ -69,27 +69,21 @@ function sqrt(n) {
     return r;
 }
 
-
-template Bits2Point() {
-    BinaryNumber(256) input in;
-    Point output pout;
+bus BinaryPoint(n) {
+    BinaryNumber(n) binY;
+    signal {binary} signX;
 }
 
-template Bits2Point_Strict() {
-    BinaryNumber(256) input in;
-    Point output pout;
+
+template Bits2Point(n) {
+    BinaryPoint(n) {babyedwardsbin} input in;
+    Point output {babyedwards} pout;
 
     var i;
 
     // Check aliasing
-    component aliasCheckY = AliasCheck();
-    for (i=0; i<254; i++) {
-        aliasCheckY.in.bits[i] <== in.bits[i];
-    }
-    in.bits[254] === 0;
-
-    component b2nY = Bits2Num(254);
-    b2nY.in <== aliasCheckY.out;
+    component b2nY = Bits2Num(n);
+    b2nY.in <== in.binY;
     pout.y <== b2nY.out;
 
     var a = 168700;
@@ -97,55 +91,91 @@ template Bits2Point_Strict() {
 
     var y2 = pout.y * pout.y;
 
-    var x = sqrt(   (1-y2)/(a - d*y2)  );
+    var x = sqrt( (1-y2)/(a - d*y2) );
 
-    if (in.bits[255] == 1) x = -x;
+    if (in.signX == 1) x = -x;
 
     pout.x <-- x;
 
     component babyCheck = BabyCheck();
     babyCheck.pin <== pout;
 
-    component n2bX = Num2Bits(254);
+    component n2bX = Num2Bits(n);
     n2bX.in <== pout.x;
-
-    component aliasCheckX = AliasCheck();
-    aliasCheckX.in <== n2bX.out;
 
     component signCalc = CompConstant(10944121435919637611123202872628637544274182200208017171849102093287904247808);
     signCalc.in <== n2bX.out;
 
-    signCalc.out === in.bits[255];
+    signCalc.out === in.signX;
 }
 
-
-template Point2Bits() {
-    Point input pin;
-    BinaryNumber(256) output out;
-}
-
-template Point2Bits_Strict() {
-    Point input pin;
-    BinaryNumber(256) output out;
+template Bits2Point_Strict() {
+    BinaryPoint(254) {babyedwardsbin} input in;
+    Point output {babyedwards} pout;
 
     var i;
 
-    component n2bX = Num2Bits(254);
-    n2bX.in <== pin.x;
-    component n2bY = Num2Bits(254);
-    n2bY.in <== pin.y;
+    // Check aliasing
+    component b2nsY = Bits2Num_strict();
+    b2nsY.in <== in.binY;
+    pout.y <== b2nsY.out;
 
-    component aliasCheckX = AliasCheck();
-    component aliasCheckY = AliasCheck();
-    aliasCheckX.in <== n2bX.out;
-    aliasCheckY.in <== n2bY.out;
+    var a = 168700;
+    var d = 168696;
+
+    var y2 = pout.y * pout.y;
+
+    var x = sqrt( (1-y2)/(a - d*y2) );
+
+    if (in.signX == 1) x = -x;
+
+    pout.x <-- x;
+
+    component babyCheck = BabyCheck();
+    babyCheck.pin <== pout;
+
+    component n2bsX = Num2Bits_strict();
+    n2bsX.in <== pout.x;
 
     component signCalc = CompConstant(10944121435919637611123202872628637544274182200208017171849102093287904247808);
-    signCalc.in <== aliasCheckX.out;
+    signCalc.in <== n2bsX.out;
 
-    for (i=0; i<254; i++) {
-        out.bits[i] <== n2bY.out.bits[i];
-    }
-    out.bits[254] <== 0;
-    out.bits[255] <== signCalc.out;
+    signCalc.out === in.signX;
+}
+
+
+template Point2Bits(n) {
+    Point input {babyedwards} pin;
+    BinaryPoint(n) {babyedwardsbin} output out;
+
+    var i;
+
+    component n2bX = Num2Bits(n);
+    n2bX.in <== pin.x;
+    component n2bY = Num2Bits(n);
+    n2bY.in <== pin.y;
+
+    component signCalc = CompConstant(10944121435919637611123202872628637544274182200208017171849102093287904247808);
+    signCalc.in <== n2bX.out;
+
+    out.binY <== n2bY.out;
+    out.signX <== signCalc.out;
+}
+
+template Point2Bits_Strict() {
+    Point input {babyedwards} pin;
+    BinaryPoint(254) {babyedwardsbin} output out;
+
+    var i;
+
+    component n2bsX = Num2Bits_strict();
+    n2bsX.in <== pin.x;
+    component n2bsY = Num2Bits_strict();
+    n2bsY.in <== pin.y;
+
+    component signCalc = CompConstant(10944121435919637611123202872628637544274182200208017171849102093287904247808);
+    signCalc.in <== n2bsX.out;
+
+    out.binY <== n2bsY.out;
+    out.signX <== signCalc.out;
 }
