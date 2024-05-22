@@ -297,21 +297,22 @@ fn create_components(state: &mut State, triggers: &[Trigger], clusters: Vec<Trig
     }
 }
 
+fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
+    let mut jump = 0;
+    let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
+    let mut lengths = lengths.clone();
+    lengths.reverse();
+    for index in indexes {
+        let length = lengths.pop().unwrap();
+        full_length /= length;
+        jump += (*index) * full_length;
+    }
+    jump
+}
+
 fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: TriggerCluster) {
     fn compute_number_cmp(lengths: &Vec<usize>) -> usize {
         lengths.iter().fold(1, |p, c| p * (*c))
-    }
-    fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
-        let mut jump = 0;
-        let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
-        let mut lengths = lengths.clone();
-        lengths.reverse();
-        for index in indexes {
-            let length = lengths.pop().unwrap();
-            full_length /= length;
-            jump += (*index) * full_length;
-        }
-        jump
     }
     use ClusterType::Uniform;
     if let Uniform { offset_jump, component_offset_jump, .. } = cluster.xtype {
@@ -354,18 +355,6 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
 }
 
 fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: TriggerCluster) {
-    fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
-        let mut jump = 0;
-        let mut full_length = lengths.iter().fold(1, |p, c| p * (*c));
-        let mut lengths = lengths.clone();
-        lengths.reverse();
-        for index in indexes {
-            let length = lengths.pop().unwrap();
-            full_length /= length;
-            jump += (*index) * full_length;
-        }
-        jump
-    }
     for index in cluster.slice {
         let id = state.reserve_component_ids(1);
         let c_info = &triggers[index];
