@@ -388,15 +388,12 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
         }
         .allocate();
 
-        let info_parallel_cluster = state.component_to_parallel.get(&c_info.component_name).unwrap(); 
-        let parallel_value: bool;
-        if info_parallel_cluster.uniform_parallel_value.is_some(){
-            parallel_value = info_parallel_cluster.uniform_parallel_value.unwrap();
-        }
-        else{
-            parallel_value = *info_parallel_cluster.
-                positions_to_parallel.get(&c_info.indexed_with).unwrap();
-        }
+        let info_parallel_cluster =
+            state.component_to_parallel.get(&c_info.component_name).unwrap();
+        let parallel_value = match info_parallel_cluster.uniform_parallel_value {
+            Some(b) => b,
+            None => *info_parallel_cluster.positions_to_parallel.get(&c_info.indexed_with).unwrap(),
+        };
 
         let creation_instr = CreateCmpBucket {
             line: 0,
@@ -769,11 +766,9 @@ fn check_tag_access(name_signal: &String, access: &Vec<Access>, state: &mut Stat
                 ComponentAccess(name) => {
                     let tags_signal = state.signal_to_tags.get(name_signal).unwrap();
                     let value = tags_signal.get(name).unwrap();
-
-                    value_tag = if value.is_some() {
-                        Some(value.clone().unwrap())
-                    } else {
-                        unreachable!()
+                    value_tag = match value {
+                        Some(v) => Some(v.clone()),
+                        None => unreachable!(),
                     };
                 }
             }
@@ -790,11 +785,12 @@ fn translate_variable(
     use Expression::{Variable};
     if let Variable { meta, name, access, .. } = expression {
         let tag_access = check_tag_access(&name, &access, state);
-        if tag_access.is_some(){
-            translate_number( Expression::Number(meta.clone(), tag_access.unwrap()), state, context)
-        } else{
-            let def = SymbolDef { meta, symbol: name, acc: access };
-            ProcessedSymbol::new(def, state, context).into_load(state)
+        match tag_access {
+            Some(t) => translate_number(Expression::Number(meta.clone(), t), state, context),
+            None => {
+                let def = SymbolDef { meta, symbol: name, acc: access };
+                ProcessedSymbol::new(def, state, context).into_load(state)
+            }
         }
     } else {
         unreachable!()
