@@ -185,6 +185,62 @@ impl<C: Clone> MemorySlice<C> {
         Result::Ok(MemorySlice { route: size, values, number_inserts: 0 })
     }
 
+    fn generate_references_from_access<'a>(
+        memory_slice: &'a MemorySlice<C>,
+        access: &[SliceCapacity],
+    ) -> Result<Vec<&'a C>, MemoryError> {
+        if access.is_empty() {
+            let mut values = Vec::new();
+            for v in &memory_slice.values{
+                values.push(v);
+            }
+            return Ok(values);
+        }
+
+        let (size, number_of_cells) =
+            MemorySlice::generate_new_route_from_access(memory_slice, access)?;
+        let mut values = Vec::with_capacity(number_of_cells);
+        let initial_cell = MemorySlice::get_initial_cell(memory_slice, access)?;
+        let mut offset = 0;
+        while offset < number_of_cells {
+            let new_value = &memory_slice.values[initial_cell + offset];
+            values.push(new_value);
+            offset += 1;
+        }
+
+        Ok(values)
+    }
+
+    fn generate_mut_references_from_access<'a>(
+        memory_slice: &'a mut MemorySlice<C>,
+        access: &[SliceCapacity],
+    ) -> Result<Vec<&'a mut C>, MemoryError> {
+        // TODO: improve, no traverse complete vector
+
+        if access.is_empty() {
+            let mut values = Vec::new();
+            for v in &mut memory_slice.values{
+                values.push(v);
+            }
+            return Ok(values);
+        }
+
+        let (size, number_of_cells) =
+            MemorySlice::generate_new_route_from_access(memory_slice, access)?;
+        let mut values = Vec::with_capacity(number_of_cells);
+        let initial_cell = MemorySlice::get_initial_cell(memory_slice, access)?;
+
+        let mut index = 0;
+        for v in &mut memory_slice.values{
+            if index >= initial_cell && index < initial_cell + number_of_cells{
+                values.push(v);
+            }
+            index += 1;
+        }
+
+        Ok(values)
+    }
+
     // User operations
     pub fn new(initial_value: &C) -> MemorySlice<C> {
         MemorySlice::new_with_route(&[], initial_value)
@@ -282,6 +338,21 @@ impl<C: Clone> MemorySlice<C> {
     ) -> Result<MemorySlice<C>, MemoryError> {
         MemorySlice::generate_slice_from_access(memory_slice, access)
     }
+
+    pub fn access_values_by_reference<'a>(
+        memory_slice: &'a MemorySlice<C>,
+        access: &[SliceCapacity],
+    ) -> Result<Vec<&'a C>, MemoryError> {
+        MemorySlice::generate_references_from_access(memory_slice, access)
+    }
+
+    pub fn access_values_by_mut_reference<'a>(
+        memory_slice: &'a mut MemorySlice<C>,
+        access: &[SliceCapacity],
+    ) -> Result<Vec<&'a mut C>, MemoryError> {
+        MemorySlice::generate_mut_references_from_access(memory_slice, access)
+    }
+
     pub fn access_value_by_index(
         memory_slice: &MemorySlice<C>,
         index: usize,

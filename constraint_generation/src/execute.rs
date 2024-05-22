@@ -70,7 +70,7 @@ impl RuntimeInformation {
 
 struct FoldedValue {
     pub arithmetic_slice: Option<AExpressionSlice>,
-    pub bus_slice: Option<BusSlice>,
+    pub bus_slice: Option<(String, BusSlice)>, // stores the name of the bus and the value
     pub node_pointer: Option<NodePointer>,
     pub bus_node_pointer: Option<NodePointer>,
     pub is_parallel: Option<bool>,
@@ -348,6 +348,8 @@ fn execute_statement(
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
                         )?;
+
+                        // TODO: CASE BUSES
                             
                         let full_symbol = format!("{}{}", 
                             constrained.left, 
@@ -1309,10 +1311,9 @@ fn perform_assign(
         Option::Some(r_slice)
     }} 
     else if ExecutionEnvironment::has_component(&runtime.environment, symbol) {
+        
         let accessing_information = accessing_information.other_access.as_ref().unwrap();
-        if accessing_information.tag_access.is_some() {
-            unreachable!()
-        }
+        
         let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
         let component_slice = treat_result_with_environment_error(
             environment_response,
@@ -1339,82 +1340,238 @@ fn perform_assign(
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-        if accessing_information.signal_access.is_none() {
-            let (prenode_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(r_folded, line!());
-            let memory_result = ComponentRepresentation::preinitialize_component(
-                component,
-                is_parallel,
-                prenode_pointer,
-                &runtime.exec_program,
-                is_anonymous_component,
-                meta
-            );
-            treat_result_with_memory_error_void(
-                memory_result,
-                meta,
-                &mut runtime.runtime_errors,
-                &runtime.call_trace,
-            )?;
-            if component.is_ready_initialize() {  
-                // calls to execute and initialize the component              
-                let pretemplate_info = runtime.exec_program.get_prenode_value(prenode_pointer).unwrap();
-                let inputs_tags = component.inputs_tags.clone();
-                let result = execute_template_call_complete(
-                    pretemplate_info.template_name(),
-                    pretemplate_info.parameter_instances().clone(),
-                    inputs_tags,
-                    program_archive,
-                    runtime,
-                    flags,
-                )?;
-                let (node_pointer, _is_parallel) = safe_unwrap_to_valid_node_pointer(result, line!());
-                
-                let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
-                let component_slice = treat_result_with_environment_error(
-                    environment_response,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-                let memory_response = if is_anonymous_component {
-                    ComponentSlice::get_mut_reference_to_single_value(
-                        component_slice,
-                        &Vec::new(),
-                    )
-                } else{
-                    ComponentSlice::get_mut_reference_to_single_value(
-                        component_slice,
-                        &accessing_information.before_signal,
-                    )
-                };
-                let component = treat_result_with_memory_error(
-                    memory_response,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-                
-                let init_result = ComponentRepresentation::initialize_component(
+        
+        if accessing_information.tag_access.is_some() {
+            // in this case it is a a.bus.field assign
+            //unreachable!()
+            // TODO
+            Option::None
+        } else{
+            // in this case it is a complete bus or a.signal or a.bus assignment
+            if accessing_information.signal_access.is_none() {
+                // case complete bus assignment
+                let (prenode_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(r_folded, line!());
+                let memory_result = ComponentRepresentation::preinitialize_component(
                     component,
-                    node_pointer,
-                    &mut runtime.exec_program,
+                    is_parallel,
+                    prenode_pointer,
+                    &runtime.exec_program,
+                    is_anonymous_component,
+                    meta
                 );
-                treat_result_with_memory_error(
-                    init_result,
+                treat_result_with_memory_error_void(
+                    memory_result,
                     meta,
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?;
+                if component.is_ready_initialize() {  
+                    // calls to execute and initialize the component              
+                    let pretemplate_info = runtime.exec_program.get_prenode_value(prenode_pointer).unwrap();
+                    let inputs_tags = component.inputs_tags.clone();
+                    let result = execute_template_call_complete(
+                        pretemplate_info.template_name(),
+                        pretemplate_info.parameter_instances().clone(),
+                        inputs_tags,
+                        program_archive,
+                        runtime,
+                        flags,
+                    )?;
+                    let (node_pointer, _is_parallel) = safe_unwrap_to_valid_node_pointer(result, line!());
                     
+                    let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
+                    let component_slice = treat_result_with_environment_error(
+                        environment_response,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    let memory_response = if is_anonymous_component {
+                        ComponentSlice::get_mut_reference_to_single_value(
+                            component_slice,
+                            &Vec::new(),
+                        )
+                    } else{
+                        ComponentSlice::get_mut_reference_to_single_value(
+                            component_slice,
+                            &accessing_information.before_signal,
+                        )
+                    };
+                    let component = treat_result_with_memory_error(
+                        memory_response,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    
+                    let init_result = ComponentRepresentation::initialize_component(
+                        component,
+                        node_pointer,
+                        &mut runtime.exec_program,
+                    );
+                    treat_result_with_memory_error(
+                        init_result,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                        
+                        match actual_node{
+                            ExecutedStructure::Template(node) =>{
+                                let data = SubComponentData {
+                                    name: symbol.to_string(),
+                                    is_parallel: component.is_parallel,
+                                    goes_to: node_pointer,
+                                    indexed_with: accessing_information.before_signal.clone(),
+                                };
+                                node.add_arrow(full_symbol.clone(), data);
+                            },
+                            ExecutedStructure::Bus(_) =>{
+                                unreachable!();
+                            },
+                            ExecutedStructure::None => {
+                                unreachable!();
+                            }
+                        }
+                }
+                Option::None
+            } else {
+                // case field assignment (bus or signal)
+                let assigned_ae_slice = if FoldedValue::valid_arithmetic_slice(&r_folded){
+                    // it is signal assignment
+                    let signal_accessed = accessing_information.signal_access.clone().unwrap();
+                    let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
+                    let tags = if r_folded.tags.is_some() {
+                        r_folded.tags.unwrap()
+                    } else {
+                        TagInfo::new()
+                    };
+    
+                    let memory_response = ComponentRepresentation::assign_value_to_signal(
+                        component,
+                        &signal_accessed,
+                        &accessing_information.after_signal,
+                        &arithmetic_slice.route(),
+                        tags,
+                    );
+                    treat_result_with_memory_error_void(
+                        memory_response,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+
+                    arithmetic_slice
+                } else if FoldedValue::valid_bus_slice(&r_folded){
+                    // it is a bus input    
+                    let bus_accessed = accessing_information.signal_access.clone().unwrap();
+                    let (name_bus, assigned_bus_slice) = r_folded.bus_slice.unwrap();
+                    let tags = if r_folded.tags.is_some() {
+                        r_folded.tags.unwrap()
+                    } else {
+                        TagInfo::new()
+                    };
+
+                    // Generate an arithmetic slice for the assigned buses
+                    let mut signals_values: Vec<String> = Vec::new();
+                    for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
+                        let assigned_bus = treat_result_with_memory_error(
+                            BusSlice::get_reference_to_single_value_by_index(&assigned_bus_slice, i),
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                        signals_values.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
+                    }
+                    let mut ae_signals = Vec::new();
+                    for signal_name in signals_values{
+                        ae_signals.push(AExpr::Signal { symbol: signal_name });
+                    }
+                    
+    
+                    let memory_response = ComponentRepresentation::assign_value_to_bus_complete(
+                        component,
+                        &bus_accessed,
+                        &accessing_information.after_signal,
+                        tags,
+                        assigned_bus_slice
+                    );
+                    treat_result_with_memory_error_void(
+                        memory_response,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    AExpressionSlice::new_array([ae_signals.len()].to_vec(), ae_signals)
+
+                } else{
+                    unreachable!();
+                };
+                
+                if !component.is_initialized && component.is_ready_initialize() {  
+                    // calls to execute and initialize the component              
+                    let pretemplate_info = runtime.exec_program.get_prenode_value(
+                        component.node_pointer.unwrap()
+                    ).unwrap();
+                    let inputs_tags = component.inputs_tags.clone();
+    
+                    let folded_result = execute_template_call_complete(
+                        pretemplate_info.template_name(),
+                        pretemplate_info.parameter_instances().clone(),
+                        inputs_tags,
+                        program_archive,
+                        runtime,
+                        flags,
+                    )?;
+                    
+                    let (node_pointer, _is_parallel) = safe_unwrap_to_valid_node_pointer(folded_result, line!());
+                    
+                    let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
+                    let component_slice = treat_result_with_environment_error(
+                        environment_response,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    let memory_response = if is_anonymous_component {
+                        ComponentSlice::get_mut_reference_to_single_value(
+                            component_slice,
+                            &Vec::new(),
+                        )
+                    } else{
+                        ComponentSlice::get_mut_reference_to_single_value(
+                            component_slice,
+                            &accessing_information.before_signal,
+                        )
+                    };
+                    let component = treat_result_with_memory_error(
+                        memory_response,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    
+                    let init_result = ComponentRepresentation::initialize_component(
+                        component,
+                        node_pointer,
+                        &mut runtime.exec_program,
+                    );
+                    treat_result_with_memory_error_void(
+                        init_result,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
                     match actual_node{
                         ExecutedStructure::Template(node) =>{
                             let data = SubComponentData {
                                 name: symbol.to_string(),
-                                is_parallel: component.is_parallel,
                                 goes_to: node_pointer,
+                                is_parallel: component.is_parallel,
                                 indexed_with: accessing_information.before_signal.clone(),
                             };
-                            node.add_arrow(full_symbol.clone(), data);
+                            let component_symbol = create_component_symbol(symbol, &accessing_information);
+                            node.add_arrow(component_symbol, data);
                         },
                         ExecutedStructure::Bus(_) =>{
                             unreachable!();
@@ -1423,106 +1580,11 @@ fn perform_assign(
                             unreachable!();
                         }
                     }
-            }
-            Option::None
-        } else {
-            let signal_accessed = accessing_information.signal_access.clone().unwrap();
-            debug_assert!(FoldedValue::valid_arithmetic_slice(&r_folded));
-            let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
-            let tags = if r_folded.tags.is_some() {
-                r_folded.tags.unwrap()
-            } else {
-                TagInfo::new()
-            };
-
-            let memory_response = ComponentRepresentation::assign_value_to_signal(
-                component,
-                &signal_accessed,
-                &accessing_information.after_signal,
-                &arithmetic_slice.route(),
-                tags,
-            );
-            treat_result_with_memory_error_void(
-                memory_response,
-                meta,
-                &mut runtime.runtime_errors,
-                &runtime.call_trace,
-            )?;
-            if !component.is_initialized && component.is_ready_initialize() {  
-                // calls to execute and initialize the component              
-                let pretemplate_info = runtime.exec_program.get_prenode_value(
-                    component.node_pointer.unwrap()
-                ).unwrap();
-                let inputs_tags = component.inputs_tags.clone();
-
-                let folded_result = execute_template_call_complete(
-                    pretemplate_info.template_name(),
-                    pretemplate_info.parameter_instances().clone(),
-                    inputs_tags,
-                    program_archive,
-                    runtime,
-                    flags,
-                )?;
-                
-                let (node_pointer, _is_parallel) = safe_unwrap_to_valid_node_pointer(folded_result, line!());
-                
-                let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
-                let component_slice = treat_result_with_environment_error(
-                    environment_response,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-                let memory_response = if is_anonymous_component {
-                    ComponentSlice::get_mut_reference_to_single_value(
-                        component_slice,
-                        &Vec::new(),
-                    )
-                } else{
-                    ComponentSlice::get_mut_reference_to_single_value(
-                        component_slice,
-                        &accessing_information.before_signal,
-                    )
-                };
-                let component = treat_result_with_memory_error(
-                    memory_response,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-                
-                let init_result = ComponentRepresentation::initialize_component(
-                    component,
-                    node_pointer,
-                    &mut runtime.exec_program,
-                );
-                treat_result_with_memory_error_void(
-                    init_result,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-                match actual_node{
-                    ExecutedStructure::Template(node) =>{
-                        let data = SubComponentData {
-                            name: symbol.to_string(),
-                            goes_to: node_pointer,
-                            is_parallel: component.is_parallel,
-                            indexed_with: accessing_information.before_signal.clone(),
-                        };
-                        let component_symbol = create_component_symbol(symbol, &accessing_information);
-                        node.add_arrow(component_symbol, data);
-                    },
-                    ExecutedStructure::Bus(_) =>{
-                        unreachable!();
-                    },
-                    ExecutedStructure::None => {
-                        unreachable!();
-                    }
                 }
+                Option::Some(assigned_ae_slice)
             }
-            Option::Some(arithmetic_slice)
         }
+
     } else if ExecutionEnvironment::has_bus(&runtime.environment, symbol){
         
         let environment_response = ExecutionEnvironment::get_mut_bus_res(&mut runtime.environment, symbol);
@@ -1594,14 +1656,15 @@ fn perform_assign(
         } else if FoldedValue::valid_arithmetic_slice(&r_folded){
             // case assigning a signal of the bus or a tag
             if meta.get_type_knowledge().is_signal(){
-                let value_left = treat_result_with_memory_error(
-                    BusSlice::access_values(&bus_slice, &accessing_information.array_access),
+                let mut value_left = treat_result_with_memory_error(
+                    BusSlice::access_values_by_mut_reference(bus_slice, &accessing_information.array_access),
                     meta,
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?;
-    
-                let mut single_bus = safe_unwrap_to_single(value_left, line!());
+                
+                assert!(value_left.len() == 1);
+                let single_bus = value_left.get_mut(0).unwrap();
     
     
                 assert!(accessing_information.field_access.is_some());
@@ -1695,14 +1758,15 @@ fn perform_assign(
                     }
                 } else{
                      // in case it is a tag of one its fields
-                    let value_left = treat_result_with_memory_error(
-                        BusSlice::access_values(&bus_slice, &accessing_information.array_access),
+                    let mut value_left = treat_result_with_memory_error(
+                        BusSlice::access_values_by_mut_reference(bus_slice, &accessing_information.array_access),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
     
-                    let mut single_bus = safe_unwrap_to_single(value_left, line!());
+                    assert!(value_left.len() == 1);
+                    let single_bus = value_left.get_mut(0).unwrap();
     
     
                     assert!(accessing_information.field_access.is_some());
@@ -1730,7 +1794,7 @@ fn perform_assign(
                 unreachable!();
             }
         } else if FoldedValue::valid_bus_slice(&r_folded){
-            let assigned_bus_slice = r_folded.bus_slice.as_ref().unwrap();
+            let (name_bus, assigned_bus_slice) = r_folded.bus_slice.as_ref().unwrap();
             // case assigning a bus (complete or field)
             if accessing_information.field_access.is_none(){
 
@@ -1767,13 +1831,17 @@ fn perform_assign(
                 let mut signals_values: Vec<String> = Vec::new();
                 for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
                     let assigned_bus = treat_result_with_memory_error(
-                        BusSlice::get_reference_to_single_value_by_index(r_folded.bus_slice.as_ref().unwrap(), i),
+                        BusSlice::get_reference_to_single_value_by_index(assigned_bus_slice, i),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    signals_values.append(&mut assigned_bus.get_accesses_bus(symbol));
+                    signals_values.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
                     
+                }
+                let mut ae_signals = Vec::new();
+                for signal_name in signals_values{
+                    ae_signals.push(AExpr::Signal { symbol: signal_name });
                 }
 
                 // Update the final tags
@@ -1807,25 +1875,21 @@ fn perform_assign(
                     }
                 }
 
-                let mut ae_signals = Vec::new();
-                for signal_name in signals_values{
-                    ae_signals.push(AExpr::Signal { symbol: signal_name });
-                }
                 Some(AExpressionSlice::new_array([ae_signals.len()].to_vec(), ae_signals))
             } else{
 
-                let value_left = treat_result_with_memory_error(
-                    BusSlice::access_values(&bus_slice, &accessing_information.array_access),
+                let mut value_left = treat_result_with_memory_error(
+                    BusSlice::access_values_by_mut_reference(bus_slice, &accessing_information.array_access),
                     meta,
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?;
     
-                let mut single_bus = safe_unwrap_to_single(value_left, line!());
-    
+                assert!(value_left.len() == 1);
+                let single_bus = value_left.get_mut(0).unwrap();
     
                 assert!(accessing_information.field_access.is_some());
-                let bus_slice = r_folded.bus_slice.unwrap();
+                let (name_bus, bus_slice) = r_folded.bus_slice.unwrap();
                 let tags = if r_folded.tags.is_some() {
                     r_folded.tags.unwrap()
                 } else {
@@ -1857,7 +1921,7 @@ fn perform_assign(
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    signals_values.append(&mut assigned_bus.get_accesses_bus(symbol));
+                    signals_values.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
                     
                 }
 
@@ -2269,7 +2333,7 @@ fn execute_bus(
             }
         }
 
-        Result::Ok(FoldedValue{bus_slice: Some(bus_slice), tags: Some(tags_propagated), ..FoldedValue::default()})
+        Result::Ok(FoldedValue{bus_slice: Some((symbol.to_string(), bus_slice)), tags: Some(tags_propagated), ..FoldedValue::default()})
     } else{
         if meta.get_type_knowledge().is_tag(){
             // Case we are accessing a tag of the bus
@@ -2367,7 +2431,7 @@ fn execute_bus(
                     }
                 }
                 
-                Result::Ok(FoldedValue{bus_slice: Some(slice), tags: Some(tags_propagated), ..FoldedValue::default()})            
+                Result::Ok(FoldedValue{bus_slice: Some((symbol, slice)), tags: Some(tags_propagated), ..FoldedValue::default()})            
             
             } else if meta.get_type_knowledge().is_signal(){
                 // Case we return a signal

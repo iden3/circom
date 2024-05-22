@@ -218,15 +218,14 @@ impl BusRepresentation {
             match field{
                 FieldTypes::Bus(bus_slice)=>{
 
-                    let memory_response = BusSlice::access_values(
-                    &bus_slice, 
+                    let memory_response = BusSlice::access_values_by_mut_reference(
+                    bus_slice, 
                         &remaining_access.array_access
                     );
                     match memory_response{
-                        Result::Ok(bus_slice) =>{
-                            assert!(bus_slice.is_single());
-                            let mut resulting_bus = 
-                                BusSlice::unwrap_to_single(bus_slice);
+                        Result::Ok(mut bus_slice) =>{
+                            assert!(bus_slice.len() == 1);
+                            let resulting_bus = bus_slice.get_mut(0).unwrap();
                             resulting_bus.assign_value_to_field_signal( 
                                 remaining_access.field_access.as_ref().unwrap(), 
                                 &remaining_access.remaining_access.as_ref().unwrap(),
@@ -280,7 +279,7 @@ impl BusRepresentation {
 
                     if signal_is_completely_initialized {
 
-                        for (tag, value) in tags_info{
+                        for (tag, _value) in tags_info{
                             let tag_state = tags_definitions.get_mut(tag).unwrap();
                             tag_state.complete = true;
                             
@@ -316,15 +315,14 @@ impl BusRepresentation {
             match field{
                 FieldTypes::Bus(bus_slice)=>{
 
-                    let memory_response = BusSlice::access_values(
-                    &bus_slice, 
+                    let memory_response = BusSlice::access_values_by_mut_reference(
+                        bus_slice, 
                         &remaining_access.array_access
                     );
                     match memory_response{
-                        Result::Ok(bus_slice) =>{
-                            assert!(bus_slice.is_single());
-                            let mut resulting_bus = 
-                                BusSlice::unwrap_to_single(bus_slice);
+                        Result::Ok(mut bus_slice) =>{
+                            assert!(bus_slice.len() == 1);
+                            let resulting_bus = bus_slice.get_mut(0).unwrap();
                             resulting_bus.assign_value_to_field_tag( 
                                 remaining_access.field_access.as_ref().unwrap(), 
                                 &remaining_access.remaining_access.as_ref().unwrap(),
@@ -356,7 +354,7 @@ impl BusRepresentation {
                 FieldTypes::Bus(s) =>{
                     // TODO, include info about assignments, no recorrer todo
                     for i in 0..BusSlice::get_number_of_cells(s){
-                        let accessed_bus = BusSlice::access_value_by_index(&s, i)?;
+                        let accessed_bus = BusSlice::get_reference_to_single_value_by_index(&s, i)?;
                         if accessed_bus.has_assignment(){
                             return Result::Err(MemoryError::AssignmentTagAfterInit)
                         }
@@ -404,15 +402,14 @@ impl BusRepresentation {
             match field{
                 FieldTypes::Bus(bus_slice)=>{
 
-                    let memory_response = BusSlice::access_values(
-                    &bus_slice, 
+                    let memory_response = BusSlice::access_values_by_mut_reference(
+                    bus_slice, 
                         &remaining_access.array_access
                     );
                     match memory_response{
-                        Result::Ok(bus_slice) =>{
-                            assert!(bus_slice.is_single());
-                            let mut resulting_bus = 
-                                BusSlice::unwrap_to_single(bus_slice);
+                        Result::Ok(mut bus_slice) =>{
+                            assert!(bus_slice.len() == 1);
+                            let resulting_bus = bus_slice.get_mut(0).unwrap();
                             resulting_bus.assign_value_to_field_bus( 
                                 remaining_access.field_access.as_ref().unwrap(), 
                                 &remaining_access.remaining_access.as_ref().unwrap(),
@@ -439,7 +436,7 @@ impl BusRepresentation {
                     
                     let mut bus_is_init = false;
                     for i in 0..BusSlice::get_number_of_cells(bus_slice){
-                        match BusSlice::access_value_by_index(bus_slice, i){
+                        match BusSlice::get_reference_to_single_value_by_index(bus_slice, i){
                             Ok(bus) => {
                                 bus_is_init |= bus.has_assignment();
                             }
@@ -452,17 +449,19 @@ impl BusRepresentation {
 
                     // We completely assign each one of the buses
 
-                    let bus_previous_value = BusSlice::access_values(
+                    let bus_previous_value = BusSlice::access_values_by_mut_reference(
                          bus_slice,
                          &remaining_access.array_access,
                     )?;
 
-                    let dim_slice: usize = BusSlice::get_number_of_cells(&bus_previous_value);
-                    for i in 0..dim_slice{
-                        let mut bus_assigned = BusSlice::access_value_by_index(&bus_previous_value, i)?;
-                        let value = BusSlice::access_value_by_index(&assigned_bus, i)?;
+                    let mut index = 0;
+                    let dim_slice = bus_previous_value.len();
+
+                    for bus_assigned in bus_previous_value{
+                        let value = BusSlice::get_reference_to_single_value_by_index(&assigned_bus, index)?;
 
                         bus_assigned.completely_assign_bus(&value)?;
+                        index += 1;
                     }
 
                     // Update the value of unnasigned fields
@@ -479,9 +478,9 @@ impl BusRepresentation {
                     // Update the value of the signal tags it is complete
                     let mut bus_is_completely_init = true;
                     for i in 0..BusSlice::get_number_of_cells(bus_slice){
-                        match BusSlice::access_value_by_index(bus_slice, i){
+                        match BusSlice::get_reference_to_single_value_by_index(bus_slice, i){
                             Ok(bus) => {
-                                bus_is_init &= bus.has_assignment();
+                                bus_is_completely_init &= bus.has_assignment();
                             }
                             Err(_) => unreachable!()
                         }
@@ -489,7 +488,7 @@ impl BusRepresentation {
 
                     if bus_is_completely_init {
 
-                        for (tag, value) in tags_info{
+                        for (tag, _value) in tags_info{
                             let tag_state = tags_definitions.get_mut(tag).unwrap();
                             tag_state.complete = true;
                             
@@ -530,7 +529,7 @@ impl BusRepresentation {
                 FieldTypes::Bus(bus_slice) =>{
                     let mut bus_is_init = false;
                     for i in 0..BusSlice::get_number_of_cells(bus_slice){
-                        match BusSlice::access_value_by_index(bus_slice, i){
+                        match BusSlice::get_reference_to_single_value_by_index(bus_slice, i){
                             Ok(bus) => {
                                 bus_is_init |= bus.has_assignment();
                             }
@@ -549,23 +548,17 @@ impl BusRepresentation {
 
 
             match value{
-                FieldTypes::Bus(bus_slice) =>{
+                FieldTypes::Bus(ref mut bus_slice) =>{
+
                     let bus_slice_assigned = match assigned_bus.fields.get(field_name).unwrap(){
                         FieldTypes::Bus(bs) => bs,
                         FieldTypes::Signal(_) => unreachable!(),
                     };
-                    for i in 0..BusSlice::get_number_of_cells(&bus_slice){
-                        let mut accessed_bus = match BusSlice::access_value_by_index(&bus_slice, i){
-                            Ok(v) => v,
-                            Err(_) => unreachable!(),
-                        };
-                        let value_assigned = match BusSlice::access_value_by_index(bus_slice_assigned, i){
-                            Ok(v) => v,
-                            Err(_) => unreachable!(),
-                        };
 
-                        accessed_bus.completely_assign_bus(&value_assigned)?;
+                    let assignment_result = perform_bus_assignment(bus_slice, &[], bus_slice_assigned);
 
+                    if assignment_result.is_err(){
+                        return Err(assignment_result.err().unwrap());
                     }
                 },
                 FieldTypes::Signal(signal_slice)=>{
@@ -575,16 +568,17 @@ impl BusRepresentation {
 
                     let new_value_slice = &SignalSlice::new_with_route(signal_slice.route(), &true);
            
-                    let dim_slice: usize = SignalSlice::get_number_of_cells(signal_slice);
-                    for i in 0..dim_slice{
-                        let signal_was_assigned = match SignalSlice::access_value_by_index(&signal_slice, i){
-                            Ok(v) => v,
-                            Err(_) => unreachable!()
-                        };
-                        if signal_was_assigned {
-                            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
-                        }
-                    }
+                    // Not needed because we know that it has not been assigned?
+                    // let dim_slice: usize = SignalSlice::get_number_of_cells(signal_slice);
+                    // for i in 0..dim_slice{
+                    //     let signal_was_assigned = match SignalSlice::access_value_by_index(&signal_slice, i){
+                    //         Ok(v) => v,
+                    //         Err(_) => unreachable!()
+                    //     };
+                    //     if signal_was_assigned {
+                    //         return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
+                    //     }
+                    // }
 
                     SignalSlice::insert_values(
                         signal_slice,
@@ -599,10 +593,9 @@ impl BusRepresentation {
             // Update the value of unnasigned fields
             self.unassigned_fields.remove(field_name);
             // Update the value of the complete tags
-            for (tag, value) in tags_info{
+            for (tag, _value) in tags_info{
                 let tag_state = tags_definition.get_mut(tag).unwrap();
                 tag_state.complete = true;
-                
             }       
         }
         Ok(())
@@ -630,7 +623,7 @@ impl BusRepresentation {
                     let mut prefixes = Vec::new();
                     unfold_signals(accessed_name, 0, dims, &mut prefixes);
                     for i in 0..BusSlice::get_number_of_cells(&bus_slice){
-                        let access = BusSlice::access_value_by_index(&bus_slice, i);
+                        let access = BusSlice::get_reference_to_single_value_by_index(&bus_slice, i);
 
                         match access{
                             Ok(bus) =>{
