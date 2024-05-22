@@ -14,7 +14,7 @@ pub struct ComponentRepresentation {
     unassigned_inputs: HashMap<String, SliceCapacity>,
     unassigned_tags: HashSet<String>,
     to_assign_inputs: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>)>,
-    to_assign_input_buses: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>, BusSlice)>,
+    to_assign_input_buses: Vec<(String, Vec<SliceCapacity>, BusSlice)>,
     to_assign_input_bus_buses: Vec<(String, AccessingInformationBus, Vec<SliceCapacity>, BusSlice)>,
     to_assign_input_signal_buses: Vec<(String, AccessingInformationBus, Vec<SliceCapacity>)>,
     inputs: HashMap<String, SignalSlice>,
@@ -203,7 +203,7 @@ impl ComponentRepresentation {
         let to_assign = component.to_assign_input_buses.clone();
         for s in to_assign{
             let tags_input = component.inputs_tags.get(&s.0).unwrap();
-            ComponentRepresentation::assign_value_to_bus_init(component, &s.0, &s.1, &s.2, tags_input.clone(), &s.3)?;
+            ComponentRepresentation::assign_value_to_bus_init(component, &s.0, &s.1, tags_input.clone(), &s.2)?;
         }
 
         Result::Ok(())
@@ -418,7 +418,6 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
             component: &mut ComponentRepresentation,
             signal_name: &str,
             access: &[SliceCapacity],
-            slice_route: &[SliceCapacity],
             tags: TagInfo,
             bus_slice: BusSlice
         ) -> Result<(), MemoryError> {
@@ -427,7 +426,6 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
                     component, 
                     signal_name, 
                     access, 
-                    slice_route,
                     tags,
                     bus_slice
                 )
@@ -436,7 +434,6 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
                     component,
                     signal_name, 
                     access, 
-                    slice_route,
                     tags,
                     &bus_slice
                 )
@@ -447,7 +444,6 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
         component: &mut ComponentRepresentation,
         bus_name: &str,
         access: &[SliceCapacity],
-        slice_route: &[SliceCapacity],
         tags: TagInfo,
         bus_slice: BusSlice
     ) -> Result<(), MemoryError> {
@@ -455,7 +451,7 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
         if let Some(value) = ComponentRepresentation::handle_tag_assignment(component, bus_name, tags) {
             return value;
         }
-        component.to_assign_input_buses.push((bus_name.to_string(), access.to_vec(), slice_route.to_vec(),bus_slice));
+        component.to_assign_input_buses.push((bus_name.to_string(), access.to_vec(),bus_slice));
         Result::Ok(())
     }
 
@@ -520,7 +516,6 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
         component: &mut ComponentRepresentation,
         bus_name: &str,
         access: &[SliceCapacity],
-        slice_route: &[SliceCapacity],
         tags: TagInfo,
         bus_slice : &BusSlice,
     ) -> Result<(), MemoryError> {
@@ -547,26 +542,17 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
             }
         }
 
+        // Perform the bus assignment
+
         let inputs_response = component.input_buses.get_mut(bus_name).unwrap();
-        let bus_previous_value = BusSlice::access_values(
-            inputs_response,
-            &access,
-        )?;
-
-        BusSlice::check_correct_dims(
-            &bus_previous_value, 
-            &Vec::new(), 
-            &bus_slice, 
-            true
-        )?;
-
-        for i in 0..BusSlice::get_number_of_cells(&bus_previous_value){
-            let mut bus = BusSlice::access_value_by_index(&bus_previous_value, i)?;
-            let assigned_bus = BusSlice::access_value_by_index(&bus_previous_value, i)?;
-            bus.completely_assign_bus(&assigned_bus)?;
+        let assignment_result = perform_bus_assignment(inputs_response, &access, bus_slice);
+        match assignment_result {
+            Ok(_) =>{},
+            Err(err) => return Err(err)
         }
-        
-        let dim = BusSlice::get_number_of_cells(&bus_previous_value);
+
+        // Update the unassigned inputs
+        let dim = BusSlice::get_number_of_cells(&bus_slice);
         match component.unassigned_inputs.get_mut(bus_name){
             Some(left) => {
                 *left -= dim;
@@ -654,10 +640,6 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
         }
 
         let inputs_response = component.input_buses.get_mut(bus_name).unwrap();
-        let signal_previous_value = BusSlice::access_values(
-            inputs_response,
-            &remaining_access.array_access,
-        )?;
 
         let initial_value = BusSlice::get_mut_reference_to_single_value(inputs_response, &remaining_access.array_access)?;
         initial_value.assign_value_to_field_bus(bus_name, &remaining_access, slice_route, bus_slice, tags)
@@ -704,10 +686,6 @@ fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
         }
 
         let inputs_response = component.input_buses.get_mut(bus_name).unwrap();
-        let signal_previous_value = BusSlice::access_values(
-            inputs_response,
-            &remaining_access.array_access,
-        )?;
 
         let initial_value = BusSlice::get_mut_reference_to_single_value(inputs_response, &remaining_access.array_access)?;
         initial_value.assign_value_to_field_signal(bus_name, &remaining_access, slice_route, tags)
