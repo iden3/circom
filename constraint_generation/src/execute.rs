@@ -327,12 +327,17 @@ fn execute_statement(
                     program_archive, 
                     flags
                 )?;
+
+
             if let Option::Some(node) = actual_node {
                 if *op == AssignOp::AssignConstraintSignal || (*op == AssignOp::AssignSignal && flags.inspect){
                     debug_assert!(possible_constraint.is_some());
                     let constrained = possible_constraint.unwrap();
 
                     let mut needs_double_arrow = Vec::new();
+
+                    //let symbols_left = generate_symbols_from_access(var, &access_information, runtime);
+
                     for i in 0..AExpressionSlice::get_number_of_cells(&constrained.right){
                         let value_right = treat_result_with_memory_error(
                             AExpressionSlice::access_value_by_index(&constrained.right, i),
@@ -654,7 +659,7 @@ fn execute_bus_statement(
                     execute_declaration_bus(name, &usable_dimensions, tag_list, actual_node, false),
 
                 VariableType::Bus(_id, _signal_type, tag_list) =>
-                    execute_declaration_bus(name, &usable_dimensions, tag_list, actual_node, false),
+                    execute_declaration_bus(name, &usable_dimensions, tag_list, actual_node, true),
                     
                 _ =>{
                     unreachable!()
@@ -1586,6 +1591,9 @@ fn perform_assign(
         }
 
     } else if ExecutionEnvironment::has_bus(&runtime.environment, symbol){
+
+        // we check if it is an input bus, in that case all signals are initialized to true
+        let is_input_bus =  ExecutionEnvironment::has_input_bus(&runtime.environment, symbol);
         
         let environment_response = ExecutionEnvironment::get_mut_bus_res(&mut runtime.environment, symbol);
         
@@ -1601,13 +1609,12 @@ fn perform_assign(
         if FoldedValue::valid_bus_node_pointer(&r_folded){
             // in this case we are performing an assigment of the type in the node_pointer
             // to the bus in the left
-
+            
             let bus_pointer = r_folded.bus_node_pointer.unwrap();
             // in this case we cannot assign to a single value of the array
             debug_assert!(accessing_information.array_access.len() == 0);
             debug_assert!(accessing_information.field_access.is_none());
 
-            
 
             for i in 0..BusSlice::get_number_of_cells(&bus_slice){
                 let mut value_left = treat_result_with_memory_error(
@@ -1621,6 +1628,7 @@ fn perform_assign(
                     &mut value_left,
                     bus_pointer,
                     &runtime.exec_program,
+                    is_input_bus
                 );
                 treat_result_with_memory_error_void(
                     memory_result,
@@ -2112,6 +2120,14 @@ fn create_index_appendix(indexing: &[usize]) -> String {
     appendix
 }
 
+
+// fn create_symbols_form_access_bus(symbol: &str, access_information: &AccessingInformationBus,runtime: &RuntimeInformation)-> Vec<String>{
+//     let prefix = create_symbol_bus(symbol, access_information);
+//     if ExecutionEnvironment::has_bus(&runtime.environment, symbol) {
+//         execute_signal(meta, name, access, program_archive, runtime, flags)?
+//     } 
+// }
+
 fn execute_variable(
     meta: &Meta,
     symbol: &str,
@@ -2303,7 +2319,8 @@ fn execute_bus(
     if access_information.field_access.is_none() {
 
         // Case we are accessing the complete bus or array of buses
-        
+        let symbol = create_symbol_bus(symbol, &access_information);
+
         let mut tags_propagated = TagInfo::new();
         for (tag, value) in tags{
             let state = tags_definitions.get(tag).unwrap();
