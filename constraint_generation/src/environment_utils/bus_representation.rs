@@ -1,11 +1,9 @@
-use program_structure::ast::Access;
 
-use super::slice_types::{AExpressionSlice, BusSlice, FieldTypes, FoldedResult, MemoryError, SignalSlice, SliceCapacity, TagDefinitions, TagInfo, TagState, TypeAssignmentError, TypeInvalidAccess};
+use super::slice_types::{BusSlice, FieldTypes, FoldedResult, MemoryError, SignalSlice, SliceCapacity, TagDefinitions, TagInfo, TagState, TypeAssignmentError};
 use crate::execution_data::type_definitions::{NodePointer, AccessingInformationBus};
 use crate::execution_data::ExecutedProgram;
-use std::collections::{BTreeMap,HashMap, HashSet};
+use std::collections::{BTreeMap,HashMap};
 use crate::ast::Meta;
-use std::mem;
 use num_bigint_dig::BigInt;
 
 use crate::assignment_utils::*;
@@ -50,7 +48,7 @@ impl BusRepresentation {
         component: &mut BusRepresentation,
         node_pointer: NodePointer,
         scheme: &ExecutedProgram,
-        is_input_bus: bool
+        is_output_bus: bool
     ) -> Result<(), MemoryError> {
         let possible_node = ExecutedProgram::get_bus_node(scheme, node_pointer);
         assert!(possible_node.is_some());
@@ -60,7 +58,7 @@ impl BusRepresentation {
         // if input bus all signals are set initialize to true, else to false
         // initialice the signals
         for (symbol, route) in node.signal_fields() {
-            let signal_slice = SignalSlice::new_with_route(route, &is_input_bus);
+            let signal_slice = SignalSlice::new_with_route(route, &is_output_bus);
             let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
             if signal_slice_size > 0{
                 component.unassigned_fields
@@ -84,7 +82,7 @@ impl BusRepresentation {
             } else{
                 component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
             }
-            if is_input_bus{
+            if is_output_bus{
                 component.unassigned_fields.remove(symbol);
             }
         }
@@ -99,7 +97,7 @@ impl BusRepresentation {
                 &mut bus_field,
                 bus_node,
                 scheme,
-                is_input_bus
+                is_output_bus
             )?;
             let bus_slice = BusSlice::new_with_route(route, &bus_field);
             let bus_slice_size = BusSlice::get_number_of_cells(&bus_slice);
@@ -140,7 +138,7 @@ impl BusRepresentation {
             } else{
                 component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
             }
-            if is_input_bus{
+            if is_output_bus{
                 component.unassigned_fields.remove(symbol);
             }
         }
@@ -242,104 +240,7 @@ impl BusRepresentation {
         }
     }
 
-    pub fn get_field_signal(
-        &self, 
-        field_name: &str,
-        remaining_access: &AccessingInformationBus
-    ) -> Result<((TagDefinitions, TagInfo), SignalSlice), MemoryError> {
-        // TODO: REMOVE CLONE
-
-        let field = self.fields.get(field_name).unwrap(); 
-        let field_tags = self.field_tags.get(field_name).unwrap();
-        if remaining_access.field_access.is_some(){
-            // we are still considering a bus
-            match field{
-                FieldTypes::Bus(bus_slice)=>{
-
-                    let memory_response = BusSlice::access_values(
-                    &bus_slice, 
-                        &remaining_access.array_access
-                    );
-                    match memory_response{
-                        Result::Ok(bus_slice) =>{
-                            assert!(bus_slice.is_single());
-                            let resulting_bus = 
-                                BusSlice::unwrap_to_single(bus_slice);
-                            resulting_bus.get_field_signal( 
-                            remaining_access.field_access.as_ref().unwrap(), 
-                            &remaining_access.remaining_access.as_ref().unwrap()
-                            )
-                        }
-                        Result::Err(err)=>{
-                            return Err(err);
-                        }
-                    }
-                }
-                FieldTypes::Signal(_) => unreachable!(),
-            }
- 
-        } else{
-            match field{
-                FieldTypes::Signal(signals) =>{
-                    // Case it is just a signal or an array of signals, 
-                    // in this case there is no need for recursion
-                    assert!(remaining_access.field_access.is_none());
-                    Ok((field_tags.clone(), signals.clone()))
-                }
-                FieldTypes::Bus(_) => unreachable!(),
-            }
-        }
-
-        // Returns the tags and a SignalSlice with true/false values
-    }
-
-    pub fn get_field_bus(
-        &self,
-        field_name: &str,
-        remaining_access: &AccessingInformationBus
-    ) -> Result<((TagDefinitions, TagInfo), BusSlice), MemoryError> {
-        // TODO: REMOVE CLONE
-        
-        let field = self.fields.get(field_name).unwrap();
-        let field_tags = self.field_tags.get(field_name).unwrap();
-        
-        if remaining_access.field_access.is_some(){
-            // we are still considering an intermediate bus
-            match field{
-                FieldTypes::Bus(bus_slice)=>{
-
-                let memory_response = BusSlice::access_values(
-                &bus_slice, 
-                    &remaining_access.array_access
-                );
-                match memory_response{
-                    Result::Ok(bus_slice) =>{
-                        assert!(bus_slice.is_single());
-                        let resulting_bus = 
-                            BusSlice::unwrap_to_single(bus_slice);
-                        resulting_bus.get_field_bus( 
-                        remaining_access.field_access.as_ref().unwrap(), 
-                        &remaining_access.remaining_access.as_ref().unwrap())
-                    }
-                    Result::Err(err)=>{
-                        return Err(err);
-                    }
-                }
-            }
-            FieldTypes::Signal(_) => unreachable!(),
-        }       
-        } else{
-            match field{
-                FieldTypes::Bus(buses) =>{
-                    // Case it is the final array of buses that we must return
-
-                    assert!(remaining_access.field_access.is_none());
-                    Ok((field_tags.clone(), buses.clone()))
-                }
-                FieldTypes::Signal(_) => unreachable!(),
-            }
-        }
-    }
+   
 
     pub fn has_unassigned_fields(&self) -> bool{
         self.node_pointer.is_none() || !self.unassigned_fields.is_empty()

@@ -1,11 +1,8 @@
 use super::type_definitions::*;
-use circom_algebra::algebra::ArithmeticExpression;
-use compiler::hir::very_concrete_program::*;
+
 use dag::DAG;
 use num_bigint::BigInt;
-use program_structure::ast::{SignalType, Statement};
-use std::collections::{HashMap, HashSet};
-use crate::execution_data::AExpressionSlice;
+use std::collections::HashMap;
 use crate::execution_data::TagInfo;
 
 
