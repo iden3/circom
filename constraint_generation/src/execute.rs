@@ -767,31 +767,40 @@ fn execute_expression(
             };
 
             let f_value = execute_expression(value, program_archive, runtime, flags)?;
-            let slice_value = safe_unwrap_to_arithmetic_slice(f_value, line!());
+            if FoldedValue::valid_arithmetic_slice(&f_value){
+                let slice_value = safe_unwrap_to_arithmetic_slice(f_value, line!());
             
-            let mut dims = vec![usable_dimension];
-            for dim in slice_value.route() {
-                dims.push(*dim);
+                let mut dims = vec![usable_dimension];
+                for dim in slice_value.route() {
+                    dims.push(*dim);
+                }
+    
+                let mut array_slice = AExpressionSlice::new_with_route(&dims, &AExpr::default());
+                let mut row: SliceCapacity = 0;
+                while row < usable_dimension {
+                    let memory_insert_result = AExpressionSlice::insert_values(
+                        &mut array_slice,
+                        &[row],
+                        &slice_value,
+                        false
+                    );
+                    treat_result_with_memory_error_void(
+                        memory_insert_result,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    row += 1;
+                }
+                FoldedValue { arithmetic_slice: Option::Some(array_slice), ..FoldedValue::default() }
+            } else if FoldedValue::valid_bus_node_pointer(&f_value){
+                let node_pointer = safe_unwrap_to_valid_bus_node_pointer(f_value, line!());
+            
+                FoldedValue { bus_node_pointer: Option::Some(node_pointer), ..FoldedValue::default() }
+            } else{
+                unreachable!();
             }
-
-            let mut array_slice = AExpressionSlice::new_with_route(&dims, &AExpr::default());
-            let mut row: SliceCapacity = 0;
-            while row < usable_dimension {
-                let memory_insert_result = AExpressionSlice::insert_values(
-                    &mut array_slice,
-                    &[row],
-                    &slice_value,
-                    false
-                );
-                treat_result_with_memory_error_void(
-                    memory_insert_result,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-                row += 1;
-            }
-            FoldedValue { arithmetic_slice: Option::Some(array_slice), ..FoldedValue::default() }
+            
         }
         InfixOp { meta, lhe, infix_op, rhe, .. } => {
             let l_fold = execute_expression(lhe, program_archive, runtime, flags)?;
@@ -1499,6 +1508,7 @@ fn perform_assign(
                     let mut signals_values_right: Vec<String> = Vec::new();
                     let mut signals_values_left: Vec<String> = Vec::new();
 
+                    // TODO: get the correct final index
                     for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
                         let assigned_bus = treat_result_with_memory_error(
                             BusSlice::get_reference_to_single_value_by_index(&assigned_bus_slice, i),
@@ -1506,9 +1516,18 @@ fn perform_assign(
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
                         )?;
-                        // TODO: do not call twice to get_accesses
-                        signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
-                        signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", full_symbol, i)));
+                        // TODO: do not call twice to get_accesses and better index
+                        
+                        let access_index = treat_result_with_memory_error(
+                            BusSlice::get_access_index(&assigned_bus_slice, i),
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                        let string_index = create_index_appendix(&access_index); 
+
+                        signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", name_bus, string_index)));
+                        signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", full_symbol, string_index)));
                     }
 
                     let mut ae_signals_right = Vec::new();
@@ -1890,8 +1909,17 @@ fn perform_assign(
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", full_symbol, i)));
-                    signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
+                    // TODO
+                    let access_index = treat_result_with_memory_error(
+                        BusSlice::get_access_index(&assigned_bus_slice, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    let string_index = create_index_appendix(&access_index); 
+
+                    signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", name_bus, string_index)));
+                    signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", full_symbol, string_index)));
                     
                 }
                 let mut ae_signals_left = Vec::new();
@@ -1953,7 +1981,7 @@ fn perform_assign(
                 let single_bus = value_left.get_mut(0).unwrap();
     
                 assert!(accessing_information.field_access.is_some());
-                let (name_bus, bus_slice) = r_folded.bus_slice.unwrap();
+                let (name_bus, bus_slice) = r_folded.bus_slice.as_ref().unwrap();
                 let tags = if r_folded.tags.is_some() {
                     r_folded.tags.unwrap()
                 } else {
@@ -1987,8 +2015,18 @@ fn perform_assign(
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", full_symbol, i)));
-                    signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
+                    
+                    // TODO
+                    let access_index = treat_result_with_memory_error(
+                        BusSlice::get_access_index(&assigned_bus_slice, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    let string_index = create_index_appendix(&access_index); 
+
+                    signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", name_bus, string_index)));
+                    signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", full_symbol, string_index)));
 
                 }
 
@@ -2577,109 +2615,170 @@ fn execute_component(
     runtime: &mut RuntimeInformation,
     flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
-    let access_information = treat_accessing(meta, access, program_archive, runtime, flags)?;
-    if access_information.undefined {
-        let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
-        return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
-    }
-    let environment_response =
-        ExecutionEnvironment::get_component_res(&runtime.environment, symbol);
-    let component_slice = treat_result_with_environment_error(
-        environment_response,
-        meta,
-        &mut runtime.runtime_errors,
-        &runtime.call_trace,
-    )?;
-    let memory_response = if runtime.anonymous_components.contains_key(symbol) {
-        ComponentSlice::access_values(component_slice, &Vec::new())
-    } else{
-        ComponentSlice::access_values(component_slice, &access_information.before_signal)
-    };
-    let slice_result = treat_result_with_memory_error(
-        memory_response,
-        meta,
-        &mut runtime.runtime_errors,
-        &runtime.call_trace,
-    )?;
-    let resulting_component = safe_unwrap_to_single(slice_result, line!());
-    
-    if let Some(acc) = access_information.tag_access {
-        let (tags_signal, _) = treat_result_with_memory_error(
-            resulting_component.get_signal(&access_information.signal_access.unwrap()),
-            meta,
-            &mut runtime.runtime_errors,
-            &runtime.call_trace,
-        )?;
+
+
+    // TODO: cases access signal/bus inside a bus, all in same case
+    if meta.get_type_knowledge().is_signal(){
         
-        if tags_signal.contains_key(&acc) {
-            let value_tag = tags_signal.get(&acc).unwrap();
-            if let Some(value_tag) = value_tag {
-                let a_value = AExpr::Number { value: value_tag.clone() };
-                let ae_slice = AExpressionSlice::new(&a_value);
-                Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
-            }
-            else {
-                let error = MemoryError::TagValueNotInitializedAccess;
-                treat_result_with_memory_error(
-                    Result::Err(error),
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?
-            }
-        } else {
-            unreachable!()
+        let access_information = treat_accessing(meta, access, program_archive, runtime, flags)?;
+        if access_information.undefined {
+            let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
+            return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
         }
 
-    } 
-    else if let Option::Some(signal_name) = &access_information.signal_access {
-        let access_after_signal = &access_information.after_signal;
-        let (tags_signal, signal) = treat_result_with_memory_error(
-            resulting_component.get_signal(signal_name),
+        let environment_response =
+        ExecutionEnvironment::get_component_res(&runtime.environment, symbol);
+        let component_slice = treat_result_with_environment_error(
+            environment_response,
             meta,
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-        let slice = SignalSlice::access_values(signal, &access_after_signal);
+        let memory_response = if runtime.anonymous_components.contains_key(symbol) {
+            ComponentSlice::access_values(component_slice, &Vec::new())
+        } else{
+            ComponentSlice::access_values(component_slice, &access_information.before_signal)
+        };
+        let slice_result = treat_result_with_memory_error(
+            memory_response,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        let resulting_component = safe_unwrap_to_single(slice_result, line!());
+        
+        if let Some(acc) = access_information.tag_access {
+            let (tags_signal, _) = treat_result_with_memory_error(
+                resulting_component.get_signal(&access_information.signal_access.unwrap()),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            
+            if tags_signal.contains_key(&acc) {
+                let value_tag = tags_signal.get(&acc).unwrap();
+                if let Some(value_tag) = value_tag {
+                    let a_value = AExpr::Number { value: value_tag.clone() };
+                    let ae_slice = AExpressionSlice::new(&a_value);
+                    Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
+                }
+                else {
+                    let error = MemoryError::TagValueNotInitializedAccess;
+                    treat_result_with_memory_error(
+                        Result::Err(error),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?
+                }
+            } else {
+                unreachable!()
+            }
+    
+        } 
+        else if let Option::Some(signal_name) = &access_information.signal_access {
+            let access_after_signal = &access_information.after_signal;
+            let (tags_signal, signal) = treat_result_with_memory_error(
+                resulting_component.get_signal(signal_name),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            let slice = SignalSlice::access_values(signal, &access_after_signal);
+            let slice = treat_result_with_memory_error(
+                slice,
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            let symbol = create_symbol(symbol, &access_information);
+            let result = signal_to_arith(symbol, slice)
+                .map(|s| FoldedValue { 
+                    arithmetic_slice: Option::Some(s),
+                    tags: Option::Some(tags_signal.clone()),
+                    ..FoldedValue::default() 
+                });
+            treat_result_with_memory_error(
+                result,
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )
+        } else {
+            let read_result = if resulting_component.is_ready_initialize() {
+                Result::Ok(resulting_component)
+            } else {
+                Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent))
+            };
+    
+            let checked_component = treat_result_with_memory_error(
+                read_result,
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+    
+            Result::Ok(FoldedValue {
+                node_pointer: checked_component.node_pointer,
+                is_parallel: Some(false),
+                ..FoldedValue::default()
+            })
+        }
+    } else if meta.get_type_knowledge().is_bus(){
+        let access_information = treat_accessing_bus(meta, access, program_archive, runtime, flags)?;
+        if access_information.undefined {
+            let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
+            return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
+        }
+
+        let environment_response =
+        ExecutionEnvironment::get_component_res(&runtime.environment, symbol);
+        let component_slice = treat_result_with_environment_error(
+            environment_response,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        let memory_response = if runtime.anonymous_components.contains_key(symbol) {
+            ComponentSlice::access_values(component_slice, &Vec::new())
+        } else{
+            ComponentSlice::access_values(component_slice, &access_information.array_access)
+        };
+        let slice_result = treat_result_with_memory_error(
+            memory_response,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        // TODO: just case accessing complete bus
+        let resulting_component = safe_unwrap_to_single(slice_result, line!());
+        let result_access = resulting_component.get_complete_bus(access_information.field_access.as_ref().unwrap());
+        let (tags_bus, bus_slice) = treat_result_with_memory_error(
+            result_access,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+        let slice = BusSlice::access_values(bus_slice, &access_information.remaining_access.as_ref().unwrap().array_access);
         let slice = treat_result_with_memory_error(
             slice,
             meta,
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-        let symbol = create_symbol(symbol, &access_information);
-        let result = signal_to_arith(symbol, slice)
-            .map(|s| FoldedValue { 
-                arithmetic_slice: Option::Some(s),
-                tags: Option::Some(tags_signal.clone()),
-                ..FoldedValue::default() 
-            });
-        treat_result_with_memory_error(
-            result,
-            meta,
-            &mut runtime.runtime_errors,
-            &runtime.call_trace,
-        )
-    } else {
-        let read_result = if resulting_component.is_ready_initialize() {
-            Result::Ok(resulting_component)
-        } else {
-            Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent))
-        };
-
-        let checked_component = treat_result_with_memory_error(
-            read_result,
-            meta,
-            &mut runtime.runtime_errors,
-            &runtime.call_trace,
-        )?;
-
+        let symbol = create_symbol_bus(symbol, &access_information);
+        
         Result::Ok(FoldedValue {
-            node_pointer: checked_component.node_pointer,
-            is_parallel: Some(false),
+            bus_slice: Some((symbol, slice)),
+            tags: Some(tags_bus.clone()),
             ..FoldedValue::default()
         })
     }
+    else{
+        // TODO: REFRACT AND CHANGE ACCESSING_INFORMATION
+        unreachable!()
+    }
+    
 }
 
 fn prepare_environment_for_call(
@@ -2688,10 +2787,15 @@ fn prepare_environment_for_call(
     program_archive: &ProgramArchive,
 ) -> ExecutionEnvironment {
     let functions = program_archive.get_function_names();
+    let templates = program_archive.get_template_names();
+
     let arg_names = if functions.contains(id) {
         program_archive.get_function_data(id).get_name_of_params()
-    } else {
+    } else if templates.contains(id){
         program_archive.get_template_data(id).get_name_of_params()
+    } else {
+        // case bus
+        program_archive.get_bus_data(id).get_name_of_params()
     };
 
     let mut environment = ExecutionEnvironment::new();
@@ -3156,16 +3260,6 @@ pub fn get_final_array_access_bus_accessing(access: &AccessingInformationBus)->&
 }
 
 
-pub fn generate_symbols_from_access(symbol: &str, access: &TypesAccess, runtime: & RuntimeInformation)->Vec<String>{
-    if access.other_access.is_some(){
-        let access = access.other_access.as_ref().unwrap();
-        let (_, _ ,signal_slice) = runtime.environment.get_signal(symbol).unwrap();
-        let route = signal_slice.route();
-        
-    }
-    Vec::new()
-}
-
 
 //************************************************* Safe transformations *************************************************
 
@@ -3180,6 +3274,10 @@ fn safe_unwrap_to_arithmetic_slice(folded_value: FoldedValue, line: u32) -> AExp
 fn safe_unwrap_to_valid_node_pointer(folded_value: FoldedValue, line: u32) -> (NodePointer, bool) {
     debug_assert!(FoldedValue::valid_node_pointer(&folded_value), "Caused by call at {}", line);
     (folded_value.node_pointer.unwrap(), folded_value.is_parallel.unwrap())
+}
+fn safe_unwrap_to_valid_bus_node_pointer(folded_value: FoldedValue, line: u32) -> NodePointer {
+    debug_assert!(FoldedValue::valid_bus_node_pointer(&folded_value), "Caused by call at {}", line);
+    folded_value.bus_node_pointer.unwrap()
 }
 fn safe_unwrap_to_single<C: Clone>(slice: MemorySlice<C>, line: u32) -> C {
     debug_assert!(slice.is_single(), "Caused by call at {}", line);

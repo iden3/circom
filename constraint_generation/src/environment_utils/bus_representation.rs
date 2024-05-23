@@ -56,11 +56,9 @@ impl BusRepresentation {
         assert!(possible_node.is_some());
         let node = possible_node.unwrap();
 
-        // Distinguir si es bus o señal y crear la Slice correspondiente
-        // En caso de los buses, crear e inicializar componentRepresentation de todos
 
         // if input bus all signals are set initialize to true, else to false
-
+        // initialice the signals
         for (symbol, route) in node.signal_fields() {
             let signal_slice = SignalSlice::new_with_route(route, &is_input_bus);
             let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
@@ -70,10 +68,26 @@ impl BusRepresentation {
             }
             let field_signal = FieldTypes::Signal(signal_slice);
             component.fields.insert(symbol.clone(), field_signal);
+
+            // add the tags 
+            if node.signal_to_tags.get(symbol).is_some(){
+                let defined_tags = node.signal_to_tags.get(symbol).unwrap();
+                let mut definitions = BTreeMap::new();
+                let mut values = BTreeMap::new();
+                for (tag, value) in defined_tags{
+                    let tag_state = TagState{defined:true, value_defined: value.is_some(), complete: true};
+                    definitions.insert(tag.clone(), tag_state);
+                    values.insert(tag.clone(), value.clone());
+
+                }
+                component.field_tags.insert(symbol.clone(), (definitions, values));
+            } else{
+                component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
+            }
         }
 
+        // now the buses
         let bus_connexions = node.bus_connexions();
-
         for (symbol, route) in node.bus_fields() {
             
             let bus_node = bus_connexions.get(symbol).unwrap().inspect.goes_to;
@@ -92,6 +106,37 @@ impl BusRepresentation {
             }
             let field_bus = FieldTypes::Bus(bus_slice);
             component.fields.insert(symbol.clone(), field_bus);
+
+                        // add the tags 
+            if node.signal_to_tags.get(symbol).is_some(){
+                let defined_tags = node.signal_to_tags.get(symbol).unwrap();
+                let mut definitions = BTreeMap::new();
+                let mut values = BTreeMap::new();
+                for (tag, value) in defined_tags{
+                    let tag_state = TagState{defined:true, value_defined: value.is_some(), complete: true};
+                    definitions.insert(tag.clone(), tag_state);
+                    values.insert(tag.clone(), value.clone());
+
+                }
+                component.field_tags.insert(symbol.clone(), (definitions, values));
+            } else{
+                component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
+            }
+            // add the tags 
+            if node.signal_to_tags.get(symbol).is_some(){
+                let defined_tags = node.signal_to_tags.get(symbol).unwrap();
+                let mut definitions = BTreeMap::new();
+                let mut values = BTreeMap::new();
+                for (tag, value) in defined_tags{
+                    let tag_state = TagState{defined:true, value_defined: value.is_some(), complete: true};
+                    definitions.insert(tag.clone(), tag_state);
+                    values.insert(tag.clone(), value.clone());
+
+                }
+                component.field_tags.insert(symbol.clone(), (definitions, values));
+            } else{
+                component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
+            }
         }
 
         component.node_pointer = Option::Some(node_pointer);
