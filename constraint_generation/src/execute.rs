@@ -336,8 +336,6 @@ fn execute_statement(
 
                     let mut needs_double_arrow = Vec::new();
 
-                    //let symbols_left = generate_symbols_from_access(var, &access_information, runtime);
-
                     for i in 0..AExpressionSlice::get_number_of_cells(&constrained.right){
                         let value_right = treat_result_with_memory_error(
                             AExpressionSlice::access_value_by_index(&constrained.right, i),
@@ -347,19 +345,13 @@ fn execute_statement(
                         )?;
 
                     
-                        let access_left = treat_result_with_memory_error(
-                            AExpressionSlice::get_access_index(&constrained.right, i),
+                        let signal_left = treat_result_with_memory_error(
+                            AExpressionSlice::access_value_by_index(&constrained.left, i),
                             meta,
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
                         )?;
 
-                        // TODO: CASE BUSES
-                            
-                        let full_symbol = format!("{}{}", 
-                            constrained.left, 
-                            create_index_appendix(&access_left),
-                        );
                         if let AssignOp::AssignConstraintSignal = op {
                             if value_right.is_nonquadratic() {
                                 let err = Result::Err(ExecutionError::NonQuadraticConstraint);
@@ -371,15 +363,22 @@ fn execute_statement(
                                 )?;
                             } else {
                                 let p = runtime.constants.get_p().clone();
-                                let symbol = AExpr::Signal { symbol: full_symbol };
+                                let symbol = signal_left;
                                 let expr = AExpr::sub(&symbol, &value_right, &p);
                                 let ctr = AExpr::transform_expression_to_constraint_form(expr, &p).unwrap();
                                 node.add_constraint(ctr);
                             }
                         } else if let AssignOp::AssignSignal = op {// needs fix, check case arrays
                             //debug_assert!(possible_constraint.is_some());
+                            let signal_name = match signal_left{
+                                AExpr::Signal { symbol } =>{
+                                    symbol
+                                },
+                                _ => unreachable!()
+                            };
+                            
                             if !value_right.is_nonquadratic() && !node.is_custom_gate {
-                                needs_double_arrow.push(full_symbol);
+                                needs_double_arrow.push(signal_name);
                             }
                         }
                     }
@@ -1092,7 +1091,7 @@ enum ExecutedStructure<'a>{
 }
 
 struct Constrained {
-    left: String,
+    left: AExpressionSlice,
     right: AExpressionSlice,
 }
 
@@ -1122,7 +1121,7 @@ fn perform_assign(
         create_symbol(symbol, &accessing_information.other_access.as_ref().unwrap())
     };
     
-    let possible_arithmetic_slice = if ExecutionEnvironment::has_variable(&runtime.environment, symbol)
+    let possible_arithmetic_slices = if ExecutionEnvironment::has_variable(&runtime.environment, symbol)
     {
         let accessing_information = accessing_information.other_access.as_ref().unwrap();
         debug_assert!(accessing_information.signal_access.is_none());
@@ -1313,7 +1312,17 @@ fn perform_assign(
             }
         }
 
-        Option::Some(r_slice)
+        // Get left arithmetic slice
+        let mut l_signal_names = Vec::new();;
+        unfold_signals(full_symbol, 0, r_slice.route(), &mut l_signal_names);
+        let mut l_expressions = Vec::new();
+        for signal_name in l_signal_names{
+            l_expressions.push(AExpr::Signal { symbol: signal_name });
+        }
+        let l_slice = AExpressionSlice::new_array(r_slice.route().to_vec(), l_expressions);
+
+        // We return both the left and right slices
+        Option::Some((l_slice, r_slice))
     }} 
     else if ExecutionEnvironment::has_component(&runtime.environment, symbol) {
         
@@ -1354,7 +1363,7 @@ fn perform_assign(
         } else{
             // in this case it is a complete bus or a.signal or a.bus assignment
             if accessing_information.signal_access.is_none() {
-                // case complete bus assignment
+                // case complete component assignment
                 let (prenode_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(r_folded, line!());
                 let memory_result = ComponentRepresentation::preinitialize_component(
                     component,
@@ -1466,7 +1475,16 @@ fn perform_assign(
                         &runtime.call_trace,
                     )?;
 
-                    arithmetic_slice
+                    // Get left arithmetic slice
+                    let mut l_signal_names = Vec::new();
+                    unfold_signals(full_symbol, 0, arithmetic_slice.route(), &mut l_signal_names);
+                    let mut l_expressions = Vec::new();
+                    for signal_name in l_signal_names{
+                        l_expressions.push(AExpr::Signal { symbol: signal_name });
+                    }
+                    let l_slice = AExpressionSlice::new_array(arithmetic_slice.route().to_vec(), l_expressions);
+
+                    (l_slice, arithmetic_slice)
                 } else if FoldedValue::valid_bus_slice(&r_folded){
                     // it is a bus input    
                     let bus_accessed = accessing_information.signal_access.clone().unwrap();
@@ -1477,8 +1495,10 @@ fn perform_assign(
                         TagInfo::new()
                     };
 
-                    // Generate an arithmetic slice for the assigned buses
-                    let mut signals_values: Vec<String> = Vec::new();
+                    // Generate an arithmetic slice for the buses left and right
+                    let mut signals_values_right: Vec<String> = Vec::new();
+                    let mut signals_values_left: Vec<String> = Vec::new();
+
                     for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
                         let assigned_bus = treat_result_with_memory_error(
                             BusSlice::get_reference_to_single_value_by_index(&assigned_bus_slice, i),
@@ -1486,11 +1506,18 @@ fn perform_assign(
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
                         )?;
-                        signals_values.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
+                        // TODO: do not call twice to get_accesses
+                        signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
+                        signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", full_symbol, i)));
                     }
-                    let mut ae_signals = Vec::new();
-                    for signal_name in signals_values{
-                        ae_signals.push(AExpr::Signal { symbol: signal_name });
+
+                    let mut ae_signals_right = Vec::new();
+                    for signal_name in signals_values_right{
+                        ae_signals_right.push(AExpr::Signal { symbol: signal_name });
+                    }
+                    let mut ae_signals_left = Vec::new();
+                    for signal_name in signals_values_left{
+                        ae_signals_left.push(AExpr::Signal { symbol: signal_name });
                     }
                     
     
@@ -1507,7 +1534,12 @@ fn perform_assign(
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    AExpressionSlice::new_array([ae_signals.len()].to_vec(), ae_signals)
+
+                    // Generate the ae expressions
+
+                    let ae_right = AExpressionSlice::new_array([ae_signals_right.len()].to_vec(), ae_signals_right);
+                    let ae_left = AExpressionSlice::new_array([ae_signals_left.len()].to_vec(), ae_signals_left);
+                    (ae_left, ae_right)
 
                 } else{
                     unreachable!();
@@ -1586,6 +1618,9 @@ fn perform_assign(
                         }
                     }
                 }
+
+                
+
                 Option::Some(assigned_ae_slice)
             }
         }
@@ -1695,7 +1730,17 @@ fn perform_assign(
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?;
-                Some(arithmetic_slice)
+
+                // Get left arithmetic slice
+                let mut l_signal_names = Vec::new();;
+                unfold_signals(full_symbol, 0, arithmetic_slice.route(), &mut l_signal_names);
+                let mut l_expressions = Vec::new();
+                for signal_name in l_signal_names{
+                    l_expressions.push(AExpr::Signal { symbol: signal_name });
+                }
+                let l_slice = AExpressionSlice::new_array(arithmetic_slice.route().to_vec(), l_expressions);
+                Some((l_slice, arithmetic_slice))
+
             } else if meta.get_type_knowledge().is_tag(){
                 // in case we are assigning a tag of the complete bus
                 assert!(accessing_information.array_access.len() == 0);
@@ -1836,7 +1881,8 @@ fn perform_assign(
                 )?;
 
                 // Generate an arithmetic slice for the accessed buses
-                let mut signals_values: Vec<String> = Vec::new();
+                let mut signals_values_left: Vec<String> = Vec::new();
+                let mut signals_values_right = Vec::new();
                 for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
                     let assigned_bus = treat_result_with_memory_error(
                         BusSlice::get_reference_to_single_value_by_index(assigned_bus_slice, i),
@@ -1844,12 +1890,17 @@ fn perform_assign(
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    signals_values.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
+                    signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", full_symbol, i)));
+                    signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
                     
                 }
-                let mut ae_signals = Vec::new();
-                for signal_name in signals_values{
-                    ae_signals.push(AExpr::Signal { symbol: signal_name });
+                let mut ae_signals_left = Vec::new();
+                for signal_name in signals_values_left{
+                    ae_signals_left.push(AExpr::Signal { symbol: signal_name });
+                }
+                let mut ae_signals_right = Vec::new();
+                for signal_name in signals_values_right{
+                    ae_signals_right.push(AExpr::Signal { symbol: signal_name });
                 }
 
                 // Update the final tags
@@ -1883,7 +1934,12 @@ fn perform_assign(
                     }
                 }
 
-                Some(AExpressionSlice::new_array([ae_signals.len()].to_vec(), ae_signals))
+                // Update the left slice
+                let l_slice = AExpressionSlice::new_array([ae_signals_left.len()].to_vec(), ae_signals_left);
+                let r_slice = AExpressionSlice::new_array([ae_signals_right.len()].to_vec(), ae_signals_right);
+
+
+                Some((l_slice, r_slice))
             } else{
 
                 let mut value_left = treat_result_with_memory_error(
@@ -1918,8 +1974,10 @@ fn perform_assign(
                     &runtime.call_trace,
                 )?;
 
+                // Update the left and right slices
+                let mut signals_values_left: Vec<String> = Vec::new();
+                let mut signals_values_right: Vec<String> = Vec::new();
 
-                let mut signals_values: Vec<String> = Vec::new();
                 for i in 0..BusSlice::get_number_of_cells(&bus_slice){
                     // We generate an arithmetic slice with the result
 
@@ -1929,16 +1987,22 @@ fn perform_assign(
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    signals_values.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
-                    
+                    signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", full_symbol, i)));
+                    signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}[{}]", name_bus, i)));
+
                 }
 
-                let mut ae_signals = Vec::new();
-                for signal_name in signals_values{
-                    ae_signals.push(AExpr::Signal { symbol: signal_name });
+                let mut ae_signals_left = Vec::new();
+                for signal_name in signals_values_left{
+                    ae_signals_left.push(AExpr::Signal { symbol: signal_name });
                 }
-                Some(AExpressionSlice::new_array([ae_signals.len()].to_vec(), ae_signals))
-                
+                let mut ae_signals_right = Vec::new();
+                for signal_name in signals_values_right{
+                    ae_signals_right.push(AExpr::Signal { symbol: signal_name });
+                }
+                let l_slice = AExpressionSlice::new_array([ae_signals_left.len()].to_vec(), ae_signals_left);
+                let r_slice = AExpressionSlice::new_array([ae_signals_right.len()].to_vec(), ae_signals_right);
+                Some((l_slice, r_slice))                
             }
         } else{
 
@@ -1949,8 +2013,8 @@ fn perform_assign(
     } else {
         unreachable!();
     };
-    if let Option::Some(arithmetic_slice) = possible_arithmetic_slice {
-        let ret = Constrained { left: full_symbol, right: arithmetic_slice };
+    if let Option::Some((arithmetic_slice_left, arithmetic_slice_right)) = possible_arithmetic_slices {
+        let ret = Constrained { left: arithmetic_slice_left, right: arithmetic_slice_right };
         Result::Ok(Some(ret))
     } else {
         Result::Ok(None)
@@ -3089,6 +3153,17 @@ pub fn get_final_array_access_bus_accessing(access: &AccessingInformationBus)->&
         last_access = &last_access.remaining_access.as_ref().unwrap();
     }
     &last_access.array_access
+}
+
+
+pub fn generate_symbols_from_access(symbol: &str, access: &TypesAccess, runtime: & RuntimeInformation)->Vec<String>{
+    if access.other_access.is_some(){
+        let access = access.other_access.as_ref().unwrap();
+        let (_, _ ,signal_slice) = runtime.environment.get_signal(symbol).unwrap();
+        let route = signal_slice.route();
+        
+    }
+    Vec::new()
 }
 
 
