@@ -220,81 +220,42 @@ impl ComponentRepresentation {
     }
 
 
-fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
-    if self.node_pointer.is_none() {
-        return (Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent)));
-    }
-    // in case it is an output signal or bus
-    if (self.outputs.contains_key(bus_name) || self.output_buses.contains_key(bus_name)) && !self.unassigned_inputs.is_empty() {
-        // we return the name of an input that has not been assigned
-        let ex_signal = self.unassigned_inputs.iter().next().unwrap().0.clone();
-        return (Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputs(ex_signal))));
-    }
-
-    if !self.is_initialized {
-        // we return the name of an input with tags that has not been assigned
-        let ex_signal = self.unassigned_tags.iter().next().unwrap().clone();
-        return (Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputTags(ex_signal))));
-    }
-    Result::Ok(())
-}
-
-pub fn get_io_value(&self, field_name: &str, remaining_access: &AccessingInformationBus) ->Result<((Option<TagInfo>, FoldedResult)), MemoryError>{
-    if let Result::Err(value) = self.check_initialized_inputs(field_name) {
-        return Err(value);
-    }
-
-    if self.inputs.contains_key(field_name) || self.outputs.contains_key(field_name){
-        // in this case we are accessing a signal
-        let (tag_info, signal_slice) = if self.inputs.contains_key(field_name) {
-            (self.inputs_tags.get(field_name).unwrap(), self.inputs.get(field_name).unwrap())
-        } else {
-            (self.outputs_tags.get(field_name).unwrap(), self.outputs.get(field_name).unwrap())
-        };
-
-        if remaining_access.field_access.is_some(){
-            // in case it is a tag access
-            assert!(remaining_access.array_access.len() == 0);
-            let value_tag = tag_info.get(remaining_access.field_access.as_ref().unwrap()).unwrap();
-            match value_tag{
-                None =>{
-                    let error = MemoryError::TagValueNotInitializedAccess;
-                    Result::Err(error)
-                },
-                Some(v) =>{
-                    let folded_tag = FoldedResult::Tag(v.clone());
-                    Result::Ok((None, folded_tag))
-                }
-            }
-        } else{
-            // case signals
-            // We access to the selected signal if it is an array
-            let accessed_slice_result = SignalSlice::access_values(signal_slice, &remaining_access.array_access);
-            match accessed_slice_result{
-                Ok(slice) =>{
-                    let folded_slice = FoldedResult::Signal(slice);
-                    Result::Ok((Some(tag_info.clone()), folded_slice))
-                },
-                Err(err) => Err(err)
-            }
+    fn check_initialized_inputs(&self, bus_name: &str) -> Result<(), MemoryError> {
+        if self.node_pointer.is_none() {
+            return (Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent)));
         }
-    } else{
-        // in this case we are accessing a bus
-        let (tag_info, bus_slice) = if self.input_buses.contains_key(field_name) {
-            (self.inputs_tags.get(field_name).unwrap(), self.input_buses.get(field_name).unwrap())
-        } else {
-            (self.outputs_tags.get(field_name).unwrap(), self.output_buses.get(field_name).unwrap())
-        };
-
-        if remaining_access.field_access.is_some(){
-            // In this case we need to access to values of the bus or one of its tags
-            let next_array_access = &remaining_access.array_access;
-            let next_field_access = remaining_access.field_access.as_ref().unwrap();
-            let next_remaining_access = remaining_access.remaining_access.as_ref().unwrap();
-            if tag_info.contains_key(remaining_access.field_access.as_ref().unwrap()){
-                // in this case we are returning a tag
-                assert!(next_array_access.len() == 0);
-                let value_tag = tag_info.get(next_field_access).unwrap();
+        // in case it is an output signal or bus
+        if (self.outputs.contains_key(bus_name) || self.output_buses.contains_key(bus_name)) && !self.unassigned_inputs.is_empty() {
+            // we return the name of an input that has not been assigned
+            let ex_signal = self.unassigned_inputs.iter().next().unwrap().0.clone();
+            return (Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputs(ex_signal))));
+        }
+    
+        if !self.is_initialized {
+            // we return the name of an input with tags that has not been assigned
+            let ex_signal = self.unassigned_tags.iter().next().unwrap().clone();
+            return (Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputTags(ex_signal))));
+        }
+        Result::Ok(())
+    }
+    
+    pub fn get_io_value(&self, field_name: &str, remaining_access: &AccessingInformationBus) ->Result<((Option<TagInfo>, FoldedResult)), MemoryError>{
+        if let Result::Err(value) = self.check_initialized_inputs(field_name) {
+            return Err(value);
+        }
+    
+        if self.inputs.contains_key(field_name) || self.outputs.contains_key(field_name){
+            // in this case we are accessing a signal
+            let (tag_info, signal_slice) = if self.inputs.contains_key(field_name) {
+                (self.inputs_tags.get(field_name).unwrap(), self.inputs.get(field_name).unwrap())
+            } else {
+                (self.outputs_tags.get(field_name).unwrap(), self.outputs.get(field_name).unwrap())
+            };
+    
+            if remaining_access.field_access.is_some(){
+                // in case it is a tag access
+                assert!(remaining_access.array_access.len() == 0);
+                let value_tag = tag_info.get(remaining_access.field_access.as_ref().unwrap()).unwrap();
                 match value_tag{
                     None =>{
                         let error = MemoryError::TagValueNotInitializedAccess;
@@ -306,105 +267,70 @@ pub fn get_io_value(&self, field_name: &str, remaining_access: &AccessingInforma
                     }
                 }
             } else{
-                // in this case we are returning a field of the bus
-
-                let accessed_slice_result = BusSlice::access_values(bus_slice, &remaining_access.array_access);
-                let accessed_bus = match accessed_slice_result{
+                // case signals
+                // We access to the selected signal if it is an array
+                let accessed_slice_result = SignalSlice::access_values(signal_slice, &remaining_access.array_access);
+                match accessed_slice_result{
                     Ok(slice) =>{
-                        BusSlice::unwrap_to_single(slice)
+                        let folded_slice = FoldedResult::Signal(slice);
+                        Result::Ok((Some(tag_info.clone()), folded_slice))
                     },
-                    Err(err) => return Err(err)
-                };
-                accessed_bus.get_field(next_field_access, next_remaining_access)
+                    Err(err) => Err(err)
+                }
             }
         } else{
-            // We are accessing the complete bus
-            let accessed_slice_result = BusSlice::access_values(bus_slice, &remaining_access.array_access);
-            
-            match accessed_slice_result{
-                Ok(slice) =>{
-                    let folded_slice = FoldedResult::Bus(slice);
-                    Result::Ok((Some(tag_info.clone()), folded_slice))
-                },
-                Err(err) => Err(err)
+            // in this case we are accessing a bus
+            let (tag_info, bus_slice) = if self.input_buses.contains_key(field_name) {
+                (self.inputs_tags.get(field_name).unwrap(), self.input_buses.get(field_name).unwrap())
+            } else {
+                (self.outputs_tags.get(field_name).unwrap(), self.output_buses.get(field_name).unwrap())
+            };
+    
+            if remaining_access.field_access.is_some(){
+                // In this case we need to access to values of the bus or one of its tags
+                let next_array_access = &remaining_access.array_access;
+                let next_field_access = remaining_access.field_access.as_ref().unwrap();
+                let next_remaining_access = remaining_access.remaining_access.as_ref().unwrap();
+                if tag_info.contains_key(remaining_access.field_access.as_ref().unwrap()){
+                    // in this case we are returning a tag
+                    assert!(next_array_access.len() == 0);
+                    let value_tag = tag_info.get(next_field_access).unwrap();
+                    match value_tag{
+                        None =>{
+                            let error = MemoryError::TagValueNotInitializedAccess;
+                            Result::Err(error)
+                        },
+                        Some(v) =>{
+                            let folded_tag = FoldedResult::Tag(v.clone());
+                            Result::Ok((None, folded_tag))
+                        }
+                    }
+                } else{
+                    // in this case we are returning a field of the bus
+    
+                    let accessed_slice_result = BusSlice::access_values(bus_slice, &remaining_access.array_access);
+                    let accessed_bus = match accessed_slice_result{
+                        Ok(slice) =>{
+                            BusSlice::unwrap_to_single(slice)
+                        },
+                        Err(err) => return Err(err)
+                    };
+                    accessed_bus.get_field(next_field_access, next_remaining_access)
+                }
+            } else{
+                // We are accessing the complete bus
+                let accessed_slice_result = BusSlice::access_values(bus_slice, &remaining_access.array_access);
+                
+                match accessed_slice_result{
+                    Ok(slice) =>{
+                        let folded_slice = FoldedResult::Bus(slice);
+                        Result::Ok((Some(tag_info.clone()), folded_slice))
+                    },
+                    Err(err) => Err(err)
+                }
             }
         }
-    }
-
-}
-    pub fn get_signal_field_bus(&self, bus_name: &str,remaining_access: &AccessingInformationBus) -> Result<((TagDefinitions, TagInfo), SignalSlice), MemoryError> {
-        if let Result::Err(value) = self.check_initialized_inputs(bus_name) {
-            return Err(value);
-        }
-
-        let bus_slice = if self.input_buses.contains_key(bus_name) {
-            (self.inputs_tags.get(bus_name).unwrap(), self.input_buses.get(bus_name).unwrap())
-        } else {
-            (self.outputs_tags.get(bus_name).unwrap(), self.output_buses.get(bus_name).unwrap())
-        };
-        let initial_value = BusSlice::get_reference_to_single_value(bus_slice.1, &[])?;
-
-        let (tags,slice) = initial_value.get_field_signal(
-            bus_name,
-            remaining_access
-        )?;
-        Result::Ok((tags,slice))
-    }
-
-    pub fn get_bus_field_bus(&self, bus_name: &str,remaining_access: &AccessingInformationBus) -> Result<((TagDefinitions, TagInfo), BusSlice), MemoryError> {
-        if let Result::Err(value) = self.check_initialized_inputs(bus_name) {
-            return Err(value);
-        }
-
-        let bus_slice = if self.input_buses.contains_key(bus_name) {
-            (self.inputs_tags.get(bus_name).unwrap(), self.input_buses.get(bus_name).unwrap())
-        } else {
-            (self.outputs_tags.get(bus_name).unwrap(), self.output_buses.get(bus_name).unwrap())
-        };
-        let initial_value = BusSlice::get_reference_to_single_value(bus_slice.1, &[])?;
-        let (tags,slice) = initial_value.get_field_bus(
-            bus_name,
-            remaining_access
-        )?;
-        Result::Ok((tags,slice))
-    }
     
-    pub fn get_complete_bus(&self, bus_name: &str) -> Result<(&TagInfo, &BusSlice), MemoryError> {
-        if let Result::Err(value) = self.check_initialized_inputs(bus_name) {
-            return Err(value);
-        }
-
-        let slice = if self.input_buses.contains_key(bus_name) {
-            (self.inputs_tags.get(bus_name).unwrap(), self.input_buses.get(bus_name).unwrap())
-        } else {
-            (self.outputs_tags.get(bus_name).unwrap(), self.output_buses.get(bus_name).unwrap())
-        };
-        Result::Ok(slice)
-    }
-
-    pub fn get_signal(&self, signal_name: &str) -> Result<(&TagInfo, &SignalSlice), MemoryError> {
-
-        if self.node_pointer.is_none() {
-            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedComponent));
-        }
-        if self.outputs.contains_key(signal_name) && !self.unassigned_inputs.is_empty() {
-            // we return the name of an input that has not been assigned
-            let ex_signal = self.unassigned_inputs.iter().next().unwrap().0.clone();
-            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputs(ex_signal)));
-        }
-
-        if !self.is_initialized {
-            // we return the name of an input with tags that has not been assigned
-            let ex_signal = self.unassigned_tags.iter().next().unwrap().clone();
-            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputTags(ex_signal)));
-        }
-    
-        let slice = if self.inputs.contains_key(signal_name) {
-            (self.inputs_tags.get(signal_name).unwrap(), self.inputs.get(signal_name).unwrap())
-        } else {
-            (self.outputs_tags.get(signal_name).unwrap(), self.outputs.get(signal_name).unwrap())
-        };
-        Result::Ok(slice)
     }
 
     pub fn assign_value_to_signal(

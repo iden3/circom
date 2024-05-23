@@ -2419,6 +2419,7 @@ fn execute_bus(
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
+
     if access_information.field_access.is_none() {
 
         // Case we are accessing the complete bus or array of buses
@@ -2455,141 +2456,31 @@ fn execute_bus(
 
         Result::Ok(FoldedValue{bus_slice: Some((symbol.to_string(), bus_slice)), tags: Some(tags_propagated), ..FoldedValue::default()})
     } else{
-        if meta.get_type_knowledge().is_tag(){
-            // Case we are accessing a tag of the bus
-            let acc = access_information.field_access.unwrap();
-            if tags.contains_key(&acc) {
-                let value_tag = tags.get(&acc).unwrap();
-                let state = tags_definitions.get(&acc).unwrap();
-                if let Some(value_tag) = value_tag { // tag has value
-                    // access only allowed when (1) it is value defined by user or (2) it is completely assigned
-                    if state.value_defined || state.complete{
-                        let a_value = AExpr::Number { value: value_tag.clone() };
-                        let ae_slice = AExpressionSlice::new(&a_value);
-                        Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
-                    } else{
-                        let error = MemoryError::TagValueNotInitializedAccess;
-                        treat_result_with_memory_error(
-                            Result::Err(error),
-                            meta,
-                            &mut runtime.runtime_errors,
-                            &runtime.call_trace,
-                        )?
-                    }
-                    
-                }
-                else {
-                    let error = MemoryError::TagValueNotInitializedAccess;
-                    treat_result_with_memory_error(
-                        Result::Err(error),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?
-                }
-            }
-            else {
-                 unreachable!() 
-            }
+        // access to the field or tag
 
-        } else{
-            // Case we are accessing a field of the bus
-            let resulting_bus = safe_unwrap_to_single(bus_slice, line!());
-            let symbol = create_symbol_bus(symbol, &access_information);
+        let resulting_bus = safe_unwrap_to_single(bus_slice, line!());
+        let symbol = create_symbol_bus(symbol, &access_information);
 
-            
-            if meta.get_type_knowledge().is_bus(){
-                // Case we return a bus
+        // access to the field
+        let field_name = access_information.field_access.as_ref().unwrap();
+        let remaining_access = access_information.remaining_access.as_ref().unwrap();
 
-                let (tags_bus, bus) = treat_result_with_memory_error(
-                    resulting_bus.get_field_bus(
-                        access_information.field_access.as_ref().unwrap(), 
-                        access_information.remaining_access.as_ref().unwrap()
-                    ),
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
 
-                let final_array_access = get_final_array_access_bus_accessing(&access_information);
-                
-                let slice = BusSlice::access_values(&bus, final_array_access);
-                let slice = treat_result_with_memory_error(
-                    slice,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
+        let (tags, result) = treat_result_with_memory_error(
+            resulting_bus.get_field(field_name, remaining_access),
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
 
-                // Check that all the buses are completely assigned
-
-                for i in 0..BusSlice::get_number_of_cells(&slice){
-                    let value_left = treat_result_with_memory_error(
-                        BusSlice::get_reference_to_single_value_by_index(&slice, i),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-            
-                    if value_left.has_unassigned_fields(){
-                        treat_result_with_memory_error(
-                           Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedBus)),
-                           meta,
-                            &mut runtime.runtime_errors,
-                            &runtime.call_trace,
-                       )?;
-                    }
-                }
-
-                let mut tags_propagated = TagInfo::new();
-                for (tag, value) in tags{
-                    let state = tags_definitions.get(tag).unwrap();
-                    if state.value_defined || state.complete{
-                        tags_propagated.insert(tag.clone(), value.clone());
-                    } else if state.defined{
-                        tags_propagated.insert(tag.clone(), None);
-                    }
-                }
-                
-                Result::Ok(FoldedValue{bus_slice: Some((symbol, slice)), tags: Some(tags_propagated), ..FoldedValue::default()})            
-            
-            } else if meta.get_type_knowledge().is_signal(){
-                // Case we return a signal
-                
-                let ((tags_definitions, tags), signal) = treat_result_with_memory_error(
-                    resulting_bus.get_field_signal(
-                        access_information.field_access.as_ref().unwrap(), 
-                        access_information.remaining_access.as_ref().unwrap()
-                    ),
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-                
-                let final_array_access = get_final_array_access_bus_accessing(&access_information);
-                
-                let slice = SignalSlice::access_values(&signal, final_array_access);
-                let slice = treat_result_with_memory_error(
-                    slice,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-
-                let mut tags_propagated = TagInfo::new();
-                for (tag, value) in &tags{
-                    let state = tags_definitions.get(tag).unwrap();
-                    if state.value_defined || state.complete{
-                        tags_propagated.insert(tag.clone(), value.clone());
-                    } else if state.defined{
-                        tags_propagated.insert(tag.clone(), None);
-                    }
-                }
-
-                let result = signal_to_arith(symbol, slice)
+        // match the result and generate the output
+        match result{
+            FoldedResult::Signal(signals) =>{
+                // Generate signal slice and check that all assigned
+                let result = signal_to_arith(symbol, signals)
                     .map(|s| FoldedValue { 
                         arithmetic_slice: Option::Some(s),
-                        tags: Option::Some(tags_propagated),
+                        tags: Option::Some(tags.unwrap()),
                         ..FoldedValue::default() 
                     });
                 treat_result_with_memory_error(
@@ -2598,12 +2489,43 @@ fn execute_bus(
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )
-            }
-            else{
-                unreachable!()
-            }
+            },
+            FoldedResult::Bus(buses) =>{
+                // Check that all the buses are completely assigned
 
+                for i in 0..BusSlice::get_number_of_cells(&buses){
+                    let value_left = treat_result_with_memory_error(
+                        BusSlice::get_reference_to_single_value_by_index(&buses, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+            
+                    if value_left.has_unassigned_fields(){
+                        treat_result_with_memory_error(
+                            Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedBus)),
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                    }
+                }
+                Ok(FoldedValue { 
+                    bus_slice: Option::Some((symbol, buses)),
+                    tags: Option::Some(tags.unwrap()),
+                    ..FoldedValue::default() 
+                })
+
+            },
+            FoldedResult::Tag(value) =>{
+                // return the tag value
+                let a_value = AExpr::Number { value };
+                let ae_slice = AExpressionSlice::new(&a_value);
+                Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
+
+            }
         }
+
     }
 
 }

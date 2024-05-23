@@ -1,11 +1,9 @@
-use super::environment_utils::{
+use super::environment_utils::
 
-    slice_types::{
-        AExpressionSlice, ArithmeticExpression as ArithmeticExpressionGen, ComponentRepresentation,
-        ComponentSlice, MemoryError, TypeInvalidAccess, TypeAssignmentError, MemorySlice, 
-        SignalSlice, SliceCapacity, TagInfo, TagState, TagDefinitions, BusSlice, BusRepresentation
-    },
-};
+    slice_types::{MemoryError, TypeAssignmentError, 
+        SignalSlice, SliceCapacity, TagInfo, TagState, TagDefinitions, 
+        BusSlice
+    };
 
 use std::mem;
 
