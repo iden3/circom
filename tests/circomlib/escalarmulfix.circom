@@ -284,3 +284,6 @@ template EscalarMulFix(n, BASE) {
         adders[nsegments-2].pout ==> out;
     }
 }
+
+
+

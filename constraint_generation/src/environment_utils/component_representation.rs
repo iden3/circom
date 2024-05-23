@@ -189,8 +189,17 @@ impl ComponentRepresentation {
         }
         
         for (symbol, route) in node.bus_outputs() {
-            component.output_buses.insert(symbol.clone(), BusSlice::new_with_route(route, &BusRepresentation::default()));
-            insert_tags_output(node, symbol, component);
+            let mut initial_value_bus = BusRepresentation::default();
+            let bus_node = node.bus_connexions.get(symbol).unwrap().inspect.goes_to;
+            BusRepresentation::initialize_bus(
+                &mut initial_value_bus,
+                bus_node,
+                scheme,
+                true // it is initialized at the begining
+            )?;
+            let bus_slice = BusSlice::new_with_route(route, &initial_value_bus);
+
+            component.output_buses.insert(symbol.clone(), bus_slice);
         }
 
         component.node_pointer = Option::Some(node_pointer);

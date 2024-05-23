@@ -215,7 +215,8 @@ impl VCP {
             quick_knowledge: HashMap::new(),
             prime: config.prime,
         };
-        super::merger::run_preprocessing(&mut vcp, config.program);
+        // TODO: continue from here
+        //super::merger::run_preprocessing(&mut vcp, config.program);
         vcp
     }
     pub fn add_witness_list(&mut self, witness: Rc<Vec<usize>>) {
