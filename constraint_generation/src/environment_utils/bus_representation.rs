@@ -1,6 +1,6 @@
 use program_structure::ast::Access;
 
-use super::slice_types::{AExpressionSlice, FieldTypes, MemoryError, TypeInvalidAccess, TypeAssignmentError, SignalSlice, BusSlice, SliceCapacity,TagInfo, TagDefinitions, TagState};
+use super::slice_types::{AExpressionSlice, BusSlice, FieldTypes, FoldedResult, MemoryError, SignalSlice, SliceCapacity, TagDefinitions, TagInfo, TagState, TypeAssignmentError, TypeInvalidAccess};
 use crate::execution_data::type_definitions::{NodePointer, AccessingInformationBus};
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap, HashSet};
@@ -84,6 +84,9 @@ impl BusRepresentation {
             } else{
                 component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
             }
+            if is_input_bus{
+                component.unassigned_fields.remove(symbol);
+            }
         }
 
         // now the buses
@@ -137,12 +140,106 @@ impl BusRepresentation {
             } else{
                 component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
             }
+            if is_input_bus{
+                component.unassigned_fields.remove(symbol);
+            }
         }
 
         component.node_pointer = Option::Some(node_pointer);
 
 
         Result::Ok(())
+    }
+
+    pub fn get_field(
+        &self, 
+        field_name: &str,
+        remaining_access: &AccessingInformationBus
+    ) -> Result<(Option<TagInfo>, FoldedResult), MemoryError>{
+        
+        let field = self.fields.get(field_name).unwrap(); 
+        let (tags_defs, tags_info) = self.field_tags.get(field_name).unwrap();
+        if remaining_access.field_access.is_some(){
+            // we are still considering an intermediate bus or a tag, check cases
+            let next_access = remaining_access.field_access.as_ref().unwrap();
+            if tags_info.contains_key(next_access){
+                // case tag, return its value
+                let value_tag = tags_info.get(next_access).unwrap();
+                match value_tag{
+                    None =>{
+                        let error = MemoryError::TagValueNotInitializedAccess;
+                        Result::Err(error)
+                    },
+                    Some(v) =>{
+                        let folded_tag = FoldedResult::Tag(v.clone());
+                        Result::Ok((None, folded_tag))
+                    }
+                }
+            } else{
+                // case bus, access to the next field
+                match field{
+                    FieldTypes::Bus(bus_slice)=>{
+    
+                        let memory_response = BusSlice::access_values_by_reference(
+                        &bus_slice, 
+                            &remaining_access.array_access
+                        );
+                        match memory_response{
+                            Result::Ok(bus_slice) =>{
+                                assert!(bus_slice.len() == 1);
+                                let resulting_bus = bus_slice[0];
+                                resulting_bus.get_field( 
+                                    remaining_access.field_access.as_ref().unwrap(), 
+                                    &remaining_access.remaining_access.as_ref().unwrap()
+                                )
+                            }
+                            Result::Err(err)=>{
+                                return Err(err);
+                            }
+                        }
+                    }
+                    FieldTypes::Signal(_) => unreachable!(),
+                }
+            }
+ 
+        } else{
+            // in this case there is no need for recursion, final access
+            
+            match field{
+                FieldTypes::Signal(signal_slice) =>{
+                    // Case it is just a signal or an array of signals, 
+                    // in this case there is no need for recursion
+                    
+                    // compute which tags are propagated
+                    let propagated_tags = check_tags_access(tags_info, tags_defs);
+                    
+                    let accessed_slice_result = SignalSlice::access_values(&signal_slice, &remaining_access.array_access);
+                    match accessed_slice_result{
+                        Ok(slice) =>{
+                            let folded_slice = FoldedResult::Signal(slice);
+                            Result::Ok((Some(propagated_tags), folded_slice))
+                        },
+                        Err(err) => Err(err)
+                    }                
+                }
+                FieldTypes::Bus(bus_slice) => {
+                    // Case it is just a bus or an array of buses, 
+                    // in this case there is no need for recursion
+
+                    // compute which tags are propagated
+                    let propagated_tags = check_tags_access(tags_info, tags_defs);
+                    
+                    let accessed_slice_result = BusSlice::access_values(&bus_slice, &remaining_access.array_access);
+                    match accessed_slice_result{
+                        Ok(slice) =>{
+                            let folded_slice = FoldedResult::Bus(slice);
+                            Result::Ok((Some(propagated_tags), folded_slice))
+                        },
+                        Err(err) => Err(err)
+                    }  
+                },
+            }
+        }
     }
 
     pub fn get_field_signal(
