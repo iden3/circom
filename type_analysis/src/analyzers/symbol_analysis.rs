@@ -1,4 +1,4 @@
-use program_structure::ast::{Access, Expression, Meta, Statement, LogArgument};
+use program_structure::ast::{Access, Expression, LogArgument, Meta, Statement, VariableType};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::{self, FileID, FileLocation};
@@ -219,7 +219,7 @@ fn analyze_statement(
                 );
             }
         }
-        Statement::Declaration { meta, name, dimensions, .. } => {
+        Statement::Declaration { meta, name, dimensions, xtype, .. } => {
             for index in dimensions {
                 analyze_expression(
                     index,
@@ -242,6 +242,24 @@ fn analyze_statement(
                     format!("Declaring same symbol twice"),
                 );
                 reports.push(report);
+            }
+            if let VariableType::Bus(b_name,_,tags ) = xtype {
+                if let Some(bus) = bus_info.get(b_name) {
+                    for t in tags {
+                         if bus.get_fields().contains_key(t) {
+                            let mut report = Report::error(
+                                format!("Declaring same symbol twice"),
+                                ReportCode::SameSymbolDeclaredTwice,
+                            );
+                            report.add_primary(
+                                meta.location.clone(),
+                                file_id.clone(),
+                                format!("This tag name is also a field name in the bus."),
+                            );
+                            reports.push(report);
+                         }
+                    }
+                }
             }
         }
         Statement::LogCall { args, .. } => {

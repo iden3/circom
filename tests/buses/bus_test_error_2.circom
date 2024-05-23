@@ -9,22 +9,23 @@ pragma circom 2.0.0;
 
 bus Vector (n) {
     signal {integer} dim;
-    signal {real} x[n];
+    signal {floating} x[n];
 }
 
 template FirstRowSum(n) {
-    Vector(n) input v;
     signal output sum;
 
+    Vector(n) v;
+    v.dim <== 6;
     var length = n/v.dim;
-    Vector(length) w;
-    w.dim <== 1;
+    
     var s = 0;
-
     for (var i=0; i<length; i++) {
-        w.x[i] <== v.x[i];
-        s += w.x[i];
+        v.x[i] <== i;
+        s += v.x[i];
     }
 
     sum <== s;
 }
+
+component main = FirstRowSum(24);
