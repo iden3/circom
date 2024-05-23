@@ -19,27 +19,13 @@
 pragma circom 2.0.0;
 
 include "compconstant.circom";
-
-bus BinaryNumber {
-    signal {binary} bits[254];
-}
+include "bitify.circom";
 
 template AliasCheck() {
-    signal input {binary} in[254];
-    BinaryNumber output {unique} out;
+    BinaryNumber(254) input in;
+    BinaryNumber(254) output {unique} out;
 
-/*
-    component compConstant = CompConstant(-1);
-
-    for (var i=0; i<254; i++) {
-        in[i] ==> compConstant.in[i];
-        in[i] ==> out.bits[i];
-    }
-
-    compConstant.out === 0;
-*/
-    signal out_aux <== CompConstant(-1)(in);
-    out_aux === 0;
-    in ==> out.bits;
-    
+    signal greater <== CompConstant(-1)(in);
+    greater === 0;
+    out <== in;
 }

@@ -18,9 +18,10 @@
 */
 pragma circom 2.1.5;
 
-include "../mux3.circom";
-include "../montgomery.circom";
-include "../babyjub.circom";
+include "mux3.circom";
+include "montgomery.circom";
+include "babyjub.circom";
+include "bitify.circom";
 
 /*
 
@@ -37,10 +38,6 @@ include "../babyjub.circom";
     A good way to see it is that the accumulator input of the adder >= 2^247*B and the other input
     is the output of the windows that it's going to be <= 2^246*B
 */
-
-bus Point {
-    signal {bn128} x,y;
-}
  
 /*
 
@@ -58,16 +55,14 @@ bus Point {
  */
  
 template WindowMulFix() {
-    signal input {binary} in[3];
+    BinaryNumber(3) input in;
     Point input {babymontgomery} base;
     Point output {babymontgomery} out;
     Point output {babymontgomery} out8;   // Returns 8*Base (To be linked)
 
     component mux = MultiMux3(2);
 
-    mux.s[0] <== in[0];
-    mux.s[1] <== in[1];
-    mux.s[2] <== in[2];
+    mux.s <== in.bits;
 
     component dbl2 = MontgomeryDouble();
     component adr3 = MontgomeryAdd();
@@ -149,7 +144,7 @@ template WindowMulFix() {
  */
 
 template SegmentMulFix(nWindows) {
-    signal input {binary} e[nWindows*3];
+    BinaryNumber(nWindows*3) input e;
     Point input {babyedwards} base;
     Point output {babyedwards} out;
     Point output {babymontgomery} dbl;
@@ -180,7 +175,7 @@ template SegmentMulFix(nWindows) {
             cadders[i].pin1 <== cadders[i-1].pout;
         }
         for (j=0; j<3; j++) {
-            windows[i].in[j] <== e[3*i+j];
+            windows[i].in.bits[j] <== e.bits[3*i+j];
         }
         if (i<nWindows-1) {
             cadders[i].pin2 <== windows[i].out8;
@@ -197,7 +192,7 @@ template SegmentMulFix(nWindows) {
         } else {
             adders[i].pin1 <== adders[i-1].pout;
         }
-        adders[i].pin2 <== windows[i].pout;
+        adders[i].pin2 <== windows[i].out;
     }
 
     component m2e = Montgomery2Edwards();
@@ -230,7 +225,7 @@ template SegmentMulFix(nWindows) {
  
  
 template EscalarMulFix(n, BASE) {
-    signal input {binary} e[n];              // Input in binary format
+    BinaryNumber(n) input e;              // Input in binary format
     Point output {babyedwards} out;           // Point (Twisted format)
 
     var nsegments = (n-1)\246 + 1;       // 249 probably would work. But I'm not sure and for security I keep 246
@@ -256,11 +251,11 @@ template EscalarMulFix(n, BASE) {
         segments[s] = SegmentMulFix(nWindows);
 
         for (i=0; i<nseg; i++) {
-            segments[s].e[i] <== e[s*249+i];
+            segments[s].e.bits[i] <== e.bits[s*249+i];
         }
 
         for (i = nseg; i<nWindows*3; i++) {
-            segments[s].e[i] <== aux_0;
+            segments[s].e.bits[i] <== aux_0;
         }
 
         if (s==0) {
