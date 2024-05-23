@@ -12,6 +12,19 @@ use std::mem;
 
 // Utils for assigning tags
 
+pub fn check_tags_access(tags_values: &TagInfo, tags_definitions: &TagDefinitions)-> TagInfo{
+    let mut tags_propagated = TagInfo::new();
+    for (tag, value) in tags_values{
+        let state = tags_definitions.get(tag).unwrap();
+        if state.value_defined || state.complete{
+            tags_propagated.insert(tag.clone(), value.clone());
+        } else if state.defined{
+            tags_propagated.insert(tag.clone(), None);
+        }
+    }
+    tags_propagated
+}
+
 pub fn perform_tag_propagation(tags_values: &mut TagInfo, tags_definitions: &mut TagDefinitions, assigned_tags: &TagInfo, is_init: bool){
         // Study the tags: add the new ones and copy their content.
         /*

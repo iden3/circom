@@ -29,3 +29,10 @@ pub enum FieldTypes { // For each field, we store the info depending on if it is
     Signal(SignalSlice),
     Bus(BusSlice),
 }
+
+pub enum FoldedResult { // For each possible returning value, we store the info depending on if it is a signal o a bus
+    // Depending on the case we store a different slice
+    Signal(SignalSlice),
+    Bus(BusSlice),
+    Tag(BigInt)
+}
