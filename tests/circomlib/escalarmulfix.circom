@@ -242,7 +242,8 @@ template EscalarMulFix(n, BASE) {
     var nWindows;
     
     signal {binary} aux_0 <== 0;
-
+    
+    Point {babyedwards} aux;
     for (s=0; s<nsegments; s++) {
 
         nseg = (s < nsegments-1) ? 249 : nlastsegment;
@@ -259,8 +260,10 @@ template EscalarMulFix(n, BASE) {
         }
 
         if (s==0) {
-            segments[s].base.x <== BASE[0];
-            segments[s].base.y <== BASE[1];
+            // if not included missing tags
+            aux.x <== BASE[0];
+            aux.y <== BASE[1];
+            segments[s].base <== aux;
         } else {
             m2e[s-1] = Montgomery2Edwards();
             adders[s-1] = BabyAdd();
