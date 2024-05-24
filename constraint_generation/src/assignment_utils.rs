@@ -158,7 +158,7 @@ pub fn perform_signal_assignment(signal_slice: &mut SignalSlice, array_access: &
 }
 
 
-pub fn perform_bus_assignment(bus_slice: &mut BusSlice, array_access: &[SliceCapacity], assigned_bus_slice: &BusSlice)-> Result<(), MemoryError>{
+pub fn perform_bus_assignment(bus_slice: &mut BusSlice, array_access: &[SliceCapacity], assigned_bus_slice: &BusSlice, is_input: bool)-> Result<(), MemoryError>{
 
     let correct_dims_result = BusSlice::check_correct_dims(
         &bus_slice, 
@@ -166,15 +166,16 @@ pub fn perform_bus_assignment(bus_slice: &mut BusSlice, array_access: &[SliceCap
         &assigned_bus_slice, 
         true
     );
+    match correct_dims_result{
+        Ok(_) => {},
+        Err(err) => return Err(err)
+    };
 
     let value_left = match BusSlice::access_values_by_mut_reference(bus_slice, array_access){
         Ok(value) => value,
         Err(err) => return Err(err)
     };
-    match correct_dims_result{
-        Ok(_) => {},
-        Err(err) => return Err(err)
-    };
+
 
 
     let mut index = 0;
@@ -186,7 +187,7 @@ pub fn perform_bus_assignment(bus_slice: &mut BusSlice, array_access: &[SliceCap
             Err(err) => return Err(err)
         };
 
-        match accessed_bus.completely_assign_bus(&assigned_bus){
+        match accessed_bus.completely_assign_bus(&assigned_bus, is_input){
             Ok(_) =>{},
             Err(err) => return Err(err)
         };
