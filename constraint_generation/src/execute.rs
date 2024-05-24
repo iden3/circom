@@ -297,7 +297,7 @@ fn execute_statement(
         }
         Substitution { meta, var, access, op, rhe, .. } => {
             let access_information = 
-                if ExecutionEnvironment::has_bus(&runtime.environment, var){
+                if ExecutionEnvironment::has_bus(&runtime.environment, var) || ExecutionEnvironment::has_component(&runtime.environment, var){
                     let access_bus = treat_accessing_bus(meta, access, program_archive, runtime, flags)?;
                     TypesAccess{bus_access: Some(access_bus), other_access: None}
                 } else{
@@ -669,7 +669,7 @@ fn execute_bus_statement(
         Substitution { meta, var, access, op, rhe, .. } => {
             // different access information depending if bus or other variable
             let access_information = 
-                if ExecutionEnvironment::has_bus(&runtime.environment, var){
+                if ExecutionEnvironment::has_bus(&runtime.environment, var) || ExecutionEnvironment::has_component(&runtime.environment, var){
                     let access_bus = treat_accessing_bus(meta, access, program_archive, runtime, flags)?;
                     TypesAccess{bus_access: Some(access_bus), other_access: None}
                 } else{
@@ -1336,7 +1336,7 @@ fn perform_assign(
     }} 
     else if ExecutionEnvironment::has_component(&runtime.environment, symbol) {
         
-        let accessing_information = accessing_information.other_access.as_ref().unwrap();
+        let accessing_information = accessing_information.bus_access.as_ref().unwrap();
         
         let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
         let component_slice = treat_result_with_environment_error(
@@ -1355,7 +1355,7 @@ fn perform_assign(
         } else{
             ComponentSlice::get_mut_reference_to_single_value(
                 component_slice,
-                &accessing_information.before_signal,
+                &accessing_information.array_access,
             )
         };
         let component = treat_result_with_memory_error(
@@ -1365,119 +1365,131 @@ fn perform_assign(
             &runtime.call_trace,
         )?;
         
-        if accessing_information.tag_access.is_some() {
-            // in this case it is a a.bus.field assign
-            //unreachable!()
-            // TODO
-            Option::None
-        } else{
-            // in this case it is a complete bus or a.signal or a.bus assignment
-            if accessing_information.signal_access.is_none() {
-                // case complete component assignment
-                let (prenode_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(r_folded, line!());
-                let memory_result = ComponentRepresentation::preinitialize_component(
-                    component,
-                    is_parallel,
-                    prenode_pointer,
-                    &runtime.exec_program,
-                    is_anonymous_component,
-                    meta
-                );
-                treat_result_with_memory_error_void(
-                    memory_result,
+        
+        // We distinguish the different cases
+        if accessing_information.field_access.is_none() {
+            // case complete component assignment
+            let (prenode_pointer, is_parallel) = safe_unwrap_to_valid_node_pointer(r_folded, line!());
+            let memory_result = ComponentRepresentation::preinitialize_component(
+                component,
+                is_parallel,
+                prenode_pointer,
+                &runtime.exec_program,
+                is_anonymous_component,
+                meta
+            );
+            treat_result_with_memory_error_void(
+                memory_result,
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            if component.is_ready_initialize() {  
+                // calls to execute and initialize the component              
+                let pretemplate_info = runtime.exec_program.get_prenode_value(prenode_pointer).unwrap();
+                let inputs_tags = component.inputs_tags.clone();
+                let result = execute_template_call_complete(
+                    pretemplate_info.template_name(),
+                    pretemplate_info.parameter_instances().clone(),
+                    inputs_tags,
+                    program_archive,
+                    runtime,
+                    flags,
+                )?;
+                let (node_pointer, _is_parallel) = safe_unwrap_to_valid_node_pointer(result, line!());
+                
+                let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
+                let component_slice = treat_result_with_environment_error(
+                    environment_response,
                     meta,
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?;
-                if component.is_ready_initialize() {  
-                    // calls to execute and initialize the component              
-                    let pretemplate_info = runtime.exec_program.get_prenode_value(prenode_pointer).unwrap();
-                    let inputs_tags = component.inputs_tags.clone();
-                    let result = execute_template_call_complete(
-                        pretemplate_info.template_name(),
-                        pretemplate_info.parameter_instances().clone(),
-                        inputs_tags,
-                        program_archive,
-                        runtime,
-                        flags,
-                    )?;
-                    let (node_pointer, _is_parallel) = safe_unwrap_to_valid_node_pointer(result, line!());
-                    
-                    let environment_response = ExecutionEnvironment::get_mut_component_res(&mut runtime.environment, symbol);
-                    let component_slice = treat_result_with_environment_error(
-                        environment_response,
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-                    let memory_response = if is_anonymous_component {
-                        ComponentSlice::get_mut_reference_to_single_value(
-                            component_slice,
-                            &Vec::new(),
-                        )
-                    } else{
-                        ComponentSlice::get_mut_reference_to_single_value(
-                            component_slice,
-                            &accessing_information.before_signal,
-                        )
-                    };
-                    let component = treat_result_with_memory_error(
-                        memory_response,
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-                    
-                    let init_result = ComponentRepresentation::initialize_component(
-                        component,
-                        node_pointer,
-                        &mut runtime.exec_program,
-                    );
-                    treat_result_with_memory_error(
-                        init_result,
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
+                let memory_response = if is_anonymous_component {
+                    ComponentSlice::get_mut_reference_to_single_value(
+                        component_slice,
+                        &Vec::new(),
+                    )
+                } else{
+                    ComponentSlice::get_mut_reference_to_single_value(
+                        component_slice,
+                        &accessing_information.array_access,
+                    )
+                };
+                let component = treat_result_with_memory_error(
+                    memory_response,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                
+                let init_result = ComponentRepresentation::initialize_component(
+                    component,
+                    node_pointer,
+                    &mut runtime.exec_program,
+                );
+                treat_result_with_memory_error(
+                    init_result,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
                         
-                        match actual_node{
-                            ExecutedStructure::Template(node) =>{
-                                let data = SubComponentData {
-                                    name: symbol.to_string(),
-                                    is_parallel: component.is_parallel,
-                                    goes_to: node_pointer,
-                                    indexed_with: accessing_information.before_signal.clone(),
-                                };
-                                node.add_arrow(full_symbol.clone(), data);
-                            },
-                            ExecutedStructure::Bus(_) =>{
-                                unreachable!();
-                            },
-                            ExecutedStructure::None => {
-                                unreachable!();
-                            }
-                        }
+                match actual_node{
+                    ExecutedStructure::Template(node) =>{
+                        let data = SubComponentData {
+                            name: symbol.to_string(),
+                            is_parallel: component.is_parallel,
+                            goes_to: node_pointer,
+                            indexed_with: accessing_information.array_access.clone(),
+                        };
+                        node.add_arrow(full_symbol.clone(), data);
+                    },
+                    ExecutedStructure::Bus(_) =>{
+                        unreachable!();
+                    },
+                    ExecutedStructure::None => {
+                        unreachable!();
+                    }
                 }
-                Option::None
-            } else {
-                // case field assignment (bus or signal)
-                let assigned_ae_slice = if FoldedValue::valid_arithmetic_slice(&r_folded){
-                    // it is signal assignment
-                    let signal_accessed = accessing_information.signal_access.clone().unwrap();
+            }
+
+            Option::None
+        } else {
+
+                let remaining_access = accessing_information.remaining_access.as_ref().unwrap();
+                let assigned_ae_slice = 
+                    if FoldedValue::valid_arithmetic_slice(&r_folded)
+                {
+
+                    // it is signal assignment of a input signal or a field of the bus
+                    let signal_accessed = accessing_information.field_access.as_ref().unwrap();
                     let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
                     let tags = if r_folded.tags.is_some() {
                         r_folded.tags.unwrap()
                     } else {
                         TagInfo::new()
                     };
-    
-                    let memory_response = ComponentRepresentation::assign_value_to_signal(
-                        component,
-                        &signal_accessed,
-                        &accessing_information.after_signal,
-                        &arithmetic_slice.route(),
-                        &tags,
-                    );
+                        
+                    let memory_response = if remaining_access.field_access.is_none(){
+                        ComponentRepresentation::assign_value_to_signal(
+                            component,
+                            &signal_accessed,
+                            &remaining_access.array_access,
+                            &arithmetic_slice.route(),
+                            &tags,
+                            )
+                    } else{
+                        // TODO
+                        let aux_slice = SignalSlice::new_with_route(arithmetic_slice.route(), &true);
+                        ComponentRepresentation::assign_value_to_bus_field(
+                            component,
+                            &signal_accessed,
+                            &remaining_access,
+                            FoldedResult::Signal(aux_slice),
+                            &tags,
+                        )
+                    };
                     treat_result_with_memory_error_void(
                         memory_response,
                         meta,
@@ -1497,7 +1509,7 @@ fn perform_assign(
                     (l_slice, arithmetic_slice)
                 } else if FoldedValue::valid_bus_slice(&r_folded){
                     // it is a bus input    
-                    let bus_accessed = accessing_information.signal_access.clone().unwrap();
+                    let bus_accessed = accessing_information.field_access.as_ref().unwrap();
                     let (name_bus, assigned_bus_slice) = r_folded.bus_slice.unwrap();
                     let tags = if r_folded.tags.is_some() {
                         r_folded.tags.unwrap()
@@ -1540,14 +1552,26 @@ fn perform_assign(
                         ae_signals_left.push(AExpr::Signal { symbol: signal_name });
                     }
                     
-    
-                    let memory_response = ComponentRepresentation::assign_value_to_bus(
-                        component,
-                        &bus_accessed,
-                        &accessing_information.after_signal,
-                        assigned_bus_slice,
-                        &tags,
-                    );
+                    let memory_response = 
+                        if remaining_access.field_access.is_none()
+                    {
+
+                        ComponentRepresentation::assign_value_to_bus(
+                            component,
+                            &bus_accessed,
+                            &remaining_access.array_access,
+                            assigned_bus_slice,
+                            &tags,
+                        ) 
+                    } else{
+                        ComponentRepresentation::assign_value_to_bus_field(
+                            component,
+                            &bus_accessed,
+                            &remaining_access,
+                            FoldedResult::Bus(assigned_bus_slice),
+                            &tags,
+                        )
+                    };
                     treat_result_with_memory_error_void(
                         memory_response,
                         meta,
@@ -1598,7 +1622,7 @@ fn perform_assign(
                     } else{
                         ComponentSlice::get_mut_reference_to_single_value(
                             component_slice,
-                            &accessing_information.before_signal,
+                            &accessing_information.array_access,
                         )
                     };
                     let component = treat_result_with_memory_error(
@@ -1625,9 +1649,9 @@ fn perform_assign(
                                 name: symbol.to_string(),
                                 goes_to: node_pointer,
                                 is_parallel: component.is_parallel,
-                                indexed_with: accessing_information.before_signal.clone(),
+                                indexed_with: accessing_information.array_access.clone(),
                             };
-                            let component_symbol = create_component_symbol(symbol, &accessing_information);
+                            let component_symbol = create_component_symbol(symbol, &accessing_information.array_access);
                             node.add_arrow(component_symbol, data);
                         },
                         ExecutedStructure::Bus(_) =>{
@@ -1638,13 +1662,8 @@ fn perform_assign(
                         }
                     }
                 }
-
-                
-
                 Option::Some(assigned_ae_slice)
             }
-        }
-
     } else if ExecutionEnvironment::has_bus(&runtime.environment, symbol){
 
         // we check if it is an input bus, in that case all signals are initialized to true
@@ -2185,8 +2204,8 @@ fn create_array_accessed_symbol(symbol: &str, array_access: &Vec<usize>) -> Stri
     appendix.push_str(&access);
     format!("{}{}", symbol, appendix)
 }
-fn create_component_symbol(symbol: &str, access_information: &AccessingInformation) -> String {
-    create_array_accessed_symbol(symbol, &access_information.before_signal)
+fn create_component_symbol(symbol: &str, access_information: &Vec<usize>) -> String {
+    create_array_accessed_symbol(symbol, &access_information)
 }
 
 fn create_symbol(symbol: &str, access_information: &AccessingInformation) -> String {
