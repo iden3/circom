@@ -10,8 +10,8 @@ use super::environment_utils::{
     slice_types::{
         AExpressionSlice, ArithmeticExpression as ArithmeticExpressionGen, ComponentRepresentation,
         ComponentSlice, MemoryError, TypeInvalidAccess, TypeAssignmentError, MemorySlice, 
-        SignalSlice, SliceCapacity, TagInfo, TagState, BusSlice, BusRepresentation,
-        FoldedResult
+        SignalSlice, SliceCapacity, TagInfo, BusSlice, BusRepresentation,
+        FoldedResult, FoldedArgument
     },
 };
 
@@ -276,7 +276,7 @@ fn execute_statement(
                             &mut runtime.environment,
                             actual_node,
                         ),
-                        VariableType::Bus(id, signal_type, tag_list) => {
+                        VariableType::Bus(_id, signal_type, tag_list) => {
                             execute_bus_declaration(
                                 name,
                                 &usable_dimensions,
@@ -1312,7 +1312,7 @@ fn perform_assign(
                             node.add_tag_signal(symbol, &tag, value.clone());
                         }
                     },
-                    ExecutedStructure::Bus(node) =>{
+                    ExecutedStructure::Bus(_) =>{
                         unreachable!();
                     },
                     ExecutedStructure::None => {
@@ -1323,7 +1323,7 @@ fn perform_assign(
         }
 
         // Get left arithmetic slice
-        let mut l_signal_names = Vec::new();;
+        let mut l_signal_names = Vec::new();
         unfold_signals(full_symbol, 0, r_slice.route(), &mut l_signal_names);
         let mut l_expressions = Vec::new();
         for signal_name in l_signal_names{
@@ -1476,7 +1476,7 @@ fn perform_assign(
                         &signal_accessed,
                         &accessing_information.after_signal,
                         &arithmetic_slice.route(),
-                        tags,
+                        &tags,
                     );
                     treat_result_with_memory_error_void(
                         memory_response,
@@ -1541,12 +1541,12 @@ fn perform_assign(
                     }
                     
     
-                    let memory_response = ComponentRepresentation::assign_value_to_bus_complete(
+                    let memory_response = ComponentRepresentation::assign_value_to_bus(
                         component,
                         &bus_accessed,
                         &accessing_information.after_signal,
-                        tags,
-                        assigned_bus_slice
+                        assigned_bus_slice,
+                        &tags,
                     );
                     treat_result_with_memory_error_void(
                         memory_response,
@@ -1717,7 +1717,7 @@ fn perform_assign(
             
             None
         } else if FoldedValue::valid_arithmetic_slice(&r_folded){
-            // case assigning a signal of the bus or a tag
+            // case assigning a field of the bus
             if meta.get_type_knowledge().is_signal(){
                 let mut value_left = treat_result_with_memory_error(
                     BusSlice::access_values_by_mut_reference(bus_slice, &accessing_information.array_access),
@@ -1728,9 +1728,8 @@ fn perform_assign(
                 
                 assert!(value_left.len() == 1);
                 let single_bus = value_left.get_mut(0).unwrap();
-    
-    
                 assert!(accessing_information.field_access.is_some());
+
                 let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
                 let tags = if r_folded.tags.is_some() {
                     r_folded.tags.unwrap()
@@ -1738,11 +1737,12 @@ fn perform_assign(
                     TagInfo::new()
                 };
     
-                let memory_response = single_bus.assign_value_to_field_signal(
+                let memory_response = single_bus.assign_value_to_field(
                     accessing_information.field_access.as_ref().unwrap(),
                     accessing_information.remaining_access.as_ref().unwrap(),
-                    &arithmetic_slice.route(),
-                    tags,
+                    FoldedArgument::Signal(&arithmetic_slice.route().to_vec()),
+                    Some(tags),
+                    false
                 );
                 treat_result_with_memory_error_void(
                     memory_response,
@@ -1752,7 +1752,7 @@ fn perform_assign(
                 )?;
 
                 // Get left arithmetic slice
-                let mut l_signal_names = Vec::new();;
+                let mut l_signal_names = Vec::new();
                 unfold_signals(full_symbol, 0, arithmetic_slice.route(), &mut l_signal_names);
                 let mut l_expressions = Vec::new();
                 for signal_name in l_signal_names{
@@ -1763,9 +1763,11 @@ fn perform_assign(
 
             } else if meta.get_type_knowledge().is_tag(){
                 // in case we are assigning a tag of the complete bus
+                // or one of its fields
                 assert!(accessing_information.array_access.len() == 0);
                 assert!(accessing_information.field_access.is_some());
                 if accessing_information.remaining_access.as_ref().unwrap().field_access.is_none(){
+                    // case tag of the complete bus
                     let tag = accessing_information.field_access.as_ref().unwrap();
                     let environment_response = ExecutionEnvironment::get_mut_bus_res(&mut runtime.environment, symbol);
                     let (reference_to_tags, reference_to_tags_defined, bus_content) = treat_result_with_environment_error(
@@ -1850,10 +1852,12 @@ fn perform_assign(
                     } else {
                         unreachable!();
                     };
-                    let memory_response = single_bus.assign_value_to_field_tag(
+                    let memory_response = single_bus.assign_value_to_field(
                         accessing_information.field_access.as_ref().unwrap(),
                         accessing_information.remaining_access.as_ref().unwrap(),
-                        value,
+                        FoldedArgument::Tag(&value),
+                        None,
+                        false
                     );
                     treat_result_with_memory_error_void(
                         memory_response,
@@ -1892,7 +1896,7 @@ fn perform_assign(
                 }
 
                 // We assign the original buses
-                let bus_assignment_response = perform_bus_assignment(bus_slice, &accessing_information.array_access, assigned_bus_slice);
+                let bus_assignment_response = perform_bus_assignment(bus_slice, &accessing_information.array_access, assigned_bus_slice, false);
                 treat_result_with_memory_error_void(
                     bus_assignment_response,
                     meta,
@@ -1953,7 +1957,7 @@ fn perform_assign(
                                     node.add_tag_signal(symbol, &tag, value.clone());
                                 }
                             },
-                            ExecutedStructure::Bus(node) =>{
+                            ExecutedStructure::Bus(_) =>{
                                 unreachable!();
                             },
                             ExecutedStructure::None => {
@@ -1989,12 +1993,12 @@ fn perform_assign(
                     TagInfo::new()
                 };
     
-                let memory_response = single_bus.assign_value_to_field_bus(
+                let memory_response = single_bus.assign_value_to_field(
                     accessing_information.field_access.as_ref().unwrap(),
                     accessing_information.remaining_access.as_ref().unwrap(),
-                    &bus_slice.route(),
-                    &bus_slice,
-                    tags,
+                    FoldedArgument::Bus(bus_slice),
+                    Some(tags),
+                    false
                 );
                 treat_result_with_memory_error_void(
                     memory_response,
@@ -2829,7 +2833,7 @@ fn execute_bus_call(
     debug_assert!(runtime.block_type == BlockType::Known);
    
     let args_names = program_archive.get_bus_data(id).get_name_of_params();
-    let template_body = program_archive.get_bus_data(id).get_body_as_vec();
+    let bus_body = program_archive.get_bus_data(id).get_body_as_vec();
     let mut args_to_values = BTreeMap::new();
     debug_assert_eq!(args_names.len(), parameter_values.len());
     let mut instantiation_name = format!("{}(", id);
@@ -2852,14 +2856,13 @@ fn execute_bus_call(
     } else {
         let analysis =
             std::mem::replace(&mut runtime.analysis, Analysis::new(program_archive.id_max));
-        let code = program_archive.get_bus_data(id).get_body().clone();
         let mut node = ExecutedBus::new(
             id.to_string(),
             instantiation_name,
             args_to_values,
         );
         execute_sequence_of_bus_statements(
-            template_body,
+            bus_body,
             program_archive,
             runtime,
             &mut node,
@@ -3121,14 +3124,6 @@ fn treat_accessing_bus(
         flags
     )
 
-}
-
-pub fn get_final_array_access_bus_accessing(access: &AccessingInformationBus)->&Vec<usize>{
-    let mut last_access = access;
-    while last_access.field_access.is_some(){
-        last_access = &last_access.remaining_access.as_ref().unwrap();
-    }
-    &last_access.array_access
 }
 
 
