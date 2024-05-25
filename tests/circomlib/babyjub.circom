@@ -50,6 +50,11 @@ include "escalarmulfix.circom";
 */
 
 /*
+    spec tag babyedwards: 168700*(p.x)^2 + (p.y)^2 = 1 + 168696*(p.x)^2*(p.y)^2
+    spec tag babymontgomery: (p.y)^2 = (p.x)^3 + 168698*(p.x)^2 + p.x
+*/
+
+/*
 *** BabyAdd(): template that receives two points of the Baby-Jubjub curve in twisted Edwards form and returns the addition of the points.
         - Inputs: p1 = (x1, y1) -> bus representing a point of the curve in twisted Edwards form
                   p2 = (x2, y2) -> bus representing a point of the curve in twisted Edwards form
