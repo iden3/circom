@@ -328,7 +328,21 @@ impl BusRepresentation {
                                         assigned_value,
                                         tags,
                                         is_input
-                                    )
+                                    )?;
+
+                                    // Update from unassigned if it is completely assigned
+                                    if !resulting_bus.has_unassigned_fields(){
+                                        match self.unassigned_fields.get_mut(field_name){
+                                            Some(left) => {
+                                                *left -= 1;
+                                                if *left == 0 {
+                                                    self.unassigned_fields.remove(field_name);
+                                                }
+                                            }
+                                            None => {}
+                                        }
+                                    }
+                                    Result::Ok(())
                                 }
                                 Result::Err(err)=>{
                                     return Err(err);
