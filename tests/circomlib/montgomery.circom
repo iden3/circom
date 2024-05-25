@@ -51,6 +51,11 @@
     Circuits to add and double points of the Baby-Jubjub Montgomery curve are provided as well.
 */
 
+/*
+    spec tag babyedwards: 168700*(p.x)^2 + (p.y)^2 = 1 + 168696*(p.x)^2*(p.y)^2
+    spec tag babymontgomery: (p.y)^2 = (p.x)^3 + 168698*(p.x)^2 + p.x
+*/
+
 bus Point {
     signal x,y;
 }

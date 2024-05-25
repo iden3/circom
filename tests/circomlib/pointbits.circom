@@ -76,7 +76,7 @@ bus BinaryPoint(n) {
 
 
 template Bits2Point(n) {
-    BinaryPoint(n) {babyedwardsbin} input in;
+    BinaryPoint(n) input {babyedwardsbin} in;
     Point output {babyedwards} pout;
 
     var i;
@@ -110,7 +110,7 @@ template Bits2Point(n) {
 }
 
 template Bits2Point_Strict() {
-    BinaryPoint(254) {babyedwardsbin} input in;
+    BinaryPoint(254) input {babyedwardsbin} in;
     Point output {babyedwards} pout;
 
     var i;
@@ -146,7 +146,7 @@ template Bits2Point_Strict() {
 
 template Point2Bits(n) {
     Point input {babyedwards} pin;
-    BinaryPoint(n) {babyedwardsbin} output out;
+    BinaryPoint(n) output {babyedwardsbin} out;
 
     var i;
 
@@ -164,7 +164,7 @@ template Point2Bits(n) {
 
 template Point2Bits_Strict() {
     Point input {babyedwards} pin;
-    BinaryPoint(254) {babyedwardsbin} output out;
+    BinaryPoint(254) output {babyedwardsbin} out;
 
     var i;
 

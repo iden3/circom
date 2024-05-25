@@ -68,7 +68,7 @@ template EdDSAVerifier(n) {
     hash.in.bits[254] <== 0;
     hash.in.bits[510] <== 0;
     hash.in.bits[255] <== R8.signX;
-    hash.in.bits[511] <== A.signY;
+    hash.in.bits[511] <== A.signX;
     
     for (i=0; i<n; i++) {
         hash.in.bits[512+i] <== msg.bits[i];
@@ -94,7 +94,11 @@ template EdDSAVerifier(n) {
     isZero.out === 0;
 
     component mulAny = EscalarMulAny(256);
-    mulAny.e <== point2bitsH.out;
+    for (i=0; i<254; i++) {
+        mulAny.e.bits[i] <== point2bitsH.out.binY.bits[i];
+    }
+    mulAny.e.bits[254] <== 0;
+    mulAny.e.bits[255] <== point2bitsH.out.signX;
     mulAny.pin <== dbl3.pout;
 
 
@@ -111,7 +115,11 @@ template EdDSAVerifier(n) {
         16950150798460657717958625567821834550301663161624707787222815936182638968203
     ];
     component mulFix = EscalarMulFix(256, BASE8);
-    mulFix.e <== S;
+    for (i=0; i<254; i++) {
+        mulFix.e.bits[i] <== S.binY.bits[i];
+    }
+    mulFix.e.bits[254] <== 0;
+    mulFix.e.bits[255] <== S.signX;
 
 // Do the comparation left == right
 
