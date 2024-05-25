@@ -655,11 +655,11 @@ fn execute_bus_statement(
             };
             match xtype {
     
-                VariableType::Signal(_signal_type, tag_list) => 
-                    execute_declaration_bus(name, &usable_dimensions, tag_list, actual_node, false),
+                VariableType::Signal(_signal_type, tag_list) =>
+                    execute_declaration_bus(name, &usable_dimensions, tag_list, &mut runtime.environment, actual_node, false),
 
                 VariableType::Bus(_id, _signal_type, tag_list) =>
-                    execute_declaration_bus(name, &usable_dimensions, tag_list, actual_node, true),
+                    execute_declaration_bus(name, &usable_dimensions, tag_list, &mut runtime.environment, actual_node, true),
                     
                 _ =>{
                     unreachable!()
@@ -1039,13 +1039,22 @@ fn execute_declaration_bus(
     signal_name: &str,
     dimensions: &[SliceCapacity],
     list_tags: &Vec<String>,
+    environment: &mut ExecutionEnvironment,
     actual_node: &mut ExecutedBus,
     is_bus: bool,
 ) {
+    let mut tags = TagInfo::new();
+    for t in list_tags{
+        tags.insert(t.clone(), None);
+    } 
+
     if is_bus{
         actual_node.add_bus(signal_name, dimensions);
+        environment_shortcut_add_bus_intermediate(environment, signal_name, dimensions, &tags);
     } else{
         actual_node.add_signal(signal_name, dimensions);
+        environment_shortcut_add_intermediate(environment, signal_name, dimensions, &tags);
+
     }
     for t in list_tags{
         actual_node.add_tag_signal(signal_name, t, None);
