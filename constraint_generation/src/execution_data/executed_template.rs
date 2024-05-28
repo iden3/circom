@@ -510,13 +510,13 @@ fn generate_bus_symbols(dag: &mut DAG, state: State, config: &SignalConfig, bus_
     let ex_bus2 = buses.get(bus_connection.inspect.goes_to).unwrap();
     if state.dim == config.dimensions.len() {
         for (signal, signal_dims) in ex_bus2.signal_fields(){
-            let mut signal_name = format!("{}.{}",state.name,signal);
+            let signal_name = format!("{}.{}",state.name,signal);
             let state = State { basic_name: signal.clone(), name: signal_name, dim: 0 };
             let config = SignalConfig { signal_type: config.signal_type, dimensions: signal_dims, is_public: config.is_public };
             generate_symbols(dag, state, &config);
         }
         for (bus, bus_dims) in ex_bus2.bus_fields(){
-            let mut bus_name = format!("{}.{}",state.name,bus);
+            let bus_name = format!("{}.{}",state.name,bus);
             let state = State { basic_name: bus.clone(), name: bus_name, dim: 0 };
             let config = SignalConfig { signal_type: config.signal_type, dimensions: &bus_dims, is_public: config.is_public };
             generate_bus_symbols(dag, state, &config, ex_bus2.bus_connexions(), buses);

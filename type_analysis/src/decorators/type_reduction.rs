@@ -307,14 +307,14 @@ fn reduce_types_in_vec_of_expressions(vec: &mut [Expression], environment: &Envi
 }
 
 // Errors
-fn name_not_found_in_bus_error(signal: String, what: String, meta: &Meta, reports: &mut ReportCollection) {
-    let message = "Bus or signal not defined in bus".to_string();
-    let error_code = ReportCode::InvalidSignalAccessInBus;
-    let mut report = Report::error(message, error_code);
-    let message = signal + &" is not defined in ".to_string() + what.as_str();
-    report.add_primary(meta.file_location(), meta.get_file_id(), message);
-    reports.push(report);
-}
+// fn name_not_found_in_bus_error(signal: String, what: String, meta: &Meta, reports: &mut ReportCollection) {
+//     let message = "Bus or signal not defined in bus".to_string();
+//     let error_code = ReportCode::InvalidSignalAccessInBus;
+//     let mut report = Report::error(message, error_code);
+//     let message = signal + &" is not defined in ".to_string() + what.as_str();
+//     report.add_primary(meta.file_location(), meta.get_file_id(), message);
+//     reports.push(report);
+// }
 
 fn name_not_found_in_component_error(signal: String, what: String, meta: &Meta, reports: &mut ReportCollection) {
     let message = "Bus or signal not defined in component".to_string();

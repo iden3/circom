@@ -10,7 +10,7 @@ use std::mem;
 
 // Utils for assigning tags
 
-pub fn check_tags_access(tags_values: &TagInfo, tags_definitions: &TagDefinitions)-> TagInfo{
+pub fn compute_propagated_tags(tags_values: &TagInfo, tags_definitions: &TagDefinitions)-> TagInfo{
     let mut tags_propagated = TagInfo::new();
     for (tag, value) in tags_values{
         let state = tags_definitions.get(tag).unwrap();
