@@ -1,4 +1,4 @@
-use super::slice_types::{FoldedResult, FoldedArgument, BusSlice, MemoryError, SignalSlice, SliceCapacity, TagDefinitions, TagInfo, TypeAssignmentError, TypeInvalidAccess};
+use super::slice_types::{FoldedResult, FoldedArgument, BusSlice, MemoryError, SignalSlice, SliceCapacity, TagInfo, TypeAssignmentError, TypeInvalidAccess};
 use crate::execution_data::type_definitions::AccessingInformationBus;
 use crate::{environment_utils::slice_types::BusRepresentation, execution_data::type_definitions::NodePointer};
 use crate::execution_data::ExecutedProgram;
@@ -191,7 +191,7 @@ impl ComponentRepresentation {
                 &mut initial_value_bus,
                 bus_node,
                 scheme,
-                true // it is initialized at the begining
+                true // the outputs of the component are initialized at the begining
             )?;
             let bus_slice = BusSlice::new_with_route(route, &initial_value_bus);
 
@@ -294,6 +294,8 @@ impl ComponentRepresentation {
                 let next_array_access = &remaining_access.array_access;
                 let next_field_access = remaining_access.field_access.as_ref().unwrap();
                 let next_remaining_access = remaining_access.remaining_access.as_ref().unwrap();
+                
+                // we distingish between tags or buses 
                 if tag_info.contains_key(remaining_access.field_access.as_ref().unwrap()){
                     // in this case we are returning a tag
                     assert!(next_array_access.len() == 0);
@@ -321,7 +323,8 @@ impl ComponentRepresentation {
                     accessed_bus.get_field(next_field_access, next_remaining_access)
                 }
             } else{
-                // We are accessing the complete bus
+
+                // In this case we are accessing the complete bus
                 let accessed_slice_result = BusSlice::access_values(bus_slice, &remaining_access.array_access);
                 
                 match accessed_slice_result{
@@ -396,13 +399,11 @@ impl ComponentRepresentation {
         }
 
         // Check that the assignment satisfies the tags requisites
-
-        ComponentRepresentation::handle_tag_assignment_init(self, signal_name, tags);
+        ComponentRepresentation::handle_tag_assignment_init(self, signal_name, tags)?;
 
         
         // Perform the assignment
         let inputs_response = self.inputs.get_mut(signal_name).unwrap();
-        
         perform_signal_assignment(inputs_response, &access, slice_route)?;
         
         // Update the value of unnasigned fields
@@ -472,13 +473,10 @@ impl ComponentRepresentation {
         }
 
         // Check that the assignment satisfies the tags requisites
-
-        ComponentRepresentation::handle_tag_assignment_init(self, bus_name, tags);
-
+        ComponentRepresentation::handle_tag_assignment_init(self, bus_name, tags)?;
         
         // Perform the assignment
         let inputs_response = self.input_buses.get_mut(bus_name).unwrap();
-        
         perform_bus_assignment(inputs_response, &access, bus_slice, true)?;
         
         // Update the value of unnasigned fields
@@ -564,8 +562,6 @@ impl ComponentRepresentation {
         assert!(access.field_access.is_some());
 
         // call to bus representation to perform the assignment
-
-
         let route_signal;
 
         let folded_arg = match field_value{
@@ -673,7 +669,7 @@ impl ComponentRepresentation {
         Ok(())
     }
 
-    // Auxiliar function to update the unasigned inputs
+    // Auxiliar function to update the unassigned inputs
 
     fn update_unassigned_inputs(component: &mut ComponentRepresentation, signal_name: &str, slice_route: &[usize]){
         let mut dim_slice = 1;

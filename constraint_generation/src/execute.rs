@@ -29,7 +29,6 @@ use super::{
 };
 use circom_algebra::num_bigint::BigInt;
 use std::collections::{HashMap, BTreeMap};
-use std::mem;
 use crate::FlagsExecution;
 type AExpr = ArithmeticExpressionGen<String>;
 type AnonymousComponentsInfo = BTreeMap<String, (Meta, Vec<Expression>)>;
@@ -616,7 +615,7 @@ fn execute_bus_statement(
     use Statement::*;
     let id = stmt.get_meta().elem_id;
     Analysis::reached(&mut runtime.analysis, id);
-    let res = match stmt {
+    let _res = match stmt {
         InitializationBlock { initializations, .. } => {
             execute_sequence_of_bus_statements(
                 initializations,
@@ -2377,15 +2376,8 @@ fn execute_signal(
             &runtime.call_trace,
         )?;
 
-        let mut tags_propagated = TagInfo::new();
-        for (tag, value) in tags{
-            let state = tags_definitions.get(tag).unwrap();
-            if state.value_defined || state.complete{
-                tags_propagated.insert(tag.clone(), value.clone());
-            } else if state.defined{
-                tags_propagated.insert(tag.clone(), None);
-            }
-        }
+        // check which tags are propagated
+        let tags_propagated = compute_propagated_tags(tags, tags_definitions);
 
         Result::Ok(FoldedValue {
             arithmetic_slice: Option::Some(arith_slice),
@@ -2457,15 +2449,9 @@ fn execute_bus(
         // Case we are accessing the complete bus or array of buses
         let symbol = create_symbol_bus(symbol, &access_information);
 
-        let mut tags_propagated = TagInfo::new();
-        for (tag, value) in tags{
-            let state = tags_definitions.get(tag).unwrap();
-            if state.value_defined || state.complete{
-                tags_propagated.insert(tag.clone(), value.clone());
-            } else if state.defined{
-                tags_propagated.insert(tag.clone(), None);
-            }
-        }
+        // Compute which tags are propagated 
+        let tags_propagated = compute_propagated_tags(tags, tags_definitions);
+        
         // Check that all the buses are completely assigned
 
         for i in 0..BusSlice::get_number_of_cells(&bus_slice){

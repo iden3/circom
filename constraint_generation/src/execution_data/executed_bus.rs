@@ -1,6 +1,5 @@
 use super::type_definitions::*;
 
-use dag::DAG;
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use crate::execution_data::TagInfo;
@@ -71,10 +70,6 @@ impl ExecutedBus {
         } else {
             tags_signal.unwrap().insert(tag_name.to_string(), value);
         }
-    }
-
-    fn build_signals(&self, dag: &mut DAG) {
-        
     }
 
     pub fn bus_name(&self) -> &String {

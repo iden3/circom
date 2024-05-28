@@ -4,7 +4,6 @@ use crate::execution_data::type_definitions::{NodePointer, AccessingInformationB
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap};
 use crate::ast::Meta;
-use num_bigint_dig::BigInt;
 
 use crate::assignment_utils::*;
 
@@ -162,16 +161,24 @@ impl BusRepresentation {
             let next_access = remaining_access.field_access.as_ref().unwrap();
             if tags_info.contains_key(next_access){
                 // case tag, return its value
-                let value_tag = tags_info.get(next_access).unwrap();
-                match value_tag{
-                    None =>{
-                        let error = MemoryError::TagValueNotInitializedAccess;
-                        Result::Err(error)
-                    },
-                    Some(v) =>{
-                        let folded_tag = FoldedResult::Tag(v.clone());
-                        Result::Ok((None, folded_tag))
+                
+                // access only allowed when (1) it is value defined by user or (2) it is completely assigned
+                let state = tags_defs.get(next_access).unwrap();
+                if state.value_defined || state.complete{
+                    let value_tag = tags_info.get(next_access).unwrap();
+                    match value_tag{
+                        None =>{
+                            let error = MemoryError::TagValueNotInitializedAccess;
+                            Result::Err(error)
+                        },
+                        Some(v) =>{
+                            let folded_tag = FoldedResult::Tag(v.clone());
+                            Result::Ok((None, folded_tag))
+                        }
                     }
+                } else{
+                    let error = MemoryError::TagValueNotInitializedAccess;
+                    Result::Err(error)
                 }
             } else{
                 // case bus, access to the next field
@@ -209,7 +216,7 @@ impl BusRepresentation {
                     // in this case there is no need for recursion
                     
                     // compute which tags are propagated
-                    let propagated_tags = check_tags_access(tags_info, tags_defs);
+                    let propagated_tags = compute_propagated_tags(tags_info, tags_defs);
                     
                     let accessed_slice_result = SignalSlice::access_values(&signal_slice, &remaining_access.array_access);
                     match accessed_slice_result{
@@ -225,7 +232,7 @@ impl BusRepresentation {
                     // in this case there is no need for recursion
 
                     // compute which tags are propagated
-                    let propagated_tags = check_tags_access(tags_info, tags_defs);
+                    let propagated_tags = compute_propagated_tags(tags_info, tags_defs);
                     
                     let accessed_slice_result = BusSlice::access_values(&bus_slice, &remaining_access.array_access);
                     match accessed_slice_result{
@@ -385,23 +392,23 @@ impl BusRepresentation {
                     // TODO: REMOVE MOVE ERROR
 
                     // in case input check if tags are satisfied
-                    // for (t, value) in info_tags{
-                    //     if !tags.contains_key(t){
-                    //         return Result::Err(MemoryError::AssignmentMissingTags(field_name.to_string(), t.clone()));
-                    //     } else{
-                    //         if !is_init{
-                    //             // First assignment of input tag
-                    //             *value = tags.get(t).unwrap().clone();
-                    //         }
-                    //         else{
-                    //             // already given a value, check that it is the same
-                    //             // if not return error
-                    //             if value != tags.get(t).unwrap(){
-                    //                 return Result::Err(MemoryError::AssignmentTagInputTwice(field_name.to_string(), t.clone()));
-                    //             }
-                    //         }
-                    //     }
-                    // }
+                    for (t, value) in info_tags{
+                        if !tags.contains_key(t){
+                            return Result::Err(MemoryError::AssignmentMissingTags(field_name.to_string(), t.clone()));
+                        } else{
+                            if !is_init{
+                                // First assignment of input tag
+                                *value = tags.get(t).unwrap().clone();
+                            }
+                            else{
+                                // already given a value, check that it is the same
+                                // if not return error
+                                if value != tags.get(t).unwrap(){
+                                    return Result::Err(MemoryError::AssignmentTagInputTwice(field_name.to_string(), t.clone()));
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // then assign the values to the signal or bus
@@ -477,10 +484,9 @@ impl BusRepresentation {
                     
                 if is_completely_initialized && !is_input{
 
-                    for (tag, _value) in info_tags{
-                        let tag_state = status_tags.get_mut(tag).unwrap();
-                        tag_state.complete = true;            
-                    }
+                    for (_tag, state) in status_tags{
+                        state.complete = true;
+                    }  
                 }
                 Ok(())
             }
@@ -488,28 +494,20 @@ impl BusRepresentation {
     }
 
     pub fn completely_assign_bus(&mut self, assigned_bus: &BusRepresentation, is_input: bool)-> Result<(), MemoryError>{
+        
         if self.has_assignment{
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
         }
+
         self.has_assignment = true;
         for (field_name, value)  in &mut self.fields{
             
             // get the tags that are propagated
-            
             let (tags_definition, tags_info) = self.field_tags.get_mut(field_name).unwrap();
-            
             let (tags_assigned_definition, tags_assigned_info) =  assigned_bus.field_tags.get(field_name).unwrap();
-                
-            let mut tags_propagated = TagInfo::new();
-            for (tag, value) in tags_assigned_info{
-                let state = tags_assigned_definition.get(tag).unwrap();
-                if state.value_defined || state.complete{
-                    tags_propagated.insert(tag.clone(), value.clone());
-                } else if state.defined{
-                    tags_propagated.insert(tag.clone(), None);
-                }
-            }
+            let tags_propagated = compute_propagated_tags(tags_assigned_info, tags_assigned_definition);
 
+            // TODO: check if the bus is initialized -> not needed always is not?
             let is_init = match value{
                 FieldTypes::Bus(bus_slice) =>{
                     let mut bus_is_init = false;
@@ -527,6 +525,7 @@ impl BusRepresentation {
                     SignalSlice::get_number_of_inserts(&signal_slice) > 0
                 }
             };
+            assert!(!is_init);
 
             // perform the tag assignment
             if !is_input{
@@ -534,25 +533,24 @@ impl BusRepresentation {
                 perform_tag_propagation(tags_info, tags_definition, &tags_propagated, is_init);
             } else{
 
-                // TODO: REMOVE MOVE ERROR
                 // in case input check if tags are satisfied
-                // for (t, value) in tags_info{
-                //     if !tags_propagated.contains_key(t){
-                //         return Result::Err(MemoryError::AssignmentMissingTags(field_name.to_string(), t.clone()));
-                //     } else{
-                //         if !is_init{
-                //             // First assignment of input tag
-                //             *value = tags_propagated.get(t).unwrap().clone();
-                //         }
-                //         else{
-                //             // already given a value, check that it is the same
-                //             // if not return error
-                //             if value != tags_propagated.get(t).unwrap(){
-                //                 return Result::Err(MemoryError::AssignmentTagInputTwice(field_name.to_string(), t.clone()));
-                //             }
-                //         }
-                //     }
-                // }
+                for (t, value) in tags_info{
+                    if !tags_propagated.contains_key(t){
+                        return Result::Err(MemoryError::AssignmentMissingTags(field_name.to_string(), t.clone()));
+                    } else{
+                        if !is_init{
+                            // First assignment of input tag
+                            *value = tags_propagated.get(t).unwrap().clone();
+                        }
+                        else{
+                            // already given a value, check that it is the same
+                            // if not return error
+                            if value != tags_propagated.get(t).unwrap(){
+                                return Result::Err(MemoryError::AssignmentTagInputTwice(field_name.to_string(), t.clone()));
+                            }
+                        }
+                    }
+                }
             }
 
             // perform the assignment
@@ -601,10 +599,10 @@ impl BusRepresentation {
 
             // Update the value of unnasigned fields
             self.unassigned_fields.remove(field_name);
+            
             // Update the value of the complete tags
-            for (tag, _value) in tags_info{
-                let tag_state = tags_definition.get_mut(tag).unwrap();
-                tag_state.complete = true;
+            for (_tag, state) in tags_definition{
+                state.complete = true;
             }       
         }
         Ok(())

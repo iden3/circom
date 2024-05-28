@@ -197,7 +197,7 @@ impl<C: Clone> MemorySlice<C> {
             return Ok(values);
         }
 
-        let (size, number_of_cells) =
+        let (_size, number_of_cells) =
             MemorySlice::generate_new_route_from_access(memory_slice, access)?;
         let mut values = Vec::with_capacity(number_of_cells);
         let initial_cell = MemorySlice::get_initial_cell(memory_slice, access)?;
@@ -225,7 +225,7 @@ impl<C: Clone> MemorySlice<C> {
             return Ok(values);
         }
 
-        let (size, number_of_cells) =
+        let (_size, number_of_cells) =
             MemorySlice::generate_new_route_from_access(memory_slice, access)?;
         let mut values = Vec::with_capacity(number_of_cells);
         let initial_cell = MemorySlice::get_initial_cell(memory_slice, access)?;
