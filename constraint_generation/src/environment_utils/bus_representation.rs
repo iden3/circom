@@ -303,13 +303,13 @@ impl BusRepresentation {
                     let possible_tag = info_tags.get_mut(next_access);
                     if let Some(val) = possible_tag {
                         if let Some(_) = val {
+                            // already assigned value, return error
                             Result::Err(MemoryError::AssignmentTagTwice)
                         } else { // we add the info saying that the tag is defined
                             let tag_state = status_tags.get_mut(next_access).unwrap();
                             tag_state.value_defined = true;
                             *val = Option::Some(value.clone());
                             Result::Ok(())
-        
                         }   
                     } else{
                         unreachable!()
@@ -389,8 +389,6 @@ impl BusRepresentation {
                     // case no input, just propagate
                     perform_tag_propagation(info_tags, status_tags, &tags, is_init);
                 } else{
-                    // TODO: REMOVE MOVE ERROR
-
                     // in case input check if tags are satisfied
                     for (t, value) in info_tags{
                         if !tags.contains_key(t){
@@ -507,25 +505,26 @@ impl BusRepresentation {
             let (tags_assigned_definition, tags_assigned_info) =  assigned_bus.field_tags.get(field_name).unwrap();
             let tags_propagated = compute_propagated_tags(tags_assigned_info, tags_assigned_definition);
 
-            // TODO: check if the bus is initialized -> not needed always is not?
-            let is_init = match value{
-                FieldTypes::Bus(bus_slice) =>{
-                    let mut bus_is_init = false;
-                    for i in 0..BusSlice::get_number_of_cells(bus_slice){
-                        match BusSlice::get_reference_to_single_value_by_index(bus_slice, i){
-                            Ok(bus) => {
-                                bus_is_init |= bus.has_assignment();
-                            }
-                            Err(_) => unreachable!()
-                        }
-                    }
-                    bus_is_init
-                },
-                FieldTypes::Signal(signal_slice)=>{
-                    SignalSlice::get_number_of_inserts(&signal_slice) > 0
-                }
-            };
-            assert!(!is_init);
+            // TODO: REMOVE check if the bus is initialized -> not needed, always is not?
+            let is_init = false;
+            // let is_init = match value{
+            //     FieldTypes::Bus(bus_slice) =>{
+            //         let mut bus_is_init = false;
+            //         for i in 0..BusSlice::get_number_of_cells(bus_slice){
+            //             match BusSlice::get_reference_to_single_value_by_index(bus_slice, i){
+            //                 Ok(bus) => {
+            //                     bus_is_init |= bus.has_assignment();
+            //                 }
+            //                 Err(_) => unreachable!()
+            //             }
+            //         }
+            //         bus_is_init
+            //     },
+            //     FieldTypes::Signal(signal_slice)=>{
+            //         SignalSlice::get_number_of_inserts(&signal_slice) > 0
+            //     }
+            // };
+            // assert!(!is_init);
 
             // perform the tag assignment
             if !is_input{
@@ -538,17 +537,18 @@ impl BusRepresentation {
                     if !tags_propagated.contains_key(t){
                         return Result::Err(MemoryError::AssignmentMissingTags(field_name.to_string(), t.clone()));
                     } else{
-                        if !is_init{
+                        //if !is_init{
+                            // Not needed check, always not init, if not error
                             // First assignment of input tag
                             *value = tags_propagated.get(t).unwrap().clone();
-                        }
-                        else{
-                            // already given a value, check that it is the same
-                            // if not return error
-                            if value != tags_propagated.get(t).unwrap(){
-                                return Result::Err(MemoryError::AssignmentTagInputTwice(field_name.to_string(), t.clone()));
-                            }
-                        }
+                        //}
+                        // else{
+                        //     // already given a value, check that it is the same
+                        //     // if not return error
+                        //     if value != tags_propagated.get(t).unwrap(){
+                        //         return Result::Err(MemoryError::AssignmentTagInputTwice(field_name.to_string(), t.clone()));
+                        //     }
+                        // }
                     }
                 }
             }
@@ -575,7 +575,7 @@ impl BusRepresentation {
 
                     let new_value_slice = &SignalSlice::new_with_route(signal_slice.route(), &true);
            
-                    // Not needed because we know that it has not been assigned?
+                    // : Not needed because we know that it has not been assigned?
                     // let dim_slice: usize = SignalSlice::get_number_of_cells(signal_slice);
                     // for i in 0..dim_slice{
                     //     let signal_was_assigned = match SignalSlice::access_value_by_index(&signal_slice, i){

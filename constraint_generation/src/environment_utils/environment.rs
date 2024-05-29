@@ -17,8 +17,6 @@ use crate::ast::Meta;
 pub type ExecutionEnvironmentError = CircomEnvironmentError;
 pub type ExecutionEnvironment = CircomEnvironment<ComponentSlice, (TagInfo, TagDefinitions, SignalSlice), (TagInfo, AExpressionSlice), (TagInfo, TagDefinitions, BusSlice)>;
 
-// TODO: ADD environment buses -> BusSlice 
-
 pub fn environment_shortcut_add_component(
     environment: &mut ExecutionEnvironment,
     component_name: &str,
