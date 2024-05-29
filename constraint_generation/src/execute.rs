@@ -1488,7 +1488,6 @@ fn perform_assign(
                             &tags,
                             )
                     } else{
-                        // TODO
                         let aux_slice = SignalSlice::new_with_route(arithmetic_slice.route(), &true);
                         ComponentRepresentation::assign_value_to_bus_field(
                             component,
@@ -1529,7 +1528,8 @@ fn perform_assign(
                     let mut signals_values_right: Vec<String> = Vec::new();
                     let mut signals_values_left: Vec<String> = Vec::new();
 
-                    // TODO: get the correct final index
+                    // TODO: in case all bus slices contain the same types not needed of 
+                    // traversing all of them?
                     for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
                         let assigned_bus = treat_result_with_memory_error(
                             BusSlice::get_reference_to_single_value_by_index(&assigned_bus_slice, i),
@@ -2556,9 +2556,6 @@ fn execute_component(
     runtime: &mut RuntimeInformation,
     flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
-
-
-    // TODO: cases access signal/bus inside a bus, all in same case
         
     let access_information = treat_accessing_bus(meta, access, program_archive, runtime, flags)?;
     if access_information.undefined {
