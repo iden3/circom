@@ -171,6 +171,7 @@ pub fn perform_bus_assignment(bus_slice: &mut BusSlice, array_access: &[SliceCap
         Err(err) => return Err(err)
     };
 
+
     let value_left = match BusSlice::access_values_by_mut_reference(bus_slice, array_access){
         Ok(value) => value,
         Err(err) => return Err(err)

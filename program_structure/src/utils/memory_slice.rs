@@ -12,7 +12,8 @@ pub enum TypeInvalidAccess {
 pub enum TypeAssignmentError {
     MultipleAssignments,
     AssignmentOutput,
-    NoInitializedComponent
+    NoInitializedComponent,
+    DifferentBusInstances
 }
 
 pub enum MemoryError {
@@ -37,11 +38,16 @@ pub type SimpleSlice = MemorySlice<BigInt>;
     The attribute route stores the dimensions of the slice, used to navigate through them.
     The length of values is equal to multiplying all the values in route.
 */
-#[derive(Eq, PartialEq)]
 pub struct MemorySlice<C> {
     route: Vec<SliceCapacity>,
     values: Vec<C>,
     number_inserts: usize,
+}
+
+impl<C: PartialEq> PartialEq for MemorySlice<C> {
+    fn eq(&self, other: &Self) -> bool{
+        self.route ==  other.route && self.values == other.values
+    }
 }
 
 impl<C: Clone> Clone for MemorySlice<C> {
