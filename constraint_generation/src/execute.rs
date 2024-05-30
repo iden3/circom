@@ -579,25 +579,58 @@ fn execute_statement(
         }
         UnderscoreSubstitution{ meta, rhe, op} =>{
             let f_result = execute_expression(rhe, program_archive, runtime, flags)?;
-            let arithmetic_slice = safe_unwrap_to_arithmetic_slice(f_result, line!());
-            if *op == AssignOp::AssignConstraintSignal{
-                for i in 0..AExpressionSlice::get_number_of_cells(&arithmetic_slice){
-                    let value_cell = treat_result_with_memory_error(
-                        AExpressionSlice::access_value_by_index(&arithmetic_slice, i),
+            if FoldedValue::valid_arithmetic_slice(&f_result){
+                let arithmetic_slice = safe_unwrap_to_arithmetic_slice(f_result, line!());
+                if *op == AssignOp::AssignConstraintSignal{
+                    for i in 0..AExpressionSlice::get_number_of_cells(&arithmetic_slice){
+                        let value_cell = treat_result_with_memory_error(
+                            AExpressionSlice::access_value_by_index(&arithmetic_slice, i),
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                        let constraint_expression = AExpr::transform_expression_to_constraint_form(
+                            value_cell,
+                            runtime.constants.get_p(),
+                        ).unwrap();
+                        if let Option::Some(node) = actual_node {
+                            for signal in constraint_expression.take_signals(){
+                                node.add_underscored_signal(signal);
+                            } 
+                        }
+                    }
+                }
+            } else if FoldedValue::valid_bus_slice(&f_result){
+                // TODO: improve, only generate values once
+                let (bus_name, bus_slice) = safe_unwrap_to_bus_slice(f_result, line!());
+                let mut signal_values = Vec::new();
+                for i in 0..BusSlice::get_number_of_cells(&bus_slice){
+                    let assigned_bus = treat_result_with_memory_error(
+                        BusSlice::get_reference_to_single_value_by_index(&bus_slice, i),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    let constraint_expression = AExpr::transform_expression_to_constraint_form(
-                        value_cell,
-                        runtime.constants.get_p(),
-                    ).unwrap();
-                    if let Option::Some(node) = actual_node {
-                        for signal in constraint_expression.take_signals(){
-                            node.add_underscored_signal(signal);
-                        } 
-                    }
+                    
+                    let access_index = treat_result_with_memory_error(
+                        BusSlice::get_access_index(&bus_slice, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    let string_index = create_index_appendix(&access_index); 
+
+                    signal_values.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", bus_name, string_index)));
                 }
+            
+                if let Option::Some(node) = actual_node {
+                    for signal_name in &signal_values{
+                        node.add_underscored_signal(signal_name);
+                    } 
+                }
+            
+            } else{
+                unreachable!()
             }
             Option::None
         }
@@ -3157,6 +3190,10 @@ fn safe_unwrap_to_valid_bus_node_pointer(folded_value: FoldedValue, line: u32) -
     debug_assert!(FoldedValue::valid_bus_node_pointer(&folded_value), "Caused by call at {}", line);
     folded_value.bus_node_pointer.unwrap()
 }
+fn safe_unwrap_to_bus_slice(folded_value: FoldedValue, line: u32) -> (String, BusSlice) {
+    debug_assert!(FoldedValue::valid_arithmetic_slice(&folded_value), "Caused by call at {}", line);
+    folded_value.bus_slice.unwrap()
+}
 fn safe_unwrap_to_single<C: Clone>(slice: MemorySlice<C>, line: u32) -> C {
     debug_assert!(slice.is_single(), "Caused by call at {}", line);
     MemorySlice::unwrap_to_single(slice)
@@ -3247,6 +3284,10 @@ fn treat_result_with_memory_error_void(
                         },
                         TypeAssignmentError::NoInitializedComponent =>{
                             Report::error("Exception caused by invalid assignment: trying to assign a value to a signal of a component that has not been initialized".to_string(),
+                                RuntimeError)
+                        },
+                        TypeAssignmentError::DifferentBusInstances =>{
+                            Report::error("Exception caused by invalid assignment: trying to assign a different instance of the bus. The instances of the buses should be equal".to_string(),
                                 RuntimeError)
                         }
                     }
@@ -3354,6 +3395,10 @@ pub fn treat_result_with_memory_error<C>(
                         },
                         TypeAssignmentError::NoInitializedComponent =>{
                             Report::error("Exception caused by invalid assignment: trying to assign a value to a signal of a component that has not been initialized".to_string(),
+                                RuntimeError)
+                        },
+                        TypeAssignmentError::DifferentBusInstances =>{
+                            Report::error("Exception caused by invalid assignment: trying to assign a different instance of the bus. The instances of the buses should be equal".to_string(),
                                 RuntimeError)
                         }
                     }

@@ -525,7 +525,10 @@ impl ComponentRepresentation {
     ) -> Result<(), MemoryError> {
 
         // check that the tags are correct and update values
-        ComponentRepresentation::handle_tag_assignment_no_init(component, bus_name, tags)?;
+        //ComponentRepresentation::handle_tag_assignment_no_init(component, bus_name, tags)?;
+        
+        // TODO: add the info of the fields, not of the bus
+
         component.to_assign_input_bus_fields.push((bus_name.to_string(), access.clone(), field_value));
         
         Result::Ok(())
@@ -582,7 +585,7 @@ impl ComponentRepresentation {
             access.remaining_access.as_ref().unwrap(),
             folded_arg,
             Some(tags),
-            false
+            true // it is an input so check tags instead of propagate
         )?;
         
         

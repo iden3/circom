@@ -122,21 +122,6 @@ impl BusRepresentation {
             } else{
                 component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
             }
-            // add the tags 
-            if node.signal_to_tags.get(symbol).is_some(){
-                let defined_tags = node.signal_to_tags.get(symbol).unwrap();
-                let mut definitions = BTreeMap::new();
-                let mut values = BTreeMap::new();
-                for (tag, value) in defined_tags{
-                    let tag_state = TagState{defined:true, value_defined: value.is_some(), complete: true};
-                    definitions.insert(tag.clone(), tag_state);
-                    values.insert(tag.clone(), value.clone());
-
-                }
-                component.field_tags.insert(symbol.clone(), (definitions, values));
-            } else{
-                component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
-            }
             if is_output_bus{
                 component.unassigned_fields.remove(symbol);
             }
@@ -495,6 +480,11 @@ impl BusRepresentation {
         
         if self.has_assignment{
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
+        }
+
+        // check that they are the same instance of buses
+        if self.node_pointer != assigned_bus.node_pointer{
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::DifferentBusInstances));
         }
 
         self.has_assignment = true;
