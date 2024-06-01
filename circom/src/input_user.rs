@@ -32,7 +32,10 @@ pub struct Input {
     pub no_rounds: usize,
     pub flag_verbose: bool,
     pub prime: String,
-    pub link_libraries : Vec<PathBuf>
+    pub link_libraries : Vec<PathBuf>,
+    pub save_ast: bool,
+    pub ast_path: PathBuf,
+    pub dry_run: bool,
 }
 
 
@@ -105,7 +108,10 @@ impl Input {
             flag_old_heuristics: input_processing::get_flag_old_heuristics(&matches),
             flag_verbose: input_processing::get_flag_verbose(&matches), 
             prime: input_processing::get_prime(&matches)?,
-            link_libraries
+            link_libraries,
+            save_ast: input_processing::get_save_ast(&matches),
+            ast_path: input_processing::get_ast_path(&matches)?,
+            dry_run: input_processing::get_dry_run(&matches),
         })
     }
 
@@ -319,6 +325,7 @@ mod input_processing {
     pub fn get_flag_old_heuristics(matches: &ArgMatches) -> bool {
         matches.is_present("flag_old_heuristics")
     }
+
     pub fn get_prime(matches: &ArgMatches) -> Result<String, ()> {
         
         match matches.is_present("prime"){
@@ -342,6 +349,44 @@ mod input_processing {
                
             false => Ok(String::from("bn128")),
         }
+    }
+
+    pub fn get_save_ast(matches: &ArgMatches) -> bool {
+        matches.occurrences_of("save_ast") > 0
+    }
+
+    pub fn get_ast_path(matches: &ArgMatches) -> Result<PathBuf, ()> {
+        let binding = get_input(&matches)?;
+        let input = binding.file_stem().ok_or(())?.to_str().ok_or(())?;
+        let file_name = &format!("{}_ast.json", input);
+        let output_dir = get_output_path(&matches)?;
+
+        if matches.value_of("save_ast").ok_or(())? == "<path_to_output>/<filename>_ast.json" {
+            return Ok(PathBuf::from(file_name));
+        }
+
+        let path_str = matches.value_of("save_ast").ok_or(())?;
+        let mut path = PathBuf::from(path_str);
+
+        if !path.is_absolute() {
+            path = output_dir.join(path);
+        }
+
+        if path_str.ends_with("/") {
+            let _ = std::fs::create_dir_all(&path);
+        } else if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
+        if path.is_dir() {
+            Ok(PathBuf::from(path.join(file_name).to_str().ok_or(())?))
+        } else {
+            Ok(PathBuf::from(path.to_str().ok_or(())?))
+        }
+    }
+
+    pub fn get_dry_run(matches: &ArgMatches) -> bool {
+        matches.is_present("dry_run")
     }
 
     pub fn view() -> ArgMatches<'static> {
@@ -508,6 +553,21 @@ mod input_processing {
                     .default_value("bn128")
                     .display_order(300)
                     .help("To choose the prime number to use to generate the circuit. Receives the name of the curve (bn128, bls12381, goldilocks, grumpkin, pallas, vesta, secq256r1)"),
+            )
+            .arg(
+                Arg::with_name("save_ast")
+                    .long("save_ast")
+                    .takes_value(true)
+                    .default_value("<path_to_output>/<filename>_ast.json")
+                    .display_order(990)
+                    .help("If --save_ast is specified, the compiler will save the serialized AST of the circuit, accepts a filename or path as argument"),
+            )
+            .arg(
+                Arg::with_name("dry_run")
+                    .long("dry_run")
+                    .takes_value(false)
+                    .display_order(1000)
+                    .help("Does not run the compiler, only checks the input and outputs the AST if --save_ast is present"),
             )
             .get_matches()
     }
