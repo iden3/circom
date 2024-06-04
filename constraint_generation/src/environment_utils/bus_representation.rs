@@ -306,10 +306,21 @@ impl BusRepresentation {
                     match field{
                         FieldTypes::Bus(bus_slice)=>{
                             // case bus -> apply recursion
+
+                            // no tags assigned to the complete bus 
+                            // Check in case input if it is expecting tags, if so return error
+                            if is_input{
+                                if !info_tags.is_empty(){
+                                    let (possible_tag, _) = info_tags.iter().next().unwrap();
+                                    return Result::Err(MemoryError::AssignmentMissingTags(field_name.to_string(), possible_tag.clone()));
+                                }
+                            }
+
+
                             let memory_response = BusSlice::access_values_by_mut_reference(
                             bus_slice, 
                                 &remaining_access.array_access
-                            );
+                            );                            
                             match memory_response{
                                 Result::Ok(mut bus_slice) =>{
                                     assert!(bus_slice.len() == 1);
