@@ -524,11 +524,11 @@ impl ComponentRepresentation {
         tags: &TagInfo,
     ) -> Result<(), MemoryError> {
 
-        // check that the tags are correct and update values
-        //ComponentRepresentation::handle_tag_assignment_no_init(component, bus_name, tags)?;
+        // check that the tags are correct and update values, in this case none inputs
+        // are assigned to the complete bus
+        ComponentRepresentation::handle_tag_assignment_no_init(component, bus_name, &TagInfo::new())?;
         
         // TODO: add the info of the fields, not of the bus
-
         component.to_assign_input_bus_fields.push((bus_name.to_string(), access.clone(), field_value));
         
         Result::Ok(())
