@@ -298,13 +298,13 @@ ParseDeclaration : Statement = {
         ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init)
     },
 
-//    <s:@L> <bus_header: BusHeader> "(" <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol> ")" <init : TupleInitialization?> <e:@R> => {
-//        let (bus_type,xtype) = bus_header;
-//        let mut symbols = symbols;
-//        let meta = Meta::new(s,e);
-//        symbols.push(symbol);
-//        ast_shortcuts::split_bus_declaration_into_single_nodes_and_multisubstitution(meta,bus_type,xtype,symbols, init)
-//    },
+    /*(<s:@L> <bus_header: BusHeader> "(" <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol> ")" <init : TupleInitialization?> <e:@R> => {
+        let (bus_type,xtype) = bus_header;
+        let mut symbols = symbols;
+        let meta = Meta::new(s,e);
+        symbols.push(symbol);
+       ast_shortcuts::split_bus_declaration_into_single_nodes_and_multisubstitution(meta,bus_type,xtype,symbols, init)
+    },*/
 
     <s:@L> "var" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
             let mut symbols = symbols;
@@ -342,9 +342,16 @@ ParseDeclaration : Statement = {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
             symbols.push(symbol);
-            ast_shortcuts::split_bus_declaration_into_single_nodes(meta,bus_type,xtype,symbols,AssignOp::AssignSignal)
+            ast_shortcuts::split_bus_declaration_into_single_nodes(meta,bus_type,xtype,symbols,AssignOp::AssignConstraintSignal)
     },
 
+    <s:@L> <bus_header: BusHeader> <symbols:(<SignalSimpleSymbol> ",")*> <symbol: SignalSimpleSymbol> <e:@R> => {
+        let (bus_type,xtype) = bus_header;
+        let mut symbols = symbols;
+        let meta = Meta::new(s,e);
+        symbols.push(symbol);
+        ast_shortcuts::split_bus_declaration_into_single_nodes(meta,bus_type,xtype,symbols,AssignOp::AssignSignal)
+},
 
     
 };
