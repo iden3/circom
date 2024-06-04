@@ -415,29 +415,80 @@ fn execute_statement(
             debug_assert!(actual_node.is_some());
             let f_left = execute_expression(lhe, program_archive, runtime, flags)?;
             let f_right = execute_expression(rhe, program_archive, runtime, flags)?;
-            let arith_left = safe_unwrap_to_arithmetic_slice(f_left, line!());
-            let arith_right = safe_unwrap_to_arithmetic_slice(f_right, line!());
+            
+            let (arith_left, arith_right) = if FoldedValue::valid_arithmetic_slice(&f_left) &&  FoldedValue::valid_arithmetic_slice(&f_right){
+                let left = safe_unwrap_to_arithmetic_slice(f_left, line!());
+                let right = safe_unwrap_to_arithmetic_slice(f_right, line!());
+                let correct_dims_result = AExpressionSlice::check_correct_dims(&left, &Vec::new(), &right, true);
+                treat_result_with_memory_error_void(
+                    correct_dims_result,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+                (left.destruct().1, right.destruct().1)
+            } else if FoldedValue::valid_bus_slice(&f_left) &&  FoldedValue::valid_bus_slice(&f_right){
+                let (name_left, slice_left) = safe_unwrap_to_bus_slice(f_left, line!());
+                let  (name_right, slice_right) = safe_unwrap_to_bus_slice(f_right, line!());
+                
+                // Generate an arithmetic slice for the buses left and right
+                let mut signals_values_right: Vec<String> = Vec::new();
+                let mut signals_values_left: Vec<String> = Vec::new();
+                
+                // TODO: in case all bus slices contain the same types not needed of 
+                // traversing all of them?
+                for i in 0..BusSlice::get_number_of_cells(&slice_left){
+                    let left_i = treat_result_with_memory_error(
+                        BusSlice::get_reference_to_single_value_by_index(&slice_left, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    let right_i = treat_result_with_memory_error(
+                        BusSlice::get_reference_to_single_value_by_index(&slice_right, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    // ensure same type of bus
+                    if left_i.node_pointer != right_i.node_pointer{
+                        treat_result_with_memory_error(
+                            Result::Err(MemoryError::MismatchedInstances),
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                    }
 
-            let correct_dims_result = AExpressionSlice::check_correct_dims(&arith_left, &Vec::new(), &arith_right, true);
-            treat_result_with_memory_error_void(
-                correct_dims_result,
-                meta,
-                &mut runtime.runtime_errors,
-                &runtime.call_trace,
-            )?;
-            for i in 0..AExpressionSlice::get_number_of_cells(&arith_left){
-                let value_left = treat_result_with_memory_error(
-                    AExpressionSlice::access_value_by_index(&arith_left, i),
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
-                let value_right = treat_result_with_memory_error(
-                    AExpressionSlice::access_value_by_index(&arith_right, i),
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )?;
+                    // TODO: do not call twice to get_accesses and better index
+                                        
+                    let access_index = treat_result_with_memory_error(
+                        BusSlice::get_access_index(&slice_left, i),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    let string_index = create_index_appendix(&access_index); 
+                
+                    signals_values_right.append(&mut left_i.get_accesses_bus(&format!("{}{}", name_left, string_index)));
+                    signals_values_left.append(&mut left_i.get_accesses_bus(&format!("{}{}", name_right, string_index)));
+                }
+                let mut ae_signals_left = Vec::new();
+                for signal_name in signals_values_left{
+                    ae_signals_left.push(AExpr::Signal { symbol: signal_name });
+                }
+                let mut ae_signals_right = Vec::new();
+                for signal_name in signals_values_right{
+                    ae_signals_right.push(AExpr::Signal { symbol: signal_name });
+                }
+                (ae_signals_left, ae_signals_right)
+            } else{
+                unreachable!()
+            };
+
+            for i in 0..arith_left.len(){
+                let value_left = &arith_left[i];
+                let value_right = &arith_right[i];
                 let possible_non_quadratic =
                     AExpr::sub(
                         &value_left, 
@@ -3301,6 +3352,11 @@ fn treat_result_with_memory_error_void(
                             orig, given),
                          RuntimeError)
                 },
+                MemoryError::MismatchedInstances => {
+                    Report::error(
+                        format!("Typing error found: mismatched instances.\n Trying to compare two different instances of a bus, the instances must be equal"),
+                         RuntimeError)
+                },
 
                 MemoryError::UnknownSizeDimension => {
                     Report::error("Array dimension with unknown size".to_string(), RuntimeError)
@@ -3432,6 +3488,11 @@ pub fn treat_result_with_memory_error<C>(
                     Report::error(
                         format!("Typing error found: mismatched dimensions.\n Expected length: {}, given {}",
                             orig, given),
+                         RuntimeError)
+                },
+                MemoryError::MismatchedInstances => {
+                    Report::error(
+                        format!("Typing error found: mismatched instances.\n Trying to compare two different instances of a bus, the instances must be equal"),
                          RuntimeError)
                 },
                 MemoryError::UnknownSizeDimension => {

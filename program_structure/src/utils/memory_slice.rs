@@ -21,6 +21,7 @@ pub enum MemoryError {
     AssignmentError(TypeAssignmentError),
     InvalidAccess(TypeInvalidAccess),
     UnknownSizeDimension,
+    MismatchedInstances,
     MismatchedDimensions(usize, usize),
     MismatchedDimensionsWeak(usize, usize),
     AssignmentMissingTags(String, String),
