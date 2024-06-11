@@ -350,9 +350,15 @@ fn type_statement(
                 }
                 SymbolInformation::Signal(dim)
                 | SymbolInformation::Var(dim) => {
-                    if rhe_type.is_template() || rhe_type.is_bus() {
+                    if rhe_type.is_template()  {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationExpression,
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    } else if  rhe_type.is_bus() {
+                        add_report(
+                            ReportCode::WrongTypesInAssignOperationBus,
                             meta,
                             &mut analysis_information.reports,
                         )
@@ -365,9 +371,15 @@ fn type_statement(
                     }
                 }
                 SymbolInformation::Tag => {
-                    if rhe_type.is_template() || rhe_type.is_bus() {
+                    if rhe_type.is_template()  {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationExpression,
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    } else if  rhe_type.is_bus() {
+                        add_report(
+                            ReportCode::WrongTypesInAssignOperationBus,
                             meta,
                             &mut analysis_information.reports,
                         )
@@ -444,9 +456,15 @@ fn type_statement(
                     } else {
                         return;
                     };
-                    if arg_type.is_template() || arg_type.is_bus() {
+                    if arg_type.is_template() {
                         add_report(
                             ReportCode::MustBeSingleArithmeticT,
+                            meta,
+                            &mut analysis_information.reports,
+                        )
+                    } else if arg_type.is_bus() {
+                        add_report(
+                            ReportCode::MustBeSingleArithmeticB,
                             meta,
                             &mut analysis_information.reports,
                         )
@@ -467,13 +485,19 @@ fn type_statement(
             } else {
                 return;
             };
-            if arg_type.is_template() || arg_type.is_bus() {
+            if arg_type.is_template() {
                 add_report(
                     ReportCode::MustBeSingleArithmeticT,
                     meta,
                     &mut analysis_information.reports,
                 )
-            } else if arg_type.dim() > 0 {
+            } else if arg_type.is_bus() {
+                add_report(
+                    ReportCode::MustBeSingleArithmeticB,
+                    meta,
+                    &mut analysis_information.reports,
+                )
+            }  else if arg_type.dim() > 0 {
                 add_report(
                     ReportCode::MustBeSingleArithmetic(arg_type.dim()),
                     meta,
@@ -510,13 +534,19 @@ fn type_statement(
             } else {
                 return;
             };
-            if cond_type.is_template() || cond_type.is_bus() {
+            if cond_type.is_template() {
                 add_report(
                     ReportCode::MustBeSingleArithmeticT,
                     cond.get_meta(),
                     &mut analysis_information.reports,
                 )
-            } else if cond_type.dim() > 0 {
+            } else if cond_type.is_bus() {
+                add_report(
+                    ReportCode::MustBeSingleArithmeticB,
+                    cond.get_meta(),
+                    &mut analysis_information.reports,
+                )
+            }  else if cond_type.dim() > 0 {
                 add_report(
                     ReportCode::MustBeSingleArithmetic(cond_type.dim()),
                     cond.get_meta(),
@@ -532,13 +562,19 @@ fn type_statement(
             } else {
                 return;
             };
-            if cond_type.is_template() || cond_type.is_bus() {
+            if cond_type.is_template() {
                 add_report(
                     ReportCode::MustBeSingleArithmeticT,
                     cond.get_meta(),
                     &mut analysis_information.reports,
                 )
-            }else if cond_type.dim() > 0 {
+            } else if cond_type.is_bus() {
+                add_report(
+                    ReportCode::MustBeSingleArithmeticB,
+                    cond.get_meta(),
+                    &mut analysis_information.reports,
+                )
+            } else if cond_type.dim() > 0 {
                 add_report(
                     ReportCode::MustBeSingleArithmetic(cond_type.dim()),
                     cond.get_meta(),
@@ -592,9 +628,15 @@ fn type_expression(
             }
             let inferred_dim = values_types[0].dim();
             for (expression, value_type) in values.iter().zip(values_types.iter()) {
-                if value_type.is_template() || value_type.is_bus() {
+                if value_type.is_template() {
                     add_report(
                         ReportCode::InvalidArrayType,
+                        expression.get_meta(),
+                        &mut analysis_information.reports,
+                    );
+                } else if value_type.is_bus() {
+                    add_report(
+                        ReportCode::InvalidArrayTypeB,
                         expression.get_meta(),
                         &mut analysis_information.reports,
                     );
@@ -618,13 +660,19 @@ fn type_expression(
                 );
             };
             let dim_type = type_expression(dimension, program_archive, analysis_information)?;
-            if dim_type.is_template() || dim_type.is_bus() {
+            if dim_type.is_template() {
                 add_report(
                     ReportCode::InvalidArrayType,
                     expression.get_meta(),
                     &mut analysis_information.reports,
                 );
-            } else if dim_type.dim() != 0 {
+            } else if dim_type.is_bus() {
+                add_report(
+                    ReportCode::InvalidArrayTypeB,
+                    expression.get_meta(),
+                    &mut analysis_information.reports,
+                );
+            }else if dim_type.dim() != 0 {
                 add_report(
                     ReportCode::InvalidArrayType,
                     expression.get_meta(),
@@ -695,9 +743,15 @@ fn type_expression(
             } else {
                 return Result::Ok(if_true_type);
             };
-            if cond_type.is_template() || cond_type.is_bus() {
+            if cond_type.is_template() {
                 add_report(
                     ReportCode::MustBeSingleArithmeticT,
+                    cond.get_meta(),
+                    &mut analysis_information.reports,
+                )
+            } else if cond_type.is_bus() {
+                add_report(
+                    ReportCode::MustBeSingleArithmeticB,
                     cond.get_meta(),
                     &mut analysis_information.reports,
                 )
@@ -827,9 +881,15 @@ fn type_expression(
             let mut concrete_types = Vec::new();
             let mut success = Result::Ok(());
             for (arg_expr, arg_type) in args.iter().zip(arg_types.iter()) {
-                if arg_type.is_template() || arg_type.is_bus() {
+                if arg_type.is_template() {
                     success = add_report_and_end(
-                        ReportCode::InvalidArgumentInBusInstantiation,
+                        ReportCode::InvalidArgumentInBusInstantiationT,
+                        arg_expr.get_meta(),
+                        &mut analysis_information.reports,
+                    );
+                } else if arg_type.is_bus() {
+                    success = add_report_and_end(
+                        ReportCode::InvalidArgumentInBusInstantiationB,
                         arg_expr.get_meta(),
                         &mut analysis_information.reports,
                     );
@@ -905,9 +965,15 @@ fn treat_access(
                     access_info.0 += 1;
                 }
                 if let Result::Ok(index_type) = index_response {
-                    if index_type.is_template() || index_type.is_bus() {
+                    if index_type.is_template() {
                         add_report(
                                 ReportCode::InvalidArraySizeT,
+                                index.get_meta(),
+                                &mut analysis_information.reports,
+                            );
+                    } else if index_type.is_bus() {
+                        add_report(
+                                ReportCode::InvalidArraySizeB,
                                 index.get_meta(),
                                 &mut analysis_information.reports,
                             );
@@ -1256,6 +1322,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         InvalidTagAccess => "Tag not found in signal: only accesses to tags that appear in the definition of the signal are allowed".to_string(),
         InvalidTagAccessAfterArray => "Invalid access to the tag of an array element: tags belong to complete arrays, not to individual positions.\n Hint: instead of signal[pos].tag use signal.tag".to_string(),
         InvalidArrayType => "Components can not be declared inside inline arrays".to_string(),
+        InvalidArrayTypeB => "Buses can not be declared inside inline arrays".to_string(),
         InfixOperatorWithWrongTypes | PrefixOperatorWithWrongTypes => {
             "Type not allowed by the operator".to_string()
         }
@@ -1280,7 +1347,8 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
             expected, found)
         }
         InvalidArgumentInCall => "Components can not be passed as arguments".to_string(),
-        InvalidArgumentInBusInstantiation => "Components or buses can not be passed as arguments".to_string(),
+        InvalidArgumentInBusInstantiationT => "Components can not be passed as arguments".to_string(),
+        InvalidArgumentInBusInstantiationB => "Buses can not be passed as arguments".to_string(),
         UnableToTypeFunction => "Unable to infer the type of this function".to_string(),
         MustBeSingleArithmetic(dim) => {
             format!("Must be a single arithmetic expression.\n Found expression of {} dimensions", dim)
@@ -1288,6 +1356,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         MustBeSingleArithmeticT => {
               format!("Must be a single arithmetic expression.\n Found component")
         }
+        MustBeSingleArithmeticB => format!("Must be a single arithmetic expression.\n Found bus"),
         MustBeArithmetic => "Must be a single arithmetic expression or an array of arithmetic expressions. \n Found component".to_string(),
         OutputTagCannotBeModifiedOutside => "Output tag from a subcomponent cannot be modified".to_string(),
         MustBeSameDimension(dim_1, dim_2) =>{
