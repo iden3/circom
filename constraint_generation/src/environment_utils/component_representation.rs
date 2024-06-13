@@ -136,33 +136,36 @@ impl ComponentRepresentation {
         let node = possible_node.unwrap();
         component.is_initialized = true;
 
-        for (symbol, route) in node.inputs() {
-            let signal_slice = SignalSlice::new_with_route(route, &false);
-            let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
-            if signal_slice_size > 0{
-                component.unassigned_inputs
-                    .insert(symbol.clone(), signal_slice_size);
+        for info_wire in node.inputs() {
+            let symbol = &info_wire.name;
+            let route = &info_wire.length;
+            if !info_wire.is_bus{
+                let signal_slice = SignalSlice::new_with_route(route, &false);
+                let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
+                if signal_slice_size > 0{
+                    component.unassigned_inputs
+                        .insert(symbol.clone(), signal_slice_size);
+                }
+                component.inputs.insert(symbol.clone(), signal_slice);
+            } else{
+                let mut initial_value_bus = BusRepresentation::default();
+                let bus_node = node.bus_connexions.get(symbol).unwrap().inspect.goes_to;
+                BusRepresentation::initialize_bus(
+                    &mut initial_value_bus,
+                    bus_node,
+                    scheme,
+                    false // it is not initialized at the begining
+                )?;
+                let bus_slice = BusSlice::new_with_route(route, &initial_value_bus);
+                let bus_slice_size = BusSlice::get_number_of_cells(&bus_slice);
+                if bus_slice_size > 0{
+                    component.unassigned_inputs
+                        .insert(symbol.clone(), bus_slice_size);
+                }
+                component.input_buses.insert(symbol.clone(), bus_slice);
             }
-            component.inputs.insert(symbol.clone(), signal_slice);
         }
 
-        for (symbol, route) in node.bus_inputs() {
-            let mut initial_value_bus = BusRepresentation::default();
-            let bus_node = node.bus_connexions.get(symbol).unwrap().inspect.goes_to;
-            BusRepresentation::initialize_bus(
-                &mut initial_value_bus,
-                bus_node,
-                scheme,
-                false // it is not initialized at the begining
-            )?;
-            let bus_slice = BusSlice::new_with_route(route, &initial_value_bus);
-            let bus_slice_size = BusSlice::get_number_of_cells(&bus_slice);
-            if bus_slice_size > 0{
-                component.unassigned_inputs
-                    .insert(symbol.clone(), bus_slice_size);
-            }
-            component.input_buses.insert(symbol.clone(), bus_slice);
-        }
 
         fn insert_tags_output(node: &crate::execution_data::ExecutedTemplate, symbol: &String, component: &mut ComponentRepresentation) {
             let tags_output = node.signal_to_tags.get(symbol);
@@ -179,25 +182,27 @@ impl ComponentRepresentation {
             }
         }
 
-        for (symbol, route) in node.outputs() {
-            component.outputs.insert(symbol.clone(), SignalSlice::new_with_route(route, &true));
+        for info_wire in node.outputs() {
+            let symbol = &info_wire.name;
+            let route = &info_wire.length;
+            if !info_wire.is_bus{
+                component.outputs.insert(symbol.clone(), SignalSlice::new_with_route(route, &true));
+            } else{
+                let mut initial_value_bus = BusRepresentation::default();
+                let bus_node = node.bus_connexions.get(symbol).unwrap().inspect.goes_to;
+                BusRepresentation::initialize_bus(
+                    &mut initial_value_bus,
+                    bus_node,
+                    scheme,
+                    true // the outputs of the component are initialized at the begining
+                )?;
+                let bus_slice = BusSlice::new_with_route(route, &initial_value_bus);
+    
+                component.output_buses.insert(symbol.clone(), bus_slice);
+            }
             insert_tags_output(node, symbol, component);
         }
         
-        for (symbol, route) in node.bus_outputs() {
-            let mut initial_value_bus = BusRepresentation::default();
-            let bus_node = node.bus_connexions.get(symbol).unwrap().inspect.goes_to;
-            BusRepresentation::initialize_bus(
-                &mut initial_value_bus,
-                bus_node,
-                scheme,
-                true // the outputs of the component are initialized at the begining
-            )?;
-            let bus_slice = BusSlice::new_with_route(route, &initial_value_bus);
-
-            component.output_buses.insert(symbol.clone(), bus_slice);
-        }
-
         component.node_pointer = Option::Some(node_pointer);
 
         let to_assign = std::mem::replace(&mut component.to_assign_inputs, vec![]);

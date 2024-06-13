@@ -56,56 +56,38 @@ impl BusRepresentation {
 
         // if input bus all signals are set initialize to true, else to false
         // initialice the signals
-        for (symbol, route) in node.signal_fields() {
-            let signal_slice = SignalSlice::new_with_route(route, &is_output_bus);
-            let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
-            if signal_slice_size > 0{
-                component.unassigned_fields
-                    .insert(symbol.clone(), signal_slice_size);
-            }
-            let field_signal = FieldTypes::Signal(signal_slice);
-            component.fields.insert(symbol.clone(), field_signal);
-
-            // add the tags 
-            if node.signal_to_tags.get(symbol).is_some(){
-                let defined_tags = node.signal_to_tags.get(symbol).unwrap();
-                let mut definitions = BTreeMap::new();
-                let mut values = BTreeMap::new();
-                for (tag, value) in defined_tags{
-                    let tag_state = TagState{defined:true, value_defined: value.is_some(), complete: true};
-                    definitions.insert(tag.clone(), tag_state);
-                    values.insert(tag.clone(), value.clone());
-
+        for info_field in node.fields() {
+            let symbol = &info_field.name;
+            let route = &info_field.length;
+            if !info_field.is_bus{
+                let signal_slice = SignalSlice::new_with_route(&route, &is_output_bus);
+                let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
+                if signal_slice_size > 0{
+                    component.unassigned_fields
+                        .insert(symbol.clone(), signal_slice_size);
                 }
-                component.field_tags.insert(symbol.clone(), (definitions, values));
+                let field_signal = FieldTypes::Signal(signal_slice);
+                component.fields.insert(symbol.clone(), field_signal);
             } else{
-                component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
+                let bus_connexions = node.bus_connexions();
+                let bus_node = bus_connexions.get(symbol).unwrap().inspect.goes_to;
+                let mut bus_field = BusRepresentation::default();
+                BusRepresentation::initialize_bus(
+                    &mut bus_field,
+                    bus_node,
+                    scheme,
+                    is_output_bus
+                )?;
+                let bus_slice = BusSlice::new_with_route(&route, &bus_field);
+                let bus_slice_size = BusSlice::get_number_of_cells(&bus_slice);
+                if bus_slice_size > 0{
+                    component.unassigned_fields
+                        .insert(symbol.clone(), bus_slice_size);
+                }
+                let field_bus = FieldTypes::Bus(bus_slice);
+                component.fields.insert(symbol.clone(), field_bus);
             }
-            if is_output_bus{
-                component.unassigned_fields.remove(symbol);
-            }
-        }
-
-        // now the buses
-        let bus_connexions = node.bus_connexions();
-        for (symbol, route) in node.bus_fields() {
             
-            let bus_node = bus_connexions.get(symbol).unwrap().inspect.goes_to;
-            let mut bus_field = BusRepresentation::default();
-            BusRepresentation::initialize_bus(
-                &mut bus_field,
-                bus_node,
-                scheme,
-                is_output_bus
-            )?;
-            let bus_slice = BusSlice::new_with_route(route, &bus_field);
-            let bus_slice_size = BusSlice::get_number_of_cells(&bus_slice);
-            if bus_slice_size > 0{
-                component.unassigned_fields
-                    .insert(symbol.clone(), bus_slice_size);
-            }
-            let field_bus = FieldTypes::Bus(bus_slice);
-            component.fields.insert(symbol.clone(), field_bus);
 
             // add the tags 
             if node.signal_to_tags.get(symbol).is_some(){
@@ -126,6 +108,7 @@ impl BusRepresentation {
                 component.unassigned_fields.remove(symbol);
             }
         }
+
 
         component.node_pointer = Option::Some(node_pointer);
 

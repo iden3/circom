@@ -180,7 +180,7 @@ impl ExecutedProgram {
         }
 
         for exe in self.model {
-            let tmp_instance = exe.export_to_circuit(&mut temp_instances);
+            let tmp_instance = exe.export_to_circuit(&mut temp_instances, &self.model_buses);
             temp_instances.push(tmp_instance);
         }
 

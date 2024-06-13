@@ -9,9 +9,13 @@ pub type Constraint = ConstraintGen<String>;
 pub type ParameterContext = BTreeMap<String, AExpressionSlice>;
 pub type TagContext = BTreeMap<String, TagInfo>;
 pub type TagInfo = BTreeMap<String, Option<BigInt>>;
-// From name to dimensions
-pub type SignalCollector = Vec<(String, Vec<usize>)>;
-pub type BusCollector = Vec<(String, Vec<usize>)>;
+// From name to dimensions and if it is bus or not
+pub struct WireData{
+    pub name: String,
+    pub length: Vec<usize>,
+    pub is_bus: bool
+}
+pub type WireCollector = Vec<WireData>;
 pub type ComponentCollector = Vec<(String, Vec<usize>)>;
 pub struct SubComponentData {
     pub name: String,
@@ -23,6 +27,7 @@ pub struct SubComponentData {
 pub struct BusData {
     pub name: String,
     pub goes_to: NodePointer,
+    pub size: usize,
 }
 
 /*

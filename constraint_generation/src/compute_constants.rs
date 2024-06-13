@@ -151,6 +151,7 @@ fn treat_declaration(stmt: &mut Statement, context: &Context, reports: &mut Repo
             AnonymousComponent => {
                 meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
             },
+            
             _ => {
                 for d in dimensions.iter_mut() {
                     let execution_response = treat_dimension(d, context, reports, flags, prime);
