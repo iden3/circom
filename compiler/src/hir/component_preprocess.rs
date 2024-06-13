@@ -109,8 +109,10 @@ fn should_be_removed(stmt: &Statement) -> bool {
     use VariableType::*;
     if let InitializationBlock { xtype, .. } = stmt {
         Component == *xtype || AnonymousComponent == *xtype
-    } else if let Substitution { meta, .. } = stmt {
-        meta.get_type_knowledge().is_component() || meta.get_type_knowledge().is_tag()
+    } else if let Substitution { meta, rhe, .. } = stmt {
+        meta.get_type_knowledge().is_component() 
+            || meta.get_type_knowledge().is_tag()
+            || rhe.is_bus_call() || rhe.is_bus_call_array()
     } else {
         false
     }

@@ -40,6 +40,29 @@ impl Signal {
 }
 
 #[derive(Clone)]
+pub struct Bus{
+    pub name: String,
+    pub lengths: Vec<Length>,
+    pub xtype: SignalType,
+    pub signals: Vec<Signal>,
+    pub buses: Vec<Box<Bus>>,
+    pub local_id: usize,
+    pub dag_local_id: usize,
+}
+impl Bus{
+    pub fn size(&self) -> usize{
+        let mut total_size = 0;
+        for signal in &self.signals{
+            total_size += signal.size();
+        }
+        for bus in &self.buses{
+            total_size += bus.size();
+        }
+        self.lengths.iter().fold(total_size, |p, c| p * (*c))
+    }
+}
+
+#[derive(Clone)]
 pub struct Component {
     pub name: String,
     pub lengths: Vec<Length>,
@@ -60,6 +83,7 @@ pub struct Trigger {
     pub component_name: String,
     pub indexed_with: Vec<usize>,
     pub external_signals: Vec<Signal>,
+    pub external_buses: Vec<Bus>,
     pub has_inputs: bool,
     pub is_parallel: bool,
 }
@@ -93,6 +117,7 @@ pub struct TemplateInstance {
     pub number_of_intermediates: usize,
     pub signals: Vec<Signal>,
     pub signals_to_tags: BTreeMap<String, TagInfo>,
+    pub buses: Vec<Bus>,
     pub components: Vec<Component>,
     pub number_of_components: usize,
     pub triggers: Vec<Trigger>,
@@ -131,6 +156,7 @@ impl TemplateInstance {
             number_of_intermediates: 0,
             number_of_components: config.number_of_components,
             signals: Vec::new(),
+            buses: Vec::new(),
             components: config.components,
             triggers: config.triggers,
             clusters: config.clusters,
@@ -153,6 +179,21 @@ impl TemplateInstance {
             }
         }
         self.signals.push(signal);
+    }
+    pub fn add_bus(&mut self, bus: Bus) {
+        use SignalType::*;
+        match bus.xtype {
+            Input => {
+                self.number_of_inputs += bus.size();
+            }
+            Output => {
+                self.number_of_outputs += bus.size();
+            }
+            Intermediate => {
+                self.number_of_intermediates += bus.size();
+            }
+        }
+        self.buses.push(bus);
     }
 }
 
@@ -215,8 +256,7 @@ impl VCP {
             quick_knowledge: HashMap::new(),
             prime: config.prime,
         };
-        // TODO: continue from here
-        //super::merger::run_preprocessing(&mut vcp, config.program);
+        super::merger::run_preprocessing(&mut vcp, config.program);
         vcp
     }
     pub fn add_witness_list(&mut self, witness: Rc<Vec<usize>>) {

@@ -25,11 +25,22 @@ pub struct SignalInfo{
 }
 
 #[derive(Clone)]
+pub struct BusInfo{
+    signal_type: SignalType,
+    lengths: Vec<usize>,
+    signals: HashMap<String, SignalInfo>,
+    buses: HashMap<String, Box<BusInfo>>,
+}
+
+
+#[derive(Clone)]
 pub struct TemplateDB {
     // one per template instance
     pub signal_addresses: Vec<E>,
     // stores the type and the length of signal
     pub signal_info: Vec<HashMap<String, SignalInfo>>,
+    // stores the type, fields and length of a bus
+    pub bus_info: Vec<HashMap<String, BusInfo>>,
     // template_name to usize
     pub indexes: HashMap<String, usize>,
     // one per generic template, gives its signal to code correspondence
@@ -41,6 +52,7 @@ impl TemplateDB {
             indexes: HashMap::with_capacity(templates.len()),
             signal_addresses: Vec::with_capacity(templates.len()),
             signal_info: Vec::with_capacity(templates.len()),
+            bus_info: Vec::with_capacity(templates.len()),
             signals_id: Vec::with_capacity(templates.len()),
         };
         for tmp in templates {
@@ -59,6 +71,24 @@ impl TemplateDB {
     }
 
     fn add_instance(db: &mut TemplateDB, instance: &TemplateInstance) {
+        fn add_bus(xtype: SignalType, lengths: Vec<usize>, info_signals: Vec<Signal>, info_buses: Vec<Box<Bus>>)-> BusInfo{
+            let mut signals = HashMap::new();
+            for signal in info_signals{
+                let info = SignalInfo{ signal_type: signal.xtype, lengths: signal.lengths};
+                signals.insert(signal.name, info);
+            }
+            let mut buses = HashMap::new();
+            for bus in info_buses.clone(){
+                let info = add_bus(bus.xtype, bus.lengths, bus.signals, bus.buses);
+                buses.insert(bus.name, Box::new(info));
+            }
+            BusInfo{
+                signal_type: xtype,
+                lengths: lengths,
+                signals,
+                buses
+            }
+        }
         if !db.indexes.contains_key(&instance.template_name) {
             let index = db.signals_id.len();
             db.indexes.insert(instance.template_name.clone(), index);
@@ -80,9 +110,15 @@ impl TemplateDB {
             let info = SignalInfo{ signal_type: signal.xtype, lengths: signal.lengths};
             signal_info.insert(signal.name, info);
         }
-        initialize_signals(&mut state, instance.signals.clone());
+        let mut bus_info = HashMap::new();
+        for bus in instance.buses.clone(){
+            let info = add_bus(bus.xtype, bus.lengths, bus.signals, bus.buses);
+            bus_info.insert(bus.name, info);
+        }
+        initialize_signals(&mut state, instance.signals.clone(), instance.buses.clone());
         db.signal_addresses.push(state.environment);
         db.signal_info.push(signal_info);
+        db.bus_info.push(bus_info);
     }
 }
 
@@ -238,7 +274,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
     }
 }
 
-fn initialize_signals(state: &mut State, signals: Vec<Signal>) {
+fn initialize_signals(state: &mut State, signals: Vec<Signal>, buses: Vec<Bus>) {
     for signal in signals {
         let size = signal.lengths.iter().fold(1, |p, c| p * (*c));
         let address = state.reserve_signal(size);
@@ -1357,6 +1393,7 @@ pub struct CodeInfo<'a> {
     pub message_id: usize,
     pub params: Vec<Param>,
     pub signals: Vec<Signal>,
+    pub buses: Vec<Bus>,
     pub files: &'a FileLibrary,
     pub constants: Vec<Argument>,
     pub components: Vec<Component>,
@@ -1393,7 +1430,7 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
     );
     state.string_table = code_info.string_table;
     initialize_components(&mut state, code_info.components);
-    initialize_signals(&mut state, code_info.signals);
+    initialize_signals(&mut state, code_info.signals, code_info.buses);
     initialize_constants(&mut state, code_info.constants);
     initialize_parameters(&mut state, code_info.params);
 

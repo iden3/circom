@@ -1102,15 +1102,15 @@ fn execute_signal_declaration(
                 } else{
                     environment_shortcut_add_input(environment, signal_name, dimensions, &tags);
                 }
-                node.add_input(signal_name, dimensions);
+                node.add_input(signal_name, dimensions, false);
             }
             Output => {
                 environment_shortcut_add_output(environment, signal_name, dimensions, &tags);
-                node.add_output(signal_name, dimensions);
+                node.add_output(signal_name, dimensions, false);
             }
             Intermediate => {
                 environment_shortcut_add_intermediate(environment, signal_name, dimensions, &tags);
-                node.add_intermediate(signal_name, dimensions);
+                node.add_intermediate(signal_name, dimensions, false);
             }
         }
     } else {
@@ -1166,15 +1166,15 @@ fn execute_bus_declaration(
                 } else{
                     environment_shortcut_add_bus_input(environment, bus_name, dimensions, &tags);
                 }
-                node.add_bus_input(bus_name, dimensions);
+                node.add_input(bus_name, dimensions, true);
             }
             Output => {
                 environment_shortcut_add_bus_output(environment, bus_name, dimensions, &tags);
-                node.add_bus_output(bus_name, dimensions);
+                node.add_output(bus_name, dimensions, true);
             }
             Intermediate => {
                 environment_shortcut_add_bus_intermediate(environment, bus_name, dimensions, &tags);
-                node.add_bus_intermediate(bus_name, dimensions);
+                node.add_intermediate(bus_name, dimensions, true);
             }
         }
     } else {
@@ -1804,11 +1804,14 @@ fn perform_assign(
                 )?;
 
             }
+            let bus_info = runtime.exec_program.get_bus_node(bus_pointer).unwrap();
+            let size = bus_info.size;
             match actual_node{
                 ExecutedStructure::Template(node) =>{
                     let data = BusData {
                         name: symbol.to_string(),
                         goes_to: bus_pointer,
+                        size,
                     };
                     let component_symbol = create_array_accessed_symbol(symbol, &accessing_information.array_access);
                     node.add_bus_arrow(component_symbol, data);
@@ -1817,6 +1820,7 @@ fn perform_assign(
                     let data = BusData {
                         name: symbol.to_string(),
                         goes_to: bus_pointer,
+                        size
                     };
                     let component_symbol = create_array_accessed_symbol(symbol, &accessing_information.array_access);
                     node.add_bus_arrow(component_symbol, data);

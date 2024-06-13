@@ -6,6 +6,14 @@ use std::collections::HashMap;
 
 pub type E = VarEnvironment<VCT>;
 
+pub struct InfoBus {
+    pub size: usize,
+    pub signals: HashMap<String, VCT>,
+    pub buses: HashMap<String, (VCT, InfoBus)>
+}
+
+
+
 pub struct GenericFunction {
     pub name: String,
     pub params_names: Vec<String>,
@@ -14,10 +22,11 @@ pub struct GenericFunction {
 }
 
 pub struct State {
-    pub external_signals: HashMap<String, HashMap<String, VCT>>,
+    pub external_signals: HashMap<String, (HashMap<String, VCT>, HashMap<String, (VCT, InfoBus)>)>,
     pub generic_functions: HashMap<String, GenericFunction>,
     pub vcf_collector: Vec<VCF>,
     pub quick_knowledge: HashMap<String, VCT>,
+    pub buses_info: HashMap<String, InfoBus>
 }
 
 pub fn build_function_knowledge(program: ProgramArchive) -> State {
@@ -39,25 +48,56 @@ pub fn build_function_knowledge(program: ProgramArchive) -> State {
         vcf_collector: Vec::new(),
         generic_functions,
         quick_knowledge: HashMap::new(),
+        buses_info: HashMap::new()
     }
 }
 
-pub fn build_component_info(triggers: &Vec<Trigger>) -> HashMap<String, HashMap<String, VCT>> {
+pub fn build_component_info(triggers: &Vec<Trigger>) -> 
+        HashMap<String, (HashMap<String, VCT>, HashMap<String, (VCT, InfoBus)>)> {
     let mut external_signals = HashMap::new();
     for trigger in triggers {
         let mut signals = HashMap::new();
+        let mut buses = HashMap::new();
         for s in &trigger.external_signals {
             signals.insert(s.name.clone(), s.lengths.clone());
         }
-        let signals = match external_signals.remove(&trigger.component_name) {
-            None => signals,
-            Some(old) => max_vct(signals, old),
+        for s in &trigger.external_buses {
+            buses.insert(s.name.clone(), (s.lengths.clone(), build_single_bus_info(s)));
+        }
+        let (signals, buses) = match external_signals.remove(&trigger.component_name){
+            None => (signals, buses),
+            Some((old_signals, old_buses)) =>{
+                (max_vct(signals, old_signals), max_vct_bus(buses, old_buses))
+            }
         };
-        external_signals.insert(trigger.component_name.clone(), signals);
+        external_signals.insert(trigger.component_name.clone(), (signals, buses));
 
     }
     external_signals
 }
+
+pub fn build_buses_info(buses: &Vec<Bus>) -> HashMap<String, InfoBus>{
+    
+    let mut info_buses = HashMap::new();
+    for bus in buses{
+        info_buses.insert(bus.name.clone(), build_single_bus_info(bus));
+    }
+    info_buses
+}
+
+fn build_single_bus_info(bus: &Bus) -> InfoBus{
+    let size = bus.size();
+    let mut signals = HashMap::new();
+    for s in &bus.signals{
+        signals.insert(s.name.clone(), s.lengths.clone());
+    }
+    let mut buses = HashMap::new();
+    for s in &bus.buses{
+        buses.insert(s.name.clone(), (s.lengths.clone(), build_single_bus_info(s)));
+    }
+    InfoBus{size, signals, buses}
+}
+
 fn max_vct(l: HashMap<String, VCT>, mut r: HashMap<String, VCT>) -> HashMap<String, VCT> {
     let mut result = HashMap::new();
 
@@ -72,6 +112,30 @@ fn max_vct(l: HashMap<String, VCT>, mut r: HashMap<String, VCT>) -> HashMap<Stri
     }
     for (s, tr) in r{
         result.insert(s, tr);
+    }
+    result
+}
+fn max_vct_bus(l: HashMap<String, (VCT, InfoBus)>, mut r: HashMap<String, (VCT, InfoBus)>) -> HashMap<String, (VCT, InfoBus)> {
+    fn compute_max_bus(l: InfoBus, r: InfoBus) ->InfoBus{
+        let size = std::cmp::max(l.size, r.size);
+        let signals = max_vct(l.signals, r.signals);
+        let buses = max_vct_bus(l.buses, r.buses);
+        InfoBus{size, signals, buses}
+    }
+    let mut result = HashMap::new();
+
+    for (s, (tl, bl)) in l {
+        if r.contains_key(&s) {
+            let (tr, br) = r.remove(&s).unwrap();
+            let tmax = std::cmp::max(tl, tr);
+            let bmax = compute_max_bus(bl, br);
+            result.insert(s, (tmax, bmax));
+        } else{
+            result.insert(s, (tl, bl));
+        }
+    }
+    for (s, (tr, br)) in r{
+        result.insert(s, (tr, br));
     }
     result
 }
