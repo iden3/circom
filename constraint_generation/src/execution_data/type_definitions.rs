@@ -10,6 +10,7 @@ pub type ParameterContext = BTreeMap<String, AExpressionSlice>;
 pub type TagContext = BTreeMap<String, TagInfo>;
 pub type TagInfo = BTreeMap<String, Option<BigInt>>;
 // From name to dimensions and if it is bus or not
+#[derive(Clone)]
 pub struct WireData{
     pub name: String,
     pub length: Vec<usize>,

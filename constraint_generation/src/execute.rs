@@ -1094,7 +1094,6 @@ fn execute_signal_declaration(
         tags.insert(t.clone(), None);
     } 
     if let Option::Some(node) = actual_node {
-        node.add_ordered_signal(signal_name, dimensions);
         match signal_type {
             Input => {
                 if let Some(tags_input) = node.tag_instances().get(signal_name){
@@ -1158,7 +1157,6 @@ fn execute_bus_declaration(
         tags.insert(t.clone(), None);
     } 
     if let Option::Some(node) = actual_node {
-        //node.add_ordered_signal(signal_name, dimensions);
         match signal_type {
             Input => {
                 if let Some(tags_input) = node.tag_instances().get(bus_name){
