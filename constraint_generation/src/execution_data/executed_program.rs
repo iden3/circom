@@ -130,8 +130,8 @@ impl ExecutedProgram {
 
     pub fn add_bus_node_to_scheme(
         &mut self,
-        mut node: ExecutedBus,
-        analysis: Analysis, // not needed?
+        node: ExecutedBus,
+        _analysis: Analysis, // not needed?
     ) -> NodePointer {
         //use super::filters::*;
         // Clean code???

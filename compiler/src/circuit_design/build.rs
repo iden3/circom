@@ -87,8 +87,7 @@ fn build_template_instances(
             message_id: tmp_id,
             params: Vec::new(),
             header: header.clone(),
-            signals: template.signals,
-            buses: template.buses,
+            wires: template.wires,
             constants: instance_values,
             files: &c_info.file_library,
             triggers: template.triggers,
@@ -153,8 +152,7 @@ fn build_function_instances(
             functions: &c_info.functions,
             params: params.clone(),
             fresh_cmp_id: 0,
-            signals: Vec::with_capacity(0),
-            buses: Vec::with_capacity(0),
+            wires: Vec::with_capacity(0),
             triggers: Vec::with_capacity(0),
             clusters: Vec::with_capacity(0),
             constants: Vec::with_capacity(0),
@@ -268,9 +266,9 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
 fn main_input_list(main: &TemplateInstance) -> InputList {
     use program_structure::ast::SignalType::*;
     let mut input_list = vec![];
-    for s in &main.signals {
-        if s.xtype == Input {
-            input_list.push((s.name.clone(), s.dag_local_id, s.size()));
+    for s in &main.wires {
+        if s.xtype() == Input {
+            input_list.push((s.name().clone(), s.dag_local_id(), s.size()));
         }
     }
     input_list
@@ -309,12 +307,12 @@ fn build_io_map(vcp: &VCP, database: &TemplateDB) -> TemplateInstanceIOMap {
 fn build_input_output_list(instance: &TemplateInstance, database: &TemplateDB) -> InputOutputList {
     use program_structure::ast::SignalType::*;
     let mut io_list = vec![];
-    for s in &instance.signals {
-        if s.xtype != Intermediate {
+    for s in &instance.wires {
+        if s.xtype() != Intermediate {
             let def = IODef {
-                code: TemplateDB::get_signal_id(database, &instance.template_name, &s.name),
-                offset: s.local_id,
-                lengths: s.lengths.clone(),
+                code: TemplateDB::get_signal_id(database, &instance.template_name, s.name()),
+                offset: s.local_id(),
+                lengths: s.lengths().clone(),
             };
             io_list.push(def);
         }
@@ -334,9 +332,9 @@ fn write_main_inputs_log(vcp: &VCP) {
     const INPUT_LOG: &str = "./log_input_signals.txt";
     let main = vcp.get_main_instance().unwrap();
     let mut writer = BufWriter::new(File::create(INPUT_LOG).unwrap());
-    for signal in &main.signals {
-        if signal.xtype == Input {
-            let name = format!("main.{}", &signal.name);
+    for signal in &main.wires {
+        if signal.xtype() == Input {
+            let name = format!("main.{}", &signal.name());
             let length = signal.size();
             let msg = format!("{} {}\n", name, length);
             writer.write_all(msg.as_bytes()).unwrap();

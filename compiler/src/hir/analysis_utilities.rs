@@ -58,12 +58,17 @@ pub fn build_component_info(triggers: &Vec<Trigger>) ->
     for trigger in triggers {
         let mut signals = HashMap::new();
         let mut buses = HashMap::new();
-        for s in &trigger.external_signals {
-            signals.insert(s.name.clone(), s.lengths.clone());
+        for s in &trigger.external_wires {
+            match s{
+                Wire::TSignal(s) =>{
+                    signals.insert(s.name.clone(), s.lengths.clone());
+                },
+                Wire::TBus(s) =>{
+                    buses.insert(s.name.clone(), (s.lengths.clone(), build_single_bus_info(s)));
+                }
+            }
         }
-        for s in &trigger.external_buses {
-            buses.insert(s.name.clone(), (s.lengths.clone(), build_single_bus_info(s)));
-        }
+
         let (signals, buses) = match external_signals.remove(&trigger.component_name){
             None => (signals, buses),
             Some((old_signals, old_buses)) =>{
@@ -76,11 +81,13 @@ pub fn build_component_info(triggers: &Vec<Trigger>) ->
     external_signals
 }
 
-pub fn build_buses_info(buses: &Vec<Bus>) -> HashMap<String, InfoBus>{
+pub fn build_buses_info(wires: &Vec<Wire>) -> HashMap<String, InfoBus>{
     
     let mut info_buses = HashMap::new();
-    for bus in buses{
-        info_buses.insert(bus.name.clone(), build_single_bus_info(bus));
+    for s in wires{
+        if let Wire::TBus(bus) = s{
+            info_buses.insert(bus.name.clone(), build_single_bus_info(bus));
+        }
     }
     info_buses
 }
@@ -88,13 +95,19 @@ pub fn build_buses_info(buses: &Vec<Bus>) -> HashMap<String, InfoBus>{
 fn build_single_bus_info(bus: &Bus) -> InfoBus{
     let size = bus.size();
     let mut signals = HashMap::new();
-    for s in &bus.signals{
-        signals.insert(s.name.clone(), s.lengths.clone());
-    }
     let mut buses = HashMap::new();
-    for s in &bus.buses{
-        buses.insert(s.name.clone(), (s.lengths.clone(), build_single_bus_info(s)));
+
+    for s in &bus.wires{
+        match s{
+            Wire::TSignal(s) =>{
+                signals.insert(s.name.clone(), s.lengths.clone());
+            }
+            Wire::TBus(s) =>{
+                buses.insert(s.name.clone(), (s.lengths.clone(), build_single_bus_info(s)));
+            }
+        }
     }
+
     InfoBus{size, signals, buses}
 }
 
