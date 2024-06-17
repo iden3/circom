@@ -179,7 +179,7 @@ impl fmt::Display for ReportCode {
             InvalidArraySize(..) => "T2033",
             InvalidArraySizeT => "T2033",
             InvalidArrayType => "T2034",
-            InvalidArrayType => "T2034",
+            InvalidArrayTypeB => "T2034",
             ForStatementIllConstructed => "T2035",
             BadArrayAccess => "T2035",
             AssigningAComponentTwice => "T2036",
@@ -234,10 +234,11 @@ impl fmt::Display for ReportCode {
             TupleError => "TAC02",
             UnderscoreWithNoSignalWarning => "TAC03",
             BusWrongNumberOfArguments => "BU01",
-            InvalidArgumentInBusInstantiation => "BU02",
-            InvalidSignalAccessInBus => "BU03",
-            MustBeSameBus => "BU04",
-            MustBeBus => "BU05",
+            InvalidArgumentInBusInstantiationT => "BU02",
+            InvalidArgumentInBusInstantiationB => "BU03",
+            InvalidSignalAccessInBus => "BU04",
+            MustBeSameBus => "BU05",
+            MustBeBus => "BU06",
         };
         f.write_str(string_format)
     }
