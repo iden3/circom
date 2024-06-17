@@ -169,26 +169,6 @@ impl ExecutedTemplate {
         self.ordered_signals.push(wire_info);
     }
 
-    // TODO: same for buses -> needed for custom gates
-    pub fn add_ordered_signal(&mut self, signal_name: &str, dimensions: &[usize]) {
-        fn generate_symbols(name: String, current: usize, dimensions: &[usize]) -> Vec<String> {
-            let symbol_name = name.clone();
-            if current == dimensions.len() {
-                vec![name]
-            } else {
-                let mut generated_symbols = vec![];
-                let mut index = 0;
-                while index < dimensions[current] {
-                    let new_name = format!("{}[{}]", symbol_name, index);
-                    generated_symbols.append(&mut generate_symbols(new_name, current + 1, dimensions));
-                    index += 1;
-                }
-                generated_symbols
-            }
-        }
-
-    }
-
     pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>){
         let tags_signal = self.signal_to_tags.get_mut(signal_name);
         if tags_signal.is_none(){
@@ -373,8 +353,7 @@ impl ExecutedTemplate {
                     is_parallel: data.is_parallel || instances[data.goes_to].is_parallel,
                     runs: instances[data.goes_to].template_header.clone(),
                     template_id: data.goes_to,
-                    external_signals: instances[data.goes_to].signals.clone(), // TODO: only copy signals that are external
-                    external_buses: instances[data.goes_to].buses.clone(),
+                    external_wires: instances[data.goes_to].wires.clone(), // TODO: only copy signals that are external
                     has_inputs: instances[data.goes_to].number_of_inputs > 0,
                 };
                 triggers.push(trigger);
@@ -440,12 +419,12 @@ impl ExecutedTemplate {
                 let bus = exe_bus.build_bus(s.name, s.length, local_id, dag_local_id, Output, buses_info);
                 local_id += bus.size();
                 dag_local_id += bus.size();
-                instance.add_bus(bus);
+                instance.add_signal(Wire::TBus(bus));
             } else{
                 let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Output};
                 local_id += signal.size();
                 dag_local_id += signal.size();
-                instance.add_signal(signal);
+                instance.add_signal(Wire::TSignal(signal));
             }
         }
 
@@ -456,12 +435,12 @@ impl ExecutedTemplate {
                 let bus = exe_bus.build_bus(s.name, s.length, local_id, dag_local_id, Input, buses_info);
                 local_id += bus.size();
                 dag_local_id += bus.size();
-                instance.add_bus(bus);
+                instance.add_signal(Wire::TBus(bus));
             } else{
                 let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Input};
                 local_id += signal.size();
                 dag_local_id += signal.size();
-                instance.add_signal(signal);
+                instance.add_signal(Wire::TSignal(signal));
             }
         }
         for s in not_public {
@@ -471,12 +450,12 @@ impl ExecutedTemplate {
                 let bus = exe_bus.build_bus(s.name, s.length, local_id, dag_local_id, Input, buses_info);
                 local_id += bus.size();
                 dag_local_id += bus.size();
-                instance.add_bus(bus);
+                instance.add_signal(Wire::TBus(bus));
             } else{
                 let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Input};
                 local_id += signal.size();
                 dag_local_id += signal.size();
-                instance.add_signal(signal);
+                instance.add_signal(Wire::TSignal(signal));
             }
         }
         for s in self.intermediates {
@@ -486,12 +465,12 @@ impl ExecutedTemplate {
                 let bus = exe_bus.build_bus(s.name, s.length, local_id, dag_local_id, Intermediate, buses_info);
                 local_id += bus.size();
                 dag_local_id += bus.size();
-                instance.add_bus(bus);
+                instance.add_signal(Wire::TBus(bus));
             } else{
                 let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Intermediate};
                 local_id += signal.size();
                 dag_local_id += signal.size();
-                instance.add_signal(signal);
+                instance.add_signal(Wire::TSignal(signal));
             }
         }
 

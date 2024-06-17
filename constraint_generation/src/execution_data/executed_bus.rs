@@ -129,8 +129,7 @@ impl ExecutedBus {
     ) -> Bus{
         let mut local_id_aux = local_id;
         let mut dag_local_id_aux = dag_local_id;
-        let mut signals =  Vec::new();
-        let mut buses = Vec::new();
+        let mut wires =  Vec::new();
 
         for info_field in &self.fields{
             let (name, lengths) = (&info_field.name, &info_field.length);
@@ -138,17 +137,17 @@ impl ExecutedBus {
                 let signal = Signal { name: name.clone(), lengths: lengths.clone(), local_id: local_id_aux, dag_local_id: dag_local_id_aux, xtype};
                 local_id_aux += signal.size();
                 dag_local_id_aux += signal.size();
-                signals.push(signal);
+                wires.push(Wire::TSignal(signal));
             } else{
                 let bus_node = self.bus_connexions.get(name).unwrap().inspect.goes_to;
                 let exe_bus = buses_info.get(bus_node).unwrap();
                 let bus = exe_bus.build_bus(name.clone(), lengths.clone(), local_id_aux, dag_local_id_aux, xtype, buses_info);
                 local_id_aux += bus.size();
                 dag_local_id_aux += bus.size();
-                buses.push(Box::new(bus));                
+                wires.push(Wire::TBus(bus));                
             }
         }
-        Bus{name, lengths, xtype, local_id, dag_local_id, signals, buses}
+        Bus{name, lengths, xtype, local_id, dag_local_id, wires}
     }
 
    
