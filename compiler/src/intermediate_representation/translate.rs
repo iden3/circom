@@ -661,7 +661,6 @@ fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) 
             op_aux_no: 0,
         }
         .allocate();
-        // TODO: check if this is only used for signals
         let info = SymbolInfo { 
             access_instruction: instruction, 
             dimensions, 
@@ -875,6 +874,7 @@ fn check_tag_access(name_signal: &String, access: &Vec<Access>, state: &mut Stat
 
     let symbol_info = state.environment.get_variable(name_signal).unwrap().clone();
     let mut value_tag = None;
+    // TODO: case tags of buses -> future work
     if !symbol_info.is_component{
         for acc in access {
             match acc {
@@ -1049,6 +1049,7 @@ impl ProcessedSymbol {
                 }
                 ComponentAccess(name) => {
                     // TODO: case buses
+
                     let possible_cmp_id = state.component_to_instance.get(&symbol_name).unwrap().clone();
                     for cmp_id in possible_cmp_id{
                         let aux = context.tmp_database.wire_info[cmp_id].get(&name).unwrap();
