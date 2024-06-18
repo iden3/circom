@@ -165,7 +165,7 @@ impl ExecutedTemplate {
             length: dimensions.to_vec(),
             is_bus
         };
-        self.inputs.push(wire_info.clone());    
+        self.intermediates.push(wire_info.clone());    
         self.ordered_signals.push(wire_info);
     }
 
