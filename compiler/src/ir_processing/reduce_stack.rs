@@ -159,7 +159,7 @@ pub fn reduce_location_rule(lc: LocationRule) -> LocationRule {
             let location = Allocate::allocate(reduce_instruction(*location));
             Indexed { location, template_header }
         }
-        Mapped { signal_code, indexes } => {
+        Mapped { signal_code, indexes, offset } => {
             let no_indexes = InstructionList::len(&indexes);
             let work = indexes;
             let mut indexes = InstructionList::with_capacity(no_indexes);
@@ -167,7 +167,7 @@ pub fn reduce_location_rule(lc: LocationRule) -> LocationRule {
                 let index = Allocate::allocate(reduce_instruction(*index));
                 InstructionList::push(&mut indexes, index);
             }
-            Mapped { signal_code, indexes }
+            Mapped { signal_code, indexes, offset }
         }
     }
 }
