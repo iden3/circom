@@ -1,6 +1,6 @@
 use super::type_given_function::type_given_function;
 use super::type_register::TypeRegister;
-use program_structure::{ast::*, bus_data, program_archive};
+use program_structure::ast::*;
 use program_structure::ast::Expression::Call;
 use program_structure::environment::CircomEnvironment;
 use program_structure::error_code::ReportCode;
