@@ -43,11 +43,12 @@ impl Clone for BusRepresentation {
 
 impl BusRepresentation {
  
+        
     pub fn initialize_bus(
         component: &mut BusRepresentation,
         node_pointer: NodePointer,
         scheme: &ExecutedProgram,
-        is_output_bus: bool
+        is_initialized: bool,
     ) -> Result<(), MemoryError> {
         let possible_node = ExecutedProgram::get_bus_node(scheme, node_pointer);
         assert!(possible_node.is_some());
@@ -55,12 +56,15 @@ impl BusRepresentation {
 
 
         // if input bus all signals are set initialize to true, else to false
+        if is_initialized{
+            component.has_assignment = true;
+        }
         // initialice the signals
         for info_field in node.fields() {
             let symbol = &info_field.name;
             let route = &info_field.length;
             if !info_field.is_bus{
-                let signal_slice = SignalSlice::new_with_route(&route, &is_output_bus);
+                let signal_slice = SignalSlice::new_with_route(&route, &is_initialized);
                 let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
                 if signal_slice_size > 0{
                     component.unassigned_fields
@@ -76,7 +80,7 @@ impl BusRepresentation {
                     &mut bus_field,
                     bus_node,
                     scheme,
-                    is_output_bus
+                    is_initialized
                 )?;
                 let bus_slice = BusSlice::new_with_route(&route, &bus_field);
                 let bus_slice_size = BusSlice::get_number_of_cells(&bus_slice);
@@ -104,7 +108,7 @@ impl BusRepresentation {
             } else{
                 component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
             }
-            if is_output_bus{
+            if is_initialized{
                 component.unassigned_fields.remove(symbol);
             }
         }

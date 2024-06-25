@@ -93,7 +93,7 @@ impl WriteWasm for LoadBucket {
                     instructions.push(";; end of load bucket".to_string());
 		}
             }
-            LocationRule::Mapped { signal_code, indexes , offset} => {
+            LocationRule::Mapped { signal_code, indexes} => {
                 // TODO: ADD THE OFFSET
                 match &self.address_type {
                     AddressType::SubcmpSignal { cmp_address, .. } => {
@@ -192,7 +192,7 @@ impl WriteC for LoadBucket {
         let (mut src_prologue, src_index) =
             if let LocationRule::Indexed { location, .. } = &self.src {
                 location.produce_c(producer, parallel)
-            } else if let LocationRule::Mapped { signal_code, indexes , offset} = &self.src {
+            } else if let LocationRule::Mapped { signal_code, indexes } = &self.src {
 		// TODO: add the offset
         let mut map_prologue = vec![];
 		let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref.clone());

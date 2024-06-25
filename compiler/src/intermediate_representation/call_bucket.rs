@@ -195,7 +195,7 @@ impl WriteWasm for CallBucket {
                         }
                         instructions.push(add32());
                     }
-                    LocationRule::Mapped { signal_code, indexes, offset } => {
+                    LocationRule::Mapped { signal_code, indexes } => {
                         // TODO: add the offset
                         match &data.dest_address_type {
                             AddressType::SubcmpSignal { cmp_address, .. } => {
@@ -423,7 +423,7 @@ impl WriteC for CallBucket {
                 let ((mut dest_prologue, dest_index), my_template_header) =
                     if let LocationRule::Indexed { location, template_header } = &data.dest {
                         (location.produce_c(producer, parallel), template_header.clone())
-		    } else if let LocationRule::Mapped { signal_code, indexes , offset} = &data.dest {
+		    } else if let LocationRule::Mapped { signal_code, indexes} = &data.dest {
 			// TODO: add the offset
             let mut map_prologue = vec![];
 			let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref.clone());

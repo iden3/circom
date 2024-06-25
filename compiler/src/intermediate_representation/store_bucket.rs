@@ -101,7 +101,7 @@ impl WriteWasm for StoreBucket {
                 }
                 instructions.push(add32());
             }
-            LocationRule::Mapped { signal_code, indexes, offset } => {
+            LocationRule::Mapped { signal_code, indexes } => {
                 // TODO: ADD THE OFFSET
                 match &self.dest_address_type {
                     AddressType::SubcmpSignal { cmp_address, .. } => {
@@ -308,7 +308,7 @@ impl WriteC for StoreBucket {
         let ((mut dest_prologue, dest_index), my_template_header) =
             if let LocationRule::Indexed { location, template_header } = &self.dest {
                 (location.produce_c(producer, parallel), template_header.clone())
-            } else if let LocationRule::Mapped { signal_code, indexes , offset} = &self.dest {
+            } else if let LocationRule::Mapped { signal_code, indexes} = &self.dest {
 		// TODO: add the offset
         //if Mapped must be SubcmpSignal
 		let mut map_prologue = vec![];
