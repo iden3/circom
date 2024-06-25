@@ -988,12 +988,12 @@ fn bigint_to_cid(field_tracker: &mut FieldTracker, big: &BigInt) -> usize {
 fn build_signal_location(
     signal: &str,
     cmp_name: &str,
-    indexes: Vec<InstructionPointer>,
+    indexes: Vec<Vec<InstructionPointer>>,
     context: &Context,
     state: &State,
-    dimensions: Vec<usize>,
-    size: usize,
-    offset: usize
+    dimensions: Vec<Vec<usize>>,
+    size: Vec<usize>,
+    offset: Vec<usize>
 ) -> LocationRule {
     use ClusterType::*;
     let database = &context.tmp_database;
@@ -1001,8 +1001,10 @@ fn build_signal_location(
     match cmp_type {
         Mixed { tmp_name } => {
             let signal_code = TemplateDB::get_signal_id(database, tmp_name, signal);
-            let indexes = indexing_instructions_filter(indexes, state);
-            LocationRule::Mapped { signal_code, indexes, offset }
+            // TODO: list of indexes and offsets instead of just index
+            let indexes = indexing_instructions_filter(indexes[0].clone(), state);
+            
+            LocationRule::Mapped { signal_code, indexes }
         }
         Uniform { instance_id, header, .. } => {
             let env = TemplateDB::get_instance_addresses(database, *instance_id);
@@ -1029,16 +1031,17 @@ struct SymbolDef {
 struct ProcessedSymbol {
     line: usize,
     length: usize,
-    symbol_dimensions: Vec<usize>,
-    symbol_size: usize,
+    symbol_dimensions: Vec<Vec<usize>>, // the dimensions of each one of the buses
+    symbol_size: Vec<usize>, // the sizes of the buses
     message_id: usize,
     name: String,
     symbol: SymbolInfo,
     xtype: TypeReduction,
     signal: Option<LocationRule>,
     signal_type: Option<SignalType>,
-    before_signal: Vec<InstructionPointer>,
-    offset: usize, // in case it is a bus indicate the offset of the field
+    before_signal: Vec<Vec<InstructionPointer>>,
+    // in case it is a bus indicate the offset of the field
+    offset: Vec<usize>, 
 }
 
 impl ProcessedSymbol {
@@ -1050,29 +1053,28 @@ impl ProcessedSymbol {
         let mut lengths = symbol_info.dimensions.clone();
         lengths.reverse();
         let mut with_length = symbol_info.size;
-        let mut signal = None;
+        let mut accessed_component_signal = None;
         let mut signal_type = state.signal_to_type.get(&symbol_name).cloned();
-        let mut bf_index = vec![];
-        let mut af_index = vec![];
+        
+        let mut before_index = vec![]; // indexes accessed before component
+        let mut after_indexes = vec![];
+        let mut current_index = vec![]; // indexes accessed after component (or no component)
+        
         let mut multiple_possible_lengths: Vec<Vec<usize>> = vec![];
         let mut is_bus = symbol_info.is_bus;
         let mut is_component = symbol_info.is_component;
         let mut bus_fields = symbol_info.bus_fields.clone();
-        let mut offset = 0;
         
-        let mut symbol_size = symbol_info.size;
-        let mut symbol_dimensions = symbol_info.dimensions.clone();
-
-        if symbol_name == "segments"{
-            println!("OJO");
-        }
+        let mut offset = Vec::new();
+        let mut symbol_size = vec![symbol_info.size];
+        let mut symbol_dimensions = vec![symbol_info.dimensions.clone()];
         
         for acc in definition.acc {
             match acc {
-                ArrayAccess(exp) if signal.is_none() => {
+                ArrayAccess(exp) if accessed_component_signal.is_none() => {
                     let length = lengths.pop().unwrap();
                     with_length /= length;
-                    bf_index.push(translate_expression(exp, state, context));
+                    current_index.push(translate_expression(exp, state, context));
                 }
                 ArrayAccess(exp) => {
                     let mut is_first = true;
@@ -1085,7 +1087,7 @@ impl ProcessedSymbol {
                         }
                     }
                     
-                    af_index.push(translate_expression(exp, state, context));
+                    current_index.push(translate_expression(exp, state, context));
                 }
                 ComponentAccess(name) => {
                     if is_component{
@@ -1103,8 +1105,8 @@ impl ProcessedSymbol {
                                         with_length = aux.size;
                                         bus_fields = None;
 
-                                        symbol_size = aux.size;
-                                        symbol_dimensions = aux.lengths.clone();
+                                        symbol_size = vec![aux.size];
+                                        symbol_dimensions = vec![aux.lengths.clone()];
                                         is_first = false
                                     }
                                 }
@@ -1115,8 +1117,8 @@ impl ProcessedSymbol {
                                     multiple_possible_lengths.push(new_length);
                                     if is_first{
                                         with_length = aux.size;
-                                        symbol_size = aux.size;
-                                        symbol_dimensions = aux.lengths.clone();
+                                        symbol_size = vec![aux.size];
+                                        symbol_dimensions = vec![aux.lengths.clone()];
 
                                         // case buses: update the info
                                         is_bus = true;
@@ -1126,8 +1128,13 @@ impl ProcessedSymbol {
                                 }
                             }
                         }
+
+                        // The current indexes are before index
+                        assert!(after_indexes.len() == 0);
+                        before_index = std::mem::take(&mut current_index);
+
                         is_component = false;
-                        signal = Some(name);
+                        accessed_component_signal = Some(name);
                     } else if is_bus{
                         let fields = bus_fields.unwrap();
                         let field_info = fields.get(&name).unwrap();
@@ -1139,9 +1146,14 @@ impl ProcessedSymbol {
 
                         is_bus = field_info.bus_fields.is_some();
                         bus_fields = field_info.bus_fields.clone();
-                        offset = field_info.offset;
-                        symbol_size = field_info.size;
-                        symbol_dimensions = field_info.lengths.clone();
+
+                        offset.push(field_info.offset);
+                        symbol_size.push(field_info.size);
+                        symbol_dimensions.push(field_info.lengths.clone());
+
+                        // We move the current index into the after_indexes
+                        let aux_index = std::mem::take(&mut current_index);
+                        after_indexes.push(aux_index);
                     } else{
                         unreachable!()
                     }
@@ -1149,7 +1161,12 @@ impl ProcessedSymbol {
                 }
             }
         }
-        if signal.is_some(){
+
+        // We add the latest indexes into after_indexes
+        let aux_index = std::mem::take(&mut current_index);
+        after_indexes.push(aux_index);
+
+        if accessed_component_signal.is_some(){
             let mut is_first = true;
             for possible_length in multiple_possible_lengths{
                 if is_first{
@@ -1169,18 +1186,28 @@ impl ProcessedSymbol {
         // TODO: improve cases, unnecesary clone
         // in case it is a signal of a subcomponent we use the offset when 
         // building the signal location, if not use late
-        let (remaining_offset, remaining_size, remaining_dimensions) = if signal.is_some(){
+        let (remaining_offset, remaining_size, remaining_dimensions, remaining_indexes) = if accessed_component_signal.is_some(){
             // they go to the original vector
-            (0, symbol_info.size, symbol_info.dimensions.clone())
+            (
+                Vec::new(), 
+                vec![symbol_info.size.clone()], 
+                vec![symbol_info.dimensions.clone()],
+                vec![before_index]
+            )
         } else{
-            (offset, symbol_size, symbol_dimensions.clone())
+            (
+                offset.clone(), 
+                symbol_size.clone(), 
+                symbol_dimensions.clone(),
+                after_indexes.clone()
+            )
         };
 
-        let signal_location = signal.map(|signal_name| {
+        let signal_location = accessed_component_signal.map(|signal_name| {
             build_signal_location(
                 &signal_name,
                 &symbol_name,
-                af_index,
+                after_indexes,
                 context,
                 state,
                 symbol_dimensions,
@@ -1199,7 +1226,7 @@ impl ProcessedSymbol {
             symbol_size: remaining_size,
             symbol: symbol_info,
             name: symbol_name,
-            before_signal: bf_index,
+            before_signal: remaining_indexes,
             signal: signal_location,
             signal_type,
             offset: remaining_offset
@@ -1374,39 +1401,27 @@ impl ProcessedSymbol {
 fn compute_full_address(
     state: &State,
     symbol_access_instr: InstructionPointer,
-    dimensions: Vec<usize>,
-    size: usize,
-    indexed_with: Vec<InstructionPointer>,
-    offset: usize,
+    dimensions: Vec<Vec<usize>>, // for each one of the bus accesses one dimensions
+    size: Vec<usize>, // each one of the field sizes
+    indexed_with: Vec<Vec<InstructionPointer>>, // each one of the accesses
+    offset: Vec<usize>, // each one of the field offsets
 ) -> InstructionPointer {
 
     let at = symbol_access_instr;
-    let offset_bucket = ValueBucket {
-        line: at.get_line(),
-        message_id: at.get_message_id(),
-        parse_as: ValueType::U32,
-        op_aux_no: 0,
-        value: offset,
-    }.allocate();
+    let mut stack = vec![];
 
-    if dimensions.is_empty() {
-        if offset != 0{
-            ComputeBucket {
-                line: at.get_line(),
-                message_id: at.get_message_id(),
-                op_aux_no: 0,
-                op: OperatorType::AddAddress,
-                stack: vec![at, offset_bucket],
-            }.allocate()
-        } else{
-            at
-        }
-    } else {
-        let mut with_dimensions = dimensions;
+
+    let number_bus_access = offset.len();
+    assert!(number_bus_access == dimensions.len() - 1);
+    assert!(number_bus_access == size.len() - 1);
+
+    let mut index = 0;
+
+    for mut with_dimensions in dimensions{
         with_dimensions.reverse();
-        let mut linear_length = size;
-        let index_stack = indexing_instructions_filter(indexed_with, state);
-        let mut stack = vec![];
+        let mut linear_length = size[index];
+        // TODO: not needed clone
+        let index_stack = indexing_instructions_filter(indexed_with[index].clone(), state);
         for instruction in index_stack {
             let dimension_length = with_dimensions.pop().unwrap();
             linear_length /= dimension_length;
@@ -1428,12 +1443,21 @@ fn compute_full_address(
             .allocate();
             stack.push(jump);
         }
-        if offset != 0{
+        if index != number_bus_access && offset[index] != 0{
+            let offset_bucket = ValueBucket {
+                line: at.get_line(),
+                message_id: at.get_message_id(),
+                parse_as: ValueType::U32,
+                op_aux_no: 0,
+                value: offset[index],
+            }.allocate();
             stack.push(offset_bucket);
         }
-        stack.push(at);
-        fold(OperatorType::AddAddress, stack, state)
+        index += 1;
     }
+
+    stack.push(at);
+    fold(OperatorType::AddAddress, stack, state)
 }
 
 fn indexing_instructions_filter(
