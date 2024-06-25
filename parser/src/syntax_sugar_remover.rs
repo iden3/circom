@@ -502,14 +502,13 @@ pub fn remove_anonymous_from_expression(
             else{
                 let inputs = template.unwrap().get_declaration_inputs();
                 let mut n_expr = 0;
+                if inputs.len() != signals.len() {
+                    return Result::Err(anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
+                }
                 for value in signals {
                     inputs_to_assignments.insert(inputs[n_expr].0.clone(), (AssignOp::AssignConstraintSignal, value));
                     n_expr += 1;
-                }
-                
-                if inputs.len() != inputs_to_assignments.len() {
-                    return Result::Err(anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
-                }
+                }    
             }
             
 

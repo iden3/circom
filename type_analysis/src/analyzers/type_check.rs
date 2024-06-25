@@ -121,15 +121,37 @@ fn check_main_has_tags(initial_expression: &Expression, program_archive: &Progra
     if let Call { id, .. } = initial_expression {
         let inputs = program_archive.get_template_data(id).get_inputs();
         let mut tag_in_inputs = false;
-        for input in inputs {
-            if !input.1.get_tags().is_empty(){
+        for (_name,info) in inputs {
+            if !info.get_tags().is_empty(){
                 tag_in_inputs = true;
                 break;
+            } else if let WireType::Bus(bus_name) = info.get_type() {
+                if check_bus_contains_tag_recursive(bus_name, program_archive){
+                    tag_in_inputs = true;
+                    break;
+                }
             }
         }
         tag_in_inputs
     }
     else { unreachable!()}
+}
+
+fn check_bus_contains_tag_recursive(bus_name: String, program_archive: &ProgramArchive) -> bool {
+    let bus_data = program_archive.get_bus_data(&bus_name);
+    let mut tag_in_inputs = false;
+    for (_name, info) in bus_data.get_fields() {
+        if !info.get_tags().is_empty(){
+            tag_in_inputs = true;
+            break;
+        } else if let WireType::Bus(bus_name) = info.get_type() {
+            if check_bus_contains_tag_recursive(bus_name, program_archive){
+                tag_in_inputs = true;
+                break;
+            }
+        }
+    }
+    tag_in_inputs
 }
 
 fn type_statement(
