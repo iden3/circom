@@ -19,7 +19,7 @@ pub struct BusInfo{
     pub name: String,
     pub size: usize,
     pub start: usize,
-    pub fields: Vec<WireInfo>
+    pub bus_id: usize
 }
 
 pub enum WireInfo{

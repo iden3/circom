@@ -12,47 +12,6 @@ type Length = usize;
 pub type E = VarEnvironment<SymbolInfo>;
 pub type FieldTracker = ConstantTracker<String>;
 
-#[derive(Clone)]
-pub struct FieldInfo{
-    offset: usize,
-    lengths: Vec<usize>,
-    size: usize,
-    bus_fields: Option<HashMap<String, FieldInfo>>,
-    field_id: usize
-}
-
-fn build_field_info(wire: Wire, offset: usize, field_id: usize) -> FieldInfo{
-    
-    let lengths = wire.lengths().clone();
-    let size = wire.size();
-    let mut aux_offset = offset;
-    let possible_fields = match wire{
-        Wire::TSignal(_) =>{
-            None
-        },
-        Wire::TBus(b) =>{
-            let mut fields = HashMap::new();
-            let mut aux_id = 0;
-            for field in b.wires{
-                let size = field.size();
-                let name = field.name().clone();
-                let info = build_field_info(field, aux_offset, aux_id);
-                fields.insert(name, info);
-                aux_offset += size;
-                aux_id += 1;
-            }
-            Some(fields)
-        }
-    };
-    FieldInfo{
-        bus_fields: possible_fields, 
-        offset,
-        lengths,
-        size,
-        field_id
-    }
-
-}
 
 #[derive(Clone)]
 pub struct SymbolInfo {
@@ -61,7 +20,7 @@ pub struct SymbolInfo {
     size: usize, // needed, in case it is a bus to dont have to compute it again
     is_component: bool,
     is_bus: bool,
-    bus_fields: Option<HashMap<String, FieldInfo>>,
+    bus_id: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -81,7 +40,7 @@ pub struct SignalInfo{
 pub struct BusInfo{
     signal_type: SignalType,
     lengths: Vec<usize>,
-    fields: HashMap<String, FieldInfo>,
+    bus_id: usize,
     size: usize,
 }
 
@@ -142,20 +101,19 @@ impl TemplateDB {
             match wire{
                 Wire::TSignal(signal) =>{
                     let info = SignalInfo{ 
-                        size: signal.size(),
+                        size: signal.size,
                         signal_type: signal.xtype, 
                         lengths: signal.lengths.clone(), 
                     };
                     wire_info.insert(signal.name.clone(), WireInfo::Signal(info));
                 },
                 Wire::TBus(bus) =>{
-                    let fields = build_field_info(wire.clone(), 0, 0);
 
                     let info = BusInfo{ 
-                        size: bus.size(),
+                        size: bus.size,
                         signal_type: bus.xtype, 
                         lengths: bus.lengths.clone(), 
-                        fields: fields.bus_fields.unwrap()
+                        bus_id: bus.bus_id
                     };
                     wire_info.insert(bus.name.clone(), WireInfo::Bus(info));
                 }
@@ -240,6 +198,7 @@ struct Context<'a> {
     tmp_database: &'a TemplateDB,
     functions: &'a HashMap<String, Vec<Length>>,
     cmp_to_type: HashMap<String, ClusterType>,
+    buses: &'a Vec<BusInstance>
 }
 
 fn initialize_parameters(state: &mut State, params: Vec<Param>) {
@@ -261,7 +220,7 @@ fn initialize_parameters(state: &mut State, params: Vec<Param>) {
                  access_instruction: address_instruction.clone(), 
                  is_component:false,
                  is_bus: false,
-                 bus_fields: None,
+                 bus_id: None,
                  size: full_size
                  };
         state.environment.add_variable(&p.name, symbol_info);
@@ -287,7 +246,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
                 dimensions, 
                 is_component:false,
                 is_bus: false,
-                bus_fields: None,
+                bus_id: None,
                 size
              };
         state.environment.add_variable(&arg.name, symbol_info);
@@ -343,7 +302,15 @@ fn initialize_signals(state: &mut State, wires: Vec<Wire>) {
         let name = wire.name().clone();
         let xtype = wire.xtype();
 
-        let wire_info = build_field_info(wire, 0, 0);
+        let (is_bus, bus_id) = match wire{
+            Wire::TBus(bus) =>{
+                (true, Some(bus.bus_id))
+            },
+            Wire::TSignal(_) =>{
+                (false, None)
+            }
+        };
+
         let instruction = ValueBucket {
             line: 0,
             message_id: state.message_id,
@@ -356,8 +323,8 @@ fn initialize_signals(state: &mut State, wires: Vec<Wire>) {
             access_instruction: instruction, 
             dimensions, 
             is_component:false,
-            is_bus: wire_info.bus_fields.is_some(),
-            bus_fields: wire_info.bus_fields,
+            is_bus,
+            bus_id,
             size
         };
         state.environment.add_variable(&name, info);
@@ -383,7 +350,7 @@ fn initialize_components(state: &mut State, components: Vec<Component>) {
             dimensions: component.lengths, 
             is_component: true,
             is_bus: false,
-            bus_fields: None,
+            bus_id: None,
             size
          };
         state.environment.add_variable(&component.name, info);
@@ -677,7 +644,7 @@ fn translate_declaration(stmt: Statement, state: &mut State, context: &Context) 
             dimensions, 
             is_component: false,
             is_bus: false,
-            bus_fields: None,
+            bus_id: None,
             size
         };
         state.environment.add_variable(&name, info);
@@ -1074,7 +1041,13 @@ impl ProcessedSymbol {
         let mut multiple_possible_lengths: Vec<Vec<usize>> = vec![];
         let mut is_bus = symbol_info.is_bus;
         let mut is_component = symbol_info.is_component;
-        let mut bus_fields = symbol_info.bus_fields.clone();
+        
+        let mut bus_fields = if symbol_info.bus_id.is_some(){
+            let id = symbol_info.bus_id.unwrap();
+            Some(context.buses.get(id).unwrap().fields.clone())
+        } else{
+            None
+        };
         
         let mut offset = Vec::new();
         let mut field_ids = Vec::new();
@@ -1134,7 +1107,8 @@ impl ProcessedSymbol {
 
                                         // case buses: update the info
                                         is_bus = true;
-                                        bus_fields = Some(aux.fields.clone());
+                                        
+                                        bus_fields = Some(context.buses.get(aux.bus_id).unwrap().fields.clone());
                                         is_first = false;
                                     }
                                 }
@@ -1150,19 +1124,24 @@ impl ProcessedSymbol {
                     } else if is_bus{
                         let fields = bus_fields.unwrap();
                         let field_info = fields.get(&name).unwrap();
-                        let mut new_length = field_info.lengths.clone();
+                        let mut new_length = field_info.dimensions.clone();
                         new_length.reverse();
                         multiple_possible_lengths = vec![new_length.clone()];
                         lengths = new_length;
                         with_length = field_info.size;
 
-                        is_bus = field_info.bus_fields.is_some();
-                        bus_fields = field_info.bus_fields.clone();
+                        is_bus = field_info.bus_id.is_some();
+                        bus_fields = if field_info.bus_id.is_some(){
+                            let id = field_info.bus_id.unwrap();
+                            Some(context.buses.get(id).unwrap().fields.clone())
+                        } else{
+                            None
+                        };
 
                         offset.push(field_info.offset);
                         field_ids.push(field_info.field_id);
                         symbol_size.push(field_info.size);
-                        symbol_dimensions.push(field_info.lengths.clone());
+                        symbol_dimensions.push(field_info.dimensions.clone());
 
                         // We move the current index into the after_indexes
                         let aux_index = std::mem::take(&mut current_index);
@@ -1696,6 +1675,7 @@ pub struct CodeInfo<'a> {
     pub component_to_parallel: HashMap<String, ParallelClusters>,
     pub string_table: HashMap<String, usize>,
     pub signals_to_tags: BTreeMap<String, TagInfo>,
+    pub buses: &'a Vec<BusInstance>
 }
 
 pub struct CodeOutput {
@@ -1729,6 +1709,7 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         functions: code_info.functions,
         cmp_to_type: code_info.cmp_to_type,
         tmp_database: code_info.template_database,
+        buses: code_info.buses
     };
 
     create_components(&mut state, &code_info.triggers, code_info.clusters);

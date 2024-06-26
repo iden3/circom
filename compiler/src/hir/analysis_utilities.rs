@@ -52,7 +52,7 @@ pub fn build_function_knowledge(program: ProgramArchive) -> State {
     }
 }
 
-pub fn build_component_info(triggers: &Vec<Trigger>) -> 
+pub fn build_component_info(triggers: &Vec<Trigger>, buses_table: &Vec<BusInstance>) -> 
         HashMap<String, (HashMap<String, VCT>, HashMap<String, (VCT, InfoBus)>)> {
     let mut external_signals = HashMap::new();
     for trigger in triggers {
@@ -64,7 +64,7 @@ pub fn build_component_info(triggers: &Vec<Trigger>) ->
                     signals.insert(s.name.clone(), s.lengths.clone());
                 },
                 Wire::TBus(s) =>{
-                    buses.insert(s.name.clone(), (s.lengths.clone(), build_single_bus_info(s)));
+                    buses.insert(s.name.clone(), (s.lengths.clone(), build_single_bus_info(s.bus_id, buses_table)));
                 }
             }
         }
@@ -81,34 +81,38 @@ pub fn build_component_info(triggers: &Vec<Trigger>) ->
     external_signals
 }
 
-pub fn build_buses_info(wires: &Vec<Wire>) -> HashMap<String, InfoBus>{
+pub fn build_buses_info(wires: &Vec<Wire>, buses_table: &Vec<BusInstance>) -> HashMap<String, InfoBus>{
     
     let mut info_buses = HashMap::new();
     for s in wires{
         if let Wire::TBus(bus) = s{
-            info_buses.insert(bus.name.clone(), build_single_bus_info(bus));
+            info_buses.insert(bus.name.clone(), build_single_bus_info(bus.bus_id, buses_table));
         }
     }
     info_buses
 }
 
-fn build_single_bus_info(bus: &Bus) -> InfoBus{
-    let size = bus.size();
+fn build_single_bus_info(bus_id: usize, buses_table: &Vec<BusInstance>) -> InfoBus{
+    let bus_instance = buses_table.get(bus_id).unwrap();
     let mut signals = HashMap::new();
     let mut buses = HashMap::new();
 
-    for s in &bus.wires{
-        match s{
-            Wire::TSignal(s) =>{
-                signals.insert(s.name.clone(), s.lengths.clone());
-            }
-            Wire::TBus(s) =>{
-                buses.insert(s.name.clone(), (s.lengths.clone(), build_single_bus_info(s)));
-            }
+    for (name,s) in &bus_instance.fields{
+        if s.bus_id.is_none(){ // case signal
+            signals.insert(
+                name.clone(), 
+                s.dimensions.clone()
+            );
+        } else{
+            let bus_id = s.bus_id.unwrap();
+            buses.insert(
+                name.clone(), 
+                (s.dimensions.clone(), build_single_bus_info(bus_id, buses_table))
+            );
         }
     }
 
-    InfoBus{size, signals, buses}
+    InfoBus{size: bus_instance.size, signals, buses}
 }
 
 fn max_vct(l: HashMap<String, VCT>, mut r: HashMap<String, VCT>) -> HashMap<String, VCT> {
