@@ -18,9 +18,10 @@ pub struct FieldInfo{
     lengths: Vec<usize>,
     size: usize,
     bus_fields: Option<HashMap<String, FieldInfo>>,
+    field_id: usize
 }
 
-fn build_field_info(wire: Wire, offset: usize) -> FieldInfo{
+fn build_field_info(wire: Wire, offset: usize, field_id: usize) -> FieldInfo{
     
     let lengths = wire.lengths().clone();
     let size = wire.size();
@@ -31,12 +32,14 @@ fn build_field_info(wire: Wire, offset: usize) -> FieldInfo{
         },
         Wire::TBus(b) =>{
             let mut fields = HashMap::new();
+            let mut aux_id = 0;
             for field in b.wires{
                 let size = field.size();
                 let name = field.name().clone();
-                let info = build_field_info(field, aux_offset);
+                let info = build_field_info(field, aux_offset, aux_id);
                 fields.insert(name, info);
                 aux_offset += size;
+                aux_id += 1;
             }
             Some(fields)
         }
@@ -45,7 +48,8 @@ fn build_field_info(wire: Wire, offset: usize) -> FieldInfo{
         bus_fields: possible_fields, 
         offset,
         lengths,
-        size
+        size,
+        field_id
     }
 
 }
@@ -145,7 +149,7 @@ impl TemplateDB {
                     wire_info.insert(signal.name.clone(), WireInfo::Signal(info));
                 },
                 Wire::TBus(bus) =>{
-                    let fields = build_field_info(wire.clone(), 0);
+                    let fields = build_field_info(wire.clone(), 0, 0);
 
                     let info = BusInfo{ 
                         size: bus.size(),
@@ -339,7 +343,7 @@ fn initialize_signals(state: &mut State, wires: Vec<Wire>) {
         let name = wire.name().clone();
         let xtype = wire.xtype();
 
-        let wire_info = build_field_info(wire, 0);
+        let wire_info = build_field_info(wire, 0, 0);
         let instruction = ValueBucket {
             line: 0,
             message_id: state.message_id,
@@ -993,7 +997,8 @@ fn build_signal_location(
     state: &State,
     dimensions: Vec<Vec<usize>>,
     size: Vec<usize>,
-    offset: Vec<usize>
+    offset: Vec<usize>,
+    field_ids: Vec<usize>
 ) -> LocationRule {
     use ClusterType::*;
     let database = &context.tmp_database;
@@ -1001,10 +1006,16 @@ fn build_signal_location(
     match cmp_type {
         Mixed { tmp_name } => {
             let signal_code = TemplateDB::get_signal_id(database, tmp_name, signal);
-            // TODO: list of indexes and offsets instead of just index
-            let indexes = indexing_instructions_filter(indexes[0].clone(), state);
             
-            LocationRule::Mapped { signal_code, indexes }
+            let mut accesses = Vec::new();
+            let mut i = 0;
+            for indexes in indexes{
+                let filtered = indexing_instructions_filter(indexes, state);
+                accesses.push(AccessType::Indexed(filtered));
+                accesses.push(AccessType::Qualified(field_ids[i]));
+                i+=1;
+            }
+            LocationRule::Mapped { signal_code, indexes: accesses }
         }
         Uniform { instance_id, header, .. } => {
             let env = TemplateDB::get_instance_addresses(database, *instance_id);
@@ -1066,6 +1077,7 @@ impl ProcessedSymbol {
         let mut bus_fields = symbol_info.bus_fields.clone();
         
         let mut offset = Vec::new();
+        let mut field_ids = Vec::new();
         let mut symbol_size = vec![symbol_info.size];
         let mut symbol_dimensions = vec![symbol_info.dimensions.clone()];
         
@@ -1148,6 +1160,7 @@ impl ProcessedSymbol {
                         bus_fields = field_info.bus_fields.clone();
 
                         offset.push(field_info.offset);
+                        field_ids.push(field_info.field_id);
                         symbol_size.push(field_info.size);
                         symbol_dimensions.push(field_info.lengths.clone());
 
@@ -1212,7 +1225,8 @@ impl ProcessedSymbol {
                 state,
                 symbol_dimensions,
                 symbol_size,
-                offset
+                offset, 
+                field_ids
             )
         });
 

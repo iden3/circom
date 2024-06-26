@@ -225,7 +225,11 @@ impl WriteWasm for CallBucket {
                                 ))); // get position in component io signal to info list
                                 let signal_code_in_bytes = signal_code * 4; //position in the list of the signal code
                                 instructions.push(load32(Some(&signal_code_in_bytes.to_string()))); // get where the info of this signal is
-                                                                                                    //now we have first the offset and then the all size dimensions but the last one
+                                
+                                // TODO: INDEXES MIGHT BE INDEX OR QUALIFIED
+                                // descomentar todo lo siguiente, quitado para evitar error
+                                
+                                /*                                                            //now we have first the offset and then the all size dimensions but the last one
                                 if indexes.len() <= 1 {
                                     instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
                                     if indexes.len() == 1 {
@@ -260,6 +264,7 @@ impl WriteWasm for CallBucket {
                                     instructions.push(mul32()); // We have the total move in bytes
                                     instructions.push(add32()); // add to the offset of the signal
                                 }
+                                */
                                 instructions.push(get_local(producer.get_sub_cmp_tag()));
                                 instructions.push(set_constant(
                                     &producer.get_signal_start_address_in_component().to_string(),
@@ -431,7 +436,10 @@ impl WriteC for CallBucket {
 						     circom_calc_wit(), template_ins_2_io_info(),
 						     template_id_in_component(sub_component_pos_in_memory.clone()),
 						     signal_code.to_string());
-			if indexes.len()>0 {
+			// TODO: INDEXES MIGHT BE INDEX OR QUALIFIED
+            // descomentar todo lo siguiente, quitado para evitar error
+            /* 
+            if indexes.len()>0 {
 			    map_prologue.push(format!("{{"));
 			    map_prologue.push(format!("uint map_index_aux[{}];",indexes.len().to_string()));		    
 			    let (mut index_code_0, mut map_index) = indexes[0].produce_c(producer, parallel);
@@ -449,6 +457,7 @@ impl WriteC for CallBucket {
 			    }
 			    map_access = format!("{}+{}",map_access,map_index);
 			}
+            */
 			((map_prologue, map_access),Some(template_id_in_component(sub_component_pos_in_memory.clone())))
                     } else {
 			assert!(false);
