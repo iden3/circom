@@ -6,6 +6,7 @@ pub use super::compute_bucket::{ComputeBucket, OperatorType};
 pub use super::create_component_bucket::CreateCmpBucket;
 pub use super::load_bucket::LoadBucket;
 pub use super::location_rule::LocationRule;
+pub use super::location_rule::AccessType;
 pub use super::log_bucket::LogBucket;
 pub use super::loop_bucket::LoopBucket;
 pub use super::return_bucket::ReturnBucket;
