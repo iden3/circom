@@ -24,6 +24,7 @@ impl PartialEq for Argument {
     }
 }
 
+// TODO: precompute the size and store
 #[derive(Clone)]
 pub enum Wire{
     TSignal(Signal),

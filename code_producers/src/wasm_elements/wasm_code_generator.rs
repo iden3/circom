@@ -567,7 +567,9 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
         producer.get_shared_rw_memory_start() - 8,
         "\\00\\00\\00\\00\\00\\00\\00\\80"
     ));
-    let map = generate_hash_map(&producer.get_main_input_list());
+    // TODO: change generate_hash_map to new inputlist
+    let map = Vec::new();
+    //let map = generate_hash_map(&producer.get_main_input_list());
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_input_signals_hashmap_start(),

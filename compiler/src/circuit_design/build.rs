@@ -265,10 +265,38 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
 
 fn main_input_list(main: &TemplateInstance) -> InputList {
     use program_structure::ast::SignalType::*;
+    use crate::hir::very_concrete_program::Wire::*;
+    fn build_info_wire(wire: &Wire) -> WireInfo{
+        match wire{
+            TSignal(info) =>{
+                WireInfo::Signal(
+                    SignalInfo{
+                        name: info.name.clone(),
+                        size: info.size(),
+                        start: info.dag_local_id
+                    }
+                )
+            },
+            TBus(info) =>{
+                let mut info_fields = Vec::new();
+                for field in &info.wires{
+                    info_fields.push(build_info_wire(field));
+                }
+                WireInfo::Bus(
+                    BusInfo{
+                        name: info.name.clone(),
+                        size: info.size(),
+                        start: info.dag_local_id,
+                        fields: info_fields
+                    }
+                )
+            }
+        }
+    }
     let mut input_list = vec![];
     for s in &main.wires {
-        if s.xtype() == Input {
-            input_list.push((s.name().clone(), s.dag_local_id(), s.size()));
+        if s.xtype() == Input {         
+            input_list.push(build_info_wire(s));
         }
     }
     input_list

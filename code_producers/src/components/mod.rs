@@ -8,7 +8,26 @@ pub struct IODef {
 }
 
 // It is an array that contains (name, start position, size)
-pub type InputList = Vec<(String, usize, usize)>;
+
+pub struct SignalInfo{
+    pub name: String,
+    pub size: usize,
+    pub start: usize,
+}
+
+pub struct BusInfo{
+    pub name: String,
+    pub size: usize,
+    pub start: usize,
+    pub fields: Vec<WireInfo>
+}
+
+pub enum WireInfo{
+    Signal(SignalInfo),
+    Bus(BusInfo)
+}
+
+pub type InputList = Vec<WireInfo>;
 pub type TemplateList = Vec<String>;
 pub struct InfoParallel{
     pub name: String,
