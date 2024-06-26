@@ -653,7 +653,9 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     //dfile.flush()?;
 
     let aux = producer.get_main_input_list();
-    let map = generate_hash_map(&aux);
+    // TODO: change generate_hash_map to new inputlist
+    //let map = generate_hash_map(&aux);
+    let map = Vec::new();
     let hashmap = generate_dat_from_hash_map(&map); //bytes u64 --> u64
                                                     //let hml = 256 as u32;
                                                     //dfile.write_all(&hml.to_be_bytes())?;
