@@ -22,14 +22,14 @@ fn produce_vcf(vcp: &VCP, state: &mut State) {
         let code = &n.code;
         let constants = &n.header;
         let params = vec![];
-        state.external_signals = build_component_info(&n.triggers);
-        state.buses_info = build_buses_info(&n.wires);
+        state.external_signals = build_component_info(&n.triggers, &vcp.buses);
+        state.buses_info = build_buses_info(&n.wires, &vcp.buses);
         let mut env = build_environment(constants, &params);
         produce_vcf_stmt(code, state, &mut env);
     }
     let mut index = 0;
     while index < state.vcf_collector.len() {
-        state.external_signals = build_component_info(&vec![]);
+        state.external_signals = build_component_info(&vec![], &vcp.buses);
         let mut env = build_environment(&vec![], &state.vcf_collector[index].params_types);
         let body = state.vcf_collector[index].body.clone();
         produce_vcf_stmt(&body, state, &mut env);
@@ -40,8 +40,8 @@ fn produce_vcf(vcp: &VCP, state: &mut State) {
 fn link_circuit(vcp: &mut VCP, state: &mut State) {
     for node in &mut vcp.templates {
         let mut env = build_environment(&node.header, &vec![]);
-        state.external_signals = build_component_info(&node.triggers);
-        state.buses_info = build_buses_info(&node.wires);
+        state.external_signals = build_component_info(&node.triggers, &vcp.buses);
+        state.buses_info = build_buses_info(&node.wires, &vcp.buses);
         link_stmt(&mut node.code, state, &mut env);
     }
     let mut linked_vcf_collector = state.vcf_collector.clone();

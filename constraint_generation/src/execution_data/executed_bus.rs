@@ -4,7 +4,6 @@ use num_bigint::BigInt;
 use std::collections::HashMap;
 use crate::execution_data::TagInfo;
 use compiler::hir::very_concrete_program::*;
-use crate::ast::SignalType;
 
 
 
@@ -24,6 +23,7 @@ pub struct ExecutedBus {
     pub signal_to_tags: TagContext,
     pub bus_connexions: HashMap<String, BusConnexion>,
     pub size: usize, 
+    pub bus_id: Option<usize>,
 }
 
 impl ExecutedBus {
@@ -40,6 +40,7 @@ impl ExecutedBus {
             signal_to_tags: TagContext::new(),
             bus_connexions: HashMap::new(),
             size: 0,
+            bus_id: None,
         }
     }
 
@@ -117,37 +118,66 @@ impl ExecutedBus {
         &self.bus_connexions
     }
 
-    // TODO: use same category for the bus and signal
-    pub fn build_bus(
+    pub fn build_bus_info(
         &self,
-        name: String, 
-        lengths: Vec<usize>, 
-        local_id: usize, 
-        dag_local_id: usize, 
-        xtype: SignalType, 
+        bus_id: usize,
+        bus_table: &mut Vec<Option<BusInstance>>,
         buses_info: &Vec<ExecutedBus>
-    ) -> Bus{
-        let mut local_id_aux = local_id;
-        let mut dag_local_id_aux = dag_local_id;
-        let mut wires =  Vec::new();
+    ){
+        if bus_table[bus_id].is_none(){
+            let mut total_size = 0;
+            let mut offset = 0;
+            let mut wires = HashMap::new();
+            let mut field_id = 0;
+            for info_field in &self.fields{
+                let (name, lengths) = (&info_field.name, &info_field.length);
+                if !info_field.is_bus{
+                    // Case signal
+                    let size = lengths.iter().fold(1, |p, c| p * (*c));
+                    let signal = FieldInfo {
+                        field_id, 
+                        dimensions: lengths.clone(),
+                        size,
+                        offset,
+                        bus_id: None
+                    };
+                    wires.insert(name.clone(), signal);
+                    total_size += size;
+                    offset += size;
+                    field_id += 1;
 
-        for info_field in &self.fields{
-            let (name, lengths) = (&info_field.name, &info_field.length);
-            if !info_field.is_bus{
-                let signal = Signal { name: name.clone(), lengths: lengths.clone(), local_id: local_id_aux, dag_local_id: dag_local_id_aux, xtype};
-                local_id_aux += signal.size();
-                dag_local_id_aux += signal.size();
-                wires.push(Wire::TSignal(signal));
-            } else{
-                let bus_node = self.bus_connexions.get(name).unwrap().inspect.goes_to;
-                let exe_bus = buses_info.get(bus_node).unwrap();
-                let bus = exe_bus.build_bus(name.clone(), lengths.clone(), local_id_aux, dag_local_id_aux, xtype, buses_info);
-                local_id_aux += bus.size();
-                dag_local_id_aux += bus.size();
-                wires.push(Wire::TBus(bus));                
+                } else{
+                    let bus_node = self.bus_connexions.get(name).unwrap().inspect.goes_to;
+                    if bus_table[bus_node].is_none(){
+                        let exe_bus = buses_info.get(bus_node).unwrap();
+                        exe_bus.build_bus_info(bus_node, bus_table, buses_info);
+                    }
+                    let bus_instance = bus_table.get(bus_node).unwrap().as_ref().unwrap();
+                    
+                    let size = lengths.iter().fold(bus_instance.size, |p, c| p * (*c));
+                    let bus = FieldInfo {
+                        field_id, 
+                        dimensions: lengths.clone(),
+                        size,
+                        offset,
+                        bus_id: Some(bus_node)
+                    };
+                    wires.insert(name.clone(), bus);
+                    total_size += size;
+                    offset += size;
+                    field_id += 1;
+                                  
+                }
             }
+            bus_table[bus_id] = Some(
+                BusInstance{
+                    name: self.bus_name.clone(),
+                    size: total_size,
+                    fields: wires
+                }
+            )
+            
         }
-        Bus{name, lengths, xtype, local_id, dag_local_id, wires}
     }
 
    

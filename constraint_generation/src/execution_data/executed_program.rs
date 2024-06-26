@@ -179,8 +179,21 @@ impl ExecutedProgram {
             exe.insert_in_dag(&mut dag, &self.model_buses);
         }
 
+        let mut wrapped_buses_table = vec![None; self.model_buses.len()];
+        let mut index = 0;
+        for exe_bus in &self.model_buses{
+            exe_bus.build_bus_info(index, &mut wrapped_buses_table, &self.model_buses);
+            index += 1;
+        }
+
+        let mut buses_table = Vec::new();
+        for info in wrapped_buses_table{
+            buses_table.push(info.unwrap());
+        }
+
+
         for exe in self.model {
-            let tmp_instance = exe.export_to_circuit(&mut temp_instances, &self.model_buses);
+            let tmp_instance = exe.export_to_circuit(&mut temp_instances, &buses_table);
             temp_instances.push(tmp_instance);
         }
 
@@ -210,6 +223,7 @@ impl ExecutedProgram {
             templates_in_mixed: mixed,
             program,
             prime: self.prime,
+            buses: buses_table
         };
         let vcp = VCP::new(config);
         Result::Ok((dag, vcp, warnings))

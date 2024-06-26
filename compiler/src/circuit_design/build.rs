@@ -93,6 +93,7 @@ fn build_template_instances(
             triggers: template.triggers,
             clusters: template.clusters,
             functions: &c_info.functions,
+            buses: &c_info.buses,
             fresh_cmp_id: cmp_id,
             components: template.components,
             template_database: &c_info.template_database,
@@ -162,6 +163,7 @@ fn build_function_instances(
             template_database: &c_info.template_database,
             string_table : string_table,
             signals_to_tags: BTreeMap::new(),
+            buses: &c_info.buses
         };
         let mut function_info = FunctionCodeInfo {
             name,
@@ -272,22 +274,19 @@ fn main_input_list(main: &TemplateInstance) -> InputList {
                 WireInfo::Signal(
                     SignalInfo{
                         name: info.name.clone(),
-                        size: info.size(),
+                        size: info.size,
                         start: info.dag_local_id
                     }
                 )
             },
             TBus(info) =>{
-                let mut info_fields = Vec::new();
-                for field in &info.wires{
-                    info_fields.push(build_info_wire(field));
-                }
+
                 WireInfo::Bus(
                     BusInfo{
                         name: info.name.clone(),
-                        size: info.size(),
+                        size: info.size,
                         start: info.dag_local_id,
-                        fields: info_fields
+                        bus_id: info.bus_id
                     }
                 )
             }
@@ -385,6 +384,7 @@ struct CircuitInfo {
     file_library: FileLibrary,
     functions: HashMap<String, Vec<usize>>,
     template_database: TemplateDB,
+    buses: Vec<BusInstance>
 }
 
 pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit {
@@ -402,6 +402,7 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
         template_database,
         file_library: vcp.file_library,
         functions: vcp.quick_knowledge,
+        buses: vcp.buses
     };
 
     let (field_tracker, string_table) =

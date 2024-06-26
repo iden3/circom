@@ -334,7 +334,7 @@ impl ExecutedTemplate {
         }
     }
 
-    pub fn export_to_circuit(self, instances: &mut [TemplateInstance], buses_info : &Vec<ExecutedBus>) -> TemplateInstance {
+    pub fn export_to_circuit(self, instances: &mut [TemplateInstance], buses_info : &Vec<BusInstance>) -> TemplateInstance {
         use SignalType::*;
         fn build_triggers(
             instances: &mut [TemplateInstance],
@@ -415,15 +415,25 @@ impl ExecutedTemplate {
         for s in self.outputs {
             if s.is_bus{
                 let bus_node = self.bus_connexions.get(&s.name).unwrap().inspect.goes_to;
-                let exe_bus = buses_info.get(bus_node).unwrap();
-                let bus = exe_bus.build_bus(s.name, s.length, local_id, dag_local_id, Output, buses_info);
-                local_id += bus.size();
-                dag_local_id += bus.size();
+                let info_bus = buses_info.get(bus_node).unwrap();
+                let size = s.length.iter().fold(info_bus.size, |p, c| p * (*c));
+                let bus = Bus{
+                    name: s.name,
+                    lengths: s.length,
+                    local_id,
+                    dag_local_id,
+                    bus_id: bus_node,
+                    size,
+                    xtype: Output,
+                };
+                local_id += bus.size;
+                dag_local_id += bus.size;
                 instance.add_signal(Wire::TBus(bus));
             } else{
-                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Output};
-                local_id += signal.size();
-                dag_local_id += signal.size();
+                let size = s.length.iter().fold(1, |p, c| p * (*c));
+                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Output, size};
+                local_id += signal.size;
+                dag_local_id += signal.size;
                 instance.add_signal(Wire::TSignal(signal));
             }
         }
@@ -431,45 +441,75 @@ impl ExecutedTemplate {
         for s in public {
             if s.is_bus{
                 let bus_node = self.bus_connexions.get(&s.name).unwrap().inspect.goes_to;
-                let exe_bus = buses_info.get(bus_node).unwrap();
-                let bus = exe_bus.build_bus(s.name, s.length, local_id, dag_local_id, Input, buses_info);
-                local_id += bus.size();
-                dag_local_id += bus.size();
+                let info_bus = buses_info.get(bus_node).unwrap();
+                let size = s.length.iter().fold(info_bus.size, |p, c| p * (*c));
+                let bus = Bus{
+                    name: s.name,
+                    lengths: s.length,
+                    local_id,
+                    dag_local_id,
+                    bus_id: bus_node,
+                    size,
+                    xtype: Input,
+                };
+                local_id += bus.size;
+                dag_local_id += bus.size;
                 instance.add_signal(Wire::TBus(bus));
             } else{
-                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Input};
-                local_id += signal.size();
-                dag_local_id += signal.size();
+                let size = s.length.iter().fold(1, |p, c| p * (*c));
+                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Input, size};
+                local_id += signal.size;
+                dag_local_id += signal.size;
                 instance.add_signal(Wire::TSignal(signal));
             }
         }
         for s in not_public {
             if s.is_bus{
                 let bus_node = self.bus_connexions.get(&s.name).unwrap().inspect.goes_to;
-                let exe_bus = buses_info.get(bus_node).unwrap();
-                let bus = exe_bus.build_bus(s.name, s.length, local_id, dag_local_id, Input, buses_info);
-                local_id += bus.size();
-                dag_local_id += bus.size();
+                let info_bus = buses_info.get(bus_node).unwrap();
+                let size = s.length.iter().fold(info_bus.size, |p, c| p * (*c));
+                let bus = Bus{
+                    name: s.name,
+                    lengths: s.length,
+                    local_id,
+                    dag_local_id,
+                    bus_id: bus_node,
+                    size,
+                    xtype: Input,
+                };
+                local_id += bus.size;
+                dag_local_id += bus.size;
                 instance.add_signal(Wire::TBus(bus));
             } else{
-                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Input};
-                local_id += signal.size();
-                dag_local_id += signal.size();
+                let size = s.length.iter().fold(1, |p, c| p * (*c));
+                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Input, size};
+                local_id += signal.size;
+                dag_local_id += signal.size;
                 instance.add_signal(Wire::TSignal(signal));
             }
         }
         for s in self.intermediates {
             if s.is_bus{
                 let bus_node = self.bus_connexions.get(&s.name).unwrap().inspect.goes_to;
-                let exe_bus = buses_info.get(bus_node).unwrap();
-                let bus = exe_bus.build_bus(s.name, s.length, local_id, dag_local_id, Intermediate, buses_info);
-                local_id += bus.size();
-                dag_local_id += bus.size();
+                let info_bus = buses_info.get(bus_node).unwrap();
+                let size = s.length.iter().fold(info_bus.size, |p, c| p * (*c));
+                let bus = Bus{
+                    name: s.name,
+                    lengths: s.length,
+                    local_id,
+                    dag_local_id,
+                    bus_id: bus_node,
+                    size,
+                    xtype: Intermediate,
+                };
+                local_id += bus.size;
+                dag_local_id += bus.size;
                 instance.add_signal(Wire::TBus(bus));
             } else{
-                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Intermediate};
-                local_id += signal.size();
-                dag_local_id += signal.size();
+                let size = s.length.iter().fold(1, |p, c| p * (*c));
+                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Intermediate, size};
+                local_id += signal.size;
+                dag_local_id += signal.size;
                 instance.add_signal(Wire::TSignal(signal));
             }
         }
