@@ -59,9 +59,9 @@ pub struct WASMProducer {
     merror_tag: String,
     string_table:  Vec<String>,
     //New for buses
-    num_of_bus_instances: usize,  //total number of different bus instances
-    size_of_bus_fields: usize,  //total number of fields in all differen bus intances
-    busid2fieldoffsetlist: FieldMap, //for every busId (0..num-1) provides de offset of each field (0..n-1) in it
+    pub num_of_bus_instances: usize,  //total number of different bus instances
+    pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances
+    pub busid2fieldoffsetlist: FieldMap, //for every busId (0..num-1) provides de offset of each field (0..n-1) in it
 }
 
 impl Default for WASMProducer {

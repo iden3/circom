@@ -228,6 +228,15 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
     producer.template_instance_list = build_template_list(vcp);
     producer.field_tracking.clear();
     producer.wat_flag = wat_flag;
+
+    // add the info of the buses
+    (
+        producer.num_of_bus_instances, 
+        producer.size_of_bus_fields, 
+        producer.busid2fieldoffsetlist
+    ) = get_info_buses(&vcp.buses); 
+
+
     (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
 }
@@ -374,6 +383,22 @@ fn get_number_version(version: &str) -> (usize, usize, usize) {
         usize::from_str(version_splitted[1]).unwrap(),
         usize::from_str(version_splitted[2]).unwrap(),
     )
+}
+
+fn get_info_buses(buses: &Vec<BusInstance>)->(usize, usize, Vec<Vec<usize>>){
+    let mut n_buses = 0;
+    let mut n_fields = 0;
+    let mut bus_to_fields_offsets = Vec::new();
+    for bus in buses{
+        let mut field_offsets = vec![0; bus.fields.len()];
+        for (_, field_info) in &bus.fields{
+            field_offsets[field_info.field_id] = field_info.offset;
+            n_fields += 1;
+        }
+        bus_to_fields_offsets.push(field_offsets);
+        n_buses += 1;
+    }
+    (n_buses, n_fields, bus_to_fields_offsets)
 }
 
 struct CircuitInfo {
