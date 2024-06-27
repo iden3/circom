@@ -7,27 +7,16 @@ pub struct IODef {
     pub lengths: Vec<usize>,
 }
 
-// It is an array that contains (name, start position, size)
-
-pub struct SignalInfo{
+// Previously an array that contains, now struct (name, start position, size, bus_id (if any))
+#[derive(Clone)]
+pub struct InputInfo{
     pub name: String,
-    pub size: usize,
     pub start: usize,
-}
-
-pub struct BusInfo{
-    pub name: String,
     pub size: usize,
-    pub start: usize,
-    pub bus_id: usize
+    pub bus_id: Option<usize>
 }
 
-pub enum WireInfo{
-    Signal(SignalInfo),
-    Bus(BusInfo)
-}
-
-pub type InputList = Vec<WireInfo>;
+pub type InputList = Vec<InputInfo>;
 pub type TemplateList = Vec<String>;
 pub struct InfoParallel{
     pub name: String,

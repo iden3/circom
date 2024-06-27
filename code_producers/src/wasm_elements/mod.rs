@@ -76,7 +76,20 @@ impl Default for WASMProducer {
             size_32_shift: 5,
             number_of_main_outputs: 0, //2,
             number_of_main_inputs: 0,  // 4,
-            main_input_list: Vec::new(), //("inpair".to_string(),2),
+            main_input_list: [
+                InputInfo{
+                    name:"in1".to_string(), 
+                    size:1, 
+                    start: 1, 
+                    bus_id: None
+                },
+                InputInfo{
+                    name:"in2".to_string(), 
+                    size:1, 
+                    start: 2, 
+                    bus_id: None
+                }
+            ].to_vec(),
             signals_in_witness: 0,                                                      //20,
             witness_to_signal_list: [].to_vec(), //[0,1,2,3,4,5,6,12,16,19,24,27,33,42,46,50,51,65,78,79].to_vec(),
             message_list: [].to_vec(), //["Main".to_string(),"Hola Herme".to_string(),"Hola Albert".to_string()].to_vec(),

@@ -226,17 +226,17 @@ pub fn get_initial_size_of_memory(producer: &WASMProducer) -> usize {
 
 //------------------- generate all kinds of Data ------------------
 
-pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>) -> Vec<(u64, usize, usize)> {
+pub fn generate_hash_map(signal_name_list: &Vec<InputInfo>) -> Vec<(u64, usize, usize)> {
     assert!(signal_name_list.len() <= 256);
     let len = 256;
     let mut hash_map = vec![(0, 0, 0); len];
     for i in 0..signal_name_list.len() {
-        let h = hasher(&signal_name_list[i].0);
+        let h = hasher(&signal_name_list[i].name);
         let mut p = (h % 256) as usize;
         while hash_map[p].1 != 0 {
             p = (p + 1) % 256;
         }
-        hash_map[p] = (h, signal_name_list[i].1, signal_name_list[i].2);
+        hash_map[p] = (h, signal_name_list[i].start, signal_name_list[i].size);
     }
     hash_map
 }
@@ -568,8 +568,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
         "\\00\\00\\00\\00\\00\\00\\00\\80"
     ));
     // TODO: change generate_hash_map to new inputlist
-    let map = Vec::new();
-    //let map = generate_hash_map(&producer.get_main_input_list());
+    let map = generate_hash_map(&producer.get_main_input_list());
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_input_signals_hashmap_start(),

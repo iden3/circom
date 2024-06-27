@@ -469,17 +469,17 @@ pub fn collect_function_headers(functions: Vec<String>) -> Vec<String> {
 
 //--------------- generate all kinds of Data for the .dat file ---------------
 
-pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>) -> Vec<(u64, u64, u64)> {
+pub fn generate_hash_map(signal_name_list: &Vec<InputInfo>) -> Vec<(u64, u64, u64)> {
     assert!(signal_name_list.len() <= 256);
     let len = 256;
     let mut hash_map = vec![(0, 0, 0); len];
     for i in 0..signal_name_list.len() {
-        let h = hasher(&signal_name_list[i].0);
+        let h = hasher(&signal_name_list[i].name);
         let mut p = (h % 256) as usize;
         while hash_map[p].1 != 0 {
             p = (p + 1) % 256;
         }
-        hash_map[p] = (h, signal_name_list[i].1 as u64, signal_name_list[i].2 as u64);
+        hash_map[p] = (h, signal_name_list[i].start as u64, signal_name_list[i].size as u64);
     }
     hash_map
 }
@@ -653,9 +653,8 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     //dfile.flush()?;
 
     let aux = producer.get_main_input_list();
-    // TODO: change generate_hash_map to new inputlist
-    //let map = generate_hash_map(&aux);
-    let map = Vec::new();
+    // TODO: change generate_hash_map to new inputlist using buses
+    let map = generate_hash_map(&aux);
     let hashmap = generate_dat_from_hash_map(&map); //bytes u64 --> u64
                                                     //let hml = 256 as u32;
                                                     //dfile.write_all(&hml.to_be_bytes())?;
