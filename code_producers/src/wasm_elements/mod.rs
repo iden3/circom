@@ -3,6 +3,7 @@ pub mod wasm_code_generator;
 use crate::components::*;
 
 type WasmInstruction = String;
+type FieldMap = Vec<Vec<usize>>;
 
 pub struct WASMProducer {
     pub main_signal_offset: usize,
@@ -57,6 +58,10 @@ pub struct WASMProducer {
     create_loop_counter_tag: String,
     merror_tag: String,
     string_table:  Vec<String>,
+    //New for buses
+    num_of_bus_instances: usize,  //total number of different bus instances
+    size_of_bus_fields: usize,  //total number of fields in all differen bus intances
+    busid2fieldoffsetlist: FieldMap, //for every busId (0..num-1) provides de offset of each field (0..n-1) in it
 }
 
 impl Default for WASMProducer {
@@ -119,7 +124,11 @@ impl Default for WASMProducer {
             create_loop_counter_tag: "$createloopcounter".to_string(),
 	        merror_tag: "$merror".to_string(),
             string_table: Vec::new(),
-        }
+	    //New for buses
+	    num_of_bus_instances: 0,
+	    size_of_bus_fields: 0,
+	    busid2fieldoffsetlist: Vec::new(), 
+       }
     }
 }
 
@@ -245,6 +254,19 @@ impl WASMProducer {
         }
         n * 4
     }
+    //New for buses
+    pub fn get_number_of_bus_instances(&self) -> usize {
+        self.num_of_bus_instances
+    }
+    
+    pub fn get_size_of_bus_fields(&self) -> usize {
+        self.size_of_bus_fields
+    }
+
+    pub fn get_busid_2_field_offset_list(&self) -> &FieldMap {
+        &self.busid2fieldoffsetlist
+    }
+    // end
     pub fn get_message_list(&self) -> &MessageList {
         &self.message_list
     }
@@ -308,8 +330,16 @@ impl WASMProducer {
         let b = self.get_number_of_io_signals() * 4;
         a + b
     }
+    pub fn get_bus_instance_to_field_info_start(&self) -> usize {
+	self.get_io_signals_info_start() + self.get_io_signals_info_size()
+    }
+    pub fn get_field_info_start(&self) -> usize {
+        let a = self.get_bus_instance_to_field_info_start();
+        let b = self.get_number_of_bus_instances() * 4;
+        a + b
+    }
     pub fn get_message_buffer_counter_position(&self) -> usize {
-        self.get_io_signals_info_start() + self.get_io_signals_info_size()
+        self.get_field_info_start() + self.get_size_of_bus_fields()
     }
     pub fn get_message_buffer_start(&self) -> usize {
         self.get_message_buffer_counter_position() + 4
