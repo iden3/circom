@@ -116,7 +116,7 @@ pub struct Bus{
     pub size: usize,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FieldInfo{
     pub field_id: usize,
     pub offset: usize,
@@ -127,7 +127,7 @@ pub struct FieldInfo{
 
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BusInstance{
     pub name: String,
     pub size: usize,

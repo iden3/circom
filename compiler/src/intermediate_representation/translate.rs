@@ -982,6 +982,7 @@ fn build_signal_location(
                 accesses.push(AccessType::Qualified(field_ids[i]));
                 i+=1;
             }
+            unreachable!("TODO: mixed array");
             LocationRule::Mapped { signal_code, indexes: accesses }
         }
         Uniform { instance_id, header, .. } => {
@@ -1027,6 +1028,7 @@ impl ProcessedSymbol {
         use Access::*;
         let symbol_name = definition.symbol;
         let meta = definition.meta;
+        
         let symbol_info = state.environment.get_variable(&symbol_name).unwrap().clone();
         let mut lengths = symbol_info.dimensions.clone();
         lengths.reverse();
@@ -1035,8 +1037,8 @@ impl ProcessedSymbol {
         let mut signal_type = state.signal_to_type.get(&symbol_name).cloned();
         
         let mut before_index = vec![]; // indexes accessed before component
-        let mut after_indexes = vec![];
-        let mut current_index = vec![]; // indexes accessed after component (or no component)
+        let mut after_indexes = vec![]; // indexes accessed after component (or no component)
+        let mut current_index = vec![]; 
         
         let mut multiple_possible_lengths: Vec<Vec<usize>> = vec![];
         let mut is_bus = symbol_info.is_bus;
