@@ -47,7 +47,7 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(set_constant(&producer.get_component_free_pos().to_string()));
         instructions.push(load32(None));
         instructions.push(set_local(producer.get_offset_tag()));
-        // set component id
+        // set template id
         instructions.push(get_local(producer.get_offset_tag()));
         instructions.push(set_constant(&self.id.to_string()));
         instructions.push(store32(None));
