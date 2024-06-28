@@ -3,7 +3,6 @@ pub mod wasm_code_generator;
 use crate::components::*;
 
 type WasmInstruction = String;
-type FieldMap = Vec<Vec<usize>>;
 
 pub struct WASMProducer {
     pub main_signal_offset: usize,

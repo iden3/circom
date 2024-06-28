@@ -345,6 +345,7 @@ fn build_input_output_list(instance: &TemplateInstance, database: &TemplateDB) -
                 code: TemplateDB::get_signal_id(database, &instance.template_name, s.name()),
                 offset: s.local_id(),
                 lengths: s.lengths().clone(),
+                size: s.size()
             };
             io_list.push(def);
         }
@@ -385,20 +386,26 @@ fn get_number_version(version: &str) -> (usize, usize, usize) {
     )
 }
 
-fn get_info_buses(buses: &Vec<BusInstance>)->(usize, usize, Vec<Vec<usize>>){
+fn get_info_buses(buses: &Vec<BusInstance>)->(usize, usize, FieldMap){
     let mut n_buses = 0;
     let mut n_fields = 0;
-    let mut bus_to_fields_offsets = Vec::new();
+    let mut bus_to_fields_data = Vec::new();
     for bus in buses{
-        let mut field_offsets = vec![0; bus.fields.len()];
+        let mut field_data = vec![FieldData::default(); bus.fields.len()];
         for (_, field_info) in &bus.fields{
-            field_offsets[field_info.field_id] = field_info.offset;
+            let data = FieldData{
+                offset: field_info.offset,
+                size: field_info.size,
+                dimensions: field_info.dimensions.clone(),
+                bus_id: field_info.bus_id
+            };
+            field_data[field_info.field_id] = data;
             n_fields += 1;
         }
-        bus_to_fields_offsets.push(field_offsets);
+        bus_to_fields_data.push(field_data);
         n_buses += 1;
     }
-    (n_buses, n_fields, bus_to_fields_offsets)
+    (n_buses, n_fields, bus_to_fields_data)
 }
 
 struct CircuitInfo {
