@@ -270,6 +270,14 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
     producer.io_map = build_io_map(vcp, database);
     producer.template_instance_list = build_template_list_parallel(vcp);
     producer.field_tracking.clear();
+    
+    // add the info of the buses
+    (
+        producer.num_of_bus_instances, 
+        producer.size_of_bus_fields, 
+        producer.busid2fieldoffsetlist
+    ) = get_info_buses(&vcp.buses); 
+    
     (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
 }
