@@ -5,6 +5,7 @@ pub struct IODef {
     pub code: usize,
     pub offset: usize,
     pub lengths: Vec<usize>,
+    pub size: usize,
 }
 
 // Previously an array that contains, now struct (name, start position, size, bus_id (if any))
@@ -15,6 +16,16 @@ pub struct InputInfo{
     pub size: usize,
     pub bus_id: Option<usize>
 }
+
+#[derive(Default, Clone)]
+pub struct FieldData{
+    pub dimensions: Vec<usize>,
+    pub size: usize,
+    pub offset: usize,
+    pub bus_id: Option<usize>
+}
+
+pub type FieldMap = Vec<Vec<FieldData>>;
 
 pub type InputList = Vec<InputInfo>;
 pub type TemplateList = Vec<String>;

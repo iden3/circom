@@ -38,24 +38,24 @@ impl Default for CProducer {
         my_map.insert(
             0,
             vec![
-                IODef { code: 0, offset: 0, lengths: [2, 3].to_vec() },
-                IODef { code: 1, offset: 6, lengths: [].to_vec() },
-                IODef { code: 2, offset: 7, lengths: [2].to_vec() },
+                IODef { code: 0, offset: 0, lengths: [2, 3].to_vec(), size: 6 },
+                IODef { code: 1, offset: 6, lengths: [].to_vec(), size: 1 },
+                IODef { code: 2, offset: 7, lengths: [2].to_vec(), size: 2 },
             ],
         );
         my_map.insert(
             1,
             vec![
-                IODef { code: 0, offset: 0, lengths: [3].to_vec() },
-                IODef { code: 1, offset: 3, lengths: [4, 8, 6].to_vec() },
+                IODef { code: 0, offset: 0, lengths: [3].to_vec(), size: 3 },
+                IODef { code: 1, offset: 3, lengths: [4, 8, 6].to_vec(), size: 192 },
             ],
         );
         my_map.insert(
             2,
             vec![
-                IODef { code: 0, offset: 0, lengths: [].to_vec() },
-                IODef { code: 1, offset: 1, lengths: [4].to_vec() },
-                IODef { code: 2, offset: 5, lengths: [2, 6].to_vec() },
+                IODef { code: 0, offset: 0, lengths: [].to_vec(), size: 1 },
+                IODef { code: 1, offset: 1, lengths: [4].to_vec(), size: 4 },
+                IODef { code: 2, offset: 5, lengths: [2, 6].to_vec(), size: 12 },
             ],
         );
         CProducer {
