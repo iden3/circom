@@ -30,6 +30,10 @@ pub struct CProducer {
     pub patch_version: usize,
     name_tag: String,
     string_table: Vec<String>,
+        //New for buses
+        pub num_of_bus_instances: usize,  //total number of different bus instances
+        pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances
+        pub busid2fieldoffsetlist: FieldMap, //for every busId (0..num-1) provides de offset, size, dimensions and busId of each field (0..n-1) in it
 }
 
 impl Default for CProducer {
@@ -58,6 +62,7 @@ impl Default for CProducer {
                 IODef { code: 2, offset: 5, lengths: [2, 6].to_vec(), size: 12 },
             ],
         );
+        
         CProducer {
             main_header: "Main_0".to_string(),
             main_is_parallel: false,
@@ -109,6 +114,10 @@ impl Default for CProducer {
             patch_version: 0,
             name_tag: "name".to_string(),
             string_table: Vec::new(),
+            //New for buses
+	        num_of_bus_instances: 0,
+	        size_of_bus_fields: 0,
+	        busid2fieldoffsetlist: Vec::new(), 
         }
     }
 }
@@ -188,4 +197,18 @@ impl CProducer {
     pub fn set_string_table(&mut self, string_table: Vec<String>) {
         self.string_table = string_table;
     }
+    
+    //New for buses
+    pub fn get_number_of_bus_instances(&self) -> usize {
+        self.num_of_bus_instances
+    }
+    
+    pub fn get_size_of_bus_fields(&self) -> usize {
+        self.size_of_bus_fields
+    }
+
+    pub fn get_busid_2_field_offset_list(&self) -> &FieldMap {
+        &self.busid2fieldoffsetlist
+    }
+    // end
 }
