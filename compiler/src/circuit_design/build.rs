@@ -232,8 +232,7 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
     // add the info of the buses
     (
         producer.num_of_bus_instances, 
-        producer.size_of_bus_fields, 
-        producer.busid2fieldoffsetlist
+        producer.busid_field_info
     ) = get_info_buses(&vcp.buses); 
 
 
@@ -274,8 +273,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
     // add the info of the buses
     (
         producer.num_of_bus_instances, 
-        producer.size_of_bus_fields, 
-        producer.busid2fieldoffsetlist
+        producer.busid_field_info
     ) = get_info_buses(&vcp.buses); 
     
     (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
@@ -394,9 +392,8 @@ fn get_number_version(version: &str) -> (usize, usize, usize) {
     )
 }
 
-fn get_info_buses(buses: &Vec<BusInstance>)->(usize, usize, FieldMap){
+fn get_info_buses(buses: &Vec<BusInstance>)->(usize, FieldMap){
     let mut n_buses = 0;
-    let mut n_fields = 0;
     let mut bus_to_fields_data = Vec::new();
     for bus in buses{
         let mut field_data = vec![FieldData::default(); bus.fields.len()];
@@ -408,12 +405,11 @@ fn get_info_buses(buses: &Vec<BusInstance>)->(usize, usize, FieldMap){
                 bus_id: field_info.bus_id
             };
             field_data[field_info.field_id] = data;
-            n_fields += 1;
         }
         bus_to_fields_data.push(field_data);
         n_buses += 1;
     }
-    (n_buses, n_fields, bus_to_fields_data)
+    (n_buses, bus_to_fields_data)
 }
 
 struct CircuitInfo {

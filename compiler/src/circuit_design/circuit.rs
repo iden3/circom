@@ -359,6 +359,10 @@ impl WriteC for Circuit {
             "uint get_size_of_io_map() {{return {};}}\n",
             producer.get_io_map().len()
         ));
+        code.push(format!(
+            "uint get_size_of_bus_list() {{return {};}}\n",
+            producer.get_busid_field_info().len()
+        ));
         //code.append(&mut generate_message_list_def(producer, producer.get_message_list()));
         
         // Functions to release the memory
@@ -476,6 +480,10 @@ impl WriteC for Circuit {
         code.push(format!(
             "uint get_size_of_io_map() {{return {};}}\n",
             producer.get_io_map().len()
+        ));
+        code.push(format!(
+            "uint get_size_of_bus_list() {{return {};}}\n",
+            producer.get_busid_field_info().len()
         ));
         //code.append(&mut generate_message_list_def(producer, producer.get_message_list()));
         
