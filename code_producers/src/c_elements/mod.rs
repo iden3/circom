@@ -32,8 +32,8 @@ pub struct CProducer {
     string_table: Vec<String>,
         //New for buses
         pub num_of_bus_instances: usize,  //total number of different bus instances
-        pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances
-        pub busid2fieldoffsetlist: FieldMap, //for every busId (0..num-1) provides de offset, size, dimensions and busId of each field (0..n-1) in it
+//        pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances
+        pub busid_field_info: FieldMap, //for every busId (0..num-1) provides de offset, size, dimensions and busId of each field (0..n-1) in it
 }
 
 impl Default for CProducer {
@@ -116,8 +116,8 @@ impl Default for CProducer {
             string_table: Vec::new(),
             //New for buses
 	        num_of_bus_instances: 0,
-	        size_of_bus_fields: 0,
-	        busid2fieldoffsetlist: Vec::new(), 
+//	        size_of_bus_fields: 0,
+	        busid_field_info: Vec::new(), 
         }
     }
 }
@@ -203,12 +203,8 @@ impl CProducer {
         self.num_of_bus_instances
     }
     
-    pub fn get_size_of_bus_fields(&self) -> usize {
-        self.size_of_bus_fields
-    }
-
-    pub fn get_busid_2_field_offset_list(&self) -> &FieldMap {
-        &self.busid2fieldoffsetlist
+    pub fn get_busid_field_info(&self) -> &FieldMap {
+        &self.busid_field_info
     }
     // end
 }

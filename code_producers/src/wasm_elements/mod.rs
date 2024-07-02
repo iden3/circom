@@ -59,8 +59,8 @@ pub struct WASMProducer {
     string_table:  Vec<String>,
     //New for buses
     pub num_of_bus_instances: usize,  //total number of different bus instances
-    pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances
-    pub busid2fieldoffsetlist: FieldMap, //for every busId (0..num-1) provides de offset of each field (0..n-1) in it
+//    pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances ???
+    pub busid_field_info: FieldMap, //for every busId (0..num-1) provides de offset, the dimensions and size of each field (0..n-1) in it
 }
 
 impl Default for WASMProducer {
@@ -138,8 +138,8 @@ impl Default for WASMProducer {
             string_table: Vec::new(),
 	    //New for buses
 	    num_of_bus_instances: 0,
-	    size_of_bus_fields: 0,
-	    busid2fieldoffsetlist: Vec::new(), 
+//	    size_of_bus_fields: 0,
+	    busid_field_info: Vec::new(), 
        }
     }
 }
@@ -256,11 +256,11 @@ impl WASMProducer {
         let mut n = 0;
         for (_c, v) in &self.io_map {
             for s in v {
-                // since we take offset and all lengths but last one
+                // since we take offset, size and all lengths but last one
                 if s.lengths.len() == 0 {
-                    n += 1;
+                    n += 2;
                 } else {
-                    n += s.lengths.len();
+                    n += s.lengths.len() + 1;
                 }
             }
         }
@@ -271,12 +271,31 @@ impl WASMProducer {
         self.num_of_bus_instances
     }
     
-    pub fn get_size_of_bus_fields(&self) -> usize {
-        self.size_of_bus_fields
+    pub fn get_number_of_bus_fields(&self) -> usize {
+        let mut n = 0;
+        for v in &self.busid_field_info {
+            n += v.len();
+        }
+        n
     }
 
-    pub fn get_busid_2_field_offset_list(&self) -> &FieldMap {
-        &self.busid2fieldoffsetlist
+    pub fn get_size_of_bus_info(&self) -> usize {
+        let mut n = 0;
+        for v in &self.busid_field_info {
+	    for s in v {
+                // since we take offset, size, busid and all lengths but last one
+                if s.dimensions.len() == 0 {
+                    n += 3;
+                } else {
+                    n += s.dimensions.len() + 2;
+                }
+            }
+        }
+	n
+    }
+
+    pub fn get_busid_field_info(&self) -> &FieldMap {
+        &self.busid_field_info
     }
     // end
     pub fn get_message_list(&self) -> &MessageList {
@@ -342,16 +361,21 @@ impl WASMProducer {
         let b = self.get_number_of_io_signals() * 4;
         a + b
     }
-    pub fn get_bus_instance_to_field_info_start(&self) -> usize {
+    pub fn get_bus_instance_to_field_start(&self) -> usize {
 	self.get_io_signals_info_start() + self.get_io_signals_info_size()
     }
-    pub fn get_field_info_start(&self) -> usize {
-        let a = self.get_bus_instance_to_field_info_start();
+    pub fn get_field_to_info_start(&self) -> usize {
+        let a = self.get_bus_instance_to_field_start();
         let b = self.get_number_of_bus_instances() * 4;
         a + b
     }
+    pub fn get_field_info_start(&self) -> usize {
+        let a = self.get_field_to_info_start();
+        let b = self.get_number_of_bus_fields() * 4;
+        a + b
+    }
     pub fn get_message_buffer_counter_position(&self) -> usize {
-        self.get_field_info_start() + self.get_size_of_bus_fields()
+        self.get_field_info_start() + self.get_size_of_bus_info()
     }
     pub fn get_message_buffer_start(&self) -> usize {
         self.get_message_buffer_counter_position() + 4
