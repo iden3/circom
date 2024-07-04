@@ -7,6 +7,7 @@ use program_structure::ast::*;
 use program_structure::file_definition::FileLibrary;
 use program_structure::utils::environment::VarEnvironment;
 use std::collections::{HashMap, BTreeMap, HashSet};
+use std::mem;
 
 type Length = usize;
 pub type E = VarEnvironment<SymbolInfo>;
@@ -982,7 +983,6 @@ fn build_signal_location(
                 accesses.push(AccessType::Qualified(field_ids[i]));
                 i+=1;
             }
-            unreachable!("TODO: mixed array");
             LocationRule::Mapped { signal_code, indexes: accesses }
         }
         Uniform { instance_id, header, .. } => {
@@ -1030,9 +1030,12 @@ impl ProcessedSymbol {
         let meta = definition.meta;
         
         let symbol_info = state.environment.get_variable(&symbol_name).unwrap().clone();
+        
+        // TODO: move the the struct defined later
         let mut lengths = symbol_info.dimensions.clone();
         lengths.reverse();
-        let mut with_length = symbol_info.size;
+        let mut with_length: usize = symbol_info.size;
+        
         let mut accessed_component_signal = None;
         let mut signal_type = state.signal_to_type.get(&symbol_name).cloned();
         
@@ -1040,10 +1043,17 @@ impl ProcessedSymbol {
         let mut after_indexes = vec![]; // indexes accessed after component (or no component)
         let mut current_index = vec![]; 
         
+        // we store the possible sizes and lengths -> in heterogeneus arrays 
+        // they may be multiple
+        // TODO: store in single struct
         let mut multiple_possible_lengths: Vec<Vec<usize>> = vec![];
+        let mut multiple_possible_sizes: Vec<usize> = vec![];
+        let mut multiple_possible_bus_fields: Vec<HashMap<String, FieldInfo>> = vec![];
+
         let mut is_bus = symbol_info.is_bus;
         let mut is_component = symbol_info.is_component;
         
+        // TODO: not needed
         let mut bus_fields = if symbol_info.bus_id.is_some(){
             let id = symbol_info.bus_id.unwrap();
             Some(context.buses.get(id).unwrap().fields.clone())
@@ -1059,19 +1069,18 @@ impl ProcessedSymbol {
         for acc in definition.acc {
             match acc {
                 ArrayAccess(exp) if accessed_component_signal.is_none() => {
+                    // in this case we have a single possible length and size
                     let length = lengths.pop().unwrap();
                     with_length /= length;
                     current_index.push(translate_expression(exp, state, context));
                 }
                 ArrayAccess(exp) => {
-                    let mut is_first = true;
+                    // in this case we need to study all possible sizes and lenghts
+                    let mut index = 0;
                     for possible_length in &mut multiple_possible_lengths{
-                        
                         let aux_length = possible_length.pop();
-                        if is_first{
-                            with_length /= aux_length.unwrap();
-                            is_first = false;
-                        }
+                        multiple_possible_sizes[index] /= aux_length.unwrap();
+                        index += 1;
                     }
                     
                     current_index.push(translate_expression(exp, state, context));
@@ -1088,8 +1097,9 @@ impl ProcessedSymbol {
                                     let mut new_length = aux.lengths.clone();
                                     new_length.reverse();
                                     multiple_possible_lengths.push(new_length);
+                                    multiple_possible_sizes.push(aux.size);
+
                                     if is_first{
-                                        with_length = aux.size;
                                         bus_fields = None;
 
                                         symbol_size = vec![aux.size];
@@ -1102,14 +1112,15 @@ impl ProcessedSymbol {
                                     let mut new_length = aux.lengths.clone();
                                     new_length.reverse();
                                     multiple_possible_lengths.push(new_length);
+                                    multiple_possible_sizes.push(aux.size);
+                                    multiple_possible_bus_fields.push(context.buses.get(aux.bus_id).unwrap().fields.clone());
+                                    
                                     if is_first{
-                                        with_length = aux.size;
                                         symbol_size = vec![aux.size];
                                         symbol_dimensions = vec![aux.lengths.clone()];
 
                                         // case buses: update the info
                                         is_bus = true;
-                                        
                                         bus_fields = Some(context.buses.get(aux.bus_id).unwrap().fields.clone());
                                         is_first = false;
                                     }
@@ -1124,26 +1135,58 @@ impl ProcessedSymbol {
                         is_component = false;
                         accessed_component_signal = Some(name);
                     } else if is_bus{
-                        let fields = bus_fields.unwrap();
-                        let field_info = fields.get(&name).unwrap();
-                        let mut new_length = field_info.dimensions.clone();
-                        new_length.reverse();
-                        multiple_possible_lengths = vec![new_length.clone()];
-                        lengths = new_length;
-                        with_length = field_info.size;
+                        // case no component access
+                        if accessed_component_signal.is_none(){
+                            let fields = bus_fields.unwrap();
+                            let field_info = fields.get(&name).unwrap();
+                            let mut new_length = field_info.dimensions.clone();
+                            new_length.reverse();
+                            lengths = new_length;
+                            with_length = field_info.size;
 
-                        is_bus = field_info.bus_id.is_some();
-                        bus_fields = if field_info.bus_id.is_some(){
-                            let id = field_info.bus_id.unwrap();
-                            Some(context.buses.get(id).unwrap().fields.clone())
+
+                            is_bus = field_info.bus_id.is_some();
+                            bus_fields = if field_info.bus_id.is_some(){
+                                let id = field_info.bus_id.unwrap();
+                                Some(context.buses.get(id).unwrap().fields.clone())
+                            } else{
+                                None
+                            };
+
+                            offset.push(field_info.offset);
+                            field_ids.push(field_info.field_id);
+                            symbol_size.push(field_info.size);
+                            symbol_dimensions.push(field_info.dimensions.clone());
                         } else{
-                            None
-                        };
+                            // set to new to start the size check again
+                            let old_possible_fields = mem::take(&mut multiple_possible_bus_fields);
+                            multiple_possible_lengths = vec![];
+                            multiple_possible_sizes = vec![];
+                            let mut is_first = true;
 
-                        offset.push(field_info.offset);
-                        field_ids.push(field_info.field_id);
-                        symbol_size.push(field_info.size);
-                        symbol_dimensions.push(field_info.dimensions.clone());
+                            for possible_fields in old_possible_fields{
+                                let field_info = possible_fields.get(&name).unwrap();
+                                let mut new_length = field_info.dimensions.clone();
+                                new_length.reverse();
+                                multiple_possible_lengths.push(new_length);
+                                multiple_possible_sizes.push(field_info.size);
+
+                                if field_info.bus_id.is_some(){
+                                    let id = field_info.bus_id.unwrap();
+                                    multiple_possible_bus_fields.push(context.buses.get(id).unwrap().fields.clone())
+                                }
+                                if is_first{
+                                    is_bus = field_info.bus_id.is_some();
+
+                                    offset.push(field_info.offset);
+                                    field_ids.push(field_info.field_id);
+                                    symbol_size.push(field_info.size);
+                                    symbol_dimensions.push(field_info.dimensions.clone());
+                                }
+                                is_first = false;
+                            }
+                        }
+                        
 
                         // We move the current index into the after_indexes
                         let aux_index = std::mem::take(&mut current_index);
@@ -1162,16 +1205,14 @@ impl ProcessedSymbol {
 
         if accessed_component_signal.is_some(){
             let mut is_first = true;
-            for possible_length in multiple_possible_lengths{
+            for possible_size in multiple_possible_sizes{
                 if is_first{
-                    // TODO: does not work in case buses
-                    //with_length = possible_length.iter().fold(1, |r, c| r * (*c));
+                    with_length = possible_size;
                     is_first = false;
                 }
                 else{
-                    // TODO: case buses -> take into account the size of the elem, possible lengths
-                    if with_length != possible_length.iter().fold(1, |r, c| r * (*c)){
-                        //unreachable!("On development: Circom compiler does not accept for now the assignment of arrays of unknown sizes during the execution of loops");
+                    if with_length != possible_size{
+                        unreachable!("On development: Circom compiler does not accept for now the assignment of arrays of unknown sizes during the execution of loops");
                     }
                 }
             } 
