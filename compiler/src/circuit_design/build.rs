@@ -351,7 +351,8 @@ fn build_input_output_list(instance: &TemplateInstance, database: &TemplateDB) -
                 code: TemplateDB::get_signal_id(database, &instance.template_name, s.name()),
                 offset: s.local_id(),
                 lengths: s.lengths().clone(),
-                size: s.size()
+                size: s.size(),
+		bus_id: s.bus_id()
             };
             io_list.push(def);
         }

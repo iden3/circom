@@ -121,42 +121,79 @@ impl WriteWasm for LoadBucket {
                         ))); // get position in component io signal to info list
                         let signal_code_in_bytes = signal_code * 4; //position in the list of the signal code
                         instructions.push(load32(Some(&signal_code_in_bytes.to_string()))); // get where the info of this signal is
-                        // TODO: INDEXES MIGHT BE INDEX OR QUALIFIED
-                        // descomentar todo lo siguiente, quitado para evitar error                                                                    //now we have first the offset and then the all size dimensions but the last one
-                        /* 
-                        if indexes.len() <= 1 {
-                            instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
-                            if indexes.len() == 1 {
-                                let mut instructions_idx0 = indexes[0].produce_wasm(producer);
-                                instructions.append(&mut instructions_idx0);
-                                let size = producer.get_size_32_bits_in_memory() * 4;
-                                instructions.push(set_constant(&size.to_string()));
-                                instructions.push(mul32());
-                                instructions.push(add32());
-                            }
-                        } else {
-                            instructions.push(set_local(producer.get_io_info_tag()));
-                            instructions.push(get_local(producer.get_io_info_tag()));
-                            instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
-                                                             // compute de move with 2 or more dimensions
-                            let mut instructions_idx0 = indexes[0].produce_wasm(producer);
-                            instructions.append(&mut instructions_idx0); // start with dimension 0
-                            for i in 1..indexes.len() {
-                                instructions.push(get_local(producer.get_io_info_tag()));
-                                let offsetdim = 4 * i;
-                                instructions.push(load32(Some(&offsetdim.to_string()))); // get size of ith dimension
-                                instructions.push(mul32()); // multiply the current move by size of the ith dimension
-                                let mut instructions_idxi = indexes[i].produce_wasm(producer);
-                                instructions.append(&mut instructions_idxi);
-                                instructions.push(add32()); // add move upto dimension i
-                            }
-                            //we have the total move; and is multiplied by the size of memory Fr in bytes
-                            let size = producer.get_size_32_bits_in_memory() * 4;
-                            instructions.push(set_constant(&size.to_string()));
-                            instructions.push(mul32()); // We have the total move in bytes
-                            instructions.push(add32()); // add to the offset of the signal
-                        }
-                        */
+                        //now we have first the offset, and then the all size dimensions but the last one
+			if indexes.len() == 0 {
+			    instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
+			} else {
+			    instructions.push(tee_local(producer.get_io_info_tag()));
+			    instructions.push(load32(None)); // get offset; first slot in io_info (to start adding offsets)
+			    // if the first access is qualified we place the address of the bus_id
+			    if let AccessType::Qualified(_) = &indexes[0] {
+				instructions.push(get_local(producer.get_io_info_tag()));
+				instructions.push(load32(Some("4"))); // it is a bus, so the bus_id is in the second position
+			    }
+			    let mut idxpos = 0;			    
+			    while idxpos < indexes.len() {
+				if let AccessType::Indexed(index_list) = &indexes[idxpos] {
+				    let mut infopos = 0;
+				    assert!(index_list.len() > 0);
+				    //We first compute the number of elements as
+				    //((index_list[0] * length_of_dim[1]) + index_list[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + index_list[n-1]
+				    //first position in the array access
+				    let mut instructions_idx0 = index_list[0].produce_wasm(producer);				    
+				    instructions.append(&mut instructions_idx0);				    
+				    for i in 1..index_list.len() {
+					instructions.push(get_local(producer.get_io_info_tag()));
+					infopos += 4;	//position in io or bus info of dimension of [1] (recall that first dimension is not added)
+					instructions.push(load32(Some(&infopos.to_string()))); // second dimension
+					instructions.push(mul32());
+					let mut instructions_idxi = index_list[i].produce_wasm(producer);				    
+					instructions.append(&mut instructions_idxi);				    
+					instructions.push(add32());
+				    }
+				    let field_size = producer.get_size_32_bits_in_memory() * 4;
+				    instructions.push(set_constant(&field_size.to_string()));
+				    instructions.push(get_local(producer.get_io_info_tag()));
+				    infopos += 4; //position in io or bus info of size 
+				    instructions.push(load32(Some(&infopos.to_string()))); // size
+				    instructions.push(mul32()); // size mult by size of field in bytes
+				    instructions.push(mul32()); // total offset in the array
+				    instructions.push(add32()); // to the current offset
+				    idxpos += 1;
+				    if idxpos < indexes.len() {
+					//next must be Qualified
+					if let AccessType::Indexed(_) = &indexes[idxpos] {
+					    assert!(false);
+					}
+					// we add the type of bus it is
+					instructions.push(get_local(producer.get_io_info_tag()));
+					infopos += 4;
+					instructions.push(load32(Some(&infopos.to_string()))); // bus_id
+				    }
+				} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
+				    //we have on the stack the bus_id
+				    instructions.push(load32(Some(
+					&producer.get_bus_instance_to_field_start().to_string()
+				    ))); // get position in the bus to field in memory
+				    let field_no_bytes = field_no * 4;
+				    instructions.push(load32(Some(&field_no_bytes.to_string()))); // get position in the field info in memory
+				    if let AccessType::Qualified(_) = &indexes[idxpos] {
+					instructions.push(tee_local(producer.get_io_info_tag()));
+				    }
+				    let field_size = producer.get_size_32_bits_in_memory() * 4;
+				    instructions.push(set_constant(&field_size.to_string()));
+				    instructions.push(load32(None)); // get the offset
+				    instructions.push(mul32()); // mult by size of field in bytes
+				    instructions.push(add32()); // add to the current offset 
+				    if let AccessType::Qualified(_) = &indexes[idxpos] {
+					instructions.push(get_local(producer.get_io_info_tag()));
+					instructions.push(load32(Some("4"))); // bus_id
+				    }
+				} else {
+				    assert!(false);
+				}
+			    }
+			}
                         instructions.push(get_local(producer.get_sub_cmp_load_tag()));
                         instructions.push(set_constant(
                             &producer.get_signal_start_address_in_component().to_string(),
@@ -196,7 +233,6 @@ impl WriteC for LoadBucket {
             if let LocationRule::Indexed { location, .. } = &self.src {
                 location.produce_c(producer, parallel)
             } else if let LocationRule::Mapped { signal_code, indexes } = &self.src {
-		// TODO: add the offset
         let mut map_prologue = vec![];
 		let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref.clone());
 		let mut map_access = format!("{}->{}[{}].defs[{}].offset",

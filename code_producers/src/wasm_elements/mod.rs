@@ -256,12 +256,15 @@ impl WASMProducer {
         let mut n = 0;
         for (_c, v) in &self.io_map {
             for s in v {
-                // since we take offset, size and all lengths but last one
+                // since we take offset, size, busid and all lengths but last one
                 if s.lengths.len() == 0 {
-                    n += 2;
+                    n += 1;
                 } else {
-                    n += s.lengths.len() + 1;
+                    n += s.lengths.len() + 2;
                 }
+		if let Some(_) = &s.bus_id {
+		    n += 1;
+		}
             }
         }
         n * 4
@@ -283,15 +286,18 @@ impl WASMProducer {
         let mut n = 0;
         for v in &self.busid_field_info {
 	    for s in v {
-                // since we take offset, size, busid and all lengths but last one
+                // since we take offset, busid (if it is) and all lengths but first one and size if not zero
                 if s.dimensions.len() == 0 {
-                    n += 3;
+                    n += 1;
                 } else {
-                    n += s.dimensions.len() + 2;
+                    n += s.dimensions.len() + 1;
                 }
+		if let Some(_) = &s.bus_id {
+		    n += 1;
+		}
             }
         }
-	n
+	n * 4
     }
 
     pub fn get_busid_field_info(&self) -> &FieldMap {
