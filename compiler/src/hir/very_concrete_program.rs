@@ -92,6 +92,16 @@ impl Wire {
             },
         }
     }
+    pub fn bus_id(&self) -> Option<usize> {
+        match self{
+            Wire::TSignal(_s) => {
+                None
+            },
+            Wire::TBus(s) => {
+                Some(s.bus_id)
+            },
+        }
+    }
 }
 
 #[derive(Clone)]

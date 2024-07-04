@@ -324,6 +324,15 @@ pub fn generate_data_io_signals_info(
                         4,
                         &BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
                     ));
+		    // add the busid (if not bus add the number if bus instantiations)
+		    match s.bus_id {
+			Some(value) => {
+			    io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
+			}
+			None => {
+			    io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(producer.get_number_of_bus_instances())));
+			}
+		    }
                     // add the dimensions except the first one		    
                     for i in 1..s.lengths.len() {
                         io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(s.lengths[i])));
@@ -382,24 +391,21 @@ pub fn generate_data_field_info(
                 4,
                 &BigInt::from(s.offset * producer.get_size_32_bits_in_memory() * 4),
             ));
-            // add the actual size in memory, taking into account the size of field nums
-            field_info.push_str(&&wasm_hexa(
-                4,
-                &BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
-            ));
-            // add the busid (if not bus add the number if bus instantiations)
-	    match s.bus_id {
-		Some(value) => {
-		    field_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
+	    if s.dimensions.len() > 0 { // if it is an array
+		// add all dimensions but first one	    
+		for i in 1..s.dimensions.len() {
+                    field_info.push_str(&&wasm_hexa(4, &BigInt::from(s.dimensions[i])));
 		}
-		None => {
-		    field_info.push_str(&&wasm_hexa(4, &BigInt::from(producer.get_number_of_bus_instances())));
-		}
+		// add the actual size in memory, if array
+		field_info.push_str(&&wasm_hexa(
+                    4,
+                    &BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
+		));
 	    }
-            // add all dimensions but first one	    
-            for i in 1..s.dimensions.len() {
-                field_info.push_str(&&wasm_hexa(4, &BigInt::from(s.dimensions[i])));
-            }
+            // add the busid if it contains buses
+	    if let Some(value) = s.bus_id {
+		field_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
+	    }
         }
     }
     field_info

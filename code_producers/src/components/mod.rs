@@ -6,6 +6,7 @@ pub struct IODef {
     pub offset: usize,
     pub lengths: Vec<usize>,
     pub size: usize,
+    pub bus_id: Option<usize>
 }
 
 // Previously an array that contains, now struct (name, start position, size, bus_id (if any))
