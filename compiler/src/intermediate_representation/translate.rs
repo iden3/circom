@@ -1171,7 +1171,7 @@ impl ProcessedSymbol {
                 else{
                     // TODO: case buses -> take into account the size of the elem, possible lengths
                     if with_length != possible_length.iter().fold(1, |r, c| r * (*c)){
-                        unreachable!("On development: Circom compiler does not accept for now the assignment of arrays of unknown sizes during the execution of loops");
+                        //unreachable!("On development: Circom compiler does not accept for now the assignment of arrays of unknown sizes during the execution of loops");
                     }
                 }
             } 
