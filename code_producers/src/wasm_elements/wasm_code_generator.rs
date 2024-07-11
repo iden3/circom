@@ -313,30 +313,33 @@ pub fn generate_data_io_signals_info(
     for c in 0..producer.get_number_of_template_instances() {
         match io_map.get(&c) {
             Some(value) => {
-                for s in value {
+ 	       println!("Template Instance: {}", c);
+               for s in value {
                     // add the actual offset in memory, taking into account the size of field nums
+                    println!("Offset: {}", s.offset);
                     io_signals_info.push_str(&&wasm_hexa(
                         4,
                         &BigInt::from(s.offset * producer.get_size_32_bits_in_memory() * 4),
                     ));
-                    // add the actual size of the elements
-                    io_signals_info.push_str(&&wasm_hexa(
-                        4,
-                        &BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
-                    ));
-		    // add the busid (if not bus add the number if bus instantiations)
-		    match s.bus_id {
-			Some(value) => {
-			    io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
-			}
-			None => {
-			    io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(producer.get_number_of_bus_instances())));
-			}
+                    println!("Length: {}", s.lengths.len());
+		    if s.lengths.len() > 0 { // if it is an array
+                        // add the dimensions except the first one		    
+                        for i in 1..s.lengths.len() {
+                            println!("Index: {}, {}", i, s.lengths[i]);
+                            io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(s.lengths[i])));
+                        }
+                        // add the actual size of the elements
+                        println!("Size: {}", s.size);
+                        io_signals_info.push_str(&&wasm_hexa(
+                            4,
+                            &BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
+                        ));
 		    }
-                    // add the dimensions except the first one		    
-                    for i in 1..s.lengths.len() {
-                        io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(s.lengths[i])));
-                    }
+		    // add the busid if it is a  bus
+		    if let Some(value) = s.bus_id {
+                            println!("Bus_id: {}", value);
+			    io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
+		    }
                 }
             }
             None => (),
@@ -587,6 +590,10 @@ pub fn generate_imports_list() -> Vec<WasmInstruction> {
         "(import \"runtime\" \"showSharedRWMemory\" (func $showSharedRWMemory (type $_t_void)))"
             .to_string(),
     );
+    imports.push(
+        "(import \"runtime\" \"printDebug\" (func $printDebug (type $_t_i32)))"
+            .to_string(),
+    );
     imports
 }
 
@@ -650,43 +657,52 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
     ));
     // TODO: change generate_hash_map to new inputlist
     let map = generate_hash_map(&producer.get_main_input_list());
+    wdata.push(format!(";; hash_map"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_input_signals_hashmap_start(),
         generate_data_from_hash_map(&map)
     ));
     let s = generate_data_witness_to_signal_list(producer.get_witness_to_signal_list());
+    wdata.push(format!(";; witness_to_signal_list"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_witness_signal_id_list_start(),
         s
     ));
+    wdata.push(format!(";; signal memory"));
     wdata.push(format!("(data (i32.const {}) \"{}{}\")",producer.get_signal_memory_start(),"\\00\\00\\00\\00\\00\\00\\00\\80",wasm_hexa(producer.get_size_32_bit()*4, &BigInt::from(1)))); //setting 'one' as long normal 1
+    wdata.push(format!(";; template_instance_to_io_signal"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_template_instance_to_io_signal_start(),
         generate_data_template_instance_to_io(&producer, producer.get_io_map())
     ));
+    wdata.push(format!(";; io_signals_to_info"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_io_signals_to_info_start(),
         generate_data_io_signals_to_info(&producer, producer.get_io_map())
     ));
+    wdata.push(format!(";; io_signals_info"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_io_signals_info_start(),
         generate_data_io_signals_info(&producer, producer.get_io_map())
     ));
+    wdata.push(format!(";; bus_instance_to_field"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_bus_instance_to_field_start(),
         generate_data_bus_instance_to_field(&producer, producer.get_busid_field_info())
     ));
+    wdata.push(format!(";; field_to_info"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_field_to_info_start(),
         generate_data_field_to_info(&producer, producer.get_busid_field_info())
     ));
+    wdata.push(format!(";; field_info"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_field_info_start(),
@@ -694,6 +710,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
     ));
     let ml = producer.get_message_list();
     let m = producer.get_message_list_start();
+    wdata.push(format!(";; messages_in_bytes"));
     for i in 0..ml.len() {
         if ml[i].len() < producer.get_size_of_message_in_bytes() {
             wdata.push(format!(
@@ -726,6 +743,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
             ));
         }
     }
+    wdata.push(format!(";; constants"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_constant_numbers_start(),

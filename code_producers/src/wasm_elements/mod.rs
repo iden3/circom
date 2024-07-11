@@ -256,12 +256,13 @@ impl WASMProducer {
         let mut n = 0;
         for (_c, v) in &self.io_map {
             for s in v {
-                // since we take offset, size, busid and all lengths but last one
+                // we take always offset, and size and all lengths but last one if len !=0, 
                 if s.lengths.len() == 0 {
                     n += 1;
                 } else {
                     n += s.lengths.len() + 2;
                 }
+		// we take the bus_id if it has type bus
 		if let Some(_) = &s.bus_id {
 		    n += 1;
 		}
