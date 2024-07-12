@@ -345,6 +345,14 @@ impl ExecutedTemplate {
                 let data = cnn.inspect;
                 instances[data.goes_to].is_parallel_component |= data.is_parallel;
                 instances[data.goes_to].is_not_parallel_component |= !(data.is_parallel);
+                
+                let mut external_wires = Vec::new();
+                for wire in &instances[data.goes_to].wires{
+                    if wire.xtype() != SignalType::Intermediate{
+                        external_wires.push(wire.clone());
+                    }
+                }
+
                 let trigger = Trigger {
                     offset: cnn.dag_offset,
                     component_offset: cnn.dag_component_offset,
@@ -353,7 +361,7 @@ impl ExecutedTemplate {
                     is_parallel: data.is_parallel || instances[data.goes_to].is_parallel,
                     runs: instances[data.goes_to].template_header.clone(),
                     template_id: data.goes_to,
-                    external_wires: instances[data.goes_to].wires.clone(), // TODO: only copy signals that are external
+                    external_wires,
                     has_inputs: instances[data.goes_to].number_of_inputs > 0,
                 };
                 triggers.push(trigger);
