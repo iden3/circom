@@ -291,11 +291,14 @@ pub fn generate_data_io_signals_to_info(
                     assert_eq!(s.code, n);
                     io_signals.push_str(&&wasm_hexa(4, &BigInt::from(pos)));
                     //do not store code and the first one of lengths (offset + size + length-1(if >0)
-                    if s.lengths.len() == 0 {
-                        pos += 8;
-                    } else {
+                    if s.lengths.len() == 0 { //only offset
+                        pos += 4;
+                    } else { // offest + length -1 + size
                         pos += s.lengths.len() * 4 + 4;
                     }
+		    if let Some(_) = s.bus_id {
+			pos += 4;
+		    }
                     n += 1;
                 }
             }
@@ -373,10 +376,13 @@ pub fn generate_data_field_to_info(
             bus_fields.push_str(&&wasm_hexa(4, &BigInt::from(pos)));
             //do not store the first one of lengths
             if s.dimensions.len() == 0 {
-                pos += 12;
+                pos += 4;
             } else {
-                pos += s.dimensions.len() * 4 + 8;
+                pos += s.dimensions.len() * 4 + 4;
             }
+            if let Some(_) = s.bus_id {
+               pos += 4;
+	   }
         }
     }
     bus_fields

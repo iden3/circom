@@ -98,7 +98,7 @@ impl WriteWasm for LoadBucket {
                 match &self.address_type {
                     AddressType::SubcmpSignal { cmp_address, .. } => {
 			if producer.needs_comments() {
-                            instructions.push(";; is subcomponent".to_string());
+                            instructions.push(";; is subcomponent mapped".to_string());
 			}
                         instructions.push(get_local(producer.get_offset_tag()));
                         instructions.push(set_constant(
@@ -111,8 +111,9 @@ impl WriteWasm for LoadBucket {
                         instructions.push(mul32());
                         instructions.push(add32());
                         instructions.push(load32(None)); //subcomponent block
-                        instructions.push(set_local(producer.get_sub_cmp_load_tag()));
-                        instructions.push(get_local(producer.get_sub_cmp_load_tag()));
+                        instructions.push(tee_local(producer.get_sub_cmp_load_tag()));
+                        //instructions.push(set_local(producer.get_sub_cmp_load_tag()));
+                        //instructions.push(get_local(producer.get_sub_cmp_load_tag()));
                         instructions.push(load32(None)); // get template id                     A
                         instructions.push(set_constant("4")); //size in byte of i32
                         instructions.push(mul32());
@@ -123,8 +124,10 @@ impl WriteWasm for LoadBucket {
                         instructions.push(load32(Some(&signal_code_in_bytes.to_string()))); // get where the info of this signal is
                         //now we have first the offset, and then the all size dimensions but the last one
 			if indexes.len() == 0 {
+			    instructions.push(";; has no indexes".to_string());
 			    instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
 			} else {
+			    instructions.push(";; has indexes".to_string());
 			    instructions.push(tee_local(producer.get_io_info_tag()));
 			    instructions.push(load32(None)); // get offset; first slot in io_info (to start adding offsets)
 			    // if the first access is qualified we place the address of the bus_id
