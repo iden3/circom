@@ -1272,26 +1272,6 @@ impl ProcessedSymbol {
             }
         }
 
-        // TODO: improve cases, unnecesary clone
-        // in case it is a signal of a subcomponent we use the offset when 
-        // building the signal location, if not use late
-        // let (remaining_offset, remaining_size, remaining_dimensions, remaining_indexes) = if accessed_component_signal.is_some(){
-        //     // they go to the original vector
-        //     (
-        //         Vec::new(), 
-        //         vec![symbol_info.size.clone()], 
-        //         vec![symbol_info.dimensions.clone()],
-        //         vec![before_index]
-        //     )
-        // } else{
-        //     (
-        //         offset.clone(), 
-        //         symbol_size.clone(), 
-        //         symbol_dimensions.clone(),
-        //         after_indexes.clone()
-        //     )
-        // };
-
     }
 
     fn into_call_assign(

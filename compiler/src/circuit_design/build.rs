@@ -346,12 +346,17 @@ fn build_input_output_list(instance: &TemplateInstance, database: &TemplateDB) -
     use program_structure::ast::SignalType::*;
     let mut io_list = vec![];
     for s in &instance.wires {
+        let mut total_array_size = 1;
+        for len in s.lengths(){
+            total_array_size *= len;
+        }
+        let individual_size = s.size() / total_array_size;
         if s.xtype() != Intermediate {
             let def = IODef {
                 code: TemplateDB::get_signal_id(database, &instance.template_name, s.name()),
                 offset: s.local_id(),
                 lengths: s.lengths().clone(),
-                size: s.size(),
+                size: individual_size,
 		bus_id: s.bus_id()
             };
             io_list.push(def);
@@ -399,9 +404,14 @@ fn get_info_buses(buses: &Vec<BusInstance>)->(usize, FieldMap){
     for bus in buses{
         let mut field_data = vec![FieldData::default(); bus.fields.len()];
         for (_, field_info) in &bus.fields{
+            let mut total_array_size = 1;
+            for len in &field_info.dimensions{
+                total_array_size *= len;
+            }
+            let individual_size = field_info.size / total_array_size;
             let data = FieldData{
                 offset: field_info.offset,
-                size: field_info.size,
+                size: individual_size,
                 dimensions: field_info.dimensions.clone(),
                 bus_id: field_info.bus_id
             };
