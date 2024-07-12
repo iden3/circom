@@ -184,8 +184,9 @@ impl WriteWasm for CallBucket {
                                 instructions.push(mul32());
                                 instructions.push(add32());
                                 instructions.push(load32(None)); //subcomponent block
-                                instructions.push(set_local(producer.get_sub_cmp_tag()));
-                                instructions.push(get_local(producer.get_sub_cmp_tag()));
+                                instructions.push(tee_local(producer.get_sub_cmp_tag()));
+                                //instructions.push(set_local(producer.get_sub_cmp_tag()));
+                                //instructions.push(get_local(producer.get_sub_cmp_tag()));
                                 instructions.push(set_constant(
                                     &producer.get_signal_start_address_in_component().to_string(),
                                 ));
