@@ -260,7 +260,7 @@ impl WASMProducer {
                 if s.lengths.len() == 0 {
                     n += 1;
                 } else {
-                    n += s.lengths.len() + 2;
+                    n += s.lengths.len() + 1;
                 }
 		// we take the bus_id if it has type bus
 		if let Some(_) = &s.bus_id {
