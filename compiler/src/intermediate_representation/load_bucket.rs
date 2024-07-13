@@ -94,7 +94,6 @@ impl WriteWasm for LoadBucket {
 		}
             }
             LocationRule::Mapped { signal_code, indexes} => {
-                // TODO: ADD THE OFFSET
                 match &self.address_type {
                     AddressType::SubcmpSignal { cmp_address, .. } => {
 			if producer.needs_comments() {

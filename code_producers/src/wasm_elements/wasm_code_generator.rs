@@ -316,31 +316,32 @@ pub fn generate_data_io_signals_info(
     for c in 0..producer.get_number_of_template_instances() {
         match io_map.get(&c) {
             Some(value) => {
- 	       println!("Template Instance: {}", c);
+ 	       //println!("Template Instance: {}", c);
                for s in value {
                     // add the actual offset in memory, taking into account the size of field nums
-                    println!("Offset: {}", s.offset);
+                    //println!("Offset: {}", s.offset);
                     io_signals_info.push_str(&&wasm_hexa(
                         4,
                         &BigInt::from(s.offset * producer.get_size_32_bits_in_memory() * 4),
                     ));
-                    println!("Length: {}", s.lengths.len());
+                    //println!("Length: {}", s.lengths.len());
 		    if s.lengths.len() > 0 { // if it is an array
                         // add the dimensions except the first one		    
                         for i in 1..s.lengths.len() {
-                            println!("Index: {}, {}", i, s.lengths[i]);
+                            //println!("Index: {}, {}", i, s.lengths[i]);
                             io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(s.lengths[i])));
                         }
                         // add the actual size of the elements
-                        println!("Size: {}", s.size);
+                        //println!("Size: {}", s.size);
                         io_signals_info.push_str(&&wasm_hexa(
                             4,
-                            &BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
+                            &BigInt::from(s.size),
+                            //&BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
                         ));
 		    }
 		    // add the busid if it is a  bus
 		    if let Some(value) = s.bus_id {
-                            println!("Bus_id: {}", value);
+                            //println!("Bus_id: {}", value);
 			    io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
 		    }
                 }
@@ -408,7 +409,8 @@ pub fn generate_data_field_info(
 		// add the actual size in memory, if array
 		field_info.push_str(&&wasm_hexa(
                     4,
-                    &BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
+                    &BigInt::from(s.size),
+                    //&BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
 		));
 	    }
             // add the busid if it contains buses
@@ -596,10 +598,10 @@ pub fn generate_imports_list() -> Vec<WasmInstruction> {
         "(import \"runtime\" \"showSharedRWMemory\" (func $showSharedRWMemory (type $_t_void)))"
             .to_string(),
     );
-    imports.push(
-        "(import \"runtime\" \"printDebug\" (func $printDebug (type $_t_i32)))"
-            .to_string(),
-    );
+//    imports.push(
+//        "(import \"runtime\" \"printDebug\" (func $printDebug (type $_t_i32)))"
+//            .to_string(),
+//    );
     imports
 }
 
