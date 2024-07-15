@@ -25,7 +25,7 @@ struct IOFieldDef {
     u32 size;
     u32 len;
     u32 *lengths;
-    u32 busid;
+    u32 busId;
 };
 
 struct IOFieldDefPair { 

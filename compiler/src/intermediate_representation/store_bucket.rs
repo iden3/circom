@@ -131,10 +131,10 @@ impl WriteWasm for StoreBucket {
                         instructions.push(load32(Some(&signal_code_in_bytes.to_string()))); // get where the info of this signal is
                         //now we have first the offset, and then the all size dimensions but the last one
 			if indexes.len() == 0 {
-			    instructions.push(";; has no indexes".to_string());
+			    //instructions.push(";; has no indexes".to_string());
 			    instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
 			} else {
-			    instructions.push(";; has indexes".to_string());
+			    //instructions.push(";; has indexes".to_string());
 			    instructions.push(tee_local(producer.get_io_info_tag()));
 			    instructions.push(load32(None)); // get offset; first slot in io_info (to start adding offsets)
 			    // if the first access is qualified we place the address of the bus_id
@@ -194,10 +194,13 @@ impl WriteWasm for StoreBucket {
 				    instructions.push(set_constant(&field_size.to_string()));
 				    instructions.push(load32(None)); // get the offset
 				    instructions.push(mul32()); // mult by size of field in bytes
-				    instructions.push(add32()); // add to the current offset 
-				    if let AccessType::Qualified(_) = &indexes[idxpos] {
-					instructions.push(get_local(producer.get_io_info_tag()));
-					instructions.push(load32(Some("4"))); // bus_id
+				    instructions.push(add32()); // add to the current offset
+				    idxpos += 1;
+				    if idxpos < indexes.len() {				    
+					if let AccessType::Qualified(_) = &indexes[idxpos] {
+					    instructions.push(get_local(producer.get_io_info_tag()));
+					    instructions.push(load32(Some("4"))); // bus_id
+					}
 				    }
 				} else {
 				    assert!(false);
@@ -358,27 +361,57 @@ impl WriteC for StoreBucket {
 					     circom_calc_wit(), template_ins_2_io_info(),
 					     template_id_in_component(sub_component_pos_in_memory.clone()),
 					     signal_code.to_string());
-		// TODO: INDEXES MIGHT BE INDEX OR QUALIFIED
-        // descomentar todo lo siguiente, quitado para evitar error
-        /* 
-        if indexes.len()>0 {
-		    map_prologue.push(format!("{{"));
-		    map_prologue.push(format!("uint map_index_aux[{}];",indexes.len().to_string()));		    
-		    let (mut index_code_0, mut map_index) = indexes[0].produce_c(producer, parallel);
-		    map_prologue.append(&mut index_code_0);
-		    map_prologue.push(format!("map_index_aux[0]={};",map_index));
-		    map_index = format!("map_index_aux[0]");
-		    for i in 1..indexes.len() {
-			let (mut index_code, index_exp) = indexes[i].produce_c(producer, parallel);
-			map_prologue.append(&mut index_code);
-			map_prologue.push(format!("map_index_aux[{}]={};",i.to_string(),index_exp));
-			map_index = format!("({})*{}->{}[{}].defs[{}].lengths[{}]+map_index_aux[{}]",
-					    map_index, circom_calc_wit(), template_ins_2_io_info(),
+	        if indexes.len() > 0 {
+	            map_prologue.push(format!("{{"));
+		    //cur_def contains a pointer to the definion of the next acces.
+		    //The first time it is taken from template_ins_2_io_info
+		    map_prologue.push(format!("IOFieldDef *cur_def = &({}->{}[{}].defs[{}]);",
+					    circom_calc_wit(), template_ins_2_io_info(),
 					    template_id_in_component(sub_component_pos_in_memory.clone()),
-					    signal_code.to_string(),(i-1).to_string(),i.to_string());
-		    }
-		    map_access = format!("{}+{}",map_access,map_index);
-		}*/
+					      signal_code.to_string()));
+		    map_prologue.push(format!("uint map_accesses_aux[{}];",indexes.len().to_string()));	
+		    let mut idxpos = 0;
+		    while idxpos < indexes.len() {
+			if let AccessType::Indexed(index_list) = &indexes[idxpos] {
+			    map_prologue.push(format!("{{"));
+		            map_prologue.push(format!("uint map_index_aux[{}];",index_list.len().to_string()));
+			    //We first compute the number of elements as
+			    //((map_index_aux[0] * length_of_dim[1]) + map_index_aux[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + map_index_aux[n-1] with
+			    // map_index_aux[i] = computation of index_list[i]
+		            let (mut index_code_0, mut map_index) = index_list[0].produce_c(producer, parallel);
+		            map_prologue.append(&mut index_code_0);
+		            map_prologue.push(format!("map_index_aux[0]={};",map_index));
+		            map_index = format!("map_index_aux[0]");
+		            for i in 1..index_list.len() {
+				let (mut index_code, index_exp) = index_list[i].produce_c(producer, parallel);
+				map_prologue.append(&mut index_code);
+				map_prologue.push(format!("map_index_aux[{}]={};",i.to_string(),index_exp));
+				map_index = format!("({})*cur_def->lengths[{}]+map_index_aux[{}]",
+						    map_index,(i-1).to_string(),i.to_string());
+		            }
+		            map_prologue.push(format!("map_accesses_aux[{}] = {}", idxpos.to_string(), map_index));
+			    map_prologue.push(format!("}}"));
+			    // add to the access expression the computed offset in the array
+			    // multiplied buy the size of the elements
+			    map_access = format!("{}+map_accesses_aux[{}]*cur_def->size",
+						 map_access, idxpos.to_string());
+			} else if let AccessType::Qualified(_) = &indexes[idxpos] {
+			    // we already have the cur_def
+		            map_prologue.push(format!("map_accesses_aux[{}] = cur_def.offset", idxpos.to_string()));
+			} else {
+			    assert!(false);
+			}
+			idxpos += 1;
+			if idxpos < indexes.len() {
+			    if let AccessType::Qualified(field_no) = &indexes[idxpos] {
+				// we get the next definition in cur_def from the bus bus_id
+				map_prologue.push(format!("cur_def = &({}->{}[cur_def->busId].defs[{}]);",
+							  circom_calc_wit(), bus_ins_2_field_info(),
+							  field_no.to_string()));
+			    }
+			}
+	            }
+		}
                 ((map_prologue, map_access),Some(template_id_in_component(sub_component_pos_in_memory.clone())))
 	    } else {
 		assert!(false);
