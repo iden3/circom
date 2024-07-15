@@ -21,6 +21,7 @@ const CIRCOM_COMPONENT_FIELDS: [&str; 4] =
 const S_IOField_DEF: &str = "IOFieldDef";
 const IOField_DEF_FIELDS: [&str; 4] = ["offset", "size", "lengths", "busid"];
 
+
 // Global variables
 pub const SIZE_INPUT_HASHMAP: usize = 256;
 const G_INPUT_HASHMAP: &str = "inputHashMap"; // type HashSignalInfo[256]
@@ -269,7 +270,7 @@ pub fn my_input_counter() -> CInstruction {
 pub const TEMPLATE_INS_ID_2_IO_SIGNAL_INFO: &str = "templateInsId2IOSignalInfo";
 pub fn declare_template_ins_id_2_io_signal_info() -> CInstruction {
     format!(
-        "std::map<u32,IODefPair> {} = {}->{}",
+        "std::map<u32,IOFieldDefPair> {} = {}->{}",
         TEMPLATE_INS_ID_2_IO_SIGNAL_INFO, CIRCOM_CALC_WIT, TEMPLATE_INS_ID_2_IO_SIGNAL_INFO
     )
 }
