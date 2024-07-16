@@ -1,16 +1,19 @@
 use super::very_concrete_program::*;
 use program_structure::ast::*;
 use num_traits::{ToPrimitive};
-
+use std::collections::HashSet;
 
 struct ExtendedSyntax {
     initializations: Vec<Statement>,
 }
 
-struct Context {}
+struct Context {
+    mixed_components: HashSet<String>,
+}
 
 struct State {
     fresh_id: usize,
+    inside_mixed_component: bool,
 }
 impl State {
     pub fn produce_id(&mut self) -> String {
@@ -27,17 +30,24 @@ impl State {
         -Inline array removal
         -Initialization Block removal (no longer needed)
         -Uniform array removal
+        -Access to heterogeneus variables nested removal
 */
 
 pub fn clean_sugar(vcp: &mut VCP) {
-    let mut state = State { fresh_id: 0 };
+    let mut state = State { fresh_id: 0, inside_mixed_component: false};
     for template in &mut vcp.templates {
-        let context = Context {};
+        let mut mixed_components = HashSet::new();
+        for cluster in &template.clusters{
+            if let ClusterType::Mixed{..} = &cluster.xtype{
+                mixed_components.insert(cluster.cmp_name.clone());
+            }
+        }
+        let context = Context {mixed_components};
         let trash = extend_statement(&mut template.code, &mut state, &context);
         assert!(trash.is_empty());
     }
     for vcf in &mut vcp.functions {
-        let context = Context {};
+        let context = Context {mixed_components: HashSet::new()};
         let trash = extend_statement(&mut vcf.body, &mut state, &context);
         assert!(trash.is_empty());
     }
@@ -236,9 +246,13 @@ fn extend_number(_expr: &mut Expression, _state: &mut State, _context: &Context)
 
 fn extend_variable(expr: &mut Expression, state: &mut State, context: &Context) -> ExtendedSyntax {
     use Expression::Variable;
-    if let Variable { access, .. } = expr {
+    if let Variable { access, name, .. } = expr {
         let mut inits = vec![];
+        let old_state_mixed = state.inside_mixed_component; // to recover at the end
+        let is_mixed_component = context.mixed_components.contains(name);
+        state.inside_mixed_component |= is_mixed_component; // to extend the indexes
         for acc in access {
+            
             if let Access::ArrayAccess(e) = acc {
                 let mut expand = extend_expression(e, state, context);
                 inits.append(&mut expand.initializations);
@@ -247,6 +261,17 @@ fn extend_variable(expr: &mut Expression, state: &mut State, context: &Context) 
                 *e = expr.pop().unwrap();
             }
         }
+        // recover all mixed_component state
+        state.inside_mixed_component = old_state_mixed;
+
+        // in this case we move the value to initializations and return 
+        // the new variable instead of the expression
+        // new_id = expr
+        if state.inside_mixed_component && is_mixed_component{
+            let id = state.produce_id();
+            *expr = rmv_sugar(&id, expr.clone(), &mut inits);
+        }
+
         ExtendedSyntax { initializations: inits }
     } else {
         unreachable!();
