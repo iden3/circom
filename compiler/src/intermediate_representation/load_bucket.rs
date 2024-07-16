@@ -174,6 +174,8 @@ impl WriteWasm for LoadBucket {
 				    }
 				} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
 				    //we have on the stack the bus_id
+				    instructions.push(set_constant("4")); //size in byte of i32
+				    instructions.push(mul32()); //maybe better in the memory like this
 				    instructions.push(load32(Some(
 					&producer.get_bus_instance_to_field_start().to_string()
 				    ))); // get position in the bus to field in memory

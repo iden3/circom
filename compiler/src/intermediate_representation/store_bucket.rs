@@ -131,13 +131,13 @@ impl WriteWasm for StoreBucket {
                         instructions.push(load32(Some(&signal_code_in_bytes.to_string()))); // get where the info of this signal is
                         //now we have first the offset, and then the all size dimensions but the last one
 			if indexes.len() == 0 {
-			    //instructions.push(";; has no indexes".to_string());
+			    instructions.push(";; has no indexes".to_string());
 			    instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
 			} else {
-			    //instructions.push(";; has indexes".to_string());
+			    instructions.push(";; has indexes".to_string());
 			    instructions.push(tee_local(producer.get_io_info_tag()));
 			    instructions.push(load32(None)); // get offset; first slot in io_info (to start adding offsets)
-			    // if the first access is qualified we place the address of the bus_id
+			    // if the first access is qualified we place the address of the bus_id on the stack
 			    if let AccessType::Qualified(_) = &indexes[0] {
 				instructions.push(get_local(producer.get_io_info_tag()));
 				instructions.push(load32(Some("4"))); // it is a bus, so the bus_id is in the second position
@@ -182,6 +182,8 @@ impl WriteWasm for StoreBucket {
 				    }
 				} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
 				    //we have on the stack the bus_id
+				    instructions.push(set_constant("4")); //size in byte of i32
+				    instructions.push(mul32()); //maybe better in the memory like this
 				    instructions.push(load32(Some(
 					&producer.get_bus_instance_to_field_start().to_string()
 				    ))); // get position in the bus to field in memory
