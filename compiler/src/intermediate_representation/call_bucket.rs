@@ -283,13 +283,13 @@ impl WriteWasm for CallBucket {
 					    ))); // get position in the bus to field in memory
 					    let field_no_bytes = field_no * 4;
 					    instructions.push(load32(Some(&field_no_bytes.to_string()))); // get position in the field info in memory
-					    if let AccessType::Qualified(_) = &indexes[idxpos] {
+					    if idxpos +1 < indexes.len() {				    
 						instructions.push(tee_local(producer.get_io_info_tag()));
 					    }
-					    let field_size = producer.get_size_32_bits_in_memory() * 4;
-					    instructions.push(set_constant(&field_size.to_string()));
+					    //let field_size = producer.get_size_32_bits_in_memory() * 4;
+					    //instructions.push(set_constant(&field_size.to_string()));
 					    instructions.push(load32(None)); // get the offset
-					    instructions.push(mul32()); // mult by size of field in bytes
+					    //instructions.push(mul32()); // mult by size of field in bytes
 					    instructions.push(add32()); // add to the current offset
 					    idxpos += 1;
 					    if idxpos < indexes.len() {
