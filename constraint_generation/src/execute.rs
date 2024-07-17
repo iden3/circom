@@ -2020,6 +2020,10 @@ fn perform_assign(
                 // Generate an arithmetic slice for the accessed buses
                 let mut signals_values_left: Vec<String> = Vec::new();
                 let mut signals_values_right = Vec::new();
+                
+                // For now we can take advantage of the following: all buses in a slice
+                // are equals so we only call once to generate the accesses
+                
                 for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
                     let assigned_bus = treat_result_with_memory_error(
                         BusSlice::get_reference_to_single_value_by_index(assigned_bus_slice, i),

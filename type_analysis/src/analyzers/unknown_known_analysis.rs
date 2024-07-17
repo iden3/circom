@@ -198,6 +198,11 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                             add_report(ReportCode::NonQuadratic, meta, file_id, &mut reports);
                         }
                     }
+                    else if environment.has_component(var){
+                        if access_tag == Unknown {
+                            add_report(ReportCode::UnknownTemplateAssignment, meta, file_id, &mut reports);
+                        }
+                    }
                 }
             }
         }
@@ -520,6 +525,7 @@ fn add_report(
     let message = match error_code {
         UnknownDimension => "The length of every array must known during the constraint generation phase".to_string(),
         UnknownTemplate => "Every component instantiation must be resolved during the constraint generation phase".to_string(),
+        UnknownTemplateAssignment => "Assigments to signals within an unknown access to an array of components are not allowed".to_string(),
         UnknownBus => "Parameters of a bus must be known during the constraint generation phase".to_string(),
         NonQuadratic => "Non-quadratic constraint was detected statically, using unknown index will cause the constraint to be non-quadratic".to_string(),
         UnreachableConstraints => "There are constraints depending on the value of the condition and it can be unknown during the constraint generation phase".to_string(),
