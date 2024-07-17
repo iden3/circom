@@ -1448,6 +1448,7 @@ fn perform_assign(
                 &accessing_information.array_access,
             )
         };
+        
         let component = treat_result_with_memory_error(
             memory_response,
             meta,

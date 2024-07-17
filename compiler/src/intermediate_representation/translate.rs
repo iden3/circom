@@ -1,6 +1,7 @@
 use super::ir_interface::*;
 use crate::hir::very_concrete_program::*;
 use crate::intermediate_representation::log_bucket::LogBucketArg;
+use crate::intermediate_representation::types::SizeOption;
 use constant_tracking::ConstantTracker;
 use num_bigint_dig::BigInt;
 use program_structure::ast::*;
@@ -274,7 +275,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
                 dest_is_output: false,
                 dest_address_type: AddressType::Variable,
                 dest: LocationRule::Indexed { location: full_address, template_header: None },
-                context: InstrContext { size: 1 },
+                context: InstrContext { size: SizeOption::Single(1) },
                 src: content,
             }
             .allocate();
@@ -667,7 +668,11 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
 
         let length = if let Variable { meta, name, access} = lhe.clone() {
             let def = SymbolDef { meta, symbol: name, acc: access };
-            ProcessedSymbol::new(def, state, context).length
+            let aux = ProcessedSymbol::new(def, state, context).length;
+            match aux{
+                SizeOption::Single(value) => value,
+                SizeOption::Multiple(_) => unreachable!("Should be single possible lenght"),
+            }
         } else {1};
         
         let lhe_pointer = translate_expression(lhe, state, context);
@@ -1020,7 +1025,7 @@ struct BusAccessInfo{
 
 struct ProcessedSymbol {
     line: usize,
-    length: usize,
+    length: SizeOption,
     symbol_dimensions: Vec<usize>, // the dimensions of last symbol
     symbol_size: usize, // the size of the last symbol
     message_id: usize,
@@ -1209,19 +1214,26 @@ impl ProcessedSymbol {
 
             // First check that the possible sizes are all equal
             let mut is_first = true;
+            let mut all_equal = true;
             let mut with_length: usize = 0;
 
-            for possible_size in possible_status.possible_sizes{
+            for possible_size in &possible_status.possible_sizes{
                 if is_first{
-                    with_length = possible_size;
+                    with_length = *possible_size;
                     is_first = false;
                 }
                 else{
-                    if with_length != possible_size{
-                        unreachable!("On development: Circom compiler does not accept for now the assignment of arrays of unknown sizes during the execution of loops");
+                    if with_length != *possible_size{
+                        all_equal = false;
                     }
                 }
             } 
+
+            let size = if all_equal{
+                SizeOption::Single(with_length)
+            } else{
+                SizeOption::Multiple(possible_status.possible_sizes)
+            };
 
             // Compute the signal location inside the component
             let signal_location = build_signal_location(
@@ -1241,7 +1253,7 @@ impl ProcessedSymbol {
                 xtype: meta.get_type_knowledge().get_reduces_to(),
                 line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
                 message_id: state.message_id,
-                length: with_length,
+                length: size,
                 symbol_dimensions: symbol_info.dimensions.clone(),
                 symbol_size: symbol_info.size,
                 symbol: symbol_info,
@@ -1260,7 +1272,7 @@ impl ProcessedSymbol {
                 xtype: meta.get_type_knowledge().get_reduces_to(),
                 line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
                 message_id: state.message_id,
-                length: with_length,
+                length: SizeOption::Single(with_length),
                 symbol_dimensions: initial_symbol_dimensions,
                 symbol_size: initial_symbol_size,
                 symbol: symbol_info,
@@ -1724,7 +1736,7 @@ fn translate_call_arguments(
             .iter()
             .fold(1, |r, c| r * (*c));
         let instr = translate_expression(arg, state, context);
-        info.argument_data.push(InstrContext { size: length });
+        info.argument_data.push(InstrContext { size: SizeOption::Single(length) });
         info.arguments.push(instr);
     }
     info

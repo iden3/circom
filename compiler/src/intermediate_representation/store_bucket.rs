@@ -53,7 +53,18 @@ impl WriteWasm for StoreBucket {
     fn produce_wasm(&self, producer: &WASMProducer) -> Vec<String> {
         use code_producers::wasm_elements::wasm_code_generator::*;
         let mut instructions = vec![];
-        if self.context.size == 0 {
+
+        // TODO: We compute the possible sizes, case multiple size
+        // Now in case Multiple we just return the first value
+        // See below case C (complete)
+        let size = match &self.context.size{
+            SizeOption::Single(value) => *value,
+            SizeOption::Multiple(values) => {
+                values[0]
+            }
+        };
+
+        if size == 0 {
             return vec![];
         }
         if producer.needs_comments() {
@@ -226,16 +237,16 @@ impl WriteWasm for StoreBucket {
         if producer.needs_comments() {
             instructions.push(";; getting src".to_string());
 	}
-        if self.context.size > 1 {
+        if size > 1 {
             instructions.push(set_local(producer.get_store_aux_1_tag()));
         }
         let mut instructions_src = self.src.produce_wasm(producer);
         instructions.append(&mut instructions_src);
-        if self.context.size == 1 {
+        if size == 1 {
             instructions.push(call("$Fr_copy"));
         } else {
             instructions.push(set_local(producer.get_store_aux_2_tag()));
-            instructions.push(set_constant(&self.context.size.to_string()));
+            instructions.push(set_constant(&size.to_string()));
             instructions.push(set_local(producer.get_copy_counter_tag()));
             instructions.push(add_block());
             instructions.push(add_loop());
@@ -273,7 +284,7 @@ impl WriteWasm for StoreBucket {
                 instructions.push(load32(Some(
                     &producer.get_input_counter_address_in_component().to_string(),
                 ))); //remaining inputs to be set
-                instructions.push(set_constant(&self.context.size.to_string()));
+                instructions.push(set_constant(&size.to_string()));
                 instructions.push(sub32());
                 instructions.push(store32(Some(
                     &producer.get_input_counter_address_in_component().to_string(),
@@ -349,9 +360,21 @@ impl WriteC for StoreBucket {
         if let AddressType::SubcmpSignal { cmp_address, .. } = &self.dest_address_type {
             let (mut cmp_prologue, cmp_index) = cmp_address.produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
-	    prologue.push(format!("{{"));
-	    prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
-	}
+	        prologue.push(format!("{{"));
+	        prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
+	    }
+        // We compute the possible sizes, case multiple sizes
+        let size = match &self.context.size{
+            SizeOption::Single(value) => value.to_string(),
+            SizeOption::Multiple(values) => {
+                prologue.push(format!("int size_store[{}] = {};",
+                    values.len(),
+                    set_list(values.clone())
+                ));
+                format!("size_store[{}]", cmp_index_ref)
+            }
+        };
+
         let ((mut dest_prologue, dest_index), my_template_header) =
             if let LocationRule::Indexed { location, template_header } = &self.dest {
                 (location.produce_c(producer, parallel), template_header.clone())
@@ -455,13 +478,13 @@ impl WriteC for StoreBucket {
     prologue.append(&mut src_prologue);
 	prologue.push(format!("// end load src"));	
         std::mem::drop(src_prologue);
-        if self.context.size > 1 {
-            let copy_arguments = vec![aux_dest, src, self.context.size.to_string()];
+        if size != "1" && size != "0" {
+            let copy_arguments = vec![aux_dest, src, size.clone()];
             prologue.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
 	    if let AddressType::Signal = &self.dest_address_type {
         if parallel.unwrap() && self.dest_is_output {
 		    prologue.push(format!("{{"));
-		    prologue.push(format!("for (int i = 0; i < {}; i++) {{",self.context.size));
+		    prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
 		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].lock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}+i]=true;",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
@@ -494,7 +517,7 @@ impl WriteC for StoreBucket {
                 );
                 let sub_cmp_counter_decrease = format!(
                     "{} -= {}",
-                    sub_cmp_counter, self.context.size
+                    sub_cmp_counter, size
                 );
 		if let InputInformation::Input{status} = input_information {
 		    if let StatusInput::NoLast = status {

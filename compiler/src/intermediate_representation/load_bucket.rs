@@ -303,13 +303,25 @@ impl WriteC for LoadBucket {
             }
             AddressType::SubcmpSignal { uniform_parallel_value, is_output, .. } => {
 		if *is_output {
+            // We compute the possible sizes, case multiple size
+            let size = match &self.context.size{
+                SizeOption::Single(value) => value.to_string(),
+                SizeOption::Multiple(values) => {
+                    prologue.push(format!("int size_load[{}] = {};",
+                        values.len(),
+                        set_list(values.to_vec())
+                    ));
+                    format!("size_load[{}]", cmp_index_ref)
+                }
+            };
             if uniform_parallel_value.is_some(){
                 if uniform_parallel_value.unwrap(){
                     prologue.push(format!("{{"));
 		            prologue.push(format!("int aux1 = {};",cmp_index_ref.clone()));
 		            prologue.push(format!("int aux2 = {};",src_index.clone()));
                     // check each one of the outputs of the assignment, we add i to check them one by one
-                    prologue.push(format!("for (int i = 0; i < {}; i++) {{",self.context.size));
+                    
+                    prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
                     prologue.push(format!("ctx->numThreadMutex.lock();"));
                     prologue.push(format!("ctx->numThread--;"));
                     //prologue.push(format!("printf(\"%i \\n\", ctx->numThread);"));
@@ -345,7 +357,7 @@ impl WriteC for LoadBucket {
 		        prologue.push(format!("int aux1 = {};",cmp_index_ref.clone()));
 		        prologue.push(format!("int aux2 = {};",src_index.clone()));
 		        // check each one of the outputs of the assignment, we add i to check them one by one
-                prologue.push(format!("for (int i = 0; i < {}; i++) {{",self.context.size));
+                prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
                 prologue.push(format!("ctx->numThreadMutex.lock();"));
                 prologue.push(format!("ctx->numThread--;"));
                 //prologue.push(format!("printf(\"%i \\n\", ctx->numThread);"));
