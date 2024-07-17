@@ -54,7 +54,8 @@ Circom_Circuit* loadCircuit(std::string const &datFileName) {
       memcpy((void *)(circuit->circuitConstants), (void *)(bdata+inisize), dsize);
     }
 
-    std::map<u32,IODefPair> templateInsId2IOSignalInfo1;
+    std::map<u32,IOFieldDefPair> templateInsId2IOSignalInfo1;
+    IOFieldDefPair* busInsId2FieldInfo1;
     if (get_size_of_io_map()>0) {
       u32 index[get_size_of_io_map()];
       inisize += dsize;
@@ -66,12 +67,11 @@ Circom_Circuit* loadCircuit(std::string const &datFileName) {
       u32 dataiomap[(sb.st_size-inisize)/sizeof(u32)];
       memcpy((void *)dataiomap, (void *)(bdata+inisize), sb.st_size-inisize);
       u32* pu32 = dataiomap;
-
       for (int i = 0; i < get_size_of_io_map(); i++) {
 	u32 n = *pu32;
-	IODefPair p;
+	IOFieldDefPair p;
 	p.len = n;
-	IODef defs[n];
+	IOFieldDef defs[n];
 	pu32 += 1;
 	for (u32 j = 0; j <n; j++){
 	  defs[j].offset=*pu32;
@@ -80,16 +80,44 @@ Circom_Circuit* loadCircuit(std::string const &datFileName) {
 	  defs[j].lengths = new u32[len];
 	  memcpy((void *)defs[j].lengths,(void *)(pu32+2),len*sizeof(u32));
 	  pu32 += len + 2;
+	  defs[j].size=*pu32;
+	  defs[j].busId=*(pu32+1);	  
+	  pu32 += 2;
 	}
-	p.defs = (IODef*)calloc(10, sizeof(IODef));
+	p.defs = (IOFieldDef*)calloc(p.len, sizeof(IOFieldDef));
 	for (u32 j = 0; j < p.len; j++){
 	  p.defs[j] = defs[j];
 	}
 	templateInsId2IOSignalInfo1[index[i]] = p;
       }
+      busInsId2FieldInfo1 = (IOFieldDefPair*)calloc(get_size_of_bus_field_map(), sizeof(IOFieldDefPair));
+      for (int i = 0; i < get_size_of_bus_field_map(); i++) {
+	u32 n = *pu32;
+	IOFieldDefPair p;
+	p.len = n;
+	IOFieldDef defs[n];
+	pu32 += 1;
+	for (u32 j = 0; j <n; j++){
+	  defs[j].offset=*pu32;
+	  u32 len = *(pu32+1);
+	  defs[j].len = len;
+	  defs[j].lengths = new u32[len];
+	  memcpy((void *)defs[j].lengths,(void *)(pu32+2),len*sizeof(u32));
+	  pu32 += len + 2;
+	  defs[j].size=*pu32;
+	  defs[j].busId=*(pu32+1);	  
+	  pu32 += 2;
+	}
+	p.defs = (IOFieldDef*)calloc(10, sizeof(IOFieldDef));
+	for (u32 j = 0; j < p.len; j++){
+	  p.defs[j] = defs[j];
+	}
+	busInsId2FieldInfo1[i] = p;
+      }
     }
     circuit->templateInsId2IOSignalInfo = move(templateInsId2IOSignalInfo1);
-    
+    circuit->busInsId2FieldInfo = busInsId2FieldInfo1;
+
     munmap(bdata, sb.st_size);
     
     return circuit;
