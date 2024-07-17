@@ -533,21 +533,21 @@ impl WriteC for CallBucket {
 					let (mut index_code, index_exp) = index_list[i].produce_c(producer, parallel);
 					map_prologue.append(&mut index_code);
 					map_prologue.push(format!("map_index_aux[{}]={};",i.to_string(),index_exp));
+					// multiply the offset inthe array by the size of the elements
 					map_index = format!("({})*cur_def->lengths[{}]+map_index_aux[{}]",
 							    map_index,(i-1).to_string(),i.to_string());
 				    }
 				    map_prologue.push(format!("map_accesses_aux[{}] = {}*cur_def->size;", idxpos.to_string(), map_index));
 				    map_prologue.push(format!("}}"));
-				    // add to the access expression the computed offset in the array
-				    // multiplied buy the size of the elements
-				    map_access = format!("{}+map_accesses_aux[{}]",
-							 map_access, idxpos.to_string());
 				} else if let AccessType::Qualified(_) = &indexes[idxpos] {
 				    // we already have the cur_def
 				    map_prologue.push(format!("map_accesses_aux[{}] = cur_def->offset;", idxpos.to_string()));
 				} else {
 				    assert!(false);
 				}
+				// add to the access expression the computed offset
+				map_access = format!("{}+map_accesses_aux[{}]",
+						     map_access, idxpos.to_string());
 				idxpos += 1;
 				if idxpos < indexes.len() {
 				    if let AccessType::Qualified(field_no) = &indexes[idxpos] {

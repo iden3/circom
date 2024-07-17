@@ -23,7 +23,8 @@ pub struct FieldData{
     pub dimensions: Vec<usize>,
     pub size: usize,
     pub offset: usize,
-    pub bus_id: Option<usize>
+    pub bus_id: Option<usize>,
+    pub name: String
 }
 
 pub type FieldMap = Vec<Vec<FieldData>>;
