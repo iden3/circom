@@ -12,7 +12,7 @@ pub use super::loop_bucket::LoopBucket;
 pub use super::return_bucket::ReturnBucket;
 pub use super::store_bucket::StoreBucket;
 pub use super::log_bucket::LogBucketArg;
-pub use super::types::{InstrContext, ValueType};
+pub use super::types::{InstrContext, ValueType, SizeOption};
 pub use super::value_bucket::ValueBucket;
 
 use crate::translating_traits::*;

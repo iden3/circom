@@ -92,16 +92,25 @@ impl WriteWasm for CallBucket {
                 instructions.push(get_local(producer.get_call_lvar_tag()));
                 instructions.push(set_constant(&count.to_string()));
                 instructions.push(add32());
-                if self.argument_types[i].size > 1 {
+                // TODO: We compute the possible sizes, case multiple size
+                // Now in case Multiple we just return the first value
+                // See below case C (complete)
+                let arg_size = match &self.argument_types[i].size{
+                    SizeOption::Single(value) => *value,
+                    SizeOption::Multiple(values) => {
+                        values[0]
+                    }
+                };
+                if arg_size > 1 {
                     instructions.push(set_local(producer.get_store_aux_1_tag()));
                 }
                 let mut instructions_arg = p.produce_wasm(producer);
                 instructions.append(&mut instructions_arg);
-                if self.argument_types[i].size == 1 {
+                if arg_size == 1 {
                     instructions.push(call("$Fr_copy"));
                 } else {
                     instructions.push(set_local(producer.get_store_aux_2_tag()));
-                    instructions.push(set_constant(&self.argument_types[i].size.to_string()));
+                    instructions.push(set_constant(&arg_size.to_string()));
                     instructions.push(set_local(producer.get_copy_counter_tag()));
                     instructions.push(add_block());
                     instructions.push(add_loop());
@@ -131,7 +140,7 @@ impl WriteWasm for CallBucket {
 		if producer.needs_comments() {
                     instructions.push(format!(";; end copying argument {}", i));
 		}
-                count += self.argument_types[i].size * 4 * producer.get_size_32_bits_in_memory();
+                count += arg_size * 4 * producer.get_size_32_bits_in_memory();
                 i += 1;
             }
         }
@@ -317,7 +326,16 @@ impl WriteWasm for CallBucket {
                         }
                     }
                 }
-                instructions.push(set_constant(&data.context.size.to_string()));
+                // TODO: We compute the possible sizes, case multiple size
+                // Now in case Multiple we just return the first value
+                // See below case C (complete)
+                let data_size = match &data.context.size{
+                    SizeOption::Single(value) => *value,
+                    SizeOption::Multiple(values) => {
+                        values[0]
+                    }
+                };
+                instructions.push(set_constant(&data_size.to_string()));
                 instructions.push(call(&format!("${}", self.symbol)));
                 instructions.push(tee_local(producer.get_merror_tag()));
 		instructions.push(add_if());
@@ -339,7 +357,7 @@ impl WriteWasm for CallBucket {
                         instructions.push(load32(Some(
                             &producer.get_input_counter_address_in_component().to_string(),
                         ))); //remaining inputs to be set
-                        instructions.push(set_constant(&data.context.size.to_string()));
+                        instructions.push(set_constant(&data_size.to_string()));
                         instructions.push(sub32());
                         instructions.push(store32(Some(
                             &producer.get_input_counter_address_in_component().to_string(),
@@ -425,9 +443,16 @@ impl WriteC for CallBucket {
             let (mut prologue_value, src) = p.produce_c(producer, parallel);
             prologue.append(&mut prologue_value);
             let arena_position = format!("&{}[{}]", L_VAR_FUNC_CALL_STORAGE, count);
-            if self.argument_types[i].size > 1 {
+            // TODO, CASE CALL ARGUMENTS
+            let size = match &self.argument_types[i].size{
+                SizeOption::Single(value) => *value,
+                SizeOption::Multiple(values) => {
+                    values[0]
+                }
+            };
+            if size > 1 {
                 let copy_arguments =
-                    vec![arena_position, src, self.argument_types[i].size.to_string()];
+                    vec![arena_position, src, size.to_string()];
                 prologue
                     .push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
             } else {
@@ -436,7 +461,7 @@ impl WriteC for CallBucket {
                     .push(format!("{};", build_call("Fr_copy".to_string(), copy_arguments)));
             }
             prologue.push(format!("// end copying argument {}", i));
-            count += self.argument_types[i].size;
+            count += size;
             i += 1;
         }
         let result;
@@ -459,9 +484,18 @@ impl WriteC for CallBucket {
 		    let (mut cmp_prologue, cmp_index) = cmp_address.produce_c(producer, parallel);
 		    prologue.append(&mut cmp_prologue);
 		    prologue.push(format!("{{"));
-	            prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
-	        
+	        prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
 		}
+        let size = match &data.context.size{
+            SizeOption::Single(value) => value.to_string(),
+            SizeOption::Multiple(values) => {
+                prologue.push(format!("int size_store[{}] = {};",
+                    values.len(),
+                    set_list(values.to_vec())
+                ));
+                format!("size_store[{}]", cmp_index_ref)
+            }
+        };
 
                 let ((mut dest_prologue, dest_index), my_template_header) =
                     if let LocationRule::Indexed { location, template_header } = &data.dest {
@@ -551,7 +585,7 @@ impl WriteC for CallBucket {
                     }
                 };
                 call_arguments.push(result_ref);
-                call_arguments.push(data.context.size.to_string());
+                call_arguments.push(size.clone());
                 prologue.push(format!("{};", build_call(self.symbol.clone(), call_arguments)));
 		if let LocationRule::Mapped { indexes, .. } = &data.dest {
 		    if indexes.len() > 0 {
@@ -561,9 +595,9 @@ impl WriteC for CallBucket {
 		// if output and parallel send notify
 		if let AddressType::Signal = &data.dest_address_type {
 		    if parallel.unwrap()  && data.dest_is_output {
-			if data.context.size > 0 {
+			if size != "0" {
 			    prologue.push(format!("{{"));
-			    prologue.push(format!("for (int i = 0; i < {}; i++) {{",data.context.size));
+			    prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
 			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].lock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}+i]=true;",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
@@ -588,7 +622,7 @@ impl WriteC for CallBucket {
                         );
                         let sub_cmp_counter_decrease = format!(
                             "{} -= {}",
-                            sub_cmp_counter, &data.context.size
+                            sub_cmp_counter, size
                         );
 			if let InputInformation::Input{status} = input_information {
 			    if let StatusInput::NoLast = status {
