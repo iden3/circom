@@ -403,7 +403,7 @@ fn get_info_buses(buses: &Vec<BusInstance>)->(usize, FieldMap){
     let mut bus_to_fields_data = Vec::new();
     for bus in buses{
         let mut field_data = vec![FieldData::default(); bus.fields.len()];
-        for (_, field_info) in &bus.fields{
+        for (name, field_info) in &bus.fields{
             let mut total_array_size = 1;
             for len in &field_info.dimensions{
                 total_array_size *= len;
@@ -413,7 +413,8 @@ fn get_info_buses(buses: &Vec<BusInstance>)->(usize, FieldMap){
                 offset: field_info.offset,
                 size: individual_size,
                 dimensions: field_info.dimensions.clone(),
-                bus_id: field_info.bus_id
+                bus_id: field_info.bus_id,
+                name: name.clone()
             };
             field_data[field_info.field_id] = data;
         }
