@@ -175,7 +175,7 @@ pub fn reduce_location_rule(lc: LocationRule) -> LocationRule {
                         }
                         accesses.push(AccessType::Indexed(indexes));
                     }
-                    AccessType::Qualified(pos) =>{
+                    AccessType::Qualified(_) =>{
                         accesses.push(acc);
 
                     }
