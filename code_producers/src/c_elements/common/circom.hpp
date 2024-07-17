@@ -22,9 +22,9 @@ struct __attribute__((__packed__)) HashSignalInfo {
 
 struct IOFieldDef { 
     u32 offset;
-    u32 size;
     u32 len;
     u32 *lengths;
+    u32 size;
     u32 busId;
 };
 
@@ -84,5 +84,6 @@ uint get_size_of_input_hashmap();
 uint get_size_of_witness();
 uint get_size_of_constants();
 uint get_size_of_io_map();
+uint get_size_of_bus_field_map();
 
 #endif  // __CIRCOM_H
