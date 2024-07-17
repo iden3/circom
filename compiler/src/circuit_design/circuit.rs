@@ -360,7 +360,7 @@ impl WriteC for Circuit {
             producer.get_io_map().len()
         ));
         code.push(format!(
-            "uint get_size_of_bus_list() {{return {};}}\n",
+            "uint get_size_of_bus_field_map() {{return {};}}\n", 
             producer.get_busid_field_info().len()
         ));
         //code.append(&mut generate_message_list_def(producer, producer.get_message_list()));
@@ -482,7 +482,7 @@ impl WriteC for Circuit {
             producer.get_io_map().len()
         ));
         code.push(format!(
-            "uint get_size_of_bus_list() {{return {};}}\n",
+            "uint get_size_of_bus_field_map() {{return {};}}\n", 
             producer.get_busid_field_info().len()
         ));
         //code.append(&mut generate_message_list_def(producer, producer.get_message_list()));

@@ -624,9 +624,77 @@ pub fn generate_dat_io_signals_info(
                 v.reverse();
                 io_signals_info.append(&mut v);
             }
+            let s32 = s.size as u32;
+            let mut v: Vec<u8> = s32.to_be_bytes().to_vec();
+            v.reverse();
+            io_signals_info.append(&mut v);
+	    let b32 = if let Some(value) = s.bus_id {
+		value as u32
+	    } else {
+		0 as u32
+	    };
+	    let mut v = b32.to_be_bytes().to_vec();
+	    v.reverse();
+	    io_signals_info.append(&mut v);
         }
     }
     io_signals_info
+}
+
+pub fn generate_dat_bus_field_info(
+    _producer: &CProducer,
+    field_map: &FieldMap,
+) -> Vec<u8> {
+    // println!("size: {}",field_map.len());
+    let mut bus_field_info = vec![];
+    //let t32 = field_map.len() as u32;
+    //let mut v: Vec<u8> = t32.to_be_bytes().to_vec();
+    //v.reverse();
+    //bus_field_info.append(&mut v);
+    for c in 0..field_map.len() {
+        //println!("field_def_len: {}",field_map[c].len());
+        let l32 = field_map[c].len() as u32;
+        let mut v: Vec<u8> = l32.to_be_bytes().to_vec();
+        v.reverse();
+        bus_field_info.append(&mut v);
+        for s in &field_map[c] {
+            //println!("offset: {}",s.offset);
+            let l32 = s.offset as u32;
+            let mut v: Vec<u8> = l32.to_be_bytes().to_vec();
+            v.reverse();
+            bus_field_info.append(&mut v);
+            let n32: u32;
+            if s.dimensions.len() > 0 {
+                n32 = (s.dimensions.len() - 1) as u32;
+            } else {
+                n32 = 0;
+            }
+            // println!("dims-1: {}",n32);
+            let mut v: Vec<u8> = n32.to_be_bytes().to_vec();
+            v.reverse();
+            bus_field_info.append(&mut v);
+            for i in 1..s.dimensions.len() {
+                // println!("dims {}: {}",i,s.lengths[i]);
+                let pos = s.dimensions[i] as u32;
+                let mut v: Vec<u8> = pos.to_be_bytes().to_vec();
+                v.reverse();
+                bus_field_info.append(&mut v);
+            }
+            let s32 = s.size as u32;
+            let mut v: Vec<u8> = s32.to_be_bytes().to_vec();
+            v.reverse();
+            bus_field_info.append(&mut v);
+	    let b32 = if let Some(value) = s.bus_id {
+		value as u32
+	    } else {
+		0 as u32
+	    };
+	    let mut v = b32.to_be_bytes().to_vec();
+	    v.reverse();
+	    bus_field_info.append(&mut v);
+        }
+    }
+    bus_field_info
 }
 
 // in main fix one to 1
@@ -678,6 +746,11 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     //dfile.write_all(&ioml.to_be_bytes())?;
     let iomap = generate_dat_io_signals_info(&producer, producer.get_io_map());
     dat_file.write_all(&iomap)?;
+    if producer.get_io_map().len() > 0 {
+	//otherwise it is not used
+	let fieldmap = generate_dat_bus_field_info(&producer, producer.get_busid_field_info());
+	dat_file.write_all(&fieldmap)?;
+    }
     /*
         let ml = producer.get_message_list();
         let mll = ml.len() as u64;
@@ -689,7 +762,7 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
             dfile.write_all(m)?;
             dfile.flush()?;
         }
-    */
+     */
     dat_file.flush()?;
     Ok(())
 }
@@ -987,6 +1060,7 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
         producer.get_field_constant_list().len()
     ));
     code.push(format!("uint get_size_of_io_map() {{return {};}}\n", producer.get_io_map().len()));
+    code.push(format!("uint get_size_of_bus_field_map() {{return {};}}\n", producer.get_busid_field_info().len()));
 
     // let mut ml_def = generate_message_list_def(producer, producer.get_message_list());
     // code.append(&mut ml_def);

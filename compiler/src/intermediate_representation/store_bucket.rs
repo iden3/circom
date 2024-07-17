@@ -365,13 +365,14 @@ impl WriteC for StoreBucket {
 					     signal_code.to_string());
 	        if indexes.len() > 0 {
 	            map_prologue.push(format!("{{"));
+		    map_prologue.push(format!("uint map_accesses_aux[{}];",indexes.len().to_string()));
+	            map_prologue.push(format!("{{"));		    
 		    //cur_def contains a pointer to the definion of the next acces.
 		    //The first time it is taken from template_ins_2_io_info
 		    map_prologue.push(format!("IOFieldDef *cur_def = &({}->{}[{}].defs[{}]);",
 					    circom_calc_wit(), template_ins_2_io_info(),
 					    template_id_in_component(sub_component_pos_in_memory.clone()),
 					      signal_code.to_string()));
-		    map_prologue.push(format!("uint map_accesses_aux[{}];",indexes.len().to_string()));	
 		    let mut idxpos = 0;
 		    while idxpos < indexes.len() {
 			if let AccessType::Indexed(index_list) = &indexes[idxpos] {
@@ -391,15 +392,15 @@ impl WriteC for StoreBucket {
 				map_index = format!("({})*cur_def->lengths[{}]+map_index_aux[{}]",
 						    map_index,(i-1).to_string(),i.to_string());
 		            }
-		            map_prologue.push(format!("map_accesses_aux[{}] = {}", idxpos.to_string(), map_index));
+		            map_prologue.push(format!("map_accesses_aux[{}] = {}*cur_def->size;", idxpos.to_string(), map_index));
 			    map_prologue.push(format!("}}"));
 			    // add to the access expression the computed offset in the array
 			    // multiplied buy the size of the elements
-			    map_access = format!("{}+map_accesses_aux[{}]*cur_def->size",
+			    map_access = format!("{}+map_accesses_aux[{}]",
 						 map_access, idxpos.to_string());
 			} else if let AccessType::Qualified(_) = &indexes[idxpos] {
 			    // we already have the cur_def
-		            map_prologue.push(format!("map_accesses_aux[{}] = cur_def.offset", idxpos.to_string()));
+		            map_prologue.push(format!("map_accesses_aux[{}] = cur_def->offset;", idxpos.to_string()));
 			} else {
 			    assert!(false);
 			}
@@ -413,6 +414,7 @@ impl WriteC for StoreBucket {
 			    }
 			}
 	            }
+		    map_prologue.push(format!("}}"));
 		}
                 ((map_prologue, map_access),Some(template_id_in_component(sub_component_pos_in_memory.clone())))
 	    } else {
@@ -617,13 +619,13 @@ impl WriteC for StoreBucket {
             }
             _ => (),
         }
-	if let AddressType::SubcmpSignal { .. } = &self.dest_address_type {
-	    prologue.push(format!("}}"));
-	}
 	if let LocationRule::Mapped { indexes, .. } = &self.dest {
 	    if indexes.len() > 0 {
     		prologue.push(format!("}}"));
 	    }
+	}
+	if let AddressType::SubcmpSignal { .. } = &self.dest_address_type {
+	    prologue.push(format!("}}"));
 	}
 
         (prologue, "".to_string())
