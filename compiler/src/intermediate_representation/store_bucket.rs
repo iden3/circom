@@ -144,8 +144,13 @@ impl WriteWasm for StoreBucket {
 			    }
 			    let mut idxpos = 0;			    
 			    while idxpos < indexes.len() {
-				if let AccessType::Indexed(index_list) = &indexes[idxpos] {
-				    let mut infopos = 0;
+				if let AccessType::Indexed(index_info) = &indexes[idxpos] {
+				    
+                    // TODO: using the dim info
+                    let index_list = &index_info.indexes;
+                    let dim = index_info.symbol_dim;
+                    
+                    let mut infopos = 0;
 				    assert!(index_list.len() > 0);
 				    //We first compute the number of elements as
 				    //((index_list[0] * length_of_dim[1]) + index_list[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + index_list[n-1]
@@ -375,8 +380,13 @@ impl WriteC for StoreBucket {
 					      signal_code.to_string()));
 		    let mut idxpos = 0;
 		    while idxpos < indexes.len() {
-			if let AccessType::Indexed(index_list) = &indexes[idxpos] {
-			    map_prologue.push(format!("{{"));
+			if let AccessType::Indexed(index_info) = &indexes[idxpos] {
+			    
+                // TODO: using the dim info
+                let index_list = &index_info.indexes;
+                let dim = index_info.symbol_dim;
+                
+                map_prologue.push(format!("{{"));
 		            map_prologue.push(format!("uint map_index_aux[{}];",index_list.len().to_string()));
 			    //We first compute the number of elements as
 			    //((map_index_aux[0] * length_of_dim[1]) + map_index_aux[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + map_index_aux[n-1] with

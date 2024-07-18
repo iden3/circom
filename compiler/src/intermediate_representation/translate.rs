@@ -970,7 +970,11 @@ fn build_signal_location(
             for index in indexes{
                 let filtered = indexing_instructions_filter(index, state);
                 if filtered.len() > 0{
-                    accesses.push(AccessType::Indexed(filtered));
+                    let index_info = IndexedInfo{
+                        indexes: filtered,
+                        symbol_dim: dimensions.len()
+                    };
+                    accesses.push(AccessType::Indexed(index_info));
                 }
                 if i != len_indexes -1{
                     // The last access is just an index

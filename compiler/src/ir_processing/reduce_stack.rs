@@ -166,14 +166,15 @@ pub fn reduce_location_rule(lc: LocationRule) -> LocationRule {
             for acc in work_accesses{
                 match acc{
                     AccessType::Indexed(indexes) =>{
-                        let no_indexes = InstructionList::len(&indexes);
-                        let work = indexes;
+                        let no_indexes = InstructionList::len(&indexes.indexes);
+                        let work = indexes.indexes;
+                        let symbol_dim = indexes.symbol_dim;
                         let mut indexes = InstructionList::with_capacity(no_indexes);
                         for index in work {
                             let index = Allocate::allocate(reduce_instruction(*index));
                             InstructionList::push(&mut indexes, index);
                         }
-                        accesses.push(AccessType::Indexed(indexes));
+                        accesses.push(AccessType::Indexed(IndexedInfo{indexes, symbol_dim}));
                     }
                     AccessType::Qualified(_) =>{
                         accesses.push(acc);

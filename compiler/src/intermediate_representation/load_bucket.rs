@@ -136,8 +136,13 @@ impl WriteWasm for LoadBucket {
 			    }
 			    let mut idxpos = 0;			    
 			    while idxpos < indexes.len() {
-				if let AccessType::Indexed(index_list) = &indexes[idxpos] {
-				    let mut infopos = 0;
+				if let AccessType::Indexed(index_info) = &indexes[idxpos] {
+				    
+                    // TODO: using the dim info
+                    let index_list = &index_info.indexes;
+                    let dim = index_info.symbol_dim;
+                    
+                    let mut infopos = 0;
 				    assert!(index_list.len() > 0);
 				    //We first compute the number of elements as
 				    //((index_list[0] * length_of_dim[1]) + index_list[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + index_list[n-1]
@@ -255,8 +260,13 @@ impl WriteC for LoadBucket {
 					      signal_code.to_string());
 		    let mut idxpos = 0;
 		    while idxpos < indexes.len() {
-			if let AccessType::Indexed(index_list) = &indexes[idxpos] {
-			    //We first compute the number of elements as
+			if let AccessType::Indexed(index_info) = &indexes[idxpos] {
+			    
+                // TODO: using the dim info
+                let index_list = &index_info.indexes;
+                let dim = index_info.symbol_dim;
+                
+                //We first compute the number of elements as
 			    //((index_list[0] * length_of_dim[1]) + index_list[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + index_list[n-1] 
 		            let (mut index_code_0, mut map_index) = index_list[0].produce_c(producer, parallel);
 		            map_prologue.append(&mut index_code_0);
