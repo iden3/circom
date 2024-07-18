@@ -18,8 +18,8 @@ const CIRCOM_HASH_ENTRY_FIELDS: [&str; 3] = ["hash", "signalid", "signalsize"];
 const S_CIRCOM_COMPONENT: &str = "Circom_Component";
 const CIRCOM_COMPONENT_FIELDS: [&str; 4] =
     ["templateID", "signalStart", "inputCounter", "subcomponents"];
-const S_IOField_DEF: &str = "IOFieldDef";
-const IOField_DEF_FIELDS: [&str; 4] = ["offset", "size", "lengths", "busid"];
+const S_IOFIELD_DEF: &str = "IOFieldDef";
+const IOFIELD_DEF_FIELDS: [&str; 4] = ["offset", "size", "lengths", "busid"];
 
 
 // Global variables
@@ -144,9 +144,9 @@ pub fn template_ins_2_io_info() -> CInstruction {
     format!("{}", TEMP_INS_2_IO_INFO)
 }
 
-pub const BUS_INS_2_Field_INFO: &str = "busInsId2FieldInfo";
+pub const BUS_INS_2_FIELD_INFO: &str = "busInsId2FieldInfo";
 pub fn bus_ins_2_field_info() -> CInstruction {
-    format!("{}", BUS_INS_2_Field_INFO)
+    format!("{}", BUS_INS_2_FIELD_INFO)
 }
 
 pub fn template_id_in_component(idx: CInstruction) -> CInstruction {
