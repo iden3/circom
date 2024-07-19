@@ -970,9 +970,14 @@ fn build_signal_location(
             for index in indexes{
                 let filtered = indexing_instructions_filter(index, state);
                 if filtered.len() > 0{
+                    let symbol_dim = if i == 0{
+                        dimensions.len() // dimensions is the length of the first symbol
+                    } else{
+                        bus_accesses[i-1].lengths.len() // if not return length of the bus
+                    };
                     let index_info = IndexedInfo{
                         indexes: filtered,
-                        symbol_dim: dimensions.len()
+                        symbol_dim
                     };
                     accesses.push(AccessType::Indexed(index_info));
                 }
