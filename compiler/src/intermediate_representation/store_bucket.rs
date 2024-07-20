@@ -370,6 +370,8 @@ impl WriteC for StoreBucket {
         let mut prologue = vec![];
 	let cmp_index_ref = "cmp_index_ref".to_string();
 	let aux_dest_index = "aux_dest_index".to_string();
+	//prologue.push(format!("// store bucket. Line {}", self.line)); //.to_string()
+
         if let AddressType::SubcmpSignal { cmp_address, .. } = &self.dest_address_type {
             let (mut cmp_prologue, cmp_index) = cmp_address.produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
@@ -380,7 +382,8 @@ impl WriteC for StoreBucket {
             if let LocationRule::Indexed { location, template_header } = &self.dest {
                 (location.produce_c(producer, parallel), template_header.clone())
             } else if let LocationRule::Mapped { signal_code, indexes} = &self.dest {
-        //if Mapped must be SubcmpSignal
+		//if Mapped must be SubcmpSignal
+		//println!("Line {} is Mapped: {}",self.line, self.dest.to_string());
 		let mut map_prologue = vec![];
 		let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref.clone());
 		let mut map_access = format!("{}->{}[{}].defs[{}].offset",
@@ -431,8 +434,10 @@ impl WriteC for StoreBucket {
 			    // multiply the offset in the array (after multiplying by the missing dimensions) by the size of the elements
 		            map_prologue.push(format!("map_accesses_aux[{}] = {}*cur_def->size;", idxpos.to_string(), map_index));
 			    map_prologue.push(format!("}}"));
-			} else if let AccessType::Qualified(_) = &indexes[idxpos] {
-			    // we already have the cur_def
+			} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
+			    map_prologue.push(format!("cur_def = &({}->{}[cur_def->busId].defs[{}]);",
+							  circom_calc_wit(), bus_ins_2_field_info(),
+							  field_no.to_string()));
 		            map_prologue.push(format!("map_accesses_aux[{}] = cur_def->offset;", idxpos.to_string()));
 			} else {
 			    assert!(false);
@@ -441,14 +446,6 @@ impl WriteC for StoreBucket {
 			map_access = format!("{}+map_accesses_aux[{}]",
 					     map_access, idxpos.to_string());
 			idxpos += 1;
-			if idxpos < indexes.len() {
-			    if let AccessType::Qualified(field_no) = &indexes[idxpos] {
-				// we get the next definition in cur_def from the bus bus_id
-				map_prologue.push(format!("cur_def = &({}->{}[cur_def->busId].defs[{}]);",
-							  circom_calc_wit(), bus_ins_2_field_info(),
-							  field_no.to_string()));
-			    }
-			}
 	            }
 		    map_prologue.push(format!("}}"));
 		}

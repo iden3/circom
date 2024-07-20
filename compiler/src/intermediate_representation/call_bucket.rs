@@ -542,8 +542,10 @@ impl WriteC for CallBucket {
 				    // multiply the offset in the array (after multiplying by the missing dimensions) by the size of the elements
 				    map_prologue.push(format!("map_accesses_aux[{}] = {}*cur_def->size;", idxpos.to_string(), map_index));
 				    map_prologue.push(format!("}}"));
-				} else if let AccessType::Qualified(_) = &indexes[idxpos] {
-				    // we already have the cur_def
+				} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
+				    map_prologue.push(format!("cur_def = &({}->{}[cur_def->busId].defs[{}]);",
+							      circom_calc_wit(), bus_ins_2_field_info(),
+							      field_no.to_string()));
 				    map_prologue.push(format!("map_accesses_aux[{}] = cur_def->offset;", idxpos.to_string()));
 				} else {
 				    assert!(false);
@@ -552,14 +554,6 @@ impl WriteC for CallBucket {
 				map_access = format!("{}+map_accesses_aux[{}]",
 						     map_access, idxpos.to_string());
 				idxpos += 1;
-				if idxpos < indexes.len() {
-				    if let AccessType::Qualified(field_no) = &indexes[idxpos] {
-					// we get the next definition in cur_def from the bus bus_id
-					map_prologue.push(format!("cur_def = &({}->{}[cur_def->busId].defs[{}]);",
-								  circom_calc_wit(), bus_ins_2_field_info(),
-								  field_no.to_string()));
-				    }
-				}
 			    }
 			    map_prologue.push(format!("}}"));
 			}
