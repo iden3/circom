@@ -15,7 +15,7 @@ pub struct ComponentRepresentation {
     unassigned_tags: HashSet<String>,
     to_assign_inputs: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>)>,
     to_assign_input_buses: Vec<(String, Vec<SliceCapacity>, BusSlice)>,
-    to_assign_input_bus_fields: Vec<(String, AccessingInformationBus, FoldedResult)>,
+    to_assign_input_bus_fields: Vec<(String, AccessingInformationBus, FoldedResult, TagInfo)>,
     inputs: HashMap<String, SignalSlice>,
     input_buses: HashMap<String, BusSlice>,
     pub inputs_tags: BTreeMap<String, TagInfo>,
@@ -219,9 +219,8 @@ impl ComponentRepresentation {
         }
 
         let to_assign = std::mem::replace(&mut component.to_assign_input_bus_fields, vec![]);
-        for (signal_name, access, field_value) in &to_assign{
-            let tags_input = component.inputs_tags[signal_name].clone();
-            component.assign_value_to_bus_field_init(signal_name, access, field_value, tags_input)?;
+        for (signal_name, access, field_value, tags_input) in to_assign{
+            component.assign_value_to_bus_field_init(&signal_name, &access, &field_value, tags_input)?;
         }
 
         Result::Ok(())
@@ -531,10 +530,18 @@ impl ComponentRepresentation {
 
         // check that the tags are correct and update values, in this case none inputs
         // are assigned to the complete bus
-        ComponentRepresentation::handle_tag_assignment_no_init(component, bus_name, &TagInfo::new())?;
+        ComponentRepresentation::handle_tag_assignment_no_init(
+            component, 
+            bus_name, 
+            &TagInfo::new())?;
         
-        // TODO: add the info of the fields, not of the bus
-        component.to_assign_input_bus_fields.push((bus_name.to_string(), access.clone(), field_value));
+        component.to_assign_input_bus_fields.push((
+            bus_name.to_string(), 
+            access.clone(), 
+            field_value,
+            tags.clone()
+        )
+        );
         
         Result::Ok(())
     }
