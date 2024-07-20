@@ -16,7 +16,8 @@ impl ToString for AccessType {
     fn to_string(&self) -> String {
         match &self{
             AccessType::Indexed(index) =>{
-                index.indexes.iter().map(|i| i.to_string()).collect()
+		
+                format!("Indexed({},{})", index.symbol_dim, index.indexes.iter().map(|i| i.to_string()).collect::<String>())
             }
             AccessType::Qualified(value) =>{
                 format!("field({})", value)

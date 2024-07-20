@@ -308,21 +308,15 @@ impl WriteC for LoadBucket {
 			    // multiply the offset in the array (after multiplying by the missing dimensions) by the size of the elements
 			    // and add it to the access expression 
 			    map_access = format!("{}+({})*{}.size", map_access, map_index, cur_def);
-			} else if let AccessType::Qualified(_) = &indexes[idxpos] {
-			    // we already have the cur_def
+			} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
+			    cur_def = format!("{}->{}[{}.busId].defs[{}]",
+					      circom_calc_wit(), bus_ins_2_field_info(),
+					      cur_def, field_no.to_string());
 			    map_access = format!("{}+{}.offset", map_access, cur_def);
 			} else {
 			    assert!(false);
 			}
 			idxpos += 1;
-			if idxpos < indexes.len() {
-			    if let AccessType::Qualified(field_no) = &indexes[idxpos] {
-				// we get the next definition in cur_def from the bus bus_id
-				cur_def = format!("{}->{}[{}.busId].defs[{}]",
-							  circom_calc_wit(), bus_ins_2_field_info(),
-							  cur_def, field_no.to_string());
-			    }
-			}
 	            }
 		}
                 (map_prologue, map_access)
