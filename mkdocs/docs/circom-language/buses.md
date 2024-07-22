@@ -54,25 +54,27 @@ Besides tagging buses defined in a template, we can also tag their different fie
 bus Book {
     signal {maxvalue} title[50];
     signal {maxvalue} author[50];
-    signal pages;
+    signal {maxvalue} sold_copies;
     signal {maxvalue} year;
 };
 ```
 
 The `Book` bus has four different fields:
-signal arrays  `title` and `author` whose letters have a maximum value, the number of `pages`, and the publication `year`, which also has a maximum value. Using buses makes your code clearer and more readable. It is easier to understand that a `Book` bus represents a book with its fields, rather than dealing with individual signals.
+signal arrays  `title` and `author` whose letters have a maximum value, the number of sold copies `sold_copies`, and the publication `year`, which also has a maximum value. Using buses makes your code clearer and more readable. It is easier to understand that a `Book` bus represents a book with its fields, rather than dealing with individual signals.
 
 ``` 
-template OldBook(){
+template BestSeller2024(){
     Book input book;
-    Book output {old} old_book;
-    signal check <== LessThan(book.year.maxvalue)([book.year,1950]);
-    check === 1;
-    old_book <== book;
+    Book output {best_seller2024} best_book;
+    signal check_copies <== LessThan(book.sold_copies.maxvalue)([1000000,book.sold_copies]);
+    check_copies === 1;
+    signal check_2024 <== IsEqual()([book.year,2024]);
+    check_2024 === 1;
+    best_book <== book;
 }
 ```
 
-As mentioned above, tags work at both levels: at the level of the whole bus, expressing that the book was written before 1950, and at the level of the bus signals, expressing the different correctness properties about them.
+As mentioned above, tags work at both levels: at the level of the whole bus, expressing that the book is a best-seller in 2024 (it sold more than 1 million copies), and at the level of the bus signals, expressing the different correctness properties about the book's fields.
 
 ## Approaching a Type System via Buses and Tags
 The introduction of buses in circom 2.2.0 brings us closer to having a robust type system. By enforcing compatibility rules in the bus assignments and enabling tagging at both the bus and signal level, buses provide a structured way to manage and verify the relationships between different signals. The combined use of buses and tags emulates the advantages of a traditional type system within circom, enhancing code clarity, reducing errors, and improving overall organization.
@@ -106,12 +108,18 @@ error[T2059]: Typing error found
 
 In this case, the transformation from one type to another should be explicitly done as follows: `b2.x <== b1.x;`.
 
-Consider again the `OldBook` template and a possible instantiation: `Book old <== OldBook()(b);` Similar to tags, whenever a template is instantiated, the compiler checks if the type of `b` is equals to `Book`. If it is not, an error is reported. The compiler also checks if the bus' fields have the same tags.
+Consider again the `BestSeller2024` template and a possible instantiation: `Book seller <== BestSeller2024()(b);` Similar to tags, whenever a template is instantiated, the compiler checks if the type of `b` is equals to `Book`. If it is not, an error is reported. The compiler also checks if the bus' fields have the same tags.
 
 ## Buses inside Buses
 We can have buses inside the definition other buses, as long as we do not define buses  recursively. To illustrate this, let us consider now, a new kind of bus, `Person`, which contains some information about a person:
 
 ```
+bus Film{
+    signal title[50];
+    signal director[50];
+    signal year;
+}
+
 bus Date{
     signal day;
     signal month;
@@ -120,7 +128,7 @@ bus Date{
 
 bus Person{
     signal name[50];
-    Book books[10];
+    Film films[10];
     Date birthday;
 }
 ```
@@ -152,11 +160,11 @@ Notice that the `Figure` bus is defined by two parameters: the number of sides a
 
 ```
 bus Triangle2D(){
-    Figure(3,2) triangle;
+    Figure(3,2) {well_defined} triangle;
 }
 
 bus Square3D(){
-    Figure(4,3) square;
+    Figure(4,3) {well_defined} square;
 }
 ```
 
@@ -186,16 +194,14 @@ Similar to signals, buses can be part of the inputs of the main circuit. Thus, w
 
 ```
 ["p": {"name": ["80","82",...], 
-       "books": [
+       "films": [
             {   "title": [...],
-                "author": [...],
-                "pages": "30",
+                "director": [...],
                 "year": "1953"
             },
                 ...,
             {   "title": [...],
-                "author": [...],
-                "pages": "121",
+                "director": [...],
                 "year": "1990"
             }
         ], 
@@ -207,3 +213,5 @@ Similar to signals, buses can be part of the inputs of the main circuit. Thus, w
     }
 ]
 ```
+
+Like public input signals, public input buses cannot be tagged. Otherwise, the compiler will report an error. 
