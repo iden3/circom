@@ -1,6 +1,6 @@
 # Scoping
 
-Circom has static scoping like C and Rust. However, we have that signals and components must have global scoping and hence they should be defined at the top-level block of the template that defines them or, since circom 2.1.5, inside (nested) `if` blocks, but only if conditions are known at compilation time. 
+Circom has static scoping like C and Rust. However, we have that signals, buses and components must have global scoping and hence they should be defined at the top-level block of the template that defines them or, since circom 2.1.5, inside (nested) `if` blocks, but only if conditions are known at compilation time. 
 
 ```text
 pragma circom 2.1.5;
