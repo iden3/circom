@@ -6,9 +6,11 @@ mod type_analysis_user;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
+use std::env;
 
 use ansi_term::Colour;
 use input_user::Input;
+use virtual_fs::RealFs;
 fn main() {
     let result = start();
     if result.is_err() {
@@ -23,8 +25,11 @@ fn main() {
 fn start() -> Result<(), ()> {
     use compilation_user::CompilerConfig;
     use execution_user::ExecutionConfig;
+
+    let mut fs = RealFs::new();
+
     let user_input = Input::new()?;
-    let mut program_archive = parser_user::parse_project(&user_input)?;
+    let mut program_archive = parser_user::parse_project(&mut fs, &user_input)?;
     type_analysis_user::analyse_project(&mut program_archive)?;
 
     let config = ExecutionConfig {
@@ -45,7 +50,7 @@ fn start() -> Result<(), ()> {
         json_substitutions: user_input.json_substitutions_file().to_string(),
         prime: user_input.prime(),        
     };
-    let circuit = execution_user::execute_project(program_archive, config)?;
+    let circuit = execution_user::execute_project(&mut fs, program_archive, config)?;
     let compilation_config = CompilerConfig {
         vcp: circuit,
         debug_output: user_input.print_ir_flag(),
@@ -62,6 +67,6 @@ fn start() -> Result<(), ()> {
         wasm_file: user_input.wasm_file().to_string(),
         produce_input_log: user_input.main_inputs_flag(),
     };
-    compilation_user::compile(compilation_config)?;
+    compilation_user::compile(&mut fs, compilation_config).map_err(|_| {})?;
     Result::Ok(())
 }

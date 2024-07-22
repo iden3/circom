@@ -117,6 +117,7 @@ dependencies = [
  "parser",
  "program_structure",
  "type_analysis",
+ "virtual_fs",
  "wast",
 ]
 
@@ -152,6 +153,7 @@ dependencies = [
  "lz_fnv",
  "num-bigint-dig",
  "serde_json",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -182,6 +184,7 @@ dependencies = [
  "num-bigint-dig",
  "num-traits",
  "program_structure",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -201,6 +204,7 @@ dependencies = [
  "num-bigint-dig",
  "num-traits",
  "program_structure",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -213,6 +217,7 @@ dependencies = [
  "num_cpus",
  "program_structure",
  "threadpool",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -221,6 +226,7 @@ version = "2.1.8"
 dependencies = [
  "circom_algebra",
  "json",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -257,6 +263,7 @@ dependencies = [
  "constraint_writers",
  "json",
  "program_structure",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -666,6 +673,7 @@ dependencies = [
  "rustc-hex",
  "serde",
  "serde_derive",
+ "virtual_fs",
 ]
 
 [[package]]
@@ -1095,6 +1103,10 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "virtual_fs"
+version = "0.1.0"
 
 [[package]]
 name = "wasi"

@@ -16,19 +16,20 @@ use program_structure::ast::{produce_compiler_version_report, produce_report, pr
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::ReportCollection;
 use program_structure::error_definition::Report;
-use program_structure::file_definition::{FileLibrary};
+use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
-use std::path::{PathBuf, Path};
-use syntax_sugar_remover::{apply_syntactic_sugar};
+use syntax_sugar_remover::apply_syntactic_sugar;
+use virtual_fs::{FileSystem, VPath};
 
 use std::str::FromStr;
 
 pub type Version = (usize, usize, usize);
 
 pub fn find_file(
-    crr_file: PathBuf,
-    ext_link_libraries: Vec<PathBuf>,
-) -> (bool, String, String, PathBuf, Vec<Report>) {
+    fs: &mut dyn FileSystem,
+    crr_file: VPath,
+    ext_link_libraries: Vec<VPath>,
+) -> (bool, String, String, VPath, Vec<Report>) {
     let mut found = false;
     let mut path = "".to_string();
     let mut src = "".to_string();
@@ -36,12 +37,10 @@ pub fn find_file(
     let mut reports = Vec::new();
     let mut i = 0;
     while !found && i < ext_link_libraries.len() {
-        let mut p = PathBuf::new();
-        let aux = ext_link_libraries.get(i).unwrap();
-        p.push(aux);
-        p.push(crr_file.clone());
+        let mut p = ext_link_libraries.get(i).unwrap().clone();
+        p.push(&crr_file.to_string());
         crr_str_file = p;
-        match open_file(crr_str_file.clone()) {
+        match open_file(fs, crr_str_file.clone()) {
             Ok((new_path, new_src)) => {
                 path = new_path;
                 src = new_src;
@@ -57,22 +56,23 @@ pub fn find_file(
 }
 
 pub fn run_parser(
+    fs: &mut dyn FileSystem,
     file: String,
     version: &str,
-    link_libraries: Vec<PathBuf>,
+    link_libraries: Vec<VPath>,
 ) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
     let mut file_library = FileLibrary::new();
     let mut definitions = Vec::new();
     let mut main_components = Vec::new();
-    let mut file_stack = FileStack::new(PathBuf::from(file));
+    let mut file_stack = FileStack::new(file.into());
     let mut includes_graph = IncludesGraph::new();
     let mut warnings = Vec::new();
     let mut link_libraries2 = link_libraries.clone();
-    let mut ext_link_libraries = vec![Path::new("").to_path_buf()];
+    let mut ext_link_libraries = vec!["".into()];
     ext_link_libraries.append(&mut link_libraries2);
     while let Some(crr_file) = FileStack::take_next(&mut file_stack) {
         let (found, path, src, crr_str_file, reports) =
-            find_file(crr_file, ext_link_libraries.clone());
+            find_file(fs, crr_file, ext_link_libraries.clone());
         if !found {
             return Result::Err((file_library.clone(), reports));
         }
@@ -87,7 +87,7 @@ pub fn run_parser(
         definitions.push((file_id, program.definitions));
         for include in includes {
             let path_include =
-                FileStack::add_include(&mut file_stack, include.clone(), &link_libraries.clone())
+                FileStack::add_include(fs, &mut file_stack, include.clone(), &link_libraries.clone())
                     .map_err(|e| (file_library.clone(), vec![e]))?;
             includes_graph.add_edge(path_include).map_err(|e| (file_library.clone(), vec![e]))?;
         }
@@ -122,7 +122,7 @@ pub fn run_parser(
             Report::error(
                 format!(
                     "Missing custom templates pragma in file {} because of the following chain of includes {}",
-                    path.last().unwrap().display(),
+                    path.last().unwrap().to_string(),
                     IncludesGraph::display_path(path)
                 ),
                 ReportCode::CustomGatesPragmaError
@@ -175,12 +175,12 @@ fn produce_report_with_main_components(main_components: Vec<(usize, (Vec<String>
     r
 }
 
-fn open_file(path: PathBuf) -> Result<(String, String), Report> /* path, src */ {
-    use std::fs::read_to_string;
-    let path_str = format!("{:?}", path);
-    read_to_string(path)
-        .map(|contents| (path_str.clone(), contents))
-        .map_err(|_| produce_report_with_message(ReportCode::FileOs, path_str.clone()))
+fn open_file(fs: &mut dyn FileSystem, path: VPath) -> Result<(String, String), Report> /* path, src */ {
+    let contents = fs.read_string(&path).map_err(|_| 
+        produce_report_with_message(ReportCode::FileOs, path.to_string())
+    )?;
+
+    Ok((path.to_string(), contents))
 }
 
 fn parse_number_version(version: &str) -> Version {

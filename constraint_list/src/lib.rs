@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet, LinkedList};
 
 use circom_algebra::constraint_storage::ConstraintStorage;
 use circom_algebra::num_bigint::BigInt;
-use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::ConstraintExporter;
+use virtual_fs::{FileSystem, FsResult, VPath};
 
 mod constraint_simplification;
 mod json_porting;
@@ -128,8 +128,8 @@ pub struct Simplifier {
     pub json_substitutions: String,
 }
 impl Simplifier {
-    pub fn simplify_constraints(mut self) -> ConstraintList {
-        let (portable, map, private_inputs_witness) = constraint_simplification::simplification(&mut self);
+    pub fn simplify_constraints(mut self, fs: &mut dyn FileSystem) -> ConstraintList {
+        let (portable, map, private_inputs_witness) = constraint_simplification::simplification(fs, &mut self);
         ConstraintList {
             field: self.field,
             dag_encoding: self.dag_encoding,
@@ -166,16 +166,16 @@ pub struct ConstraintList {
 }
 
 impl ConstraintExporter for ConstraintList {
-    fn r1cs(&self, out: &str, custom_gates: bool) -> Result<(), ()> {
-        r1cs_porting::port_r1cs(self, out, custom_gates)
+    fn r1cs(&self, fs: &mut dyn FileSystem, out: &str, custom_gates: bool) -> FsResult<()> {
+        r1cs_porting::port_r1cs(fs, self, out, custom_gates)
     }
 
-    fn json_constraints(&self, writer: &DebugWriter) -> Result<(), ()> {
-        json_porting::port_constraints(&self.constraints, &self.signal_map, writer)
+    fn json_constraints(&self, fs: &mut dyn FileSystem, json_constraints_path: &VPath) -> FsResult<()> {
+        json_porting::port_constraints(fs, &self.constraints, &self.signal_map, json_constraints_path)
     }
 
-    fn sym(&self, out: &str) -> Result<(), ()> {
-        sym_porting::port_sym(self, out)
+    fn sym(&self, fs: &mut dyn FileSystem, out: &str) -> FsResult<()> {
+        sym_porting::port_sym(fs, self, out)
     }
 }
 

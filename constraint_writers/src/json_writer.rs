@@ -1,98 +1,73 @@
-use std::fs::File;
-use std::io::{BufWriter, Write};
-
 pub struct ConstraintJSON {
-    writer_constraints: BufWriter<File>,
+    pub data: Vec<u8>, // TODO: Make sure this always get written to FS
     constraints_flag: bool,
 }
 
 impl ConstraintJSON {
-    pub fn new(file: &str) -> Result<ConstraintJSON, ()> {
-        let file_constraints = File::create(file).map_err(|_err| {})?;
-        let mut writer_constraints = BufWriter::new(file_constraints);
+    pub fn new() -> ConstraintJSON {
+        let mut data = Vec::<u8>::new();
 
-        writer_constraints.write_all(b"{").map_err(|_err| {})?;
-        writer_constraints.flush().map_err(|_err| {})?;
-        writer_constraints.write_all(b"\n\"constraints\": [").map_err(|_err| {})?;
-        writer_constraints.flush().map_err(|_err| {})?;
+        data.extend_from_slice(b"{");
+        data.extend_from_slice(b"\n\"constraints\": [");
 
-        Result::Ok(ConstraintJSON { writer_constraints, constraints_flag: false })
+        ConstraintJSON { data, constraints_flag: false }
     }
-    pub fn write_constraint(&mut self, constraint: &str) -> Result<(), ()> {
+    pub fn write_constraint(&mut self, constraint: &str) {
         if !self.constraints_flag {
             self.constraints_flag = true;
-            self.writer_constraints.write_all(b"\n").map_err(|_err| {})?;
-            self.writer_constraints.flush().map_err(|_err| {})?;
+            self.data.extend_from_slice(b"\n");
         } else {
-            self.writer_constraints.write_all(b",\n").map_err(|_err| {})?;
-            self.writer_constraints.flush().map_err(|_err| {})?;
+            self.data.extend_from_slice(b",\n");
         }
-        self.writer_constraints.write_all(constraint.as_bytes()).map_err(|_err| {})?;
-        self.writer_constraints.flush().map_err(|_err| {})?;
-        Result::Ok(())
+        self.data.extend_from_slice(constraint.as_bytes());
     }
-    pub fn end(mut self) -> Result<(), ()> {
-        self.writer_constraints.write_all(b"\n]\n}").map_err(|_err| {})?;
-        self.writer_constraints.flush().map_err(|_err| {})?;
-        Result::Ok(())
+    pub fn end(&mut self) {
+        self.data.extend_from_slice(b"\n]\n}");
     }
 }
 
 pub struct SignalsJSON {
-    writer_signals: BufWriter<File>,
+    data: Vec<u8>, // TODO: Make sure this always get written to FS
 }
 impl SignalsJSON {
-    pub fn new(file: &str) -> Result<SignalsJSON, ()> {
-        let file_signals = File::create(file).map_err(|_err| {})?;
-        let mut writer_signals = BufWriter::new(file_signals);
-        writer_signals.write_all(b"{").map_err(|_err| {})?;
-        writer_signals.flush().map_err(|_err| {})?;
-        writer_signals.write_all(b"\n\"signalName2Idx\": {").map_err(|_err| {})?;
-        writer_signals.flush().map_err(|_err| {})?;
-        writer_signals.write_all(b"\n\"one\" : \"0\"").map_err(|_err| {})?;
-        writer_signals.flush().map_err(|_err| {})?;
-        Result::Ok(SignalsJSON { writer_signals })
+    pub fn new() -> Self {
+        let mut data = Vec::<u8>::new();
+        data.extend_from_slice(b"{");
+        data.extend_from_slice(b"\n\"signalName2Idx\": {");
+        data.extend_from_slice(b"\n\"one\" : \"0\"");
+        Self { data }
     }
-    pub fn write_correspondence(&mut self, signal: String, data: String) -> Result<(), ()> {
-        self.writer_signals
-            .write_all(format!(",\n\"{}\" : {}", signal, data).as_bytes())
-            .map_err(|_err| {})?;
-        self.writer_signals.flush().map_err(|_err| {})
+    pub fn write_correspondence(&mut self, signal: String, data: String) {
+        self.data
+            .extend_from_slice(format!(",\n\"{}\" : {}", signal, data).as_bytes());
     }
-    pub fn end(mut self) -> Result<(), ()> {
-        self.writer_signals.write_all(b"\n}\n}").map_err(|_err| {})?;
-        self.writer_signals.flush().map_err(|_err| {})
+    pub fn end(mut self) {
+        self.data.extend_from_slice(b"\n}\n}");
     }
 }
 
 pub struct SubstitutionJSON {
-    writer_substitutions: BufWriter<File>,
+    pub data: Vec<u8>, // TODO: Make sure this always get written to FS
     first: bool,
 }
 impl SubstitutionJSON {
-    pub fn new(file: &str) -> Result<SubstitutionJSON, ()> {
+    pub fn new() -> Self {
         let first = true;
-        let file_substitutions = File::create(file).map_err(|_err| {})?;
-        let mut writer_substitutions = BufWriter::new(file_substitutions);
-        writer_substitutions.write_all(b"{").map_err(|_err| {})?;
-        writer_substitutions.flush().map_err(|_err| {})?;
-        Result::Ok(SubstitutionJSON { writer_substitutions, first })
+        let mut data = Vec::<u8>::new();
+        data.extend_from_slice(b"{");
+        Self { data, first }
     }
-    pub fn write_substitution(&mut self, signal: &str, substitution: &str) -> Result<(), ()> {
+    pub fn write_substitution(&mut self, signal: &str, substitution: &str) {
         if self.first {
             self.first = false;
-            self.writer_substitutions.write_all(b"\n").map_err(|_err| {})?;
+            self.data.extend_from_slice(b"\n");
         } else {
-            self.writer_substitutions.write_all(b",\n").map_err(|_err| {})?;
+            self.data.extend_from_slice(b",\n");
         }
         let substitution = format!("\"{}\" : {}", signal, substitution);
-        self.writer_substitutions.flush().map_err(|_err| {})?;
-        self.writer_substitutions.write_all(substitution.as_bytes()).map_err(|_err| {})?;
-        self.writer_substitutions.flush().map_err(|_err| {})?;
-        Result::Ok(())
+        self.data.extend_from_slice(substitution.as_bytes());
     }
-    pub fn end(mut self) -> Result<(), ()> {
-        self.writer_substitutions.write_all(b"\n}").map_err(|_err| {})?;
-        self.writer_substitutions.flush().map_err(|_err| {})
+    pub fn end(&mut self) {
+        self.data.extend_from_slice(b"\n}");
     }
 }

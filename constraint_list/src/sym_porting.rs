@@ -1,13 +1,13 @@
 use super::{ConstraintList, EncodingIterator, IteratorSignal, SignalMap};
 use circom_algebra::num_traits::AsPrimitive;
 use constraint_writers::sym_writer::*;
+use virtual_fs::{FileSystem, FsResult};
 
-pub fn port_sym(list: &ConstraintList, file_name: &str) -> Result<(), ()> {
+pub fn port_sym(fs: &mut dyn FileSystem, list: &ConstraintList, file_name: &str) -> FsResult<()> {
     let iter = EncodingIterator::new(&list.dag_encoding);
-    let mut dot_sym = SymFile::new(file_name)?;
-    signal_iteration(iter, &list.signal_map, &mut dot_sym)?;
-    SymFile::finish_writing(dot_sym)?;
-    //SymFile::close(dot_sym);
+    let mut dot_sym = SymFile::new();
+    signal_iteration(iter, &list.signal_map, &mut dot_sym);
+    fs.write(&file_name.into(), &dot_sym.data)?;
     Ok(())
 }
 
@@ -15,7 +15,7 @@ pub fn signal_iteration(
     mut iter: EncodingIterator,
     map: &SignalMap,
     dot_sym: &mut SymFile,
-) -> Result<(), ()> {
+) {
     let (signals, _) = EncodingIterator::take(&mut iter);
 
     for signal in signals {
@@ -26,12 +26,11 @@ pub fn signal_iteration(
             node_id: iter.node_id.as_(),
             symbol: signal.name.clone(),
         };
-        SymFile::write_sym_elem(dot_sym, sym_elem)?;
+        SymFile::write_sym_elem(dot_sym, sym_elem);
     }
 
     for edge in EncodingIterator::edges(&iter) {
         let next = EncodingIterator::next(&iter, edge);
-        signal_iteration(next, map, dot_sym)?;
+        signal_iteration(next, map, dot_sym);
     }
-    Ok(())
 }

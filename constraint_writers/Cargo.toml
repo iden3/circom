@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 circom_algebra = { path = "../circom_algebra" }
 json = "0.12.4"
+virtual_fs = { path = "../virtual_fs" }

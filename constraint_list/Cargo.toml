@@ -12,3 +12,4 @@ program_structure = { path = "../program_structure" }
 json = "0.12.4"
 threadpool = "1.0"
 num_cpus = "1.0"
+virtual_fs = { path = "../virtual_fs" }
