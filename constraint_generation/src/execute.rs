@@ -435,17 +435,32 @@ fn execute_statement(
                 let mut signals_values_right: Vec<String> = Vec::new();
                 let mut signals_values_left: Vec<String> = Vec::new();
                 
-                // TODO: in case all bus slices contain the same types not needed of 
-                // traversing all of them?
-                for i in 0..BusSlice::get_number_of_cells(&slice_left){
+                // Check that the dimensions of the slices are equal
+                let correct_dims_result = BusSlice::check_correct_dims(&slice_left, &Vec::new(), &slice_right, true);
+                treat_result_with_memory_error_void(
+                    correct_dims_result,
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?;
+
+                // Check that the types of the buses are equal 
+                // and get the accesses inside the bus
+                // We assume that the buses in the slice are all of the same type
+                // Generate the arithmetic slices containing the signals
+                // Use just the first to generate the bus accesses
+                
+                let mut inside_bus_signals = Vec::new();
+                
+                if BusSlice::get_number_of_cells(&slice_left) > 0{
                     let left_i = treat_result_with_memory_error(
-                        BusSlice::get_reference_to_single_value_by_index(&slice_left, i),
+                        BusSlice::get_reference_to_single_value_by_index(&slice_left, 0),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
                     let right_i = treat_result_with_memory_error(
-                        BusSlice::get_reference_to_single_value_by_index(&slice_right, i),
+                        BusSlice::get_reference_to_single_value_by_index(&slice_right, 0),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
@@ -459,8 +474,12 @@ fn execute_statement(
                             &runtime.call_trace,
                         )?;
                     }
+                    // generate the inside signals
+                    inside_bus_signals = left_i.get_accesses_bus("");
 
-                    // TODO: do not call twice to get_accesses and better index
+                }
+
+                for i in 0..BusSlice::get_number_of_cells(&slice_left){
                                         
                     let access_index = treat_result_with_memory_error(
                         BusSlice::get_access_index(&slice_left, i),
@@ -469,18 +488,31 @@ fn execute_statement(
                         &runtime.call_trace,
                     )?;
                     let string_index = create_index_appendix(&access_index); 
-                
-                    signals_values_right.append(&mut left_i.get_accesses_bus(&format!("{}{}", name_left, string_index)));
-                    signals_values_left.append(&mut left_i.get_accesses_bus(&format!("{}{}", name_right, string_index)));
+
+                    for s in &inside_bus_signals{
+                        signals_values_right.push(
+                            format!(
+                                "{}{}{}", name_right, string_index, s.clone()
+                        ));
+                        signals_values_left.push(
+                            format!(
+                                "{}{}{}", name_left, string_index, s.clone()
+                        ));
+                    }
+                         
                 }
+
+                // Transform the signal names into Arithmetic Expressions
                 let mut ae_signals_left = Vec::new();
                 for signal_name in signals_values_left{
                     ae_signals_left.push(AExpr::Signal { symbol: signal_name });
                 }
+
                 let mut ae_signals_right = Vec::new();
                 for signal_name in signals_values_right{
                     ae_signals_right.push(AExpr::Signal { symbol: signal_name });
                 }
+
                 (ae_signals_left, ae_signals_right)
             } else{
                 unreachable!()
@@ -652,17 +684,29 @@ fn execute_statement(
                     }
                 }
             } else if FoldedValue::valid_bus_slice(&f_result){
-                // TODO: improve, only generate values once
                 let (bus_name, bus_slice) = safe_unwrap_to_bus_slice(f_result, line!());
                 let mut signal_values = Vec::new();
-                for i in 0..BusSlice::get_number_of_cells(&bus_slice){
-                    let assigned_bus = treat_result_with_memory_error(
-                        BusSlice::get_reference_to_single_value_by_index(&bus_slice, i),
+
+                // Get the accesses inside the bus
+                // We assume that the buses in the slice are all of the same type
+                // Generate the arithmetic slices containing the signals
+                // Use just the first to generate the bus accesses
+                
+                let mut inside_bus_signals = Vec::new();
+                
+                if BusSlice::get_number_of_cells(&bus_slice) > 0{
+                    let left_i = treat_result_with_memory_error(
+                        BusSlice::get_reference_to_single_value_by_index(&bus_slice, 0),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    
+                    // generate the inside signals
+                    inside_bus_signals = left_i.get_accesses_bus("");
+                }
+
+                for i in 0..BusSlice::get_number_of_cells(&bus_slice){
+                                        
                     let access_index = treat_result_with_memory_error(
                         BusSlice::get_access_index(&bus_slice, i),
                         meta,
@@ -671,7 +715,13 @@ fn execute_statement(
                     )?;
                     let string_index = create_index_appendix(&access_index); 
 
-                    signal_values.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", bus_name, string_index)));
+                    for s in &inside_bus_signals{
+                        signal_values.push(
+                            format!(
+                                "{}{}{}", bus_name, string_index, s.clone()
+                        ));
+                    }
+                         
                 }
             
                 if let Option::Some(node) = actual_node {
@@ -1610,17 +1660,26 @@ fn perform_assign(
                     let mut signals_values_right: Vec<String> = Vec::new();
                     let mut signals_values_left: Vec<String> = Vec::new();
 
-                    // TODO: in case all bus slices contain the same types not needed of 
-                    // traversing all of them?
-                    for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
-                        let assigned_bus = treat_result_with_memory_error(
-                            BusSlice::get_reference_to_single_value_by_index(&assigned_bus_slice, i),
+
+                    // Generate the arithmetic slices containing the signals
+                    // We assume that the buses in the slice are all of the same type
+                    // Use just the first to generate the bus accesses
+                    
+                    let mut inside_bus_signals = Vec::new();
+                
+                    if BusSlice::get_number_of_cells(&assigned_bus_slice) > 0{
+                        let left_i = treat_result_with_memory_error(
+                            BusSlice::get_reference_to_single_value_by_index(&assigned_bus_slice, 0),
                             meta,
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
                         )?;
-                        // TODO: do not call twice to get_accesses and better index
-                        
+                        // generate the inside signals
+                        inside_bus_signals = left_i.get_accesses_bus("");
+                    }
+
+                    for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
+                                        
                         let access_index = treat_result_with_memory_error(
                             BusSlice::get_access_index(&assigned_bus_slice, i),
                             meta,
@@ -1629,9 +1688,19 @@ fn perform_assign(
                         )?;
                         let string_index = create_index_appendix(&access_index); 
 
-                        signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", name_bus, string_index)));
-                        signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", full_symbol, string_index)));
-                    }
+                        for s in &inside_bus_signals{
+                            signals_values_right.push(
+                                format!(
+                                    "{}{}{}", name_bus, string_index, s.clone()
+                            ));
+                            signals_values_left.push(
+                                format!(
+                                    "{}{}{}", full_symbol, string_index, s.clone()
+                            ));
+                        }        
+                    } 
+
+                    // Transform the signal names into AExpr
 
                     let mut ae_signals_right = Vec::new();
                     for signal_name in signals_values_right{
@@ -1754,7 +1823,8 @@ fn perform_assign(
                 }
                 Option::Some(assigned_ae_slice)
             }
-    } else if ExecutionEnvironment::has_bus(&runtime.environment, symbol){
+    } else if ExecutionEnvironment::has_bus(&runtime.environment, symbol) 
+    {
 
         // we check if it is an input bus, in that case all signals are initialized to true
         let is_input_bus =  ExecutionEnvironment::has_input_bus(&runtime.environment, symbol);
@@ -1769,6 +1839,13 @@ fn perform_assign(
         )?;
 
         let accessing_information = accessing_information.bus_access.as_ref().unwrap();
+
+        // in case the accessing information is undef do not perform changes
+        // TODO: possible improvement?
+
+        if accessing_information.undefined{
+            return Ok(None)
+        }
 
         if FoldedValue::valid_bus_node_pointer(&r_folded){
             // in this case we are performing an assigment of the type in the node_pointer
@@ -1832,6 +1909,7 @@ fn perform_assign(
         } else if FoldedValue::valid_arithmetic_slice(&r_folded){
             // case assigning a field of the bus
             if meta.get_type_knowledge().is_signal(){
+
                 let mut value_left = treat_result_with_memory_error(
                     BusSlice::access_values_by_mut_reference(bus_slice, &accessing_information.array_access),
                     meta,
@@ -2021,17 +2099,24 @@ fn perform_assign(
                 let mut signals_values_left: Vec<String> = Vec::new();
                 let mut signals_values_right = Vec::new();
                 
-                // For now we can take advantage of the following: all buses in a slice
-                // are equals so we only call once to generate the accesses
+                // We assume that the buses in the slice are all of the same type
+                // Use just the first to generate the bus accesses
                 
-                for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
-                    let assigned_bus = treat_result_with_memory_error(
-                        BusSlice::get_reference_to_single_value_by_index(assigned_bus_slice, i),
+                let mut inside_bus_signals = Vec::new();
+                
+                if BusSlice::get_number_of_cells(&assigned_bus_slice) > 0{
+                    let left_i = treat_result_with_memory_error(
+                        BusSlice::get_reference_to_single_value_by_index(&assigned_bus_slice, 0),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    // TODO
+                    // generate the inside signals
+                    inside_bus_signals = left_i.get_accesses_bus("");
+                }
+
+                for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
+                                        
                     let access_index = treat_result_with_memory_error(
                         BusSlice::get_access_index(&assigned_bus_slice, i),
                         meta,
@@ -2040,10 +2125,19 @@ fn perform_assign(
                     )?;
                     let string_index = create_index_appendix(&access_index); 
 
-                    signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", name_bus, string_index)));
-                    signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", full_symbol, string_index)));
-                    
-                }
+                    for s in &inside_bus_signals{
+                        signals_values_right.push(
+                            format!(
+                                "{}{}{}", name_bus, string_index, s.clone()
+                        ));
+                        signals_values_left.push(
+                                format!(
+                                "{}{}{}", full_symbol, string_index, s.clone()
+                        ));
+                    }        
+                } 
+
+                // Transform the signal names into AExpr
                 let mut ae_signals_left = Vec::new();
                 for signal_name in signals_values_left{
                     ae_signals_left.push(AExpr::Signal { symbol: signal_name });
@@ -2128,17 +2222,25 @@ fn perform_assign(
                 let mut signals_values_left: Vec<String> = Vec::new();
                 let mut signals_values_right: Vec<String> = Vec::new();
 
-                for i in 0..BusSlice::get_number_of_cells(&bus_slice){
-                    // We generate an arithmetic slice with the result
-
-                    let assigned_bus = treat_result_with_memory_error(
-                        BusSlice::get_reference_to_single_value_by_index(&bus_slice, i),
+                // Generate the arithmetic slices containing the signals
+                // We assume that the buses in the slice are all of the same type
+                // Use just the first to generate the bus accesses
+                    
+                let mut inside_bus_signals = Vec::new();
+                
+                if BusSlice::get_number_of_cells(&assigned_bus_slice) > 0{
+                    let left_i = treat_result_with_memory_error(
+                        BusSlice::get_reference_to_single_value_by_index(&assigned_bus_slice, 0),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
-                    
-                    // TODO
+                    // generate the inside signals
+                    inside_bus_signals = left_i.get_accesses_bus("");
+                }
+
+                for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
+                                        
                     let access_index = treat_result_with_memory_error(
                         BusSlice::get_access_index(&assigned_bus_slice, i),
                         meta,
@@ -2147,10 +2249,19 @@ fn perform_assign(
                     )?;
                     let string_index = create_index_appendix(&access_index); 
 
-                    signals_values_right.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", name_bus, string_index)));
-                    signals_values_left.append(&mut assigned_bus.get_accesses_bus(&format!("{}{}", full_symbol, string_index)));
+                    for s in &inside_bus_signals{
+                        signals_values_right.push(
+                            format!(
+                                "{}{}{}", name_bus, string_index, s.clone()
+                        ));
+                        signals_values_left.push(
+                            format!(
+                                "{}{}{}", full_symbol, string_index, s.clone()
+                        ));
+                    }        
+                } 
 
-                }
+                // Transform the signal names into AExpr
 
                 let mut ae_signals_left = Vec::new();
                 for signal_name in signals_values_left{
@@ -3331,8 +3442,19 @@ fn treat_result_with_memory_error_void(
                 }
                 MemoryError::AssignmentError(type_asig_error) => {
                     match type_asig_error{
+                         TypeAssignmentError::MultipleAssignmentsComponent =>{
+                            Report::error(
+                                format!("Exception caused by invalid assignment\n The component has been assigned previously"),
+                                RuntimeError)
+                        },
+                        TypeAssignmentError::MultipleAssignmentsBus =>{
+                            Report::error(
+                                format!("Exception caused by invalid assignment\n Bus contains fields that have been previously initialized"),
+                                RuntimeError)
+                        },
                         TypeAssignmentError::MultipleAssignments =>{
-                            Report::error("Exception caused by invalid assignment: signal already assigned".to_string(),
+                            Report::error(
+                                format!("Exception caused by invalid assignment\n Signal has been already assigned"),
                                 RuntimeError)
                         },
                         TypeAssignmentError::AssignmentOutput =>{
@@ -3447,8 +3569,19 @@ pub fn treat_result_with_memory_error<C>(
                 },
                 MemoryError::AssignmentError(type_asig_error) => {
                     match type_asig_error{
+                        TypeAssignmentError::MultipleAssignmentsComponent =>{
+                            Report::error(
+                                format!("Exception caused by invalid assignment\n The component has been assigned previously"),
+                                RuntimeError)
+                        },
+                        TypeAssignmentError::MultipleAssignmentsBus =>{
+                            Report::error(
+                                format!("Exception caused by invalid assignment\n Bus contains fields that have been previously initialized"),
+                                RuntimeError)
+                        },
                         TypeAssignmentError::MultipleAssignments =>{
-                            Report::error("Exception caused by invalid assignment: signal already assigned".to_string(),
+                            Report::error(
+                                format!("Exception caused by invalid assignment\n Signal has been already assigned"),
                                 RuntimeError)
                         },
                         TypeAssignmentError::AssignmentOutput =>{
