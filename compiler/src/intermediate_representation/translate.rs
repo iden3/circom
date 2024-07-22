@@ -1467,7 +1467,6 @@ fn compute_full_address(
     // add the initial indexing
     dimensions.reverse();
     let mut linear_length = size;
-    // TODO: not needed clone
     let index_stack = indexing_instructions_filter(indexed_with[0].clone(), state);
     for instruction in index_stack {
         let dimension_length = dimensions.pop().unwrap();
@@ -1509,7 +1508,6 @@ fn compute_full_address(
 
         access.lengths.reverse();
         let mut linear_length = access.size;
-        // TODO: not needed clone
         let index_stack = indexing_instructions_filter(indexed_with[index].clone(), state);
         for instruction in index_stack {
             let dimension_length = access.lengths.pop().unwrap();

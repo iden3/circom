@@ -78,7 +78,7 @@ impl ComponentRepresentation {
         meta: &Meta,
     ) -> Result<(), MemoryError>{
         if !is_anonymous_component && component.is_preinitialized() {
-            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignmentsComponent));
         }
         let possible_node = ExecutedProgram::get_prenode(scheme, prenode_pointer);
         assert!(possible_node.is_some());
@@ -264,7 +264,7 @@ impl ComponentRepresentation {
                 assert!(remaining_access.array_access.len() == 0);
                 let value_tag = tag_info.get(remaining_access.field_access.as_ref().unwrap()).unwrap();
                 match value_tag{
-                    None =>{
+                    Option::None =>{
                         let error = MemoryError::TagValueNotInitializedAccess;
                         Result::Err(error)
                     },
@@ -305,7 +305,7 @@ impl ComponentRepresentation {
                     assert!(next_array_access.len() == 0);
                     let value_tag = tag_info.get(next_field_access).unwrap();
                     match value_tag{
-                        None =>{
+                        Option::None =>{
                             let error = MemoryError::TagValueNotInitializedAccess;
                             Result::Err(error)
                         },
@@ -597,7 +597,7 @@ impl ComponentRepresentation {
             access.remaining_access.as_ref().unwrap(),
             folded_arg,
             Some(tags),
-            true // it is an input so check tags instead of propagate
+            true, // it is an input so check tags instead of propagate
         )?;
         
         
@@ -698,7 +698,7 @@ impl ComponentRepresentation {
                     component.unassigned_inputs.remove(signal_name);
                 }
             }
-            None => {}
+            Option::None => {}
         }
     }
 }
