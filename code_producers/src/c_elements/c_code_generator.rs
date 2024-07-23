@@ -4,6 +4,7 @@ use serde_json::json;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
+use std::collections::{HashMap};
 
 // Types
 const T_U64: &str = "u64";
@@ -726,9 +727,26 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     //dfile.write_all(&p)?;
     //dfile.flush()?;
 
-    let aux = producer.get_main_input_list();
-    // TODO: change generate_hash_map to new inputlist using buses
-    let map = generate_hash_map(&aux);
+    let mut input_list_with_qualifiers = producer.get_main_input_list_with_qualifiers();
+    //for io in &input_list_with_qualifiers {
+    //	println!("Name: {}, Start: {}, Size: {}",io.name, io.start, io.size);
+    //}
+    let input_list = producer.get_main_input_list();
+    let mut id_to_info: HashMap<String, (usize, usize)> = HashMap::new();
+    for io in &input_list_with_qualifiers {
+	id_to_info.insert(io.name.clone(),(io.start, io.size));
+    }
+    for io in input_list {
+	if id_to_info.contains_key(&io.name) {
+	    let (st,sz) = id_to_info[&io.name];
+	    assert!(st == io.start && sz == io.size);
+	} else {
+	    input_list_with_qualifiers.push(io.clone());
+	}
+    }
+    
+
+    let map = generate_hash_map(&input_list_with_qualifiers);
     let hashmap = generate_dat_from_hash_map(&map); //bytes u64 --> u64
                                                     //let hml = 256 as u32;
                                                     //dfile.write_all(&hml.to_be_bytes())?;

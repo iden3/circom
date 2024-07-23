@@ -187,11 +187,67 @@ void json2FrElements (json val, std::vector<FrElement> & vval){
   }
 }
 
+json::value_t check_type(std::string prefix, json in){
+  if (not in.is_array()) {
+      return in.type();
+    } else {
+    if (in.size() == 0) return json::value_t::null;
+    json::value_t t = check_type(prefix, in[0]);
+    for (uint i = 1; i < in.size(); i++) {
+      if (t != check_type(prefix, in[i])) {
+	fprintf(stderr, "Types are not the same in the the key %s\n",prefix.c_str());
+	assert(false);
+      }
+    }
+    return t;
+  }
+}
+
+void qualify_input(std::string prefix, json &in, json &in1);
+
+void qualify_input_list(std::string prefix, json &in, json &in1){
+    if (in.is_array()) {
+      for (uint i = 0; i<in.size(); i++) {
+	  std::string new_prefix = prefix + "[" + std::to_string(i) + "]";
+	  qualify_input_list(new_prefix,in[i],in1);
+	}
+    } else {
+	qualify_input(prefix,in,in1);
+    }
+}
+
+void qualify_input(std::string prefix, json &in, json &in1) {
+  if (in.is_array()) {
+    if (in.size() > 0) {
+      json::value_t t = check_type(prefix,in);
+      if (t == json::value_t::object) {
+	qualify_input_list(prefix,in,in1);
+      } else {
+	in1[prefix] = in;
+      }
+    } else {
+      in1[prefix] = in;
+    }
+  } else if (in.is_object()) {
+    for (json::iterator it = in.begin(); it != in.end(); ++it) {
+      std::string new_prefix = prefix.length() == 0 ? it.key() : prefix + "." + it.key();
+      qualify_input(new_prefix,it.value(),in1);
+    }
+  } else {
+    in1[prefix] = in;
+  }
+}
 
 void loadJson(Circom_CalcWit *ctx, std::string filename) {
   std::ifstream inStream(filename);
+  json jin;
+  inStream >> jin;
   json j;
-  inStream >> j;
+
+  //std::cout << jin << std::endl;
+  std::string prefix = "";
+  qualify_input(prefix, jin, j);
+  //std::cout << j << std::endl;
   
   u64 nItems = j.size();
   // printf("Items : %llu\n",nItems);
