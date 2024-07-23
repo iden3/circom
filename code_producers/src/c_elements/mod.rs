@@ -77,12 +77,14 @@ impl Default for CProducer {
                 InputInfo{
                     name:"in1".to_string(), 
                     size:1, 
+		    dimensions: Vec::new(),
                     start: 2, 
                     bus_id: None
                 },
                 InputInfo{
                     name:"in2".to_string(), 
-                    size:1, 
+                    size:1,
+		    dimensions: Vec::new(),
                     start: 3, 
                     bus_id: None
                 },
