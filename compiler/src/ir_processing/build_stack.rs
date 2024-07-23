@@ -144,15 +144,15 @@ pub fn build_value(bucket: &mut ValueBucket, fresh: usize) -> usize {
 pub fn build_location(bucket: &mut LocationRule, mut fresh: usize) -> (usize, usize) {
     use LocationRule::*;
     match bucket {
-<<<<<<< HEAD
         Indexed { location, .. } => build_instruction(location, fresh),
         Mapped { indexes, .. } => {
-            let mut max_depth = 0;
+            let mut max_stack = fresh;
             for acc in indexes{
                 match acc{
                     AccessType::Indexed(ind) =>{
-                        let depth = build_list(&mut ind.indexes, fresh);
-                        max_depth = std::cmp::max(max_depth, depth);
+                        let (depth, new_fresh) = build_instruction_address(i, fresh);
+                        max_stack = std::cmp::max(max_stack, depth);
+                        fresh = new_fresh;
                     },
                     AccessType::Qualified(_) =>{
 
@@ -160,22 +160,9 @@ pub fn build_location(bucket: &mut LocationRule, mut fresh: usize) -> (usize, us
                 }
                 
             }
-            max_depth
-        }
-             
-=======
-        Indexed { location, .. } => 
-            build_instruction_address(location, fresh),
-        Mapped { indexes, .. } => {
-            let mut max_stack = fresh;
-            for i in indexes{
-                let (depth, new_fresh) = build_instruction_address(i, fresh);
-                max_stack = std::cmp::max(max_stack, depth);
-                fresh = new_fresh;
-            }
             (max_stack, fresh)
         }
->>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
+             
     }
 }
 

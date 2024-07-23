@@ -294,20 +294,7 @@ fn execute_statement(
                             name,
                             &usable_dimensions,
                         ),
-<<<<<<< HEAD
-                        VariableType::Signal(signal_type, tag_list) => execute_signal_declaration(
-                            name,
-                            &usable_dimensions,
-                            tag_list,
-                            *signal_type,
-                            &mut runtime.environment,
-                            actual_node,
-                        ),
-                        VariableType::Bus(_id, signal_type, tag_list) => {
-                            execute_bus_declaration(
-=======
-                        VariableType::Signal(signal_type, tag_list) => 
-                        {
+                        VariableType::Signal(signal_type, tag_list) => {
                             if runtime.block_type == BlockType::Unknown{
                                 // Case not valid constraint Known/Unknown
                                 let err = Result::Err(ExecutionError::DeclarationInUnknown);
@@ -319,7 +306,6 @@ fn execute_statement(
                                 )?;
                             }
                             execute_signal_declaration(
->>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
                                 name,
                                 &usable_dimensions,
                                 tag_list,
@@ -327,11 +313,27 @@ fn execute_statement(
                                 &mut runtime.environment,
                                 actual_node,
                             )
-<<<<<<< HEAD
-                        }
-=======
                         },
->>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
+                        VariableType::Bus(_id, signal_type, tag_list) => {
+                            if runtime.block_type == BlockType::Unknown{
+                                // Case not valid constraint Known/Unknown
+                                let err = Result::Err(ExecutionError::DeclarationInUnknown);
+                                treat_result_with_execution_error(
+                                    err,
+                                    meta,
+                                    &mut runtime.runtime_errors,
+                                    &runtime.call_trace,
+                                )?;
+                            }
+                            execute_bus_declaration(
+                                name,
+                                &usable_dimensions,
+                                tag_list,
+                                *signal_type,
+                                &mut runtime.environment,
+                                actual_node,
+                            )
+                        },
                         _ =>{
                             unreachable!()
                         }
@@ -487,7 +489,6 @@ fn execute_statement(
 
             let f_left = execute_expression(lhe, program_archive, runtime, flags)?;
             let f_right = execute_expression(rhe, program_archive, runtime, flags)?;
-<<<<<<< HEAD
             
             let (arith_left, arith_right) = if FoldedValue::valid_arithmetic_slice(&f_left) &&  FoldedValue::valid_arithmetic_slice(&f_right){
                 let left = safe_unwrap_to_arithmetic_slice(f_left, line!());
@@ -495,23 +496,6 @@ fn execute_statement(
                 let correct_dims_result = AExpressionSlice::check_correct_dims(&left, &Vec::new(), &right, true);
                 treat_result_with_memory_error_void(
                     correct_dims_result,
-=======
-            let arith_left = safe_unwrap_to_arithmetic_slice(f_left, line!());
-            let arith_right = safe_unwrap_to_arithmetic_slice(f_right, line!());
-
-            
-
-            let correct_dims_result = AExpressionSlice::check_correct_dims(&arith_left, &Vec::new(), &arith_right, true);
-            treat_result_with_memory_error_void(
-                correct_dims_result,
-                meta,
-                &mut runtime.runtime_errors,
-                &runtime.call_trace,
-            )?;
-            for i in 0..AExpressionSlice::get_number_of_cells(&arith_left){
-                let value_left = treat_result_with_memory_error(
-                    AExpressionSlice::access_value_by_index(&arith_left, i),
->>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
                     meta,
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
@@ -1274,7 +1258,6 @@ fn execute_signal_declaration(
     }
 }
 
-<<<<<<< HEAD
 fn execute_declaration_bus(
     signal_name: &str,
     dimensions: &[SliceCapacity],
@@ -1299,15 +1282,6 @@ fn execute_declaration_bus(
     for t in list_tags{
         actual_node.add_tag_signal(signal_name, t, None);
     } 
-=======
-/*
-    In case the assignment could be a constraint generator the returned value is the constraint
-    that will be created
-*/
-struct Constrained {
-    left: String,
-    right: AExpressionSlice,
->>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
 }
 
 fn execute_bus_declaration(
