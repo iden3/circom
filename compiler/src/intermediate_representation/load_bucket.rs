@@ -138,7 +138,6 @@ impl WriteWasm for LoadBucket {
 			    while idxpos < indexes.len() {
 				if let AccessType::Indexed(index_info) = &indexes[idxpos] {
 				    
-                    // TODO: using the dim info
                     let index_list = &index_info.indexes;
                     let dim = index_info.symbol_dim;
                     
