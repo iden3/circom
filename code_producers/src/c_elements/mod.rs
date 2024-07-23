@@ -158,6 +158,7 @@ impl CProducer {
     pub fn get_main_input_list(&self) -> &InputList {
         &self.main_input_list
     }
+<<<<<<< HEAD
     fn get_accesses(&self, pos: usize, dims: &Vec<usize>) -> Vec<(String,usize)> {
 	if pos >= dims.len() {
 	    vec![("".to_string(),0)]
@@ -240,6 +241,11 @@ impl CProducer {
 	iolist
     }
     
+=======
+    pub fn get_input_hash_map_entry_size(&self) -> usize {
+        std::cmp::max(usize::pow(2,(self.main_input_list.len() as f32).log2().ceil() as u32),256)
+    }    
+>>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
     pub fn get_number_of_witness(&self) -> usize {
         self.signals_in_witness
     }
