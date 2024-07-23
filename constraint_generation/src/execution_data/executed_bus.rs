@@ -1,7 +1,7 @@
 use super::type_definitions::*;
 
 use num_bigint::BigInt;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use crate::execution_data::TagInfo;
 use compiler::hir::very_concrete_program::*;
 
@@ -127,7 +127,7 @@ impl ExecutedBus {
         if bus_table[bus_id].is_none(){
             let mut total_size = 0;
             let mut offset = 0;
-            let mut wires = HashMap::new();
+            let mut wires = BTreeMap::new();
             let mut field_id = 0;
             for info_field in &self.fields{
                 let (name, lengths) = (&info_field.name, &info_field.length);

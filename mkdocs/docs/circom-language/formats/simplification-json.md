@@ -4,7 +4,7 @@ description: >-
 ---
 # Simplification substitution json format
 
-The file contains a dictionary where the entries are the numbers of the simplified singnals as a string and the values are the linear expresion that has replaced the signal.
+The file contains a dictionary where the entries are the numbers of the simplified signals as a string and the values are the linear expresion that has replaced the signal.
 ```
 {
 "sig_num_1": lin_expr_1,
@@ -66,7 +66,7 @@ to indicate that we do not want to apply any simplification, the generated file 
 {
 }
 ```
-Finaly, if we run 
+Finally, if we run 
 
 ```text
 circom simplify.circom --r1cs --wasm --simplification_substitution --O1
