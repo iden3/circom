@@ -371,7 +371,54 @@ fn build_input_output_list(instance: &TemplateInstance, database: &TemplateDB) -
     io_list
 }
 
-fn write_main_inputs_log(vcp: &VCP) {
+fn write_main_inputs_log_new(vcp: &VCP) {
+    use program_structure::ast::SignalType::*;
+    use std::fs::File;
+    use std::io::{BufWriter, Write};
+
+    fn write_signal(vcp: &VCP, name: &String, length: &Vec<usize>, bus_id: Option<usize>, writer: &mut BufWriter<File>){
+        let length = length.iter().fold(1, |acc, x| acc * x);
+        if bus_id.is_some(){
+            let bus_info = &vcp.buses[bus_id.unwrap()];
+            let fields = &bus_info.fields;
+            let msg = format!("{} {} {}\n", name, length, fields.len());
+            writer.write_all(msg.as_bytes()).unwrap();
+            for (name, info) in fields{
+                write_signal(
+                    vcp,
+                    name,
+                    &info.dimensions,
+                    info.bus_id,
+                    writer,
+                )
+            }
+
+        } else{
+            let msg = format!("{} {} {}\n", name, length, 0);
+            writer.write_all(msg.as_bytes()).unwrap();
+        }
+
+    }
+
+
+    const INPUT_LOG: &str = "./log_input_signals_new.txt";
+    let main = vcp.get_main_instance().unwrap();
+    let mut writer = BufWriter::new(File::create(INPUT_LOG).unwrap());
+    for signal in &main.wires {
+        if signal.xtype() == Input {
+            write_signal(
+                vcp,
+                signal.name(),
+                signal.lengths(),
+                signal.bus_id(),
+                &mut writer,
+            )
+        }
+        writer.flush().unwrap();
+    }
+}
+
+fn write_main_inputs_log_old(vcp: &VCP) {
     use program_structure::ast::SignalType::*;
     use std::fs::File;
     use std::io::{BufWriter, Write};
@@ -436,7 +483,9 @@ struct CircuitInfo {
 pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit {
     use crate::ir_processing::set_arena_size_in_calls;
     if flag.main_inputs_log {
-        write_main_inputs_log(&vcp);
+        write_main_inputs_log_old(&vcp);
+        write_main_inputs_log_new(&vcp);
+
     }
     let template_database = TemplateDB::build(&vcp.templates);
     let mut circuit = Circuit::default();

@@ -30,8 +30,8 @@ out <== 1 - a*b;
 Which is equivalent to:
 
 ```text
-out === 1 – a*b;
 out <-- 1 - a*b;
+out === 1 – a*b;
 ```
 
 As mentioned before, assigning a value to a signal using `<--` and `-->` is considered dangerous and should, in general, be combined with adding constraints with `===`, which describe by means of constraints which the assigned values are. For example:
