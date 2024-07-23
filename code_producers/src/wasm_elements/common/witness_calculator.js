@@ -319,7 +319,6 @@ function qualify_input(prefix,input,input1) {
     } else {
 	input1[prefix] = input;
     }
-    return input;
 }
 
 function toArray32(rem,size) {
