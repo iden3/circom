@@ -288,6 +288,7 @@ fn main_input_list(main: &TemplateInstance) -> InputList {
             TSignal(info) =>{
                 InputInfo{
                     name: info.name.clone(),
+                    dimensions: info.lengths.clone(),
                     size: info.size,
                     start: info.dag_local_id,
                     bus_id: None
@@ -296,6 +297,7 @@ fn main_input_list(main: &TemplateInstance) -> InputList {
             TBus(info) =>{
                 InputInfo{
                     name: info.name.clone(),
+                    dimensions: info.lengths.clone(),
                     size: info.size,
                     start: info.dag_local_id,
                     bus_id: Some(info.bus_id)

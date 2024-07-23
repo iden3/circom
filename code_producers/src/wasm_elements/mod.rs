@@ -84,12 +84,14 @@ impl Default for WASMProducer {
                 InputInfo{
                     name:"in1".to_string(), 
                     size:1, 
+		    dimensions: Vec::new(),
                     start: 1, 
                     bus_id: None
                 },
                 InputInfo{
                     name:"in2".to_string(), 
                     size:1, 
+		    dimensions: Vec::new(),
                     start: 2, 
                     bus_id: None
                 }
@@ -199,6 +201,87 @@ impl WASMProducer {
     }
     pub fn get_main_input_list(&self) -> &InputList {
         &self.main_input_list
+    }
+    fn get_accesses(&self, pos: usize, dims: &Vec<usize>) -> Vec<(String,usize)> {
+	if pos >= dims.len() {
+	    vec![("".to_string(),0)]
+	} else {
+	    let mut res: Vec<(String,usize)> = vec![];
+	    let res1 = self.get_accesses(pos+1, dims);
+	    let mut elems:usize = 1;
+	    let mut epos = pos + 1;
+	    while epos < dims.len() {
+		elems *= dims[epos];
+		epos += 1;
+	    }
+	    let mut jump = 0;
+	    for i in 0..dims[pos] {
+		for j in 0..res1.len() {
+		    let (a,s) = &res1[j];
+		    res.push((format!("[{}]{}",i,a),jump+s));
+		}
+		jump += elems;
+	    }
+	    res
+	}
+    }
+    fn get_qualified_names (&self, busid: usize, start: usize, prefix: String) -> InputList {
+	let mut buslist = vec![];
+	//println!("BusId: {}", busid);
+	for io in &self.busid_field_info[busid] {
+	    let name = format!("{}.{}",prefix.clone(),io.name);
+	    let new_start = start + io.offset;
+	    //print!("name: {}, start: {}", name, new_start);
+	    if let Some(value) = io.bus_id {
+		let accesses = self.get_accesses(0,&io.dimensions);
+		//println!("accesses list: {:?}", accesses);
+		for (a,s) in &accesses {
+		    let prefix = format!("{}{}",name.clone(),a);
+		    let mut ios = self.get_qualified_names (value,new_start+s*io.size,prefix);
+		    buslist.append(&mut ios);
+		}
+	    }
+	    else {
+		//println!("");
+		let mut total_size = io.size;
+		for i in &io.dimensions {
+		    total_size *= i;
+		}
+		let ioinfo = {
+		    InputInfo{
+			name: name,
+			dimensions: io.dimensions.clone(),
+			size: total_size,
+			start: new_start,
+			bus_id: None
+		    } };
+		buslist.push(ioinfo);
+	    }
+	}
+	buslist
+    }
+    
+    pub fn get_main_input_list_with_qualifiers(&self) -> InputList {
+	let mut iolist = vec![];
+        for io in &self.main_input_list {
+	    if let Some(value) = io.bus_id {
+		let mut elems:usize = 1;
+		for i in &io.dimensions {
+		    elems *= i;
+		}
+		let size:usize = io.size/elems;
+		let accesses = self.get_accesses(0,&io.dimensions);
+		for (a,s) in &accesses {
+		    let prefix = format!("{}{}",io.name.clone(),a);
+		    let mut ios = self.get_qualified_names (value,io.start+s*size,prefix);
+		    iolist.append(&mut ios);
+		}
+	    }
+	    else {
+		iolist.push(io.clone());
+	    }
+	}
+	iolist
     }
     pub fn get_number_of_witness(&self) -> usize {
         self.signals_in_witness

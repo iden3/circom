@@ -13,15 +13,16 @@ pub struct IODef {
 #[derive(Clone)]
 pub struct InputInfo{
     pub name: String,
+    pub dimensions: Vec<usize>,
     pub start: usize,
-    pub size: usize,
+    pub size: usize, //full size (not only the content if array)
     pub bus_id: Option<usize>
 }
 
 #[derive(Default, Clone)]
 pub struct FieldData{
     pub dimensions: Vec<usize>,
-    pub size: usize,
+    pub size: usize, // it is only the size of the content if array
     pub offset: usize,
     pub bus_id: Option<usize>,
     pub name: String
