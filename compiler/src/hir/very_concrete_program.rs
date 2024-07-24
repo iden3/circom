@@ -140,7 +140,7 @@ pub struct FieldInfo{
 pub struct BusInstance{
     pub name: String,
     pub size: usize,
-    pub fields: HashMap<String, FieldInfo>,
+    pub fields: BTreeMap<String, FieldInfo>,
 }
 
 #[derive(Clone)]
