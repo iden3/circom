@@ -1,7 +1,7 @@
 # Reserved Keywords
 
 The list of reserved keywords is the following:
-
+  
 * **signal:** Declare a new signal.
 * **input:** Declare the signal as input.
 * **output:** Declare the signal as output.
@@ -22,5 +22,6 @@ The list of reserved keywords is the following:
 * **parallel:** To generate C code with the parallel component or template.
 * **pragma circom**: Instruction to check the compiler version.
 * **pragma custom_templates**: Instruction to indicate the usage of custom templates.
+* **bus**: Definition of a bus of signals.
 
 

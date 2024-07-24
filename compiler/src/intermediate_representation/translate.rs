@@ -975,7 +975,16 @@ fn build_signal_location(
             for index in indexes{
                 let filtered = indexing_instructions_filter(index, state);
                 if filtered.len() > 0{
-                    accesses.push(AccessType::Indexed(filtered));
+                    let symbol_dim = if i == 0{
+                        dimensions.len() // dimensions is the length of the first symbol
+                    } else{
+                        bus_accesses[i-1].lengths.len() // if not return length of the bus
+                    };
+                    let index_info = IndexedInfo{
+                        indexes: filtered,
+                        symbol_dim
+                    };
+                    accesses.push(AccessType::Indexed(index_info));
                 }
                 if i != len_indexes -1{
                     // The last access is just an index
@@ -1470,7 +1479,6 @@ fn compute_full_address(
     // add the initial indexing
     dimensions.reverse();
     let mut linear_length = size;
-    // TODO: not needed clone
     let index_stack = indexing_instructions_filter(indexed_with[0].clone(), state);
     for instruction in index_stack {
         let dimension_length = dimensions.pop().unwrap();
@@ -1512,7 +1520,6 @@ fn compute_full_address(
 
         access.lengths.reverse();
         let mut linear_length = access.size;
-        // TODO: not needed clone
         let index_stack = indexing_instructions_filter(indexed_with[index].clone(), state);
         for instruction in index_stack {
             let dimension_length = access.lengths.pop().unwrap();

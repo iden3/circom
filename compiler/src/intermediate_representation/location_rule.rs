@@ -1,8 +1,14 @@
 use super::ir_interface::*;
 
 #[derive(Clone)]
+pub struct IndexedInfo{
+    pub indexes: Vec<InstructionPointer>,
+    pub symbol_dim: usize
+}
+
+#[derive(Clone)]
 pub enum AccessType{
-    Indexed(Vec<InstructionPointer>), // Case accessing an array
+    Indexed(IndexedInfo), // Case accessing an array
     Qualified(usize), // Case accessing a field -> id field
 }
 
@@ -10,7 +16,8 @@ impl ToString for AccessType {
     fn to_string(&self) -> String {
         match &self{
             AccessType::Indexed(index) =>{
-                index.iter().map(|i| i.to_string()).collect()
+		
+                format!("Indexed({},{})", index.symbol_dim, index.indexes.iter().map(|i| i.to_string()).collect::<String>())
             }
             AccessType::Qualified(value) =>{
                 format!("field({})", value)

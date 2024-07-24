@@ -13,7 +13,7 @@ pub struct BusRepresentation {
     fields: BTreeMap<String, FieldTypes>,
     pub field_tags: BTreeMap<String, (TagDefinitions, TagInfo)>,
     unassigned_fields: HashMap<String, SliceCapacity>,
-    has_assignment: bool
+    has_assignment: bool,
 }
 
 impl Default for BusRepresentation {
@@ -139,7 +139,7 @@ impl BusRepresentation {
                 if state.value_defined || state.complete{
                     let value_tag = tags_info.get(next_access).unwrap();
                     match value_tag{
-                        None =>{
+                        Option::None =>{
                             let error = MemoryError::TagValueNotInitializedAccess;
                             Result::Err(error)
                         },
@@ -233,7 +233,24 @@ impl BusRepresentation {
         tags: Option<TagInfo>,
         is_input: bool,
     ) -> Result<(), MemoryError> {
-            
+            // TODO: move to auxiliar function to do not repeat effort
+            // We update the has_assignment value if not tag and not empty
+            let has_assignment = match assigned_value{
+                FoldedArgument::Signal(dimensions)=>{
+                    let total_size = dimensions.iter().fold(1, |acc, x| acc * x);
+                    total_size > 0
+                },
+                FoldedArgument::Bus(slice)=>{
+                    let route = slice.route();
+                    let total_size = route.iter().fold(1, |acc, x| acc * x);
+                    total_size > 0
+                },
+                FoldedArgument::Tag(_) => false
+            };
+            if has_assignment{
+                self.has_assignment = true;
+            }
+
             // We later distinguish the case of tags
             // check if we need to access to another bus or if it is the final access
             let field: &mut FieldTypes = self.fields.get_mut(field_name).unwrap();
@@ -255,7 +272,6 @@ impl BusRepresentation {
                             }
                         }
                         FieldTypes::Bus(s) =>{
-                            // TODO, include info about assignments, no recorrer todo
                             for i in 0..BusSlice::get_number_of_cells(s){
                                 let accessed_bus = BusSlice::get_reference_to_single_value_by_index(&s, i)?;
                                 if accessed_bus.has_assignment(){
@@ -288,7 +304,6 @@ impl BusRepresentation {
                     }
                 } else{
                     // it is intermediate access
-                    self.has_assignment = true;
 
                     match field{
                         FieldTypes::Bus(bus_slice)=>{
@@ -329,7 +344,7 @@ impl BusRepresentation {
                                                     self.unassigned_fields.remove(field_name);
                                                 }
                                             }
-                                            None => {}
+                                            Option::None => {}
                                         }
                                     }
                                     Result::Ok(())
@@ -438,7 +453,7 @@ impl BusRepresentation {
                             self.unassigned_fields.remove(field_name);
                         }
                     }
-                    None => {}
+                    Option::None => {}
                 }
 
                 // Update the value of the signal tags it is complete
@@ -477,7 +492,7 @@ impl BusRepresentation {
     pub fn completely_assign_bus(&mut self, assigned_bus: &BusRepresentation, is_input: bool)-> Result<(), MemoryError>{
         
         if self.has_assignment{
-            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
+            return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignmentsBus));
         }
 
         // check that they are the same instance of buses

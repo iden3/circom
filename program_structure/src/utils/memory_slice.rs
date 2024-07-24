@@ -10,6 +10,8 @@ pub enum TypeInvalidAccess {
 }
 
 pub enum TypeAssignmentError {
+    MultipleAssignmentsComponent,
+    MultipleAssignmentsBus,
     MultipleAssignments,
     AssignmentOutput,
     NoInitializedComponent,

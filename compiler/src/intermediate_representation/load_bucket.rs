@@ -136,8 +136,12 @@ impl WriteWasm for LoadBucket {
 			    }
 			    let mut idxpos = 0;			    
 			    while idxpos < indexes.len() {
-				if let AccessType::Indexed(index_list) = &indexes[idxpos] {
-				    let mut infopos = 0;
+				if let AccessType::Indexed(index_info) = &indexes[idxpos] {
+				    
+                    let index_list = &index_info.indexes;
+                    let dim = index_info.symbol_dim;
+                    
+                    let mut infopos = 0;
 				    assert!(index_list.len() > 0);
 				    //We first compute the number of elements as
 				    //((index_list[0] * length_of_dim[1]) + index_list[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + index_list[n-1]
@@ -153,12 +157,34 @@ impl WriteWasm for LoadBucket {
 					instructions.append(&mut instructions_idxi);				    
 					instructions.push(add32());
 				    }
+				    assert!(index_list.len() <= dim);
+				    let diff = dim - index_list.len();
+				    if diff > 0 {
+					//println!("There is difference: {}",diff);
+					//instructions.push(format!(";; There is a difference {}", diff));
+					// must be last access
+					assert!(idxpos+1 == indexes.len());
+					instructions.push(get_local(producer.get_io_info_tag()));
+					infopos += 4; //position in io or bus info of the next dimension 
+					instructions.push(load32(Some(&infopos.to_string()))); // length of next dimension					
+					for _i in 1..diff {
+					    //instructions.push(format!(";; Next dim {}", i));
+					    instructions.push(get_local(producer.get_io_info_tag()));
+					    infopos += 4; //position in io or bus info of the next dimension 
+					    instructions.push(load32(Some(&infopos.to_string()))); // length of next dimension					
+					    instructions.push(mul32()); // multiply with previous dimensions
+					}
+				    } // after this we have the product of the remaining dimensions				    
 				    let field_size = producer.get_size_32_bits_in_memory() * 4;
 				    instructions.push(set_constant(&field_size.to_string()));
 				    instructions.push(get_local(producer.get_io_info_tag()));
 				    infopos += 4; //position in io or bus info of size 
 				    instructions.push(load32(Some(&infopos.to_string()))); // size
 				    instructions.push(mul32()); // size mult by size of field in bytes
+				    if diff > 0 {
+					//instructions.push(format!(";; Multiply dimensions"));
+					instructions.push(mul32()); // total size of the content according to the missing dimensions
+				    }
 				    instructions.push(mul32()); // total offset in the array
 				    instructions.push(add32()); // to the current offset
 				    idxpos += 1;
@@ -255,7 +281,9 @@ impl WriteC for LoadBucket {
 					      signal_code.to_string());
 		    let mut idxpos = 0;
 		    while idxpos < indexes.len() {
-			if let AccessType::Indexed(index_list) = &indexes[idxpos] {
+			if let AccessType::Indexed(index_info) = &indexes[idxpos] {
+			    let index_list = &index_info.indexes;
+			    let dim = index_info.symbol_dim;
 			    //We first compute the number of elements as
 			    //((index_list[0] * length_of_dim[1]) + index_list[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + index_list[n-1] 
 		            let (mut index_code_0, mut map_index) = index_list[0].produce_c(producer, parallel);
@@ -266,24 +294,28 @@ impl WriteC for LoadBucket {
 				map_index = format!("({})*({}.lengths[{}])+{}",
 						    map_index,cur_def,(i-1).to_string(),index_exp);
 		            }
-			    // add to the access expression the computed offset in the array
-			    // multiplied buy the size of the elements
+			    assert!(index_list.len() <= dim);
+			    if dim - index_list.len() > 0 {
+				map_prologue.push(format!("//There is a difference {};",dim - index_list.len()));
+				// must be last access
+				assert!(idxpos+1 == indexes.len());
+				for i in index_list.len()..dim {
+				    map_index = format!("{}*{}.lengths[{}]",
+							map_index, cur_def, (i-1).to_string());
+				} // after this we have multiplied by the remaining dimensions
+			    }
+			    // multiply the offset in the array (after multiplying by the missing dimensions) by the size of the elements
+			    // and add it to the access expression 
 			    map_access = format!("{}+({})*{}.size", map_access, map_index, cur_def);
-			} else if let AccessType::Qualified(_) = &indexes[idxpos] {
-			    // we already have the cur_def
+			} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
+			    cur_def = format!("{}->{}[{}.busId].defs[{}]",
+					      circom_calc_wit(), bus_ins_2_field_info(),
+					      cur_def, field_no.to_string());
 			    map_access = format!("{}+{}.offset", map_access, cur_def);
 			} else {
 			    assert!(false);
 			}
 			idxpos += 1;
-			if idxpos < indexes.len() {
-			    if let AccessType::Qualified(field_no) = &indexes[idxpos] {
-				// we get the next definition in cur_def from the bus bus_id
-				cur_def = format!("{}->{}[{}.busId].defs[{}]",
-							  circom_calc_wit(), bus_ins_2_field_info(),
-							  cur_def, field_no.to_string());
-			    }
-			}
 	            }
 		}
                 (map_prologue, map_access)
