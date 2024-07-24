@@ -3,7 +3,6 @@ use num_bigint_dig::BigInt;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
-use std::collections::{HashMap};
 
 pub fn wasm_hexa(nbytes: usize, num: &BigInt) -> String {
     let inbytes = num.to_str_radix(16).to_string();
@@ -227,15 +226,14 @@ pub fn get_initial_size_of_memory(producer: &WASMProducer) -> usize {
 
 //------------------- generate all kinds of Data ------------------
 
-pub fn generate_hash_map(signal_name_list: &Vec<InputInfo>) -> Vec<(u64, usize, usize)> {
-    assert!(signal_name_list.len() <= 256);
-    let len = 256;
-    let mut hash_map = vec![(0, 0, 0); len];
+pub fn generate_hash_map(signal_name_list: &Vec<InputInfo>, size: usize) -> Vec<(u64, usize, usize)> {
+    assert!(signal_name_list.len() <= size);
+    let mut hash_map = vec![(0, 0, 0); size];
     for i in 0..signal_name_list.len() {
         let h = hasher(&signal_name_list[i].name);
-        let mut p = (h % 256) as usize;
+        let mut p = h as usize %  size;
         while hash_map[p].1 != 0 {
-            p = (p + 1) % 256;
+            p = (p + 1) % size;
         }
         hash_map[p] = (h, signal_name_list[i].start, signal_name_list[i].size);
     }
@@ -670,25 +668,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
         producer.get_shared_rw_memory_start() - 8,
         "\\00\\00\\00\\00\\00\\00\\00\\80"
     ));
-    let mut input_list_with_qualifiers = producer.get_main_input_list_with_qualifiers();
-    //for io in &input_list_with_qualifiers {
-    //	println!("Name: {}, Start: {}, Size: {}",io.name, io.start, io.size);
-    //}
-    let input_list = producer.get_main_input_list();
-    let mut id_to_info: HashMap<String, (usize, usize)> = HashMap::new();
-    for io in &input_list_with_qualifiers {
-	id_to_info.insert(io.name.clone(),(io.start, io.size));
-    }
-    for io in input_list {
-	if id_to_info.contains_key(&io.name) {
-	    let (st,sz) = id_to_info[&io.name];
-	    assert!(st == io.start && sz == io.size);
-	} else {
-	    input_list_with_qualifiers.push(io.clone());
-	}
-    }
-    
-    let map = generate_hash_map(&input_list_with_qualifiers);
+    let map = generate_hash_map(&producer.get_main_input_list(),producer.get_input_hash_map_entry_size());
     wdata.push(format!(";; hash_map"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
@@ -999,6 +979,7 @@ pub fn init_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
 pub fn get_input_signal_map_position_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
     let header = "(func $getInputSignalMapPosition (type $_t_i64ri32)".to_string();
+    let sizeones = producer.get_input_hash_map_entry_size()-1;
     instructions.push(header);
     instructions.push(" (param $hn i64)".to_string());
     instructions.push("(result i32)".to_string());
@@ -1007,7 +988,7 @@ pub fn get_input_signal_map_position_generator(producer: &WASMProducer) -> Vec<W
     instructions.push(" (local $aux i32)".to_string());
     instructions.push(get_local("$hn"));
     instructions.push(wrap_i6432());
-    instructions.push(set_constant("255"));
+    instructions.push(set_constant(&sizeones.to_string()));
     instructions.push(and32());
     instructions.push(set_local("$ini"));
     instructions.push(get_local("$ini"));
@@ -1038,7 +1019,7 @@ pub fn get_input_signal_map_position_generator(producer: &WASMProducer) -> Vec<W
     instructions.push(get_local("$i"));
     instructions.push(set_constant("1"));
     instructions.push(add32());
-    instructions.push(set_constant("255"));
+    instructions.push(set_constant(&sizeones.to_string()));
     instructions.push(and32());
     instructions.push(set_local("$i"));
     instructions.push(get_local("$i"));
