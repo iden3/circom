@@ -4,7 +4,6 @@ use serde_json::json;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
-use std::collections::{HashMap};
 
 // Types
 const T_U64: &str = "u64";
@@ -476,22 +475,12 @@ pub fn collect_function_headers(functions: Vec<String>) -> Vec<String> {
 
 //--------------- generate all kinds of Data for the .dat file ---------------
 
-<<<<<<< HEAD
-pub fn generate_hash_map(signal_name_list: &Vec<InputInfo>) -> Vec<(u64, u64, u64)> {
-    assert!(signal_name_list.len() <= 256);
-    let len = 256;
-    let mut hash_map = vec![(0, 0, 0); len];
-    for i in 0..signal_name_list.len() {
-        let h = hasher(&signal_name_list[i].name);
-        let mut p = (h % 256) as usize;
-=======
-pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>, size: usize) -> Vec<(u64, u64, u64)> {
+pub fn generate_hash_map(signal_name_list: &Vec<InputInfo>, size: usize) -> Vec<(u64, u64, u64)> {
     assert!(signal_name_list.len() <= size);
     let mut hash_map = vec![(0, 0, 0); size];
     for i in 0..signal_name_list.len() {
-        let h = hasher(&signal_name_list[i].0);
+        let h = hasher(&signal_name_list[i].name);
         let mut p = h as usize % size;
->>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
         while hash_map[p].1 != 0 {
             p = (p + 1) % size;
         }
@@ -736,31 +725,11 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     //dfile.write_all(&p)?;
     //dfile.flush()?;
 
-<<<<<<< HEAD
-    let mut input_list_with_qualifiers = producer.get_main_input_list_with_qualifiers();
-    //for io in &input_list_with_qualifiers {
-    //	println!("Name: {}, Start: {}, Size: {}",io.name, io.start, io.size);
-    //}
-    let input_list = producer.get_main_input_list();
-    let mut id_to_info: HashMap<String, (usize, usize)> = HashMap::new();
-    for io in &input_list_with_qualifiers {
-	id_to_info.insert(io.name.clone(),(io.start, io.size));
-    }
-    for io in input_list {
-	if id_to_info.contains_key(&io.name) {
-	    let (st,sz) = id_to_info[&io.name];
-	    assert!(st == io.start && sz == io.size);
-	} else {
-	    input_list_with_qualifiers.push(io.clone());
-	}
-    }
-    
-
-    let map = generate_hash_map(&input_list_with_qualifiers);
-=======
+//<<<<<<< HEAD
+//=======
     let aux = producer.get_main_input_list();
     let map = generate_hash_map(&aux,producer.get_input_hash_map_entry_size());
->>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
+//>>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
     let hashmap = generate_dat_from_hash_map(&map); //bytes u64 --> u64
                                                     //let hml = producer.get_input_hash_map_entry_size() as u32;
                                                     //dfile.write_all(&hml.to_be_bytes())?;

@@ -223,11 +223,6 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
     producer.signals_in_witness = producer.witness_to_signal_list.len();
     producer.number_of_main_inputs = vcp.templates[initial_node].number_of_inputs;
     producer.number_of_main_outputs = vcp.templates[initial_node].number_of_outputs;
-    producer.main_input_list = main_input_list(&vcp.templates[initial_node]);
-    producer.io_map = build_io_map(vcp, database);
-    producer.template_instance_list = build_template_list(vcp);
-    producer.field_tracking.clear();
-    producer.wat_flag = wat_flag;
 
     // add the info of the buses
     (
@@ -235,6 +230,11 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
         producer.busid_field_info
     ) = get_info_buses(&vcp.buses); 
 
+    producer.main_input_list = main_input_list(&vcp.templates[initial_node],&producer.busid_field_info);
+    producer.io_map = build_io_map(vcp, database);
+    producer.template_instance_list = build_template_list(vcp);
+    producer.field_tracking.clear();
+    producer.wat_flag = wat_flag;
 
     (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
@@ -265,22 +265,22 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
     producer.signals_in_witness = producer.witness_to_signal_list.len();
     producer.number_of_main_inputs = vcp.templates[initial_node].number_of_inputs;
     producer.number_of_main_outputs = vcp.templates[initial_node].number_of_outputs;
-    producer.main_input_list = main_input_list(&vcp.templates[initial_node]);   
-    producer.io_map = build_io_map(vcp, database);
-    producer.template_instance_list = build_template_list_parallel(vcp);
-    producer.field_tracking.clear();
-    
     // add the info of the buses
     (
         producer.num_of_bus_instances, 
         producer.busid_field_info
     ) = get_info_buses(&vcp.buses); 
     
+    producer.main_input_list = main_input_list(&vcp.templates[initial_node],&producer.busid_field_info);   
+    producer.io_map = build_io_map(vcp, database);
+    producer.template_instance_list = build_template_list_parallel(vcp);
+    producer.field_tracking.clear();
+    
     (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
 }
 
-fn main_input_list(main: &TemplateInstance) -> InputList {
+fn main_input_list(main: &TemplateInstance, buses: &FieldMap) -> InputList {
     use program_structure::ast::SignalType::*;
     use crate::hir::very_concrete_program::Wire::*;
     fn build_info_wire(wire: &Wire) -> InputInfo{
@@ -305,13 +305,110 @@ fn main_input_list(main: &TemplateInstance) -> InputList {
             }
         }
     }
+    fn get_accesses(pos: usize, dims: &Vec<usize>) -> Vec<(String,usize)> {
+	if pos >= dims.len() {
+	    vec![("".to_string(),0)]
+	} else {
+	    let mut res: Vec<(String,usize)> = vec![];
+	    let res1 = get_accesses(pos+1, dims);
+	    let mut elems:usize = 1;
+	    let mut epos = pos + 1;
+	    while epos < dims.len() {
+		elems *= dims[epos];
+		epos += 1;
+	    }
+	    let mut jump = 0;
+	    for i in 0..dims[pos] {
+		for j in 0..res1.len() {
+		    let (a,s) = &res1[j];
+		    res.push((format!("[{}]{}",i,a),jump+s));
+		}
+		jump += elems;
+	    }
+	    res
+	}
+    }
+    fn get_qualified_names (busid: usize, start: usize, prefix: String, buses: &FieldMap) -> InputList {
+	let mut buslist = vec![];
+	//println!("BusId: {}", busid);
+	for io in &buses[busid] {
+	    let name = format!("{}.{}",prefix.clone(),io.name);
+	    let new_start = start + io.offset;
+	    //print!("name: {}, start: {}", name, new_start);
+	    if let Some(value) = io.bus_id {
+		let accesses = get_accesses(0,&io.dimensions);
+		//println!("accesses list: {:?}", accesses);
+		for (a,s) in &accesses {
+		    let prefix = format!("{}{}",name.clone(),a);
+		    let mut ios = get_qualified_names (value,new_start+s*io.size,prefix,buses);
+		    buslist.append(&mut ios);
+		}
+	    }
+	    else {
+		//println!("");
+		let mut total_size = io.size;
+		for i in &io.dimensions {
+		    total_size *= i;
+		}
+		let ioinfo = {
+		    InputInfo{
+			name: name,
+			dimensions: io.dimensions.clone(),
+			size: total_size,
+			start: new_start,
+			bus_id: None
+		    } };
+		buslist.push(ioinfo);
+	    }
+	}
+	buslist
+    }
+    pub fn get_main_input_list_with_qualifiers(buses: &FieldMap, input_list: &InputList) -> InputList {
+	let mut iolist = vec![];
+        for io in input_list {
+	    if let Some(value) = io.bus_id {
+		let mut elems:usize = 1;
+		for i in &io.dimensions {
+		    elems *= i;
+		}
+		let size:usize = io.size/elems;
+		let accesses = get_accesses(0,&io.dimensions);
+		for (a,s) in &accesses {
+		    let prefix = format!("{}{}",io.name.clone(),a);
+		    let mut ios = get_qualified_names (value,io.start+s*size,prefix,buses);
+		    iolist.append(&mut ios);
+		}
+	    }
+	    else {
+		iolist.push(io.clone());
+	    }
+	}
+	iolist
+    }
     let mut input_list = vec![];
     for s in &main.wires {
         if s.xtype() == Input {         
             input_list.push(build_info_wire(s));
         }
     }
-    input_list
+    let mut input_list_with_qualifiers = get_main_input_list_with_qualifiers(buses,&input_list);
+    //for io in &input_list_with_qualifiers {
+    //	println!("Name: {}, Start: {}, Size: {}",io.name, io.start, io.size);
+    //}
+//    let input_list = producer.get_main_input_list();
+    let mut id_to_info: HashMap<String, (usize, usize)> = HashMap::new();
+    for io in &input_list_with_qualifiers {
+	id_to_info.insert(io.name.clone(),(io.start, io.size));
+    }
+    for io in input_list {
+	if id_to_info.contains_key(&io.name) {
+	    let (st,sz) = id_to_info[&io.name];
+	    assert!(st == io.start && sz == io.size);
+	} else {
+	    input_list_with_qualifiers.push(io.clone());
+	}
+    }
+    input_list_with_qualifiers
 }
 
 fn build_template_list(vcp: &VCP) -> TemplateList {

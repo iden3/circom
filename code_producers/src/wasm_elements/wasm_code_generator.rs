@@ -3,7 +3,6 @@ use num_bigint_dig::BigInt;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
-use std::collections::{HashMap};
 
 pub fn wasm_hexa(nbytes: usize, num: &BigInt) -> String {
     let inbytes = num.to_str_radix(16).to_string();
@@ -227,22 +226,12 @@ pub fn get_initial_size_of_memory(producer: &WASMProducer) -> usize {
 
 //------------------- generate all kinds of Data ------------------
 
-<<<<<<< HEAD
-pub fn generate_hash_map(signal_name_list: &Vec<InputInfo>) -> Vec<(u64, usize, usize)> {
-    assert!(signal_name_list.len() <= 256);
-    let len = 256;
-    let mut hash_map = vec![(0, 0, 0); len];
-    for i in 0..signal_name_list.len() {
-        let h = hasher(&signal_name_list[i].name);
-        let mut p = (h % 256) as usize;
-=======
-pub fn generate_hash_map(signal_name_list: &Vec<(String, usize, usize)>, size: usize) -> Vec<(u64, usize, usize)> {
+pub fn generate_hash_map(signal_name_list: &Vec<InputInfo>, size: usize) -> Vec<(u64, usize, usize)> {
     assert!(signal_name_list.len() <= size);
     let mut hash_map = vec![(0, 0, 0); size];
     for i in 0..signal_name_list.len() {
-        let h = hasher(&signal_name_list[i].0);
+        let h = hasher(&signal_name_list[i].name);
         let mut p = h as usize %  size;
->>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
         while hash_map[p].1 != 0 {
             p = (p + 1) % size;
         }
@@ -679,30 +668,8 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
         producer.get_shared_rw_memory_start() - 8,
         "\\00\\00\\00\\00\\00\\00\\00\\80"
     ));
-<<<<<<< HEAD
-    let mut input_list_with_qualifiers = producer.get_main_input_list_with_qualifiers();
-    //for io in &input_list_with_qualifiers {
-    //	println!("Name: {}, Start: {}, Size: {}",io.name, io.start, io.size);
-    //}
-    let input_list = producer.get_main_input_list();
-    let mut id_to_info: HashMap<String, (usize, usize)> = HashMap::new();
-    for io in &input_list_with_qualifiers {
-	id_to_info.insert(io.name.clone(),(io.start, io.size));
-    }
-    for io in input_list {
-	if id_to_info.contains_key(&io.name) {
-	    let (st,sz) = id_to_info[&io.name];
-	    assert!(st == io.start && sz == io.size);
-	} else {
-	    input_list_with_qualifiers.push(io.clone());
-	}
-    }
-    
-    let map = generate_hash_map(&input_list_with_qualifiers);
-    wdata.push(format!(";; hash_map"));
-=======
     let map = generate_hash_map(&producer.get_main_input_list(),producer.get_input_hash_map_entry_size());
->>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
+    wdata.push(format!(";; hash_map"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_input_signals_hashmap_start(),
