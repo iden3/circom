@@ -90,24 +90,11 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
     let initial_expression = program_archive.get_main_expression();
     let type_analysis_response =
         type_expression(initial_expression, program_archive, &mut analysis_information);
-    let first_type = if let Result::Ok(t) = type_analysis_response {
-        t
-    } else {
+    if type_analysis_response.is_err(){
         return Result::Err(analysis_information.reports);
-    };
-    if !first_type.is_template() {
-        add_report(
-            ReportCode::WrongTypesInAssignOperationTemplate,
-            initial_expression.get_meta(),
-            &mut analysis_information.reports,
-        );
-    } else if check_main_has_tags(initial_expression, program_archive) {
-            add_report(
-                ReportCode::MainComponentWithTags,
-                initial_expression.get_meta(),
-                &mut analysis_information.reports,
-            );
     }
+
+    check_main_has_tags(initial_expression, program_archive, &mut analysis_information.reports);
 
 
     if analysis_information.reports.is_empty() {
@@ -117,24 +104,44 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
     }
 }
 
-fn check_main_has_tags(initial_expression: &Expression, program_archive: &ProgramArchive) -> bool {
-    if let Call { id, .. } = initial_expression {
-        let inputs = program_archive.get_template_data(id).get_inputs();
-        let mut tag_in_inputs = false;
-        for (_name,info) in inputs {
-            if !info.get_tags().is_empty(){
-                tag_in_inputs = true;
-                break;
-            } else if let WireType::Bus(bus_name) = info.get_type() {
-                if check_bus_contains_tag_recursive(bus_name, program_archive){
-                    tag_in_inputs = true;
+fn check_main_has_tags(initial_expression: &Expression, program_archive: &ProgramArchive, reports: &mut ReportCollection) {    if let Call { id, .. } = initial_expression {
+        if program_archive.contains_template(id){
+            let inputs = program_archive.get_template_data(id).get_inputs();
+            for (_name,info) in inputs {
+                if !info.get_tags().is_empty(){
+                    add_report(
+                        ReportCode::MainComponentWithTags,
+                        initial_expression.get_meta(),
+                        reports,
+                    );
                     break;
+                } else if let WireType::Bus(bus_name) = info.get_type() {
+                    if check_bus_contains_tag_recursive(bus_name, program_archive){
+                        add_report(
+                            ReportCode::MainComponentWithTags,
+                            initial_expression.get_meta(),
+                            reports,
+                        );
+                        break;
+                    }
                 }
             }
+        } else{
+            add_report(
+                ReportCode::IllegalMainExpression,
+                initial_expression.get_meta(),
+                reports,
+            )
         }
-        tag_in_inputs
+       
     }
-    else { unreachable!()}
+    else { 
+        add_report(
+            ReportCode::IllegalMainExpression,
+            initial_expression.get_meta(),
+            reports,
+        )
+    }
 }
 
 fn check_bus_contains_tag_recursive(bus_name: String, program_archive: &ProgramArchive) -> bool {
@@ -1157,7 +1164,7 @@ fn apply_access_to_symbol(
                                 tags = wire.get_tags().clone();
                             }
                         },
-                        None => {
+                        Option::None => {
                             if tags.contains(&accessed_element) {
                                 let prev_dim_access = if buses_and_signals.len()>1 {buses_and_signals.get(buses_and_signals.len()-2).unwrap().1}
                                                             else {access_information.0}; 
@@ -1386,7 +1393,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         }
         MainComponentWithTags => "Main component cannot have inputs with tags".to_string(),
         ExpectedDimDiffGotDim(expected, got) => {
-            format!("Function should return {} but returns {}", expected, got)
+            format!("All branches of a function should return an element of the same dimensions.\n Found {} and {} dimensions", expected, got)
         }
         WrongNumberOfArguments(expected, got) => {
             format!("Expecting {} arguments, {} where obtained", expected, got)
@@ -1396,6 +1403,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         MustBeSameBus => "Both kind of buses must be equals".to_string(),
         MustBeBus => "Expected to be a bus".to_string(),
         InvalidSignalAccessInBus => format!("Field not defined in bus"),
+        IllegalMainExpression => "Invalid main component: the main component should be a template, not a function call or expression".to_string(),
         e => panic!("Unimplemented error code: {}", e),
     };
     report.add_primary(location, file_id, message);

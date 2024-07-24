@@ -190,28 +190,61 @@ template well_defined_figure(num_sides, dimension){
 The previous template defines a correctness check for any figure: the ending point of a line must be the starting point of the next line. Otherwise, the figure is not well defined, and the witness generation will fail. 
 
 ## Buses as Circuit Inputs
-Similar to signals, buses can be part of the inputs of the main circuit. Thus, we must indicate their values if we want to generate a witness for the circuit. As usual, we indicate the value of the input buses following a JSON format. Let us consider again the `Person` bus and an input `p` of this kind, we would indicate its values as follows:
+Similar to signals, buses can be part of the main circuit's inputs. Therefore, we must specify their values to generate a witness for the circuit. For each circuit input bus, values can be specified in two ways:
 
+- __Serialized Format__: Indicate the value of every signal, bus, or array field in a single array, following the bus's definition order.
+- __JSON Format__: Provide values using a fully qualified JSON format with field names. Note that you cannot mix both methods within a single bus. If you start defining an input using field names, you must use this method consistently throughout.
+  
+Let us consider again the `Person` bus:
 ```
-["p": {"name": ["80","82",...], 
+bus Film{
+    signal title[2];
+    signal director[2];
+    signal year;
+}
+
+bus Date{
+    signal day;
+    signal month;
+    signal year;
+}
+
+bus Person{
+    signal name[2];
+    Film films[2];
+    Date birthday;
+}
+```
+
+To indicate values for an input `p` of this kind, we would indicate its values as one of the following ways:
+
+- __Serialized format__:
+```
+{"p": ["80","82","20","21","30","31","1953","40","41","50","51","1990","1","1","1992"]
+}
+```
+ 
+ - __JSON format__:
+```
+{"p": {"name": ["80","82"],
        "films": [
-            {   "title": [...],
-                "director": [...],
+            {   "title": ["20","21"],
+                "director": ["30","31"],
                 "year": "1953"
             },
-                ...,
-            {   "title": [...],
-                "director": [...],
+            {   "title": ["40","41"],
+                "director": ["50","51"],
                 "year": "1990"
             }
-        ], 
-       "birthday": 
-            {   "day": "1", 
-                "month": "1", 
+        ],
+       "birthday":
+            {   "day": "1",
+                "month": "1",
                 "year": "1992"
             }
     }
-]
+}
+
 ```
 
 Like public input signals, public input buses cannot be tagged. Otherwise, the compiler will report an error. 

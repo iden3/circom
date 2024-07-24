@@ -482,6 +482,9 @@ pub fn remove_anonymous_from_expression(
             if let Some(m) = names { // in case we have a list of names and assignments
                 let inputs = template.unwrap().get_inputs();
                 let mut n_expr = 0;
+                if inputs.len() != m.len() {
+                    return Result::Err(anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
+                }
                 for (operator, name) in m{
                     if operator != AssignOp::AssignConstraintSignal{
                         let error = format!("Anonymous components only admit the use of the operator <==");

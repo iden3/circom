@@ -1017,7 +1017,7 @@ struct SymbolDef {
 struct PossibleInfo{
     possible_sizes: Vec<usize>,
     possible_lengths: Vec<Vec<usize>>,
-    possible_bus_fields: Option<Vec<HashMap<String, FieldInfo>>>
+    possible_bus_fields: Option<Vec<BTreeMap<String, FieldInfo>>>
 }
 
 struct BusAccessInfo{
