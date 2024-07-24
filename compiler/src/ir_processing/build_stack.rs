@@ -132,7 +132,7 @@ pub fn build_location(bucket: &mut LocationRule, fresh: usize) -> usize {
             for acc in indexes{
                 match acc{
                     AccessType::Indexed(ind) =>{
-                        let depth = build_list(ind, fresh);
+                        let depth = build_list(&mut ind.indexes, fresh);
                         max_depth = std::cmp::max(max_depth, depth);
                     },
                     AccessType::Qualified(_) =>{

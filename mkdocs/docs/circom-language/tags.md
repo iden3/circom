@@ -112,3 +112,19 @@ template A(){
 }
 ```
 The compilation of the previous code throws the next error "Invalid assignment: tags cannot be assigned to a signal already initialized", since a position of the array (out[0]) already has a value, then the value of max cannot be modified after the first assignment.
+
+## Tags in buses
+Similar to signals, buses and their fields can also be tagged in their declarations. 
+
+```
+bus Book {
+    signal {maxvalue} title[50];
+    signal pages;
+    signal {maxvalue} year;
+};
+
+bus Person{
+    signal name[50];
+    Book {old} name;
+}
+```

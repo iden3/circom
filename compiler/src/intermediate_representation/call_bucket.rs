@@ -247,7 +247,9 @@ impl WriteWasm for CallBucket {
 				    }
 				    let mut idxpos = 0;			    
 				    while idxpos < indexes.len() {
-					if let AccessType::Indexed(index_list) = &indexes[idxpos] {
+					if let AccessType::Indexed(index_info) = &indexes[idxpos] {					    
+					    let index_list = &index_info.indexes;
+					    let dim = index_info.symbol_dim;
 					    let mut infopos = 0;
 					    assert!(index_list.len() > 0);
 					    //We first compute the number of elements as
@@ -264,12 +266,34 @@ impl WriteWasm for CallBucket {
 						instructions.append(&mut instructions_idxi);				    
 						instructions.push(add32());
 					    }
+					    assert!(index_list.len() <= dim);
+					    let diff = dim - index_list.len();
+					    if diff > 0 {
+						//println!("There is difference: {}",diff);
+						//instructions.push(format!(";; There is a difference {}", diff));
+						// must be last access
+						assert!(idxpos+1 == indexes.len());
+						instructions.push(get_local(producer.get_io_info_tag()));
+						infopos += 4; //position in io or bus info of the next dimension 
+						instructions.push(load32(Some(&infopos.to_string()))); // length of next dimension					
+						for _i in 1..diff {
+						    //instructions.push(format!(";; Next dim {}", i));
+						    instructions.push(get_local(producer.get_io_info_tag()));
+						    infopos += 4; //position in io or bus info of the next dimension 
+						    instructions.push(load32(Some(&infopos.to_string()))); // length of next dimension					
+						    instructions.push(mul32()); // multiply with previous dimensions
+						}
+					    } // after this we have the product of the remaining dimensions
 					    let field_size = producer.get_size_32_bits_in_memory() * 4;
 					    instructions.push(set_constant(&field_size.to_string()));
 					    instructions.push(get_local(producer.get_io_info_tag()));
 					    infopos += 4; //position in io or bus info of size 
 					    instructions.push(load32(Some(&infopos.to_string()))); // size
 					    instructions.push(mul32()); // size mult by size of field in bytes
+					    if diff > 0 {
+						//instructions.push(format!(";; Multiply dimensions"));
+						instructions.push(mul32()); // total size of the content according to the missing dimensions
+					    }
 					    instructions.push(mul32()); // total offset in the array
 					    instructions.push(add32()); // to the current offset
 					    idxpos += 1;
@@ -519,7 +543,9 @@ impl WriteC for CallBucket {
 						      signal_code.to_string()));
 			    let mut idxpos = 0;
 			    while idxpos < indexes.len() {
-				if let AccessType::Indexed(index_list) = &indexes[idxpos] {
+				if let AccessType::Indexed(index_info) = &indexes[idxpos] {
+				    let index_list = &index_info.indexes;
+				    let dim = index_info.symbol_dim;
 				    map_prologue.push(format!("{{"));
 				    map_prologue.push(format!("uint map_index_aux[{}];",index_list.len().to_string()));
 				    //We first compute the number of elements as
@@ -537,10 +563,23 @@ impl WriteC for CallBucket {
 					map_index = format!("({})*cur_def->lengths[{}]+map_index_aux[{}]",
 							    map_index,(i-1).to_string(),i.to_string());
 				    }
+				    assert!(index_list.len() <= dim);
+				    if dim - index_list.len() > 0 {
+					map_prologue.push(format!("//There is a difference {};",dim - index_list.len()));
+					// must be last access
+					assert!(idxpos+1 == indexes.len());
+					for i in index_list.len()..dim {
+					    map_index = format!("{}*cur_def->lengths[{}]",
+								map_index, (i-1).to_string());
+					} // after this we have multiplied by the remaining dimensions
+				    }
+				    // multiply the offset in the array (after multiplying by the missing dimensions) by the size of the elements
 				    map_prologue.push(format!("map_accesses_aux[{}] = {}*cur_def->size;", idxpos.to_string(), map_index));
 				    map_prologue.push(format!("}}"));
-				} else if let AccessType::Qualified(_) = &indexes[idxpos] {
-				    // we already have the cur_def
+				} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
+				    map_prologue.push(format!("cur_def = &({}->{}[cur_def->busId].defs[{}]);",
+							      circom_calc_wit(), bus_ins_2_field_info(),
+							      field_no.to_string()));
 				    map_prologue.push(format!("map_accesses_aux[{}] = cur_def->offset;", idxpos.to_string()));
 				} else {
 				    assert!(false);
@@ -549,14 +588,6 @@ impl WriteC for CallBucket {
 				map_access = format!("{}+map_accesses_aux[{}]",
 						     map_access, idxpos.to_string());
 				idxpos += 1;
-				if idxpos < indexes.len() {
-				    if let AccessType::Qualified(field_no) = &indexes[idxpos] {
-					// we get the next definition in cur_def from the bus bus_id
-					map_prologue.push(format!("cur_def = &({}->{}[cur_def->busId].defs[{}]);",
-								  circom_calc_wit(), bus_ins_2_field_info(),
-								  field_no.to_string()));
-				    }
-				}
 			    }
 			    map_prologue.push(format!("}}"));
 			}

@@ -105,7 +105,7 @@ pub fn visit_location(bucket: &mut LocationRule, function_to_arena_size: &HashMa
             for access in indexes{
                 match access{
                     AccessType::Indexed(instr) =>{
-                        visit_list(instr, function_to_arena_size)
+                        visit_list(&mut instr.indexes, function_to_arena_size)
                     },
                     AccessType::Qualified(_) =>{
 

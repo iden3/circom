@@ -3,6 +3,7 @@ use num_bigint_dig::BigInt;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
+use std::collections::{HashMap};
 
 pub fn wasm_hexa(nbytes: usize, num: &BigInt) -> String {
     let inbytes = num.to_str_radix(16).to_string();
@@ -316,23 +317,23 @@ pub fn generate_data_io_signals_info(
     for c in 0..producer.get_number_of_template_instances() {
         match io_map.get(&c) {
             Some(value) => {
- 	       println!("Template Instance: {}", c);
+ 	       //println!("Template Instance: {}", c);
                for s in value {
                     // add the actual offset in memory, taking into account the size of field nums
-                    println!("Offset: {}", s.offset);
+                    //println!("Offset: {}", s.offset);
                     io_signals_info.push_str(&&wasm_hexa(
                         4,
                         &BigInt::from(s.offset * producer.get_size_32_bits_in_memory() * 4),
                     ));
-                    println!("Length: {}", s.lengths.len());
+                    //println!("Length: {}", s.lengths.len());
 		    if s.lengths.len() > 0 { // if it is an array
                         // add the dimensions except the first one		    
                         for i in 1..s.lengths.len() {
-                            println!("Index: {}, {}", i, s.lengths[i]);
+                            //println!("Index: {}, {}", i, s.lengths[i]);
                             io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(s.lengths[i])));
                         }
                         // add the actual size of the elements
-                        println!("Size: {}", s.size);
+                        //println!("Size: {}", s.size);
                         io_signals_info.push_str(&&wasm_hexa(
                             4,
                             &BigInt::from(s.size),
@@ -341,7 +342,7 @@ pub fn generate_data_io_signals_info(
 		    }
 		    // add the busid if it is a  bus
 		    if let Some(value) = s.bus_id {
-                            println!("Bus_id: {}", value);
+                            //println!("Bus_id: {}", value);
 			    io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
 		    }
                 }
@@ -395,23 +396,23 @@ pub fn generate_data_field_info(
 ) -> String {
     let mut field_info = "".to_string();
     for c in 0..producer.get_number_of_bus_instances() {
- 	println!("Bus Instance: {}", c);
+ 	//println!("Bus Instance: {}", c);
         for s in &field_map[c] {
             // add the actual offset in memory, taking into account the size of field nums
-            println!("Offset: {}", s.offset);
+            //println!("Offset: {}", s.offset);
             field_info.push_str(&&wasm_hexa(
                 4,
                 &BigInt::from(s.offset * producer.get_size_32_bits_in_memory() * 4),
             ));
-            println!("Length: {}", s.dimensions.len());
+            //println!("Length: {}", s.dimensions.len());
 	    if s.dimensions.len() > 0 { // if it is an array
 		// add all dimensions but first one	    
 		for i in 1..s.dimensions.len() {
-                    println!("Index: {}, {}", i, s.dimensions[i]);
+                    //println!("Index: {}, {}", i, s.dimensions[i]);
                     field_info.push_str(&&wasm_hexa(4, &BigInt::from(s.dimensions[i])));
 		}
 		// add the actual size in memory, if array
-                println!("Size: {}", s.size);
+                //println!("Size: {}", s.size);
 		field_info.push_str(&&wasm_hexa(
                     4,
                     &BigInt::from(s.size),
@@ -420,7 +421,7 @@ pub fn generate_data_field_info(
 	    }
             // add the busid if it contains buses
 	    if let Some(value) = s.bus_id {
-                println!("Bus_id: {}", value);
+                //println!("Bus_id: {}", value);
 		field_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
 	    }
         }
@@ -669,8 +670,25 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
         producer.get_shared_rw_memory_start() - 8,
         "\\00\\00\\00\\00\\00\\00\\00\\80"
     ));
-    // TODO: change generate_hash_map to new inputlist
-    let map = generate_hash_map(&producer.get_main_input_list());
+    let mut input_list_with_qualifiers = producer.get_main_input_list_with_qualifiers();
+    //for io in &input_list_with_qualifiers {
+    //	println!("Name: {}, Start: {}, Size: {}",io.name, io.start, io.size);
+    //}
+    let input_list = producer.get_main_input_list();
+    let mut id_to_info: HashMap<String, (usize, usize)> = HashMap::new();
+    for io in &input_list_with_qualifiers {
+	id_to_info.insert(io.name.clone(),(io.start, io.size));
+    }
+    for io in input_list {
+	if id_to_info.contains_key(&io.name) {
+	    let (st,sz) = id_to_info[&io.name];
+	    assert!(st == io.start && sz == io.size);
+	} else {
+	    input_list_with_qualifiers.push(io.clone());
+	}
+    }
+    
+    let map = generate_hash_map(&input_list_with_qualifiers);
     wdata.push(format!(";; hash_map"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
