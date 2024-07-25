@@ -1022,7 +1022,8 @@ struct SymbolDef {
 struct PossibleInfo{
     possible_sizes: Vec<usize>,
     possible_lengths: Vec<Vec<usize>>,
-    possible_bus_fields: Option<Vec<BTreeMap<String, FieldInfo>>>
+    possible_bus_fields: Option<Vec<BTreeMap<String, FieldInfo>>>,
+    possible_cmp_id: Vec<usize>
 }
 
 struct BusAccessInfo{
@@ -1074,6 +1075,7 @@ impl ProcessedSymbol {
             possible_lengths: vec![length],
             possible_sizes: vec![symbol_info.size],
             possible_bus_fields: bus_fields,
+            possible_cmp_id: vec![0],
         };
 
         // Arrays to store the index accesses (before and after the component access)     
@@ -1112,6 +1114,7 @@ impl ProcessedSymbol {
                         // We init the possible lenghts and sizes
                         possible_status.possible_lengths = Vec::new();
                         possible_status.possible_sizes = Vec::new();
+                        possible_status.possible_cmp_id = Vec::new();
 
                         for cmp_id in possible_cmp_id{
                             // aux contains the info about the accessed wire
@@ -1122,7 +1125,7 @@ impl ProcessedSymbol {
                             new_length.reverse();
                             possible_status.possible_lengths.push(new_length);
                             possible_status.possible_sizes.push(aux.size);
-
+                            possible_status.possible_cmp_id.push(cmp_id);
                             if aux.bus_id.is_some(){
                                 let fields = context.buses.get(aux.bus_id.unwrap()).unwrap().fields.clone();
                                 if is_first{
@@ -1226,6 +1229,9 @@ impl ProcessedSymbol {
             let mut all_equal = true;
             let mut with_length: usize = 0;
 
+            let mut multiple_sizes = vec![];
+            let mut index = 0;
+
             for possible_size in &possible_status.possible_sizes{
                 if is_first{
                     with_length = *possible_size;
@@ -1236,12 +1242,14 @@ impl ProcessedSymbol {
                         all_equal = false;
                     }
                 }
+                multiple_sizes.push((possible_status.possible_cmp_id[index], *possible_size));
+                index += 1;
             } 
 
             let size = if all_equal{
                 SizeOption::Single(with_length)
             } else{
-                SizeOption::Multiple(possible_status.possible_sizes)
+                SizeOption::Multiple(multiple_sizes)
             };
 
             // Compute the signal location inside the component

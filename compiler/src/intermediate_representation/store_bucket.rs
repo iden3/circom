@@ -60,7 +60,7 @@ impl WriteWasm for StoreBucket {
         let size = match &self.context.size{
             SizeOption::Single(value) => *value,
             SizeOption::Multiple(values) => {
-                values[0]
+                values[0].1
             }
         };
 
@@ -393,11 +393,12 @@ impl WriteC for StoreBucket {
         let size = match &self.context.size{
             SizeOption::Single(value) => value.to_string(),
             SizeOption::Multiple(values) => {
-                prologue.push(format!("int size_store[{}] = {};",
-                    values.len(),
-                    set_list(values.clone())
+                prologue.push(format!("std::map<int,int> size_store {};",
+                    set_list_tuple(values.clone())
                 ));
-                format!("size_store[{}]", cmp_index_ref)
+                let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                format!("size_store[{}]", temp_id)
             }
         };
 

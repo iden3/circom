@@ -377,6 +377,16 @@ pub fn set_list(elems: Vec<usize>) -> String {
     set_string
 }
 
+pub fn set_list_tuple(elems: Vec<(usize, usize)>) -> String {
+    let mut set_string = "{".to_string();
+    for (elem_a, elem_b) in elems {
+        set_string = format!("{}{{{},{}}},", set_string, elem_a, elem_b);
+    }
+    set_string.pop();
+    set_string .push('}');
+    set_string
+}
+
 pub fn set_list_bool(elems: Vec<bool>) -> String {
     let mut set_string = "{".to_string();
     for elem in elems {
