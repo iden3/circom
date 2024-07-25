@@ -341,9 +341,11 @@ impl WriteC for LoadBucket {
                 SizeOption::Multiple(values) => {
                     prologue.push(format!("int size_load[{}] = {};",
                         values.len(),
-                        set_list(values.to_vec())
+                        set_list_tuple(values.to_vec())
                     ));
-                    format!("size_load[{}]", cmp_index_ref)
+                    let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                    let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                    format!("size_load[{}]", temp_id)
                 }
             };
             if uniform_parallel_value.is_some(){

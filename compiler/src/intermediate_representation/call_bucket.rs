@@ -98,7 +98,7 @@ impl WriteWasm for CallBucket {
                 let arg_size = match &self.argument_types[i].size{
                     SizeOption::Single(value) => *value,
                     SizeOption::Multiple(values) => {
-                        values[0]
+                        values[0].1
                     }
                 };
                 if arg_size > 1 {
@@ -356,7 +356,7 @@ impl WriteWasm for CallBucket {
                 let data_size = match &data.context.size{
                     SizeOption::Single(value) => *value,
                     SizeOption::Multiple(values) => {
-                        values[0]
+                        values[0].1
                     }
                 };
                 instructions.push(set_constant(&data_size.to_string()));
@@ -471,7 +471,7 @@ impl WriteC for CallBucket {
             let size = match &self.argument_types[i].size{
                 SizeOption::Single(value) => *value,
                 SizeOption::Multiple(values) => {
-                    values[0]
+                    values[0].1
                 }
             };
             if size > 1 {
@@ -515,9 +515,11 @@ impl WriteC for CallBucket {
             SizeOption::Multiple(values) => {
                 prologue.push(format!("int size_store[{}] = {};",
                     values.len(),
-                    set_list(values.to_vec())
+                    set_list_tuple(values.to_vec())
                 ));
-                format!("size_store[{}]", cmp_index_ref)
+                let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                format!("size_store[{}]", temp_id)
             }
         };
 
