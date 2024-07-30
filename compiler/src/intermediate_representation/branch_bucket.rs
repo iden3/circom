@@ -46,7 +46,7 @@ impl ToString for BranchBucket {
             else_body = format!("{}{};", else_body, i.to_string());
         }
         format!(
-            "IF(line:{},template_id:{},cond:{},if:{},else{})",
+            "IF(line:{},template_id:{},cond:{},if:{},else:{})",
             line, template_id, cond, if_body, else_body
         )
     }
