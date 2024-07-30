@@ -14,7 +14,7 @@ constraint_n
 ]
 }
 ```
-where every constraint is a list with three elements which are the linear expresions A, B and C that represent the constraint A*B -C = 0.
+where every constraint is a list with three elements which are the linear expressions A, B and C that represent the constraint A*B -C = 0.
 ```
 [lin_expr_A,lin_expr_B,lin_expr_C]
 ```
