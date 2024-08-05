@@ -3,6 +3,8 @@
 #include <assert.h>
 #include "calcwit.hpp"
 
+namespace CIRCUIT_NAME {
+
 extern void run(Circom_CalcWit* ctx);
 
 std::string int_to_hex( u64 i )
@@ -52,7 +54,7 @@ uint Circom_CalcWit::getInputSignalHashPosition(u64 h) {
   uint pos = (uint)(h % (u64)n);
   if (circuit->InputHashMap[pos].hash!=h){
     uint inipos = pos;
-    pos = (pos+1)%n; 
+    pos = (pos+1)%n;
     while (pos != inipos) {
       if (circuit->InputHashMap[pos].hash == h) return pos;
       if (circuit->InputHashMap[pos].signalid == 0) {
@@ -124,3 +126,4 @@ std::string Circom_CalcWit::generate_position_array(uint* dimensions, uint size_
   return positions;
 }
 
+} //namespace

@@ -411,7 +411,7 @@ impl WriteC for Circuit {
         (code, "".to_string())
     }
 
-    fn write_c<T: Write>(&self, writer: &mut T, producer: &CProducer) -> Result<(), ()> {
+    fn write_c<T: Write>(&self, writer: &mut T, run_name: &str, producer: &CProducer) -> Result<(), ()> {
 	use code_producers::wasm_elements::wasm_code_generator::merge_code;
         use c_code_generator::*;
         let mut code = vec![];
@@ -423,6 +423,9 @@ impl WriteC for Circuit {
         code.push("#include \"circom.hpp\"".to_string());
         code.push("#include \"calcwit.hpp\"".to_string());
 
+	    code.push(format!(
+            "namespace {} {{\n", run_name
+        ));
 	
         let mut template_headers = collect_template_headers(producer.get_template_instance_list());
         let function_headers: Vec<_> = self.functions
@@ -539,7 +542,7 @@ impl WriteC for Circuit {
         let run_call = format!("{};", build_call(main_template_run, run_args.clone()));
 
         let main_run_body = vec![ctx_index, run_call];
-	code_write = build_callable(run_circuit, run_circuit_args, main_run_body) + "\n";
+	code_write = build_callable(run_circuit, run_circuit_args, main_run_body) + "\n } // namespace\n";
         writer.write_all(code_write.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})
 	    
@@ -579,6 +582,12 @@ impl Circuit {
     pub fn produce_c<W: Write>(&self, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let c_folder_path = Path::new(c_folder).to_path_buf();
+        c_code_generator::generate_cmakelists_txt_file(&c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_platform_cmake_file(&c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_readme_md_file(&c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_json_hpp_file(&c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_witnesscalc_cpp_file(&c_folder_path).map_err(|_err| {})?;
+        c_code_generator::generate_witnesscalc_h_file(&c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_main_cpp_file(&c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_circom_hpp_file(&c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_fr_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
@@ -586,9 +595,13 @@ impl Circuit {
         c_code_generator::generate_fr_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
         c_code_generator::generate_calcwit_cpp_file(&c_folder_path).map_err(|_err| {})?;
         c_code_generator::generate_fr_asm_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_fr_element_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_fr_generic_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_fr_raw_arm64_s_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_fr_raw_generic_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
         c_code_generator::generate_make_file(&c_folder_path,run_name,&self.c_producer).map_err(|_err| {})?;
         c_code_generator::generate_dat_file(c_dat, &self.c_producer).map_err(|_err| {})?;
-        self.write_c(c_circuit, &self.c_producer)
+        self.write_c(c_circuit, run_name, &self.c_producer)
     }
     pub fn produce_wasm<W: Write>(&self, js_folder: &str, _wasm_name: &str, writer: &mut W) -> Result<(), ()> {
 	use std::path::Path;

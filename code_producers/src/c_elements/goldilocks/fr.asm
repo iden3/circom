@@ -37,11 +37,14 @@
         global Fr_rawSub
         global Fr_rawNeg
         global Fr_rawMMul
+        global Fr_rawMMul1
         global Fr_rawMSquare
         global Fr_rawToMontgomery
         global Fr_rawFromMontgomery
         global Fr_rawIsEq
         global Fr_rawIsZero
+        global Fr_rawShr
+        global Fr_rawShl
         global Fr_rawq
         global Fr_rawR3
 
@@ -269,7 +272,11 @@ Fr_longNeg:
 Fr_longErr:
         push    rdi
         mov     rdi, 0
+%ifdef PIC
+        call    Fr_fail WRT ..plt
+%else
         call    Fr_fail
+%endif
         pop     rdi
         mov rsp, rbp
         pop rdx
@@ -4252,6 +4259,7 @@ tmp_107:
 ; Modified Registers:
 ;    r8, r9, 10, r11, rax, rcx
 ;;;;;;;;;;;;;;;;;;;;;;
+Fr_rawShr:
 rawShr:
         cmp rdx, 0
         je Fr_rawCopy
@@ -4335,6 +4343,7 @@ rawShr_endif3_0:
 ; Modified Registers:
 ;    r8, r9, 10, r11, rax, rcx
 ;;;;;;;;;;;;;;;;;;;;;;
+Fr_rawShl:
 rawShl:
         cmp rdx, 0
         je Fr_rawCopy

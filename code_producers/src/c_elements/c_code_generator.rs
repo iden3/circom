@@ -765,6 +765,74 @@ pub fn generate_function_release_memory_circuit() -> Vec<String>{
     instructions
   }
 
+pub fn generate_cmakelists_txt_file(c_folder: &PathBuf) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("CMakeLists");
+    file_path.set_extension("txt");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = include_str!("common/CMakeLists.txt");
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+pub fn generate_platform_cmake_file(c_folder: &PathBuf) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("platform");
+    file_path.set_extension("cmake");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = include_str!("common/platform.cmake");
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+pub fn generate_readme_md_file(c_folder: &PathBuf) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("README");
+    file_path.set_extension("md");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = include_str!("common/README.md");
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+pub fn generate_json_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("json");
+    file_path.set_extension("hpp");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = include_str!("common/json.hpp");
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
 pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
@@ -774,6 +842,40 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
     let file = include_str!("common/main.cpp");
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+pub fn generate_witnesscalc_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("witnesscalc");
+    file_path.set_extension("cpp");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = include_str!("common/witnesscalc.cpp");
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+pub fn generate_witnesscalc_h_file(c_folder: &PathBuf) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("witnesscalc");
+    file_path.set_extension("h");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = include_str!("common/witnesscalc.h");
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -904,6 +1006,110 @@ pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
         "secq256r1" => include_str!("secq256r1/fr.asm"),
         _ => unreachable!(),
     };    
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+pub fn generate_fr_element_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("fr_element");
+    file_path.set_extension("hpp");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr_element.hpp"),
+        "bls12381" => include_str!("bls12381/fr_element.hpp"),
+        "goldilocks" => include_str!("goldilocks/fr_element.hpp"),
+        "grumpkin" => include_str!("grumpkin/fr_element.hpp"),
+        "pallas" => include_str!("pallas/fr_element.hpp"),
+        "vesta" => include_str!("vesta/fr_element.hpp"),
+        "secq256r1" => include_str!("secq256r1/fr_element.hpp"),
+        _ => unreachable!(),
+    };
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+pub fn generate_fr_generic_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("fr_generic");
+    file_path.set_extension("cpp");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr_generic.cpp"),
+        "bls12381" => include_str!("bls12381/fr_generic.cpp"),
+        "goldilocks" => include_str!("goldilocks/fr_generic.cpp"),
+        "grumpkin" => include_str!("grumpkin/fr_generic.cpp"),
+        "pallas" => include_str!("pallas/fr_generic.cpp"),
+        "vesta" => include_str!("vesta/fr_generic.cpp"),
+        "secq256r1" => include_str!("secq256r1/fr_generic.cpp"),
+        _ => unreachable!(),
+    };
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+pub fn generate_fr_raw_arm64_s_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("fr_raw_arm64");
+    file_path.set_extension("s");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr_raw_arm64.s"),
+        "bls12381" => include_str!("bls12381/fr_raw_arm64.s"),
+        "goldilocks" => include_str!("goldilocks/fr_raw_arm64.s"),
+        "grumpkin" => include_str!("grumpkin/fr_raw_arm64.s"),
+        "pallas" => include_str!("pallas/fr_raw_arm64.s"),
+        "vesta" => include_str!("vesta/fr_raw_arm64.s"),
+        "secq256r1" => include_str!("secq256r1/fr_raw_arm64.s"),
+        _ => unreachable!(),
+    };
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+pub fn generate_fr_raw_generic_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("fr_raw_generic");
+    file_path.set_extension("cpp");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    let file = match prime.as_ref(){
+        "bn128" => include_str!("bn128/fr_raw_generic.cpp"),
+        "bls12381" => include_str!("bls12381/fr_raw_generic.cpp"),
+        "goldilocks" => include_str!("goldilocks/fr_raw_generic.cpp"),
+        "grumpkin" => include_str!("grumpkin/fr_raw_generic.cpp"),
+        "pallas" => include_str!("pallas/fr_raw_generic.cpp"),
+        "vesta" => include_str!("vesta/fr_raw_generic.cpp"),
+        "secq256r1" => include_str!("secq256r1/fr_raw_generic.cpp"),
+        _ => unreachable!(),
+    };
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
