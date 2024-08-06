@@ -1,6 +1,6 @@
 ###
 
-PROGNAME=witnesscalc
+PROGNAME={{run_name}}
 CIRCUIT_NAME={{run_name}}
 HAS_PARALLELISM={{#if has_parallelism}}-DHAS_PARALLELISM=ON{{/if}}
 
