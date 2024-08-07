@@ -58,7 +58,7 @@ TOOLS
 
 + [PICUS: a static analyzer for verifying weak and strong safety for circom circuits](https://github.com/Veridise/Picus)
 
-+ [Hardhat-zkit - an ultimate environment for circom development](https://github.com/dl-solarity/hardhat-zkit)
++ [Hardhat-zkit: the ultimate typescript environment for circom development](https://github.com/dl-solarity/hardhat-zkit)
 
 More information about the notions of weak and strong safety in circom circuits [here](https://ieeexplore.ieee.org/document/10002421).
 
