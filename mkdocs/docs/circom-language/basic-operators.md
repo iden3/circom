@@ -105,9 +105,9 @@ All bitwise operators are performed modulo p.
 For all ```k``` with ```0=< k <= p/2``` (integer division) we have that 
 
 * ```x >> k = x/(2**k)``` 
-*  ```x << k = (x*(2{**}k)~ & ~mask) % p  ``` 
+*  ```x << k = (x*(2**k)~ & ~mask) % p  ``` 
 
-where b is the number of significant bits of p and mask is ```2{**}b - 1```.
+where b is the number of significant bits of p and mask is ```2**b - 1```.
 
 For all ```k``` with ```p/2 +1<= k < p``` we have that
 
