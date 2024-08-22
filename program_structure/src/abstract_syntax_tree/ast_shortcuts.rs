@@ -27,13 +27,13 @@ pub fn assign_with_op_shortcut(
     build_substitution(meta, var, access, AssignOp::AssignVar, infix)
 }
 
-pub fn plusplus(meta: Meta, variable: (String, Vec<Access>)) -> Statement {
-    let one = build_number(meta.clone(), BigInt::from(1));
+pub fn plusplus(meta: Meta, variable: (String, Vec<Access>), field: &BigInt) -> Statement {
+    let one = build_number(meta.clone(), BigInt::from(1), field);
     assign_with_op_shortcut(ExpressionInfixOpcode::Add, meta, variable, one)
 }
 
-pub fn subsub(meta: Meta, variable: (String, Vec<Access>)) -> Statement {
-    let one = build_number(meta.clone(), BigInt::from(1));
+pub fn subsub(meta: Meta, variable: (String, Vec<Access>), field: &BigInt) -> Statement {
+    let one = build_number(meta.clone(), BigInt::from(1), field);
     assign_with_op_shortcut(ExpressionInfixOpcode::Sub, meta, variable, one)
 }
 
