@@ -43,7 +43,11 @@ pub fn build_variable(meta: Meta, name: String, access: Vec<Access>) -> Expressi
     Variable { meta, name, access }
 }
 
-pub fn build_number(meta: Meta, value: BigInt) -> Expression {
+pub fn build_number(meta: Meta, value: BigInt, field: &BigInt) -> Expression {
+    Expression::Number(meta, value % field)
+}
+
+pub fn build_number_without_field(meta: Meta, value: BigInt) -> Expression {
     Expression::Number(meta, value)
 }
 

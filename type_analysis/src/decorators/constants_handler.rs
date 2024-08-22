@@ -420,7 +420,7 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
 }
 
 fn expand_number(meta: Meta, value: BigInt) -> Expression {
-    build_number(meta, value)
+    build_number_without_field(meta, value)
 }
 
 fn expand_array(

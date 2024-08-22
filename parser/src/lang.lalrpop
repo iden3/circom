@@ -9,8 +9,7 @@ use program_structure::ast::produce_report;
 use program_structure::error_definition::Report;
 use program_structure::error_code::ReportCode;
 
-grammar<'err>(file_id: usize, errors:&'err mut Vec<Report>);
-
+grammar<'err>(file_id: usize, errors:&'err mut Vec<Report>, field: &BigInt);
 CommaSepList<T>:Vec<T> = {
     <mut e:(<T> ",")*> <t:T> => {
         e.push(t);
@@ -342,10 +341,10 @@ ParseSubstitution : Statement = {
     => ast_shortcuts::assign_with_op_shortcut(ExpressionInfixOpcode::BitXor,Meta::new(s,e),variable,rhe),
 
     <s:@L> <variable: ParseVariable>  "++" <e:@R>
-    => ast_shortcuts::plusplus(Meta::new(s,e),variable),
+    => ast_shortcuts::plusplus(Meta::new(s,e),variable, field),
 
     <s:@L> <variable: ParseVariable>  "--" <e:@R>
-     => ast_shortcuts::subsub(Meta::new(s,e),variable),
+     => ast_shortcuts::subsub(Meta::new(s,e),variable, field),
 
     <s:@L> "++"  <variable: ParseVariable> <e:@R>
     => {
@@ -653,10 +652,10 @@ Expression0: Expression = {
     => build_variable(Meta::new(s,e),"_".to_string(),Vec::new()),
 
     <s:@L> <value:DECNUMBER> <e:@L>
-    => build_number(Meta::new(s,e),value),
+    => build_number(Meta::new(s,e),value, field),
 
     <s:@L> <value:HEXNUMBER> <e:@L>
-    => build_number(Meta::new(s,e),value),
+    => build_number(Meta::new(s,e),value, field),
 
     "(" <ParseExpression> ")",
 
@@ -664,7 +663,7 @@ Expression0: Expression = {
         ParseError::UnrecognizedToken { ref token, .. } => {
             errors.push(produce_report(ReportCode::IllegalExpression, token.0..token.2, file_id));
             // doesn't matter
-            build_number(Meta::new(0,0),BigInt::from(0))
+            build_number(Meta::new(0,0),BigInt::from(0), field)
         }
         _ => unreachable!(),
     }
