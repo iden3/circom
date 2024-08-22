@@ -95,6 +95,7 @@ pub fn multi_inv(values: &Vec<BigInt>, field: &BigInt) -> Vec<BigInt>{
 // 254 bit complement
 pub fn complement_254(elem: &BigInt, field: &BigInt) -> BigInt {
     let (sign, mut bit_repr) = bit_representation(elem);
+    let new_sign = if elem == &BigInt::from(0) { Sign::Plus } else { sign};
     while bit_repr.len() > 254 {
         bit_repr.pop();
     }
@@ -104,7 +105,7 @@ pub fn complement_254(elem: &BigInt, field: &BigInt) -> BigInt {
     for bit in &mut bit_repr {
         *bit = if *bit == 0 { 1 } else { 0 };
     }
-    let cp = BigInt::from_radix_le(sign, &bit_repr, 2).unwrap();
+    let cp = BigInt::from_radix_le(new_sign, &bit_repr, 2).unwrap();
     modulus(&cp, field)
 }
 
