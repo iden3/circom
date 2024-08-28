@@ -2,9 +2,9 @@ name: Publish binaries
 on:
   release:
     types: [created]
-  pull_request:
-    branches:
-      - '**'
+  push:
+    tags:
+      - 'v*.*.*'
 
 env:
   CARGO_TERM_COLOR: always
