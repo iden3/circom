@@ -1,8 +1,5 @@
 name: Publish binaries
 on:
-  push:
-    tags:
-      - '*'
   pull_request:
     branches:
       - '**'
