@@ -1,5 +1,7 @@
 name: Publish binaries
 on:
+  release:
+    types: [created]
   pull_request:
     branches:
       - '**'
@@ -7,53 +9,60 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+
 jobs:
-  build-and-publish:
-    name: Publish for ${{ matrix.os }}-{{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+  build:
+    name: ${{ matrix.platform.os_name }} with rust ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.platform.os }}
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            arch: x86_64
-            artifact_name: circom
-            asset_name: circom-linux-amd64
-          - os: ubuntu-latest
-            arch: aarch64
-            artifact_name: circom
-            asset_name: circom-linux-arm64
-          - os: windows-latest
-            arch: x86_64
-            artifact_name: circom.exe
-            asset_name: circom-windows-amd64.exe
-          - os: macos-latest
-            arch: x86_64
-            artifact_name: circom
-            asset_name: circom-macos-amd64
-          - os: macos-latest
-            arch: arm64
-            artifact_name: circom
-            asset_name: circom-macos-arm64
-
+        platform:
+          - os_name: Linux-aarch64
+            os: ubuntu-20.04
+            target: aarch64-unknown-linux-musl
+            bin: figctl-linux-arm64
+          - os_name: Linux-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+            bin: figctl-linux-amd64
+          - os_name: Windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: figctl-amd64.exe
+          - os_name: macOS-x86_64
+            os: macOS-latest
+            target: x86_64-apple-darwin
+            bin: figctl-darwin-amd64
+          - os_name: macOS-aarch64
+            os: macOS-latest
+            target: aarch64-apple-darwin
+            bin: figctl-darwin-arm64
+        toolchain:
+          - stable
     steps:
-      - name: Checkout project
-        uses: actions/checkout@v2
-
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v0
         with:
-          toolchain: stable
-          target: ${{ matrix.arch }}-unknown-${{ matrix.os }}-gnu
-          profile: minimal
-          override: true
-
-      - name: Build
-        run: cargo build --verbose --release --target ${{ matrix.arch }}-unknown-${{ matrix.os }}-gnu
-
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
+          command: "build"
+          target: ${{ matrix.platform.target }}
+          toolchain: ${{ matrix.toolchain }}
+          args: "--locked --release"
+          strip: true
+      - name: Rename binary (linux and macos)
+        run: mv target/${{ matrix.platform.target }}/release/figctl target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
+        if: matrix.platform.os_name != 'Windows-x86_64'
+      - name: Rename binary (windows)
+        run: mv target/${{ matrix.platform.target }}/release/figctl.exe target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
+        if: matrix.platform.os_name == 'Windows-x86_64'
+      - name: Generate SHA-256
+        run: shasum -a 256 target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} | cut -d ' ' -f 1 > target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}.sha256
+      - name: Release binary and SHA-256 checksum to GitHub
+        uses: softprops/action-gh-release@v1
         with:
-          file: target/${{ matrix.arch }}-unknown-${{ matrix.os }}-gnu/release/${{ matrix.artifact_name }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
-          asset_name: ${{ matrix.asset_name }}
+          files: |
+            target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
+            target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}.sha256
