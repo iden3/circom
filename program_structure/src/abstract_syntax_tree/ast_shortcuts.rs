@@ -27,13 +27,13 @@ pub fn assign_with_op_shortcut(
     build_substitution(meta, var, access, AssignOp::AssignVar, infix)
 }
 
-pub fn plusplus(meta: Meta, variable: (String, Vec<Access>)) -> Statement {
-    let one = build_number(meta.clone(), BigInt::from(1));
+pub fn plusplus(meta: Meta, variable: (String, Vec<Access>), field: &BigInt) -> Statement {
+    let one = build_number(meta.clone(), BigInt::from(1), field);
     assign_with_op_shortcut(ExpressionInfixOpcode::Add, meta, variable, one)
 }
 
-pub fn subsub(meta: Meta, variable: (String, Vec<Access>)) -> Statement {
-    let one = build_number(meta.clone(), BigInt::from(1));
+pub fn subsub(meta: Meta, variable: (String, Vec<Access>), field: &BigInt) -> Statement {
+    let one = build_number(meta.clone(), BigInt::from(1), field);
     assign_with_op_shortcut(ExpressionInfixOpcode::Sub, meta, variable, one)
 }
 
@@ -67,21 +67,28 @@ pub fn split_declaration_into_single_nodes(
         let possible_init = symbol.init;
         let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone());
         initializations.push(single_declaration);
-        if let Option::Some(init) = possible_init {
-            let substitution =
-                build_substitution(meta.clone(), symbol.name, vec![], op, init);
-            initializations.push(substitution);
-        }
-        else if xtype == Var {
+        
+        // For the variables, we need to initialize them to 0 in case:
+        //     - They are not initialized to other value
+        //     - They are arrays (and maybe not all positions are initialized)
+
+        if xtype == Var && (possible_init.is_none() || dimensions.len() > 0){
             let mut value = Expression:: Number(meta.clone(), BigInt::from(0));
             for dim_expr in dimensions.iter().rev(){
                 value = build_uniform_array(meta.clone(), value, dim_expr.clone());
             }
 
             let substitution = 
-                build_substitution(meta.clone(), symbol.name, vec![], op, value);
+                build_substitution(meta.clone(), symbol.name.clone(), vec![], op, value);
             initializations.push(substitution);
         }
+        
+        if let Option::Some(init) = possible_init {
+            let substitution =
+                build_substitution(meta.clone(), symbol.name, vec![], op, init);
+            initializations.push(substitution);
+        }
+
     }
     build_initialization_block(meta, xtype, initializations)
 }
@@ -118,7 +125,13 @@ pub fn split_declaration_into_single_nodes_and_multisubstitution(
     }
     if let Some( tuple) = init {
         let (op,expression) = tuple.tuple_init;
-        let multi_sub = build_mult_substitution(meta.clone(), build_tuple(meta.clone(), values), op, expression);
+        let multi_sub = if values.len() == 1 {
+            if let Expression::Variable { name, .. } = values.get(0).unwrap() {
+                build_substitution(meta.clone(), name.clone(), Vec::new(), op, expression)
+            } else { unreachable!();}
+        } else{
+            build_mult_substitution(meta.clone(), build_tuple(meta.clone(),values), op, expression)
+        };
         initializations.push(multi_sub);
     }
     build_initialization_block(meta, xtype, initializations)
