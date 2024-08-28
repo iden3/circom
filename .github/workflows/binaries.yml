@@ -56,11 +56,11 @@ jobs:
 
       - name: Rename binary (linux and macos)
         run: mv target/${{ matrix.platform.target }}/release/circom target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
-        if: matrix.platform.os_name != 'Windows-x86_64'
+        if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-aarch64'
 
       - name: Rename binary (windows)
         run: mv target/${{ matrix.platform.target }}/release/circom.exe target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
-        if: matrix.platform.os_name == 'Windows-x86_64'
+        if: matrix.platform.os_name == 'Windows-x86_64' || matrix.platform.os_name == 'Windows-aarch64'
 
       - name: Generate SHA-256
         run: shasum -a 256 target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} | cut -d ' ' -f 1 > target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}.sha256
