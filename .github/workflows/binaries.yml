@@ -2,9 +2,6 @@ name: Publish binaries
 on:
   release:
     types: [created]
-  push:
-    tags:
-      - 'v*.*.*'
 
 env:
   CARGO_TERM_COLOR: always
@@ -32,6 +29,10 @@ jobs:
             os: windows-latest
             target: x86_64-pc-windows-msvc
             bin: circom-amd64.exe
+          - os_name: Windows-aarch64
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
+            bin: circom-arm64.exe
           - os_name: macOS-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
