@@ -9,32 +9,51 @@ env:
 
 jobs:
   build-and-publish:
-    name: Publish for ${{ matrix.os }}
+    name: Publish for ${{ matrix.os }}-{{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
+            arch: x86_64
             artifact_name: circom
             asset_name: circom-linux-amd64
+          - os: ubuntu-latest
+            arch: aarch64
+            artifact_name: circom
+            asset_name: circom-linux-arm64
           - os: windows-latest
+            arch: x86_64
             artifact_name: circom.exe
             asset_name: circom-windows-amd64.exe
           - os: macos-latest
+            arch: x86_64
             artifact_name: circom
             asset_name: circom-macos-amd64
+          - os: macos-latest
+            arch: arm64
+            artifact_name: circom
+            asset_name: circom-macos-arm64
 
     steps:
       - name: Checkout project
         uses: actions/checkout@v2
 
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.arch }}-unknown-${{ matrix.os }}-gnu
+          profile: minimal
+          override: true
+
       - name: Build
-        run: cargo build --verbose --release
+        run: cargo build --verbose --release --target ${{ matrix.arch }}-unknown-${{ matrix.os }}-gnu
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
-          file: target/release/${{ matrix.artifact_name }}
+          file: target/${{ matrix.arch }}-unknown-${{ matrix.os }}-gnu/release/${{ matrix.artifact_name }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ matrix.asset_name }}
