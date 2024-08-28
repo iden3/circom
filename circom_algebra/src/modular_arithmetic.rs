@@ -92,19 +92,20 @@ pub fn multi_inv(values: &Vec<BigInt>, field: &BigInt) -> Vec<BigInt>{
 
 //Bit operations
 
-// 256 bit complement
-pub fn complement_256(elem: &BigInt, field: &BigInt) -> BigInt {
+// 254 bit complement
+pub fn complement_254(elem: &BigInt, field: &BigInt) -> BigInt {
     let (sign, mut bit_repr) = bit_representation(elem);
-    while bit_repr.len() > 256 {
+    let new_sign = if elem == &BigInt::from(0) { Sign::Plus } else { sign};
+    while bit_repr.len() > 254 {
         bit_repr.pop();
     }
-    for _i in bit_repr.len()..256 {
+    for _i in bit_repr.len()..254 {
         bit_repr.push(0);
     }
     for bit in &mut bit_repr {
         *bit = if *bit == 0 { 1 } else { 0 };
     }
-    let cp = BigInt::from_radix_le(sign, &bit_repr, 2).unwrap();
+    let cp = BigInt::from_radix_le(new_sign, &bit_repr, 2).unwrap();
     modulus(&cp, field)
 }
 
@@ -252,8 +253,8 @@ mod tests {
             .expect("generating the big int was not possible");
         let big_num = BigInt::parse_bytes("1234".as_bytes(), 10)
             .expect("generating the big int was not possible");
-        let big_num_complement = complement_256(&big_num, &field);
-        let big_num_complement_complement = complement_256(&big_num_complement, &field);
+        let big_num_complement = complement_254(&big_num, &field);
+        let big_num_complement_complement = complement_254(&big_num_complement, &field);
         let big_num_modulus = modulus(&big_num, &field);
         assert_eq!(big_num_complement_complement, big_num_modulus);
     }

@@ -15,4 +15,4 @@ mod value_bucket;
 
 pub mod ir_interface;
 pub mod translate;
-pub use ir_interface::{Instruction, InstructionList, InstructionPointer};
+pub use ir_interface::InstructionList;
