@@ -99,6 +99,7 @@ impl WriteWasm for TemplateCodeInfo {
         instructions.push(format!(" (local {} i32)", producer.get_create_loop_offset_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_create_loop_counter_tag()));
         instructions.push(format!(" (local {} i32)", producer.get_merror_tag()));
+        instructions.push(format!(" (local {} i32)", producer.get_result_size_tag())); // used when calling functions assigned to inputs of subcomponents
         let local_info_size_u32 = producer.get_local_info_size_u32(); // in the future we can add some info like pointer to run father or text father
                                                                       //set lvar (start of auxiliar memory for vars)
         instructions.push(set_constant("0"));
