@@ -98,6 +98,7 @@ impl WriteWasm for CallBucket {
                 let arg_size = match &self.argument_types[i].size{
                     SizeOption::Single(value) => *value,
                     SizeOption::Multiple(values) => {
+			assert!(false); //should never be the case!
                         values[0].1
                     }
                 };
@@ -222,8 +223,9 @@ impl WriteWasm for CallBucket {
                                 instructions.push(mul32());
                                 instructions.push(add32());
                                 instructions.push(load32(None)); //subcomponent block
-                                instructions.push(set_local(producer.get_sub_cmp_tag()));
-                                instructions.push(get_local(producer.get_sub_cmp_tag()));
+                                instructions.push(tee_local(producer.get_sub_cmp_tag()));
+                                //instructions.push(set_local(producer.get_sub_cmp_tag()));
+                                //instructions.push(get_local(producer.get_sub_cmp_tag()));
                                 instructions.push(load32(None)); // get template id                     A
                                 instructions.push(set_constant("4")); //size in byte of i32
                                 instructions.push(mul32());
@@ -350,16 +352,27 @@ impl WriteWasm for CallBucket {
                         }
                     }
                 }
-                // TODO: We compute the possible sizes, case multiple size
-                // Now in case Multiple we just return the first value
-                // See below case C (complete)
-                let data_size = match &data.context.size{
-                    SizeOption::Single(value) => *value,
-                    SizeOption::Multiple(values) => {
-                        values[0].1
-                    }
-                };
-                instructions.push(set_constant(&data_size.to_string()));
+		// We check if we have to compute the possible sizes, case multiple size
+                match &data.context.size{
+		    SizeOption::Single(value) => {
+			instructions.push(set_constant(&value.to_string()));
+		    }
+		    SizeOption::Multiple(values) => { //create a nested if-else with all cases
+			for i in 0..values.len() {
+			    instructions.push(get_local(producer.get_sub_cmp_tag()));
+			    instructions.push(load32(None)); // get template id
+			    instructions.push(set_constant(&values[i].0.to_string())); //Add id in list
+			    instructions.push(add_if());
+			    instructions.push(set_constant(&values[i].1.to_string())); //Add corresponding size in list
+			    instructions.push(add_else());
+			}
+			instructions.push(set_constant("0")); //default o complete the last else
+			for _i in 0..values.len() {
+			    instructions.push(add_end());
+			}
+			instructions.push(tee_local(producer.get_result_size_tag()));
+		    }
+		};
                 instructions.push(call(&format!("${}", self.symbol)));
                 instructions.push(tee_local(producer.get_merror_tag()));
 		instructions.push(add_if());
@@ -381,7 +394,14 @@ impl WriteWasm for CallBucket {
                         instructions.push(load32(Some(
                             &producer.get_input_counter_address_in_component().to_string(),
                         ))); //remaining inputs to be set
-                        instructions.push(set_constant(&data_size.to_string()));
+			match &data.context.size{
+			    SizeOption::Single(value) => {
+				instructions.push(set_constant(&value.to_string()));
+			    }
+			    SizeOption::Multiple(_) => { 
+				instructions.push(get_local(producer.get_result_size_tag()));
+			    }
+			};
                         instructions.push(sub32());
                         instructions.push(store32(Some(
                             &producer.get_input_counter_address_in_component().to_string(),
