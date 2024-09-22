@@ -276,6 +276,8 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
                 dest_address_type: AddressType::Variable,
                 dest: LocationRule::Indexed { location: full_address, template_header: None },
                 context: InstrContext { size: SizeOption::Single(1) },
+                src_context: InstrContext {size: SizeOption::Single(1)},
+
                 src: content,
             }
             .allocate();
@@ -610,8 +612,9 @@ fn translate_standard_case(
     state: &mut State,
     context: &Context,
 ) -> InstructionPointer {
+    let src_size: SizeOption = get_expression_size(&info.src, state, context);
     let src = translate_expression(info.src, state, context);
-    info.prc_symbol.into_store(src, state)
+    info.prc_symbol.into_store(src, state, src_size)
 }
 
 // End of substitution utils
@@ -741,11 +744,17 @@ fn translate_log(stmt: Statement, state: &mut State, context: &Context) {
 fn translate_return(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::Return;
     if let Return { meta, value, .. } = stmt {
-        let return_type = context.functions.get(&context.translating).unwrap();
+        
+        let src_size: SizeOption = get_expression_size(&value, state, context);
+        // it is always a Single, not possible multiple options --> ENSURE
+        let with_size = match src_size{
+            SizeOption::Single(v) => v,
+            SizeOption::Multiple(_) => unreachable!("Not possible multiple sizes"),
+        };
         let return_bucket = ReturnBucket {
             line: context.files.get_line(meta.start, meta.get_file_id()).unwrap(),
             message_id: state.message_id,
-            with_size: return_type.iter().fold(1, |p, c| p * (*c)),
+            with_size,
             value: translate_expression(value, state, context),
         }
         .allocate();
@@ -1363,7 +1372,7 @@ impl ProcessedSymbol {
         .allocate()
     }
 
-    fn into_store(self, src: InstructionPointer, state: &State) -> InstructionPointer {
+    fn into_store(self, src: InstructionPointer, state: &State, src_size: SizeOption) -> InstructionPointer {
         if let Option::Some(signal) = self.signal {
             let dest_type = AddressType::SubcmpSignal {
                 cmp_address: compute_full_address(
@@ -1387,6 +1396,7 @@ impl ProcessedSymbol {
                 line: self.line,
                 message_id: self.message_id,
                 context: InstrContext { size: self.length },
+                src_context: InstrContext {size: src_size},
                 dest_is_output: false,
                 dest_address_type: dest_type,
             }
@@ -1412,6 +1422,7 @@ impl ProcessedSymbol {
                 dest_is_output: self.signal_type.map_or(false, |t| t == SignalType::Output),
                 dest: LocationRule::Indexed { location: address, template_header: None },
                 context: InstrContext { size: self.length },
+                src_context: InstrContext {size: src_size},
             }
             .allocate()
         }
@@ -1757,6 +1768,51 @@ fn translate_call_arguments(
     info
 }
 
+/******** Auxiliar functions to get the size of an expression ************/
+
+fn get_expression_size(expression: &Expression, state: &mut State, context: &Context) -> SizeOption{
+    if expression.is_infix() {
+        SizeOption::Single(1)
+    } else if expression.is_prefix() {
+        SizeOption::Single(1)
+    } else if expression.is_variable() {
+        get_variable_size(expression, state, context)
+    } else if expression.is_number() {
+        SizeOption::Single(1)
+    } else if expression.is_call() {
+        unreachable!("This case should be unreachable")
+    } else if expression.is_array() {
+        unreachable!("This expression is syntactic sugar")
+    } else if expression.is_switch() {
+        unreachable!("This expression is syntactic sugar")
+    } else {
+        unreachable!("Unknown expression")
+    }
+}
+
+fn get_variable_size(
+    expression: &Expression,
+    state: &mut State,
+    context: &Context,
+) -> SizeOption {
+    use Expression::Variable;
+    if let Variable { meta, name, access, .. } = expression {
+        let tag_access = check_tag_access(&name, &access, state);
+        if tag_access.is_some(){
+            SizeOption::Single(1)
+        } else{
+            let def = SymbolDef { meta: meta.clone(), symbol: name.clone(), acc: access.clone() };
+            ProcessedSymbol::new(def, state, context).length
+        }
+    } else {
+        unreachable!()
+    }
+}
+
+
+/*************************************************************/
+
+
 pub struct ParallelClusters{
     pub positions_to_parallel: BTreeMap<Vec<usize>, bool>,
     pub uniform_parallel_value: Option<bool>,
@@ -1836,3 +1892,5 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         string_table : state.string_table
     }
 }
+
+
