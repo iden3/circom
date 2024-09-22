@@ -8,6 +8,7 @@ pub struct StoreBucket {
     pub line: usize,
     pub message_id: usize,
     pub context: InstrContext,
+    pub src_context: InstrContext,
     pub dest_is_output: bool,
     pub dest_address_type: AddressType,
     pub dest: LocationRule,
@@ -406,7 +407,7 @@ impl WriteC for StoreBucket {
 	        prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
 	    }
         // We compute the possible sizes, case multiple sizes
-        let size = match &self.context.size{
+        let expr_size = match &self.context.size{
             SizeOption::Single(value) => value.to_string(),
             SizeOption::Multiple(values) => {
                 prologue.push(format!("std::map<int,int> size_store {};",
@@ -415,6 +416,26 @@ impl WriteC for StoreBucket {
                 let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
                 let temp_id = template_id_in_component(sub_component_pos_in_memory);
                 format!("size_store[{}]", temp_id)
+            }
+        };
+        // We compute the possible sizes for the src, case multiple sizes
+        let src_size = match &self.src_context.size{
+            SizeOption::Single(value) => value.to_string(),
+            SizeOption::Multiple(values) => {
+                prologue.push(format!("std::map<int,int> size_src_store {};",
+                    set_list_tuple(values.clone())
+                ));
+                let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                format!("size_src_store[{}]", temp_id)
+            }
+        };
+        let size = match(&self.context.size, &self.src_context.size){
+            (SizeOption::Single(v1), SizeOption::Single(v2)) =>{
+                    std::cmp::min(v1, v2).to_string()
+                },
+            (_, _) => {
+                format!("std::min({}, {})", expr_size, src_size)
             }
         };
 

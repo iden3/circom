@@ -2,7 +2,7 @@ use super::analysis_utilities::*;
 use super::very_concrete_program::*;
 use program_structure::ast::*;
 use std::collections::HashSet;
-use num_traits::{ToPrimitive};
+use num_traits::ToPrimitive;
 
 struct SearchInfo {
     environment: E,
@@ -75,8 +75,16 @@ fn infer_type_block(stmt: &Statement, state: &State, context: &mut SearchInfo) -
         let mut returns = Option::None;
         let mut index = 0;
         context.environment.add_variable_block();
-        while index < stmts.len() && returns.is_none() {
-            returns = infer_type_stmt(&stmts[index], state, context);
+        while index < stmts.len(){
+            let new_value = infer_type_stmt(&stmts[index], state, context);
+            if new_value.is_some(){
+                if returns.is_none(){
+                    returns = new_value;
+                } else{
+                    let max = std::cmp::max(new_value.unwrap(), returns.unwrap());
+                    returns = Some(max);
+                }
+            }
             index += 1;
         }
         context.environment.remove_variable_block();
@@ -109,14 +117,20 @@ fn infer_type_conditional(
     if let IfThenElse { if_case, else_case, .. } = stmt {
         let mut returns = infer_type_stmt(if_case, state, context);
         if let Option::Some(s) = else_case {
-            if returns.is_none() {
-                returns = infer_type_stmt(s, state, context);
+            let else_returns = infer_type_stmt(s, state, context);
+            if else_returns.is_some(){
+                if returns.is_none(){
+                    returns = else_returns;
+                } else{
+                    let max = std::cmp::max(returns.unwrap(), else_returns.unwrap());
+                    returns = Some(max);
+                }
             }
         }
         returns
     } else {
         unreachable!();
-    }
+    }        
 }
 
 fn infer_type_while(stmt: &Statement, state: &State, context: &mut SearchInfo) -> Option<VCT> {
