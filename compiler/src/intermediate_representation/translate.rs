@@ -277,7 +277,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
                 dest: LocationRule::Indexed { location: full_address, template_header: None },
                 context: InstrContext { size: SizeOption::Single(1) },
                 src_context: InstrContext {size: SizeOption::Single(1)},
-
+                src_address_type: None,
                 src: content,
             }
             .allocate();
@@ -612,9 +612,9 @@ fn translate_standard_case(
     state: &mut State,
     context: &Context,
 ) -> InstructionPointer {
-    let src_size: SizeOption = get_expression_size(&info.src, state, context);
+    let (src_size, src_address)= get_expression_size(&info.src, state, context);
     let src = translate_expression(info.src, state, context);
-    info.prc_symbol.into_store(src, state, src_size)
+    info.prc_symbol.into_store(src, state, src_size, src_address)
 }
 
 // End of substitution utils
@@ -745,7 +745,7 @@ fn translate_return(stmt: Statement, state: &mut State, context: &Context) {
     use Statement::Return;
     if let Return { meta, value, .. } = stmt {
         
-        let src_size: SizeOption = get_expression_size(&value, state, context);
+        let (src_size, _) = get_expression_size(&value, state, context);
         // it is always a Single, not possible multiple options --> ENSURE
         let with_size = match src_size{
             SizeOption::Single(v) => v,
@@ -1372,7 +1372,13 @@ impl ProcessedSymbol {
         .allocate()
     }
 
-    fn into_store(self, src: InstructionPointer, state: &State, src_size: SizeOption) -> InstructionPointer {
+    fn into_store(
+        self, src: 
+        InstructionPointer, 
+        state: &State, 
+        src_size: SizeOption,
+        src_address: Option<InstructionPointer>
+    ) -> InstructionPointer {
         if let Option::Some(signal) = self.signal {
             let dest_type = AddressType::SubcmpSignal {
                 cmp_address: compute_full_address(
@@ -1399,6 +1405,7 @@ impl ProcessedSymbol {
                 src_context: InstrContext {size: src_size},
                 dest_is_output: false,
                 dest_address_type: dest_type,
+                src_address_type: src_address
             }
             .allocate()
         } else {
@@ -1423,6 +1430,7 @@ impl ProcessedSymbol {
                 dest: LocationRule::Indexed { location: address, template_header: None },
                 context: InstrContext { size: self.length },
                 src_context: InstrContext {size: src_size},
+                src_address_type: src_address
             }
             .allocate()
         }
@@ -1770,15 +1778,16 @@ fn translate_call_arguments(
 
 /******** Auxiliar functions to get the size of an expression ************/
 
-fn get_expression_size(expression: &Expression, state: &mut State, context: &Context) -> SizeOption{
+fn get_expression_size(expression: &Expression, state: &mut State, context: &Context) 
+        -> (SizeOption, Option<InstructionPointer>){
     if expression.is_infix() {
-        SizeOption::Single(1)
+        (SizeOption::Single(1), None)
     } else if expression.is_prefix() {
-        SizeOption::Single(1)
+        (SizeOption::Single(1), None)
     } else if expression.is_variable() {
         get_variable_size(expression, state, context)
     } else if expression.is_number() {
-        SizeOption::Single(1)
+        (SizeOption::Single(1), None)
     } else if expression.is_call() {
         unreachable!("This case should be unreachable")
     } else if expression.is_array() {
@@ -1794,15 +1803,32 @@ fn get_variable_size(
     expression: &Expression,
     state: &mut State,
     context: &Context,
-) -> SizeOption {
+) -> (SizeOption, Option<InstructionPointer>) {
     use Expression::Variable;
     if let Variable { meta, name, access, .. } = expression {
         let tag_access = check_tag_access(&name, &access, state);
         if tag_access.is_some(){
-            SizeOption::Single(1)
+            (SizeOption::Single(1), None)
         } else{
             let def = SymbolDef { meta: meta.clone(), symbol: name.clone(), acc: access.clone() };
-            ProcessedSymbol::new(def, state, context).length
+            let aux_symbol = ProcessedSymbol::new(def, state, context);
+
+            let size = aux_symbol.length;
+            let possible_address = match size{
+                SizeOption::Multiple(_)=>{
+                    let address = compute_full_address(
+                        state, 
+                        aux_symbol.symbol.access_instruction,
+                        aux_symbol.symbol_dimensions,
+                        aux_symbol.symbol_size,
+                        aux_symbol.bus_accesses,
+                        aux_symbol.before_signal, 
+                    );
+                    Some(address)
+                },
+                SizeOption::Single(_) => None 
+            };
+            (size, possible_address)
         }
     } else {
         unreachable!()
