@@ -97,9 +97,9 @@ impl WriteWasm for CallBucket {
                 // See below case C (complete)
                 let arg_size = match &self.argument_types[i].size{
                     SizeOption::Single(value) => *value,
-                    SizeOption::Multiple(values) => {
+                    SizeOption::Multiple(_value) => {
 			assert!(false); //should never be the case!
-                        values[0].1
+			0
                     }
                 };
                 if arg_size > 1 {
@@ -490,8 +490,9 @@ impl WriteC for CallBucket {
             // TODO, CASE CALL ARGUMENTS
             let size = match &self.argument_types[i].size{
                 SizeOption::Single(value) => *value,
-                SizeOption::Multiple(values) => {
-                    values[0].1
+                SizeOption::Multiple(_values) => {
+		    assert!(false); //should never be the case!
+		    0
                 }
             };
             if size > 1 {
