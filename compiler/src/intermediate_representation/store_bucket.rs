@@ -11,6 +11,7 @@ pub struct StoreBucket {
     pub src_context: InstrContext,
     pub dest_is_output: bool,
     pub dest_address_type: AddressType,
+    pub src_address_type: Option<InstructionPointer>, 
     pub dest: LocationRule,
     pub src: InstructionPointer,
 }
@@ -413,7 +414,9 @@ impl WriteC for StoreBucket {
         use c_code_generator::*;
         let mut prologue = vec![];
 	let cmp_index_ref = "cmp_index_ref".to_string();
+    let src_index_ref = "aux_src_index".to_string();
 	let aux_dest_index = "aux_dest_index".to_string();
+
 	//prologue.push(format!("// store bucket. Line {}", self.line)); //.to_string()
 
         if let AddressType::SubcmpSignal { cmp_address, .. } = &self.dest_address_type {
@@ -421,6 +424,12 @@ impl WriteC for StoreBucket {
             prologue.append(&mut cmp_prologue);
 	        prologue.push(format!("{{"));
 	        prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
+	    }
+        if self.src_address_type.is_some() {
+            let (mut cmp_prologue, cmp_index) = self.src_address_type.as_ref().unwrap().produce_c(producer, parallel);
+            prologue.append(&mut cmp_prologue);
+	        prologue.push(format!("{{"));
+	        prologue.push(format!("uint {} = {};",  src_index_ref, cmp_index));
 	    }
         // We compute the possible sizes, case multiple sizes
         let expr_size = match &self.context.size{
@@ -441,7 +450,7 @@ impl WriteC for StoreBucket {
                 prologue.push(format!("std::map<int,int> size_src_store {};",
                     set_list_tuple(values.clone())
                 ));
-                let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,src_index_ref);
                 let temp_id = template_id_in_component(sub_component_pos_in_memory);
                 format!("size_src_store[{}]", temp_id)
             }
