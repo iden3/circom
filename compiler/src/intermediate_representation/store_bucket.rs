@@ -57,16 +57,24 @@ impl WriteWasm for StoreBucket {
         let mut instructions = vec![];
 
         // We check if we have to compute the possible sizes, case multiple size
-	let mut is_multiple = false;
-        let (size,values) = match &self.context.size{
+	let mut is_multiple_dest = false;
+        let (size_dest,values_dest) = match &self.context.size{
             SizeOption::Single(value) => (*value,vec![]),
             SizeOption::Multiple(values) => {
-		is_multiple = true;
+		is_multiple_dest = true;
                 (values.len(),values.clone())
             }
         };
-
-        if size == 0 {
+/*	let mut is_multiple_src = false;
+        let (size_src,values_dest_src) = match &self.src_context.size{
+            SizeOption::Single(value) => (*value,vec![]),
+            SizeOption::Multiple(values) => {
+		is_multiple_src = true;
+                (values.len(),values.clone())
+            }
+        };
+*/
+        if size_dest == 0 {//size_src == 0 || 
             return vec![];
         }
         if producer.needs_comments() {
@@ -264,30 +272,31 @@ impl WriteWasm for StoreBucket {
         if producer.needs_comments() {
             instructions.push(";; getting src".to_string());
 	}
-        if is_multiple || size > 1 {
-            instructions.push(set_local(producer.get_store_aux_1_tag()));
-        }
-        let mut instructions_src = self.src.produce_wasm(producer);
-        instructions.append(&mut instructions_src);
-        if !is_multiple && size == 1 {
+        if !is_multiple_dest && size_dest == 1 { // ) || (!is_multiple_src && size_src == 1) {
+            let mut instructions_src = self.src.produce_wasm(producer);
+            instructions.append(&mut instructions_src);
             instructions.push(call("$Fr_copy"));
         } else {
+            instructions.push(set_local(producer.get_store_aux_1_tag()));
+            let mut instructions_src = self.src.produce_wasm(producer);
+            instructions.append(&mut instructions_src);
             instructions.push(set_local(producer.get_store_aux_2_tag()));
-	    if is_multiple { //create a nested if-else with all cases
-		for i in 0..size {
+	    if is_multiple_dest { //create a nested if-else with all cases
+		for i in 0..size_dest {
 		    instructions.push(get_local(producer.get_sub_cmp_tag()));
 		    instructions.push(load32(None)); // get template id
-		    instructions.push(set_constant(&values[i].0.to_string())); //Add id in list
+		    instructions.push(set_constant(&values_dest[i].0.to_string())); //Add id in list
 		    instructions.push(add_if());
-		    instructions.push(set_constant(&values[i].1.to_string())); //Add corresponding size in list
+		    instructions.push(set_constant(&values_dest[i].1.to_string())); //Add corresponding size in list
 		    instructions.push(add_else());
 		}
 		instructions.push(set_constant("0")); //default o complete the last else
-		for _i in 0..size {
+		for _i in 0..size_dest {
 		    instructions.push(add_end());
 		}
+		instructions.push(tee_local(producer.get_result_size_tag()));
 	    } else { 
-		instructions.push(set_constant(&size.to_string()));
+		instructions.push(set_constant(&size_dest.to_string()));
 	    }
 	    instructions.push(set_local(producer.get_copy_counter_tag()));
             instructions.push(add_block());
@@ -326,7 +335,14 @@ impl WriteWasm for StoreBucket {
                 instructions.push(load32(Some(
                     &producer.get_input_counter_address_in_component().to_string(),
                 ))); //remaining inputs to be set
-                instructions.push(set_constant(&size.to_string()));
+		match &self.context.size{
+		    SizeOption::Single(value) => {
+			instructions.push(set_constant(&value.to_string()));
+		    }
+		    SizeOption::Multiple(_) => { 
+			instructions.push(get_local(producer.get_result_size_tag()));
+		    }
+		};		
                 instructions.push(sub32());
                 instructions.push(store32(Some(
                     &producer.get_input_counter_address_in_component().to_string(),
