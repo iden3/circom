@@ -12,6 +12,7 @@ mod parser_logic;
 mod syntax_sugar_remover;
 
 use include_logic::{FileStack, IncludesGraph};
+use num_bigint::BigInt;
 use program_structure::ast::{produce_compiler_version_report, produce_report, produce_report_with_message, produce_version_warning_report, Expression};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::ReportCollection;
@@ -60,6 +61,7 @@ pub fn run_parser(
     file: String,
     version: &str,
     link_libraries: Vec<PathBuf>,
+    field: &BigInt,     
 ) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
     let mut file_library = FileLibrary::new();
     let mut definitions = Vec::new();
@@ -78,7 +80,7 @@ pub fn run_parser(
         }
         let file_id = file_library.add_file(path.clone(), src.clone());
         let program =
-            parser_logic::parse_file(&src, file_id).map_err(|e| (file_library.clone(), e))?;
+            parser_logic::parse_file(&src, file_id, field).map_err(|e| (file_library.clone(), e))?;
         if let Some(main) = program.main_component {
             main_components.push((file_id, main, program.custom_gates));
         }
