@@ -2079,7 +2079,7 @@ fn execute_prefix_op(
     let result = match prefix_op {
         BoolNot => AExpr::not(value, field),
         Sub => AExpr::prefix_sub(value, field),
-        Complement => AExpr::complement_254(value, field),
+        Complement => AExpr::complement(value, field),
     };
     Result::Ok(result)
 }
