@@ -144,10 +144,19 @@ impl<C: Clone> MemorySlice<C> {
             }
 
             if new_values.route[i] > memory_slice.route[initial_index_new + i] {
-                return Result::Err(MemoryError::MismatchedDimensions(
-                    new_values.route[i],
-                    memory_slice.route[initial_index_new + i],
-                ));
+                if is_strict{
+                    return Result::Err(MemoryError::MismatchedDimensions(
+                        new_values.route[i],
+                        memory_slice.route[initial_index_new + i],
+                    ));
+                }
+                else{
+                    // case variables: we allow the assignment of smaller arrays
+                    return Result::Err(MemoryError::MismatchedDimensionsWeak(
+                        new_values.route[i],
+                        memory_slice.route[initial_index_new + i],
+                    ));
+                }
             }
             i += 1;
         }
@@ -281,11 +290,6 @@ impl<C: Clone> MemorySlice<C> {
             Result::Ok(_) => {
                 let mut cell = MemorySlice::get_initial_cell(memory_slice, access)?;
 
-                // if MemorySlice::get_number_of_cells(new_values)
-                //     > (MemorySlice::get_number_of_cells(memory_slice) - cell)
-                // {
-                //     return Result::Err(MemoryError::OutOfBoundsError);
-
                 memory_slice.number_inserts += MemorySlice::get_number_of_cells(new_values);
                 for value in new_values.values.iter() {
                     memory_slice.values[cell] = value.clone();
@@ -295,15 +299,19 @@ impl<C: Clone> MemorySlice<C> {
             }
             Result::Err(MemoryError::MismatchedDimensionsWeak(dim_1, dim_2)) => {
                 let mut cell = MemorySlice::get_initial_cell(memory_slice, access)?;
-                // if MemorySlice::get_number_of_cells(new_values)
-                //     > (MemorySlice::get_number_of_cells(memory_slice) - cell)
-                // {
-                //     return Result::Err(MemoryError::OutOfBoundsError);
-                // }
-                for value in new_values.values.iter() {
-                    memory_slice.values[cell] = value.clone();
+                
+                // We assign the min between the number of cells in the new values and the memory slice
+                let number_inserts = std::cmp::min(
+                    MemorySlice::get_number_of_cells(new_values),
+                    MemorySlice::get_number_of_cells(memory_slice)
+                );
+
+                memory_slice.number_inserts += number_inserts;
+                for i in 0..number_inserts{
+                    memory_slice.values[cell] = new_values.values[i].clone();
                     cell += 1;
                 }
+
                 Result::Err(MemoryError::MismatchedDimensionsWeak(dim_1, dim_2))
             }
             Result::Err(error) => return Err(error),
