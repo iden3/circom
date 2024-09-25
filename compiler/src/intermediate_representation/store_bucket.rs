@@ -289,11 +289,35 @@ impl WriteWasm for StoreBucket {
 		    instructions.push(set_constant(&size_dest.to_string()));
 		}
 		if is_multiple_src { //create a nested if-else with all cases
-		    let mut instr_if = create_if_selection(&values_src,producer.get_sub_cmp_tag());
-		    instructions.append(&mut instr_if);
+		    if self.src_address_type.is_some() {
+                        instructions.push(get_local(producer.get_offset_tag()));
+                        instructions.push(set_constant(
+                            &producer.get_sub_component_start_in_component().to_string(),
+                        ));
+                        instructions.push(add32());
+			let mut instr_cmp_src = self.src_address_type.as_ref().unwrap().produce_wasm(producer);
+                        instructions.append(&mut instr_cmp_src);
+                        instructions.push(set_constant("4")); //size in byte of i32
+                        instructions.push(mul32());
+                        instructions.push(add32());
+                        instructions.push(load32(None)); //subcomponent block
+                        instructions.push(set_local(producer.get_sub_cmp_tag()));
+			let mut instr_if = create_if_selection(&values_src,producer.get_sub_cmp_src_tag());
+			instructions.append(&mut instr_if);
+		    }	else {
+			assert!(false);
+		    }
 		} else { 
-		    instructions.push(set_constant(&size_dest.to_string()));
+		    instructions.push(set_constant(&size_src.to_string()));
 		}
+		instructions.push(tee_local(producer.get_aux_0_tag()));
+		instructions.push(tee_local(producer.get_aux_1_tag()));
+		instructions.push(lt32_u());
+		instructions.push(add_if());
+		instructions.push(set_local(producer.get_aux_0_tag()));
+		instructions.push(add_else());
+		instructions.push(set_local(producer.get_aux_1_tag()));
+		instructions.push(add_end());
 	    }
 	    instructions.push(tee_local(producer.get_result_size_tag()));
 	    instructions.push(set_local(producer.get_copy_counter_tag()));
