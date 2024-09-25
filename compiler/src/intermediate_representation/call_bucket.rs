@@ -534,8 +534,7 @@ impl WriteC for CallBucket {
         let size = match &data.context.size{
             SizeOption::Single(value) => value.to_string(),
             SizeOption::Multiple(values) => {
-                prologue.push(format!("int size_store[{}] = {};",
-                    values.len(),
+                prologue.push(format!("std::map<int,int> size_store {};",
                     set_list_tuple(values.to_vec())
                 ));
                 let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);

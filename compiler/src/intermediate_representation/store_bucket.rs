@@ -451,7 +451,6 @@ impl WriteC for StoreBucket {
         if self.src_address_type.is_some() {
             let (mut cmp_prologue, cmp_index) = self.src_address_type.as_ref().unwrap().produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
-	        prologue.push(format!("{{"));
 	        prologue.push(format!("uint {} = {};",  src_index_ref, cmp_index));
 	    }
         // We compute the possible sizes, case multiple sizes

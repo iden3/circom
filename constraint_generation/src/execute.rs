@@ -1614,6 +1614,12 @@ fn perform_assign(
                 &Vec::new(),
             )
         } else{
+            // in case the component is undef then we do not perform any changes
+            // TODO: possible improvement?
+            if accessing_information.undefined{
+                return Ok(None)
+            }
+            
             ComponentSlice::get_mut_reference_to_single_value(
                 component_slice,
                 &accessing_information.array_access,

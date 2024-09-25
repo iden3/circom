@@ -339,9 +339,8 @@ impl WriteC for LoadBucket {
             let size = match &self.context.size{
                 SizeOption::Single(value) => value.to_string(),
                 SizeOption::Multiple(values) => {
-                    prologue.push(format!("int size_load[{}] = {};",
-                        values.len(),
-                        set_list_tuple(values.to_vec())
+                    prologue.push(format!("std::map<int,int> size_store {};",
+                        set_list_tuple(values.clone())
                     ));
                     let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
                     let temp_id = template_id_in_component(sub_component_pos_in_memory);
