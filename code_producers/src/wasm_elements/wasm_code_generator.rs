@@ -147,6 +147,12 @@ pub fn gt32_u() -> WasmInstruction {
 pub fn ge32_u() -> WasmInstruction {
     "i32.ge_u".to_string()
 }
+pub fn lt32_u() -> WasmInstruction {
+    "i32.lt_u".to_string()
+}
+pub fn le32_u() -> WasmInstruction {
+    "i32.le_u".to_string()
+}
 pub fn eq32() -> WasmInstruction {
     "i32.eq".to_string()
 }
