@@ -95,8 +95,8 @@ All bitwise operators are performed modulo p.
 | :--- | :--- | :--- |
 | & | a & b | Bitwise AND |
 | \| | a \| b | Bitwise OR |
-| ~ | ~a | Complement 254 bits |
-| ^ | a ^ b | XOR  254 bits |
+| ~ | ~a | Complement to the number of bits of the prime number |
+| ^ | a ^ b | Bitwise XOR |
 | &gt;&gt; | a &gt;&gt; 4 | Right shift operator |
 | &lt;&lt; | a &lt;&lt; 4 | Left shift operator |
 
@@ -122,8 +122,8 @@ There are operators that combine bitwise operators with a final assignment.
 | :--- | :--- | :--- |
 | &= | a &= b | Bitwise AND and assignment |
 | \|= | a \|= b | Bitwise OR and assignment |
-| ~= | ~=a | Complement 254 bits and assignment |
-| ^= | a ^= b | XOR  254 bits and assignment |
+| ~= | ~=a | Complement to the number of bits of the prime number and assignment |
+| ^= | a ^= b | Bitwise XOR and assignment |
 | &gt;&gt;= | a &gt;&gt;= 4 | Right shift operator and assignment |
 | &lt;&lt;= | a &lt;&lt;= 4 | Left shift operator and assignment |
 
