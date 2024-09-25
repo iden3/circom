@@ -164,45 +164,72 @@ ParseSignalType: SignalType = {
     "output" => SignalType::Output
 };
 
-ParseHeader: (SignalType, Vec<String>) = {
-    <signal_type: ParseSignalType?> <tags_list: ParseTagsList?>
+
+
+ParseTagsVector: Vec<String> = {
+    <tags_list: ParseTagsList?>
     => {
-        let s = match signal_type {
-            None => SignalType::Intermediate,
-            Some(st) => st,
-        };
-        let t = match tags_list {
+        match tags_list {
             None => Vec::new(),
             Some(tl) => tl,
-        };
-        (s,t)
+        }
     }
 }
 
 SignalHeader : VariableType = {
-    "signal" <header: ParseHeader>
+    "signal" <signal_type: ParseSignalType?> <tags_list: ParseTagsVector>
     => {
-        let (s,t) = header;
-        VariableType::Signal(s, t)
+        let signal_type = match signal_type {
+            None => SignalType::Intermediate,
+            Some(st) => st,
+        };
+        VariableType::Signal(signal_type, tags_list)
+    },
+    <signal_type: ParseSignalType> "signal" <tags_list: ParseTagsVector>
+    => {
+        VariableType::Signal(signal_type, tags_list)
     }
 };
 
 BusHeader : (Expression, VariableType) = {
-    <s:@L> <id: IDENTIFIER> <e:@R> <header: ParseHeader>
+    <s:@L> <id: IDENTIFIER> <e:@R> <wire_type: ParseSignalType?> <tags_list: ParseTagsVector>
     => {
+        let wire = match wire_type {
+            None => SignalType::Intermediate,
+            Some(st) => st,
+        };
         let bus_builder = build_bus_call(Meta::new(s,e),id.clone(),Vec::new());
-        let (s,t) = header;
-        (bus_builder, VariableType::Bus(id, s, t))
+        (bus_builder, VariableType::Bus(id, wire, tags_list))
     },
 
-    <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R> <header: ParseHeader>
+    <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R> 
+                                    <wire_type: ParseSignalType?> <tags_list: ParseTagsVector>
+    => {
+        let wire = match wire_type {
+            None => SignalType::Intermediate,
+            Some(st) => st,
+        };
+        let bus_builder = match args {
+                            None => build_bus_call(Meta::new(s,e),id.clone(),Vec::new()),
+                            Some(a) => build_bus_call(Meta::new(s,e),id.clone(),a),
+                            };
+        (bus_builder,VariableType::Bus(id, wire, tags_list))
+    },
+
+    <wire: ParseSignalType> <s:@L> <id: IDENTIFIER> <e:@R> <tags_list: ParseTagsVector>
+    => {
+        let bus_builder = build_bus_call(Meta::new(s,e),id.clone(),Vec::new());
+        (bus_builder, VariableType::Bus(id, wire, tags_list))
+    },
+
+    <wire: ParseSignalType> <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R>
+                                                                 <tags_list: ParseTagsVector>
     => {
         let bus_builder = match args {
                             None => build_bus_call(Meta::new(s,e),id.clone(),Vec::new()),
                             Some(a) => build_bus_call(Meta::new(s,e),id.clone(),a),
                             };
-        let (s,t) = header;
-        (bus_builder,VariableType::Bus(id, s, t))
+        (bus_builder,VariableType::Bus(id, wire, tags_list))
     }
 };
 
