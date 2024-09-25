@@ -283,7 +283,10 @@ impl WriteWasm for StoreBucket {
 		instructions.push(set_constant(&std::cmp::min(&size_dest,&size_src).to_string()));
 	    } else {	
 		if is_multiple_dest { //create a nested if-else with all cases
-		    let mut instr_if = create_if_selection(&values_dest,producer.get_sub_cmp_tag());
+		    instructions.push(get_local(producer.get_sub_cmp_tag()));
+		    instructions.push(load32(None)); // get template id
+		    instructions.push(set_local(producer.get_aux_0_tag()));
+		    let mut instr_if = create_if_selection(&values_dest,producer.get_aux_0_tag());
 		    instructions.append(&mut instr_if);
 		} else { 
 		    instructions.push(set_constant(&size_dest.to_string()));
@@ -300,9 +303,10 @@ impl WriteWasm for StoreBucket {
                         instructions.push(set_constant("4")); //size in byte of i32
                         instructions.push(mul32());
                         instructions.push(add32());
-                        instructions.push(load32(None)); //subcomponent block
-                        instructions.push(set_local(producer.get_sub_cmp_tag()));
-			let mut instr_if = create_if_selection(&values_src,producer.get_sub_cmp_src_tag());
+                        instructions.push(load32(None)); //subcomponent block			
+			instructions.push(load32(None)); // get template id
+			instructions.push(set_local(producer.get_aux_0_tag()));
+			let mut instr_if = create_if_selection(&values_src,producer.get_aux_0_tag());
 			instructions.append(&mut instr_if);
 		    }	else {
 			assert!(false);
@@ -313,13 +317,13 @@ impl WriteWasm for StoreBucket {
 		instructions.push(tee_local(producer.get_aux_0_tag()));
 		instructions.push(tee_local(producer.get_aux_1_tag()));
 		instructions.push(lt32_u());
-		instructions.push(add_if());
-		instructions.push(set_local(producer.get_aux_0_tag()));
+		instructions.push(format!("{} (result i32)", add_if()));
+		instructions.push(get_local(producer.get_aux_0_tag()));
 		instructions.push(add_else());
-		instructions.push(set_local(producer.get_aux_1_tag()));
+		instructions.push(get_local(producer.get_aux_1_tag()));
 		instructions.push(add_end());
+		instructions.push(tee_local(producer.get_result_size_tag()));
 	    }
-	    instructions.push(tee_local(producer.get_result_size_tag()));
 	    instructions.push(set_local(producer.get_copy_counter_tag()));
 	    
 	    let mut instructions_src = self.src.produce_wasm(producer); // compute the address of the source
@@ -433,27 +437,6 @@ impl WriteWasm for StoreBucket {
 	}
         instructions
     }
-}
-
-fn create_if_selection(
-    values: &Vec<(usize, usize)>,
-    local: &str
-) -> Vec<String> {
-    use code_producers::wasm_elements::wasm_code_generator::*;
-    let mut instructions = vec![];
-    for i in 0..values.len() {
-	instructions.push(get_local(local));
-	instructions.push(load32(None)); // get template id
-	instructions.push(set_constant(&values[i].0.to_string())); //Add id in list
-	instructions.push(add_if());
-	instructions.push(set_constant(&values[i].1.to_string())); //Add corresponding size in list
-	instructions.push(add_else());
-    }
-    instructions.push(set_constant("0")); //default o complete the last else
-    for _i in 0..values.len() {
-	instructions.push(add_end());
-    }
-    instructions
 }
     
 impl WriteC for StoreBucket {
