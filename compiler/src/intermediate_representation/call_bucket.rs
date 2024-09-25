@@ -358,18 +358,11 @@ impl WriteWasm for CallBucket {
 			instructions.push(set_constant(&value.to_string()));
 		    }
 		    SizeOption::Multiple(values) => { //create a nested if-else with all cases
-			for i in 0..values.len() {
-			    instructions.push(get_local(producer.get_sub_cmp_tag()));
-			    instructions.push(load32(None)); // get template id
-			    instructions.push(set_constant(&values[i].0.to_string())); //Add id in list
-			    instructions.push(add_if());
-			    instructions.push(set_constant(&values[i].1.to_string())); //Add corresponding size in list
-			    instructions.push(add_else());
-			}
-			instructions.push(set_constant("0")); //default o complete the last else
-			for _i in 0..values.len() {
-			    instructions.push(add_end());
-			}
+			instructions.push(get_local(producer.get_sub_cmp_tag()));
+			instructions.push(load32(None)); // get template id
+			instructions.push(set_local(producer.get_aux_0_tag()));
+			let mut instr_if = create_if_selection(&values,producer.get_aux_0_tag());
+			instructions.append(&mut instr_if);
 			instructions.push(tee_local(producer.get_result_size_tag()));
 		    }
 		};
