@@ -36,6 +36,7 @@ pub struct WASMProducer {
     signal_offset_tag: String,
     signal_start_tag: String,
     sub_cmp_tag: String,
+    sub_cmp_src_tag: String,
     sub_cmp_load_tag: String,
     io_info_tag: String,
     result_address_tag: String,
@@ -117,6 +118,7 @@ impl Default for WASMProducer {
             signal_offset_tag: "$signaloffset".to_string(),
             signal_start_tag: "$signalstart".to_string(),
             sub_cmp_tag: "$subcmp".to_string(),
+            sub_cmp_src_tag: "$subcmpsrc".to_string(),
             sub_cmp_load_tag: "$subcmpload".to_string(),
             io_info_tag: "$ioinfo".to_string(),
             result_address_tag: "$resultaddress".to_string(),
@@ -423,6 +425,9 @@ impl WASMProducer {
     }
     pub fn get_sub_cmp_tag(&self) -> &str {
         &self.sub_cmp_tag
+    }
+    pub fn get_sub_cmp_src_tag(&self) -> &str {
+        &self.sub_cmp_src_tag
     }
     pub fn get_sub_cmp_load_tag(&self) -> &str {
         &self.sub_cmp_load_tag

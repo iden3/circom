@@ -65,16 +65,16 @@ impl WriteWasm for StoreBucket {
                 (values.len(),values.clone())
             }
         };
-/*	let mut is_multiple_src = false;
-        let (size_src,values_dest_src) = match &self.src_context.size{
+	let mut is_multiple_src = false;
+        let (size_src,values_src) = match &self.src_context.size{
             SizeOption::Single(value) => (*value,vec![]),
             SizeOption::Multiple(values) => {
 		is_multiple_src = true;
                 (values.len(),values.clone())
             }
         };
-*/
-        if size_dest == 0 {//size_src == 0 || 
+
+        if size_dest == 0 || size_src == 0 {
             return vec![];
         }
         if producer.needs_comments() {
@@ -272,33 +272,60 @@ impl WriteWasm for StoreBucket {
         if producer.needs_comments() {
             instructions.push(";; getting src".to_string());
 	}
-        if !is_multiple_dest && size_dest == 1 { // ) || (!is_multiple_src && size_src == 1) {
+        if (!is_multiple_dest && size_dest == 1) || (!is_multiple_src && size_src == 1) {
+	    //min to copy is 1
             let mut instructions_src = self.src.produce_wasm(producer);
             instructions.append(&mut instructions_src);
             instructions.push(call("$Fr_copy"));
         } else {
-            instructions.push(set_local(producer.get_store_aux_1_tag()));
-            let mut instructions_src = self.src.produce_wasm(producer);
-            instructions.append(&mut instructions_src);
-            instructions.push(set_local(producer.get_store_aux_2_tag()));
-	    if is_multiple_dest { //create a nested if-else with all cases
-		for i in 0..size_dest {
-		    instructions.push(get_local(producer.get_sub_cmp_tag()));
-		    instructions.push(load32(None)); // get template id
-		    instructions.push(set_constant(&values_dest[i].0.to_string())); //Add id in list
-		    instructions.push(add_if());
-		    instructions.push(set_constant(&values_dest[i].1.to_string())); //Add corresponding size in list
-		    instructions.push(add_else());
+            instructions.push(set_local(producer.get_store_aux_1_tag())); //set address destination
+	    if !is_multiple_dest && !is_multiple_src {
+		instructions.push(set_constant(&std::cmp::min(&size_dest,&size_src).to_string()));
+	    } else {	
+		if is_multiple_dest { //create a nested if-else with all cases
+		    let mut instr_if = create_if_selection(&values_dest,producer.get_sub_cmp_tag());
+		    instructions.append(&mut instr_if);
+		} else { 
+		    instructions.push(set_constant(&size_dest.to_string()));
 		}
-		instructions.push(set_constant("0")); //default o complete the last else
-		for _i in 0..size_dest {
-		    instructions.push(add_end());
+		if is_multiple_src { //create a nested if-else with all cases
+		    if self.src_address_type.is_some() {
+                        instructions.push(get_local(producer.get_offset_tag()));
+                        instructions.push(set_constant(
+                            &producer.get_sub_component_start_in_component().to_string(),
+                        ));
+                        instructions.push(add32());
+			let mut instr_cmp_src = self.src_address_type.as_ref().unwrap().produce_wasm(producer);
+                        instructions.append(&mut instr_cmp_src);
+                        instructions.push(set_constant("4")); //size in byte of i32
+                        instructions.push(mul32());
+                        instructions.push(add32());
+                        instructions.push(load32(None)); //subcomponent block
+                        instructions.push(set_local(producer.get_sub_cmp_tag()));
+			let mut instr_if = create_if_selection(&values_src,producer.get_sub_cmp_src_tag());
+			instructions.append(&mut instr_if);
+		    }	else {
+			assert!(false);
+		    }
+		} else { 
+		    instructions.push(set_constant(&size_src.to_string()));
 		}
-		instructions.push(tee_local(producer.get_result_size_tag()));
-	    } else { 
-		instructions.push(set_constant(&size_dest.to_string()));
+		instructions.push(tee_local(producer.get_aux_0_tag()));
+		instructions.push(tee_local(producer.get_aux_1_tag()));
+		instructions.push(lt32_u());
+		instructions.push(add_if());
+		instructions.push(set_local(producer.get_aux_0_tag()));
+		instructions.push(add_else());
+		instructions.push(set_local(producer.get_aux_1_tag()));
+		instructions.push(add_end());
 	    }
+	    instructions.push(tee_local(producer.get_result_size_tag()));
 	    instructions.push(set_local(producer.get_copy_counter_tag()));
+	    
+	    let mut instructions_src = self.src.produce_wasm(producer); // compute the address of the source
+            instructions.append(&mut instructions_src);
+            instructions.push(set_local(producer.get_store_aux_2_tag())); // set address source
+	    
             instructions.push(add_block());
             instructions.push(add_loop());
             instructions.push(get_local(producer.get_copy_counter_tag()));
@@ -335,14 +362,13 @@ impl WriteWasm for StoreBucket {
                 instructions.push(load32(Some(
                     &producer.get_input_counter_address_in_component().to_string(),
                 ))); //remaining inputs to be set
-		match &self.context.size{
-		    SizeOption::Single(value) => {
-			instructions.push(set_constant(&value.to_string()));
-		    }
-		    SizeOption::Multiple(_) => { 
-			instructions.push(get_local(producer.get_result_size_tag()));
-		    }
-		};		
+		if (!is_multiple_dest && size_dest == 1) || (!is_multiple_src && size_src == 1) {
+		    instructions.push(set_constant("1"));}
+		else if !is_multiple_dest && !is_multiple_src {
+		    instructions.push(set_constant(&std::cmp::min(&size_dest,&size_src).to_string()));
+		} else {
+		    instructions.push(get_local(producer.get_result_size_tag()));
+		}
                 instructions.push(sub32());
                 instructions.push(store32(Some(
                     &producer.get_input_counter_address_in_component().to_string(),
@@ -409,6 +435,27 @@ impl WriteWasm for StoreBucket {
     }
 }
 
+fn create_if_selection(
+    values: &Vec<(usize, usize)>,
+    local: &str
+) -> Vec<String> {
+    use code_producers::wasm_elements::wasm_code_generator::*;
+    let mut instructions = vec![];
+    for i in 0..values.len() {
+	instructions.push(get_local(local));
+	instructions.push(load32(None)); // get template id
+	instructions.push(set_constant(&values[i].0.to_string())); //Add id in list
+	instructions.push(add_if());
+	instructions.push(set_constant(&values[i].1.to_string())); //Add corresponding size in list
+	instructions.push(add_else());
+    }
+    instructions.push(set_constant("0")); //default o complete the last else
+    for _i in 0..values.len() {
+	instructions.push(add_end());
+    }
+    instructions
+}
+    
 impl WriteC for StoreBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
