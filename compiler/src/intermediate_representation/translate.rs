@@ -172,9 +172,9 @@ fn initialize_parameters(state: &mut State, params: Vec<Param>) {
             value: address,
             op_aux_no: 0,
         };
-        let address_instruction = address_instruction.allocate();
+        let access_instruction = address_instruction.allocate();
         let symbol_info =
-            SymbolInfo { dimensions: lengths, access_instruction: address_instruction.clone(), is_component:false };
+            SymbolInfo { dimensions: lengths, access_instruction, is_component: false };
         state.environment.add_variable(&p.name, symbol_info);
     }
 }
@@ -252,7 +252,7 @@ fn initialize_signals(state: &mut State, signals: Vec<Signal>) {
         .allocate();
         let info = SymbolInfo { access_instruction: instruction, dimensions: signal.lengths, is_component:false };
         state.environment.add_variable(&signal.name, info);
-        state.signal_to_type.insert(signal.name.clone(), signal.xtype);
+        state.signal_to_type.insert(signal.name, signal.xtype);
     }
 }
 
@@ -290,7 +290,7 @@ fn create_components(state: &mut State, triggers: &[Trigger], clusters: Vec<Trig
         }
     }
     for cluster in clusters {
-        match cluster.xtype.clone() {
+        match cluster.xtype {
             Mixed { .. } => create_mixed_components(state, triggers, cluster),
             Uniform { .. } => create_uniform_components(state, triggers, cluster),
         }
@@ -318,7 +318,7 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
         let id = state.reserve_component_ids(offset_jump);
         let first = cluster.slice.start;
         let c_info = &triggers[first];
-        let symbol = state.environment.get_variable(&c_info.component_name).unwrap().clone();
+        let symbol = state.environment.get_variable(&c_info.component_name).unwrap();
         
         let info_parallel_cluster = state.component_to_parallel.get(&c_info.component_name).unwrap(); 
         let mut defined_positions = Vec::new();
@@ -342,9 +342,9 @@ fn create_uniform_components(state: &mut State, triggers: &[Trigger], cluster: T
 	        component_offset: c_info.component_offset,
             has_inputs: c_info.has_inputs,
             number_of_cmp: compute_number_cmp(&symbol.dimensions),
-            dimensions: symbol.dimensions,
+            dimensions: symbol.dimensions.clone(),
             signal_offset_jump: offset_jump,
-	        component_offset_jump: component_offset_jump,
+	        component_offset_jump,
         }
         .allocate();
         state.code.push(creation_instr);
@@ -369,7 +369,7 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
     for index in cluster.slice {
         let id = state.reserve_component_ids(1);
         let c_info = &triggers[index];
-        let symbol = state.environment.get_variable(&c_info.component_name).unwrap().clone();
+        let symbol = state.environment.get_variable(&c_info.component_name).unwrap();
         let value_jump = compute_jump(&symbol.dimensions, &c_info.indexed_with);
         let jump = ValueBucket {
             line: 0,
@@ -402,11 +402,11 @@ fn create_mixed_components(state: &mut State, triggers: &[Trigger], cluster: Tri
             line: 0,
             message_id: state.message_id,
             symbol: c_info.runs.clone(),
-            name_subcomponent: format!("{}{}",c_info.component_name.clone(), c_info.indexed_with.iter().fold(String::new(), |acc, &num| format!("{}[{}]", acc, &num.to_string()))),
+            name_subcomponent: c_info.indexed_with.iter().fold(c_info.component_name.clone(), |acc, num| format!("{}[{}]", acc, num)),
             defined_positions: vec![(0, parallel_value)],
             is_part_mixed_array_not_uniform_parallel: info_parallel_cluster.uniform_parallel_value.is_none(),
             uniform_parallel: Some(parallel_value),
-            dimensions: symbol.dimensions,
+            dimensions: symbol.dimensions.clone(),
             cmp_unique_id: id,
             sub_cmp_id: location,
             template_id: c_info.template_id,
@@ -496,7 +496,7 @@ fn translate_substitution(stmt: Statement, state: &mut State, context: &Context)
     use Statement::Substitution;
     if let Substitution { meta, var, access, rhe, .. } = stmt {
         debug_assert!(!meta.get_type_knowledge().is_component());
-        let def = SymbolDef { meta: meta.clone(), symbol: var, acc: access };
+        let def = SymbolDef { meta, symbol: var, acc: access };
         let str_info =
             StoreInfo { prc_symbol: ProcessedSymbol::new(def, state, context), src: rhe };
         let store_instruction = if str_info.src.is_call() {
@@ -583,10 +583,12 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
     if let ConstraintEquality { meta, lhe, rhe } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
 
-        let length = if let Variable { meta, name, access} = lhe.clone() {
-            let def = SymbolDef { meta, symbol: name, acc: access };
+        let length = if let Variable { meta, name, access } = &lhe {
+            let def = SymbolDef { meta: meta.clone(), symbol: name.clone(), acc: access.clone() };
             ProcessedSymbol::new(def, state, context).length
-        } else {1};
+        } else {
+            1
+        };
         
         let lhe_pointer = translate_expression(lhe, state, context);
         let rhe_pointer = translate_expression(rhe, state, context);
@@ -760,7 +762,7 @@ fn translate_prefix(
 fn check_tag_access(name_signal: &String, access: &Vec<Access>, state: &mut State) -> Option<BigInt> {
     use Access::*;
 
-    let symbol_info = state.environment.get_variable(name_signal).unwrap().clone();
+    let symbol_info = state.environment.get_variable(name_signal).unwrap();
     let mut value_tag = None;
     if !symbol_info.is_component{
         for acc in access {
@@ -791,7 +793,7 @@ fn translate_variable(
     if let Variable { meta, name, access, .. } = expression {
         let tag_access = check_tag_access(&name, &access, state);
         if tag_access.is_some(){
-            translate_number( Expression::Number(meta.clone(), tag_access.unwrap()), state, context)
+            translate_number( Expression::Number(meta, tag_access.unwrap()), state, context)
         } else{
             let def = SymbolDef { meta, symbol: name, acc: access };
             ProcessedSymbol::new(def, state, context).into_load(state)
@@ -935,9 +937,9 @@ impl ProcessedSymbol {
                     af_index.push(translate_expression(exp, state, context));
                 }
                 ComponentAccess(name) => {
-                    let possible_cmp_id = state.component_to_instance.get(&symbol_name).unwrap().clone();
+                    let possible_cmp_id = state.component_to_instance.get(&symbol_name).unwrap();
                     for cmp_id in possible_cmp_id{
-                        let aux = context.tmp_database.signal_info[cmp_id].get(&name).unwrap();
+                        let aux = context.tmp_database.signal_info[*cmp_id].get(&name).unwrap();
                         signal_type = Some(aux.signal_type);
                         let mut new_length = aux.lengths.clone();
                         new_length.reverse();
