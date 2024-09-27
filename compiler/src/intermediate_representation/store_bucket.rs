@@ -355,7 +355,7 @@ impl WriteC for StoreBucket {
                 format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, dest_index.clone())
             }
         };
-	//keep dest_index in an auxiliar if parallel and out put
+	//keep dest_index in an auxiliary if parallel and out put
 	if let AddressType::Signal = &self.dest_address_type {
 	    if parallel.unwrap() && self.dest_is_output {
         prologue.push(format!("{{"));
