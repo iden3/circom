@@ -22,26 +22,32 @@ jobs:
             os: ubuntu-20.04
             target: aarch64-unknown-linux-musl
             bin: circom-linux-arm64
+
           - os_name: Linux-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
             bin: circom-linux-amd64
+
           - os_name: Windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            bin: circom-amd64.exe
+            bin: circom-windows-amd64.exe
+
           - os_name: Windows-aarch64
             os: windows-latest
             target: aarch64-pc-windows-msvc
-            bin: circom-arm64.exe
+            bin: circom-windows-arm64.exe
+
           - os_name: macOS-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
-            bin: circom-darwin-amd64
+            bin: circom-macos-amd64
+
           - os_name: macOS-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
-            bin: circom-darwin-arm64
+            bin: circom-macos-arm64
+
         toolchain:
           - stable
     steps:
