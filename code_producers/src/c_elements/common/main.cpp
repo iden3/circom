@@ -351,13 +351,13 @@ int main (int argc, char *argv[]) {
      std::cerr << "Not all inputs have been set. Only " << get_main_input_signal_no()-ctx->getRemaingInputsToBeSet() << " out of " << get_main_input_signal_no() << std::endl;
      assert(false);
    }
-   
+   /*
      for (uint i = 0; i<get_size_of_witness(); i++){
      FrElement x;
      ctx->getWitness(i, &x);
      std::cout << i << ": " << Fr_element2str(&x) << std::endl;
      }
-   
+   */
   
    //auto t_mid = std::chrono::high_resolution_clock::now();
    //std::cout << std::chrono::duration<double, std::milli>(t_mid-t_start).count()<<std::endl;
