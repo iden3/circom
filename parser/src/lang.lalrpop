@@ -324,13 +324,6 @@ ParseDeclaration : Statement = {
         ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init)
     },
 
-    // (<s:@L> <bus_header: BusHeader> "(" <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol> ")" <init : TupleInitialization?> <e:@R> => {
-    //     let (bus_type,xtype) = bus_header;
-    //     let mut symbols = symbols;
-    //     let meta = Meta::new(s,e);
-    //     symbols.push(symbol);
-    //    ast_shortcuts::split_bus_declaration_into_single_nodes_and_multisubstitution(meta,bus_type,xtype,symbols, init)
-    // },
 
     <s:@L> "var" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
             let mut symbols = symbols;
@@ -523,8 +516,17 @@ ParseStatement2 : Statement = {
     <s:@L> "assert" "(" <arg: ParseExpression> ")" Semicolon <e:@R>
     => build_assert(Meta::new(s,e),arg),
 
-    <s:@L> <lhe: ExpressionAnonymous> Semicolon <e:@R>
-    => build_anonymous_component_statement(Meta::new(s,e), lhe),
+    <s:@L> <lhe: ParseExpression> Semicolon <e:@R>
+    => {
+        match lhe {
+            Expression::AnonymousComp { .. } => build_anonymous_component_statement(Meta::new(s,e), lhe),
+            _ => {
+                errors.push(produce_report(ReportCode::IllegalExpression, s..e, file_id));
+                //doesn't matter
+                build_log_call(Meta::new(s,e),Vec::new())
+            } ,
+        }   
+    },
 
     ParseBlock
 };
@@ -707,7 +709,8 @@ Expression3 = InfixOpTier<ParseExp,Expression2>;
 // ops: Unary - ! ~
 Expression2 = PrefixOpTier<ParseExpressionPrefixOpcode,Expression1>;
 
-ExpressionAnonymous: Expression = {
+// function call, array inline, anonymous component call
+Expression1: Expression = {
     <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" "(" <args2: ListableAnon?> ")"  <e:@R>
     => {let params = match args {
         None => Vec::new(),
@@ -718,11 +721,7 @@ ExpressionAnonymous: Expression = {
         Some(a) => a
     };
     build_anonymous_component(Meta::new(s,e),id,params,signals,names,false)}
-}
-
-// function call, array inline, anonymous component call
-Expression1: Expression = {
-    ExpressionAnonymous,
+    ,
     
     <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R>
     => match args {
