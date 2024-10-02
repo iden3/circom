@@ -2437,16 +2437,20 @@ fn execute_conditional_statement(
         AExpr::get_boolean_equivalence(&ae_cond, runtime.constants.get_p());
     if let Some(cond_bool_value) = possible_cond_bool_value {
         let (ret_value, can_simplify) = match false_case {
-            Some(else_stmt) if !cond_bool_value => {
+            Option::Some(else_stmt) if !cond_bool_value => {
                 execute_statement(else_stmt, program_archive, runtime, actual_node, flags)?
             }
-            None if !cond_bool_value => (None, true),
+            Option::None if !cond_bool_value => (None, true),
             _ => execute_statement(true_case, program_archive, runtime, actual_node, flags)?,
         };
         Result::Ok((ret_value, can_simplify, Option::Some(cond_bool_value)))
     } else {
         let previous_block_type = runtime.block_type;
         runtime.block_type = BlockType::Unknown;
+        // TODO: here instead of executing both branches what we do is to store the values
+        // that we assign in each one of the branches and assign later: if we assign in both 
+        // of them a signal we return an error. If we assign in just one then we dont return error
+        // (maybe a warning indicating that the variable may not get assigned in the if)
         let (mut ret_value, mut can_simplify) = execute_statement(true_case, program_archive, runtime, actual_node, flags)?;
         if let Option::Some(else_stmt) = false_case {
             let (else_ret, can_simplify_else) = execute_statement(else_stmt, program_archive, runtime, actual_node, flags)?;
