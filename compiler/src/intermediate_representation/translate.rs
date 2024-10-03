@@ -185,10 +185,10 @@ impl State {
 }
 
 struct Context<'a> {
-    translating: String,
+    _translating: String,
     files: &'a FileLibrary,
     tmp_database: &'a TemplateDB,
-    functions: &'a HashMap<String, Vec<Length>>,
+    _functions: &'a HashMap<String, Vec<Length>>,
     cmp_to_type: HashMap<String, ClusterType>,
     buses: &'a Vec<BusInstance>
 }
@@ -1892,8 +1892,8 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
 
     let context = Context {
         files: code_info.files,
-        translating: code_info.header,
-        functions: code_info.functions,
+        _translating: code_info.header,
+        _functions: code_info.functions,
         cmp_to_type: code_info.cmp_to_type,
         tmp_database: code_info.template_database,
         buses: code_info.buses
