@@ -33,7 +33,7 @@ pub trait ObtainMeta {
 }
 
 pub trait CheckCompute {
-    fn has_compute_in(&self) -> bool;
+    fn _has_compute_in(&self) -> bool;
 }
 
 pub type InstructionList = Vec<InstructionPointer>;
@@ -97,7 +97,7 @@ impl ObtainMeta for Instruction {
 }
 
 impl CheckCompute for Instruction {
-    fn has_compute_in(&self) -> bool {
+    fn _has_compute_in(&self) -> bool {
         use Instruction::*;
         match self {
 	    Load(_v) => {true
