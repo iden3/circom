@@ -47,19 +47,21 @@ template Main() {
 if we run
 
 ```text
-circom simplify.circom --json --wasm 
+circom basic.circom --json --wasm 
 ```
-a file 'basic_contraints.json' is generated that contains
+a file 'basic_contraints.json' is generated and it contains two constraints: 
 
 ```text
 {
 "constraints": [
-[{"2":"21888242871839275222246405745257275088548364400416034343698204186575808495616"},{"0":"1","2":"2","3":"1"},{"1":"21888242871839275222246405745257275088548364400416034343698204186575808495616"}]
+[{"2":"21888242871839275222246405745257275088548364400416034343698204186575808495616"},{"4":"1"},{"1":"21888242871839275222246405745257275088548364400416034343698204186575808495616"}],
+[{},{},{"0":"1","2":"2","3":"1","4":"21888242871839275222246405745257275088548364400416034343698204186575808495616"}]
 ]
 }
 ```
 
-where we can see that only one constraint is taken after applying the simplification (since the --O2 simplification is the default).
+ As we can see, only constant and renaming (equalities between signals) simplifications have been aplied
+(since the --O1 simplification is the default).
 
 Instead, if we run
 
@@ -82,16 +84,15 @@ to indicate that we do not want to apply any simplification the generated file '
 Finaly, if we run 
 
 ```text
-circom basic.circom --json --wasm --O1
+circom basic.circom --json --wasm --O2
 ```
 
-to indicate that we only want to apply constant and renaming (equalities between signals) simplifications, the generated file 'basic_constraints.json' contains
+we can see that only one constraint is taken after applying the full simplification:
 
 ```text
 {
 "constraints": [
-[{"2":"21888242871839275222246405745257275088548364400416034343698204186575808495616"},{"4":"1"},{"1":"21888242871839275222246405745257275088548364400416034343698204186575808495616"}],
-[{},{},{"0":"1","2":"2","3":"1","4":"21888242871839275222246405745257275088548364400416034343698204186575808495616"}]
+[{"2":"21888242871839275222246405745257275088548364400416034343698204186575808495616"},{"0":"1","2":"2","3":"1"},{"1":"21888242871839275222246405745257275088548364400416034343698204186575808495616"}]
 ]
 }
 ```
