@@ -47,12 +47,11 @@ a file 'simplify_substitutions.json' is generated that contains
 ```text
 {
 "5" : {"2":"1"},
-"4" : {"1":"1"},
-"6" : {"0":"1","2":"2","3":"1"}
+"4" : {"1":"1"}
 }
 ```
 
-where we can see that three signals have been substituted (since the --O2 simplification is the default).
+where we can see that two signals have been substituted (since the `--O1` simplification is the default).
 
 Instead, if we run
 
@@ -69,14 +68,15 @@ to indicate that we do not want to apply any simplification, the generated file 
 Finally, if we run 
 
 ```text
-circom simplify.circom --r1cs --wasm --simplification_substitution --O1
+circom simplify.circom --r1cs --wasm --simplification_substitution --O2
 ```
 
-to indicate that we only want to apply constant and renaming (equalities between signals) simplifications, the generated file 'simplify_substitutions.json' contains
+to indicate that we  want to apply the full form of simplification, the generated file 'simplify_substitutions.json' contains:
 
 ```text
 {
 "5" : {"2":"1"},
-"4" : {"1":"1"}
+"4" : {"1":"1"},
+"6" : {"0":"1","2":"2","3":"1"}
 }
 ```
