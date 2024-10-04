@@ -30,7 +30,7 @@ Only one of these flags/options can be enabled in the compilation.
 
 In case we want to see the simplification applied we can use the flag [```--simplification_substitution```](../../getting-started/compilation-options.md) to obtain a json file whose format is described [here](../formats/simplification-json.md).
 
-Starting with circom 2.2.0, we have set `--O1` as the default simplification option. This decision aligns with the growing use of Plonk, as `--O2` is not compatible with it.
+Since circom 2.2.0, we have set `--O1` as the default simplification option. This decision aligns with the growing use of Plonk, as `--O2` is not compatible with it.
 
 Note that, using the full simplification `--O2` can significantly reduce the number of constraints and signals, which has a positive impact in the time and space needed to compute the proof. However, this is the most time and space consuming phase of the compilation process. Hence, with large circuits, say with millions of constraints, compilation can take a long time (even minutes or hours) and can run in out-of-memory exceptions. In such cases, it is recommended to only use the `--O2` flag in the final steps of the project development.
 
