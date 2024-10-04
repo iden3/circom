@@ -48,10 +48,10 @@ a file 'symbols.sym' is generated that contains
 3,3,1,main.in[1]
 4,-1,0,main.c.out
 5,-1,0,main.c.in[0]
-6,-1,0,main.c.in[1]
+6,4,0,main.c.in[1]
 ```
 
-where we can see that three signals have been eliminated (since the --O2 simplification is the default).
+where we can see that two signals have been eliminated (since the `--O1` simplification is the default).
 
 Instead, if we run
 
@@ -72,10 +72,10 @@ to indicate that we do not want to apply any simplification the generated file '
 Finally, if we run 
 
 ```text
-circom symbols.circom --r1cs --wasm --sym --O1
+circom symbols.circom --r1cs --wasm --sym --O2
 ```
 
-to indicate that we only want to apply constant and renaming (equalities between signals) simplifications the generated file 'symbols.sym' contains
+to indicate that we  want to apply the full form of simplification, the generated file 'symbols.sym' contains
 
 ```text
 1,1,1,main.out
@@ -83,5 +83,5 @@ to indicate that we only want to apply constant and renaming (equalities between
 3,3,1,main.in[1]
 4,-1,0,main.c.out
 5,-1,0,main.c.in[0]
-6,4,0,main.c.in[1]
+6,-1,0,main.c.in[1]
 ```

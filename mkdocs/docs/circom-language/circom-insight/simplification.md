@@ -1,8 +1,8 @@
 # Constraint simplification
 
-Constraint simplification is a key part of the `circom` compiler. Full simplification is activated by default, and its associated flag is `--O2` (see the [compilation options](../../getting-started/compilation-options.md)). Simplification is not applied when the flag `--O0` is activated, and a weaker (and faster) form of simplification is applied when using the flag `--O1`.
+Constraint simplification is a key part of the `circom` compiler. A fast simplification `--O1` is activated by default (it only applies constant and renaming simplifications), and its associated flag is `--O1` (see the [compilation options](../../getting-started/compilation-options.md)). Simplification is not applied when the flag `--O0` is activated, and a full form of simplification is applied when using the flag `--O2`.
 
-Let us explain the performed simplification in detail.
+Let us explain the kind of simplification we can perform in detail.
 
 As pointed out in Section 2.3 (Quadratic arithmetic programs) of the [Groth16 paper](https://eprint.iacr.org/2016/260) (where ZK-SNARKs based on arithmetic circuits were introduced): 
 
@@ -16,7 +16,7 @@ In the context of [Groth16], the statement to be proved is that given the public
 
 In case we are using the PLONK proof system (instead of Groth16), since additions are not free we cannot remove linear constraints anymore. Still we can remove equalities between signals or equalities between signals and constants which is made with the flag --O1 (see below). Moreover, note that if we apply linear simplification to a constraint system in PLONK format, the resulting constraints will in general not be in PLONK format anymore, and transforming the result back to PLONK format may lead to a worse result than the original. For this reason, when using PLONK, it is always recommended to use the --O1 flag.
 
-Once we have explained why removing any private signal (including the private inputs) and applying linear simplification is correct, let us explain what kind of simplification is applied when we enable the flag `--O1`  or the flag `--O2` (which is activated by default). Notice that if we do not want to apply any simplification we must use the flag `--O0`.
+Once we have explained why removing any private signal (including the private inputs) and applying linear simplification is correct, let us explain what kind of simplification is applied when we enable the flag `--O1` (which is activated by default) or the flag `--O2`. Notice that if we do not want to apply any simplification we must use the flag `--O0`.
 
 * Flag ```--O1``` removes two kinds of simple constraints: a) ```signal = K```, being K is a constant in $F_p$ and b) ```signal1 = signal2```. In both cases, at least one of the signals must be private, and it is the one that will be replaced by the other side. Note that there are usually many equalities between two signals in constraints defined by circom programs as they are many times used to connect components with their sub components.
   
@@ -30,6 +30,8 @@ Only one of these flags/options can be enabled in the compilation.
 
 In case we want to see the simplification applied we can use the flag [```--simplification_substitution```](../../getting-started/compilation-options.md) to obtain a json file whose format is described [here](../formats/simplification-json.md).
 
-Note that, although the full simplification applied `--O2` can significantly reduce the number of constraints and signals, which has a positive impact in the time and space needed to compute the proof, this is the most time and space consuming phase of the compilation process. Hence, with large circuits, say with millions of constraints, compilation can take a long time (even minutes or hours) and can run in out-of-memory exceptions. In such cases, it is recommended to only use the `--O2` flag in the final steps of the project development.
+Since circom 2.2.0, we have set `--O1` as the default simplification option. This decision aligns with the growing use of Plonk, as `--O2` is not compatible with it.
+
+Note that, using the full simplification `--O2` can significantly reduce the number of constraints and signals, which has a positive impact in the time and space needed to compute the proof. However, this is the most time and space consuming phase of the compilation process. Hence, with large circuits, say with millions of constraints, compilation can take a long time (even minutes or hours) and can run in out-of-memory exceptions. In such cases, it is recommended to only use the `--O2` flag in the final steps of the project development.
 
 [Groth16] Jens Groth. "On the Size of Pairing-Based Non-interactive Arguments". Advances in Cryptology -- EUROCRYPT 2016, pages 305--326. Springer Berlin Heidelberg, 2016.

@@ -13,6 +13,22 @@ pub enum InputInformation {
     Input {status: StatusInput},
 }
 
+impl ToString for InputInformation {
+    fn to_string(&self) -> String {
+        use InputInformation::*;
+        match self {
+            NoInput => "NO_INPUT".to_string(),
+            Input { status } => {
+                match status {
+                    StatusInput::Last => "LAST".to_string(),
+                    StatusInput::NoLast => "NO_LAST".to_string(),
+                    StatusInput::Unknown => "UNKNOWN".to_string(),
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum AddressType {
     Variable,
@@ -26,7 +42,7 @@ impl ToString for AddressType {
         match self {
             Variable => "VARIABLE".to_string(),
             Signal => "SIGNAL".to_string(),
-            SubcmpSignal { cmp_address, .. } => format!("SUBCOMPONENT:{}", cmp_address.to_string()),
+            SubcmpSignal { cmp_address, input_information, .. } => format!("SUBCOMPONENT:{}:{}", cmp_address.to_string(), input_information.to_string()),
         }
     }
 }
