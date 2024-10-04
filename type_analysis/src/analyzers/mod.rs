@@ -1,3 +1,4 @@
+pub use buses_free_of_invalid_statements::free_of_invalid_statements;
 pub use custom_gate_analysis::custom_gate_analysis;
 pub use functions_all_paths_with_return_statement::all_paths_with_return_check;
 pub use functions_free_of_template_elements::free_of_template_elements;
@@ -7,6 +8,7 @@ pub use symbol_analysis::check_naming_correctness;
 pub use type_check::type_check;
 pub use unknown_known_analysis::unknown_known_analysis;
 
+pub mod buses_free_of_invalid_statements;
 pub mod custom_gate_analysis;
 pub mod functions_all_paths_with_return_statement;
 pub mod functions_free_of_template_elements;

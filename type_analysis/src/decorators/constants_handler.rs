@@ -4,7 +4,9 @@ use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::expression_builders::*;
 use program_structure::utils::environment::VarEnvironment;
-use program_structure::{function_data::FunctionData, template_data::TemplateData};
+use program_structure::function_data::FunctionData;
+use program_structure::template_data::TemplateData;
+use program_structure::bus_data::BusData;
 use std::collections::HashSet;
 
 type Constants = VarEnvironment<bool>;
@@ -38,6 +40,23 @@ pub fn _handle_template_constants(template: &mut TemplateData) -> ReportCollecti
     reports
 }
 
+pub fn handle_bus_constants(bus: &mut BusData) -> ReportCollection {
+    let mut environment = Constants::new();
+    let mut expression_holder = ExpressionHolder::new();
+    for p in bus.get_name_of_params() {
+        environment.add_variable(p, true);
+        let meta = bus.get_body().get_meta().clone();
+        let name = p.clone();
+        let access = vec![];
+        let expression = build_variable(meta, name, access);
+        expression_holder.add_variable(p, expression);
+    }
+    statement_constant_inference(bus.get_mut_body(), &mut environment);
+    let reports = statement_invariant_check(bus.get_body(), &mut environment);
+    expand_statement(bus.get_mut_body(), &mut expression_holder);
+    reports
+}
+
 // Set of functions used to infer the constant tag in variable declarations
 fn statement_constant_inference(stmt: &mut Statement, environment: &mut Constants) {
     use Statement::*;
@@ -49,7 +68,7 @@ fn statement_constant_inference(stmt: &mut Statement, environment: &mut Constant
         InitializationBlock { initializations, .. } => {
             initialization_block_constant_inference(initializations, environment)
         }
-        While { stmt, .. } => while_stmt_constant_inference(stmt, environment),
+        While { stmt, .. } => while_constant_inference(stmt, environment),
         Block { stmts, .. } => block_constant_inference(stmts, environment),
         _ => {}
     }
@@ -84,7 +103,7 @@ fn initialization_block_constant_inference(
     }
 }
 
-fn while_stmt_constant_inference(stmt: &mut Statement, environment: &mut Constants) {
+fn while_constant_inference(stmt: &mut Statement, environment: &mut Constants) {
     statement_constant_inference(stmt, environment)
 }
 
@@ -224,6 +243,7 @@ fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
         Variable { name, .. } => variable(name, environment),
         ArrayInLine { .. } => array_inline(),
         UniformArray { .. } => uniform_array(),
+        BusCall { args, .. } => call(args, environment),
         _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }
@@ -415,8 +435,18 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
             expand_inline_switch_op(meta, *cond, *if_true, *if_false, environment)
         }
         Variable { meta, name, access } => expand_variable(meta, name, access, environment),
+        BusCall { meta, id, args } => expand_bus_call(meta,id,args,environment),
         _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
+}
+
+fn expand_bus_call(meta: Meta, id: String, old_args: Vec<Expression>, environment: &ExpressionHolder,) -> Expression {
+    let mut args = Vec::new();
+    for expr in old_args {
+        let new_expression = expand_expression(expr, environment);
+        args.push(new_expression);
+    }
+    build_bus_call(meta, id, args)
 }
 
 fn expand_number(meta: Meta, value: BigInt) -> Expression {

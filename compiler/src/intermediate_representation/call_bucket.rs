@@ -92,16 +92,26 @@ impl WriteWasm for CallBucket {
                 instructions.push(get_local(producer.get_call_lvar_tag()));
                 instructions.push(set_constant(&count.to_string()));
                 instructions.push(add32());
-                if self.argument_types[i].size > 1 {
+                // TODO: We compute the possible sizes, case multiple size
+                // Now in case Multiple we just return the first value
+                // See below case C (complete)
+                let arg_size = match &self.argument_types[i].size{
+                    SizeOption::Single(value) => *value,
+                    SizeOption::Multiple(_value) => {
+			assert!(false); //should never be the case!
+			0
+                    }
+                };
+                if arg_size > 1 {
                     instructions.push(set_local(producer.get_store_aux_1_tag()));
                 }
                 let mut instructions_arg = p.produce_wasm(producer);
                 instructions.append(&mut instructions_arg);
-                if self.argument_types[i].size == 1 {
+                if arg_size == 1 {
                     instructions.push(call("$Fr_copy"));
                 } else {
                     instructions.push(set_local(producer.get_store_aux_2_tag()));
-                    instructions.push(set_constant(&self.argument_types[i].size.to_string()));
+                    instructions.push(set_constant(&arg_size.to_string()));
                     instructions.push(set_local(producer.get_copy_counter_tag()));
                     instructions.push(add_block());
                     instructions.push(add_loop());
@@ -131,7 +141,7 @@ impl WriteWasm for CallBucket {
 		if producer.needs_comments() {
                     instructions.push(format!(";; end copying argument {}", i));
 		}
-                count += self.argument_types[i].size * 4 * producer.get_size_32_bits_in_memory();
+                count += arg_size * 4 * producer.get_size_32_bits_in_memory();
                 i += 1;
             }
         }
@@ -184,8 +194,9 @@ impl WriteWasm for CallBucket {
                                 instructions.push(mul32());
                                 instructions.push(add32());
                                 instructions.push(load32(None)); //subcomponent block
-                                instructions.push(set_local(producer.get_sub_cmp_tag()));
-                                instructions.push(get_local(producer.get_sub_cmp_tag()));
+                                instructions.push(tee_local(producer.get_sub_cmp_tag()));
+                                //instructions.push(set_local(producer.get_sub_cmp_tag()));
+                                //instructions.push(get_local(producer.get_sub_cmp_tag()));
                                 instructions.push(set_constant(
                                     &producer.get_signal_start_address_in_component().to_string(),
                                 ));
@@ -212,8 +223,9 @@ impl WriteWasm for CallBucket {
                                 instructions.push(mul32());
                                 instructions.push(add32());
                                 instructions.push(load32(None)); //subcomponent block
-                                instructions.push(set_local(producer.get_sub_cmp_tag()));
-                                instructions.push(get_local(producer.get_sub_cmp_tag()));
+                                instructions.push(tee_local(producer.get_sub_cmp_tag()));
+                                //instructions.push(set_local(producer.get_sub_cmp_tag()));
+                                //instructions.push(get_local(producer.get_sub_cmp_tag()));
                                 instructions.push(load32(None)); // get template id                     A
                                 instructions.push(set_constant("4")); //size in byte of i32
                                 instructions.push(mul32());
@@ -224,41 +236,108 @@ impl WriteWasm for CallBucket {
                                 ))); // get position in component io signal to info list
                                 let signal_code_in_bytes = signal_code * 4; //position in the list of the signal code
                                 instructions.push(load32(Some(&signal_code_in_bytes.to_string()))); // get where the info of this signal is
-                                                                                                    //now we have first the offset and then the all size dimensions but the last one
-                                if indexes.len() <= 1 {
-                                    instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
-                                    if indexes.len() == 1 {
-                                        let mut instructions_idx0 =
-                                            indexes[0].produce_wasm(producer);
-                                        instructions.append(&mut instructions_idx0);
-                                        let size = producer.get_size_32_bits_in_memory() * 4;
-                                        instructions.push(set_constant(&size.to_string()));
-                                        instructions.push(mul32());
-                                        instructions.push(add32());
-                                    }
-                                } else {
-                                    instructions.push(set_local(producer.get_io_info_tag()));
-                                    instructions.push(get_local(producer.get_io_info_tag()));
-                                    instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
-                                                                     // compute de move with 2 or more dimensions
-                                    let mut instructions_idx0 = indexes[0].produce_wasm(producer);
-                                    instructions.append(&mut instructions_idx0); // start with dimension 0
-                                    for i in 1..indexes.len() {
-                                        instructions.push(get_local(producer.get_io_info_tag()));
-                                        let offsetdim = 4 * i;
-                                        instructions.push(load32(Some(&offsetdim.to_string()))); // get size of ith dimension
-                                        instructions.push(mul32()); // multiply the current move by size of the ith dimension
-                                        let mut instructions_idxi =
-                                            indexes[i].produce_wasm(producer);
-                                        instructions.append(&mut instructions_idxi);
-                                        instructions.push(add32()); // add move upto dimension i
-                                    }
-                                    //we have the total move; and is multiplied by the size of memory Fr in bytes
-                                    let size = producer.get_size_32_bits_in_memory() * 4;
-                                    instructions.push(set_constant(&size.to_string()));
-                                    instructions.push(mul32()); // We have the total move in bytes
-                                    instructions.push(add32()); // add to the offset of the signal
-                                }
+				//now we have first the offset, and then the all size dimensions but the last one
+				if indexes.len() == 0 {
+				    instructions.push(load32(None)); // get signal offset (it is already the actual one in memory);
+				} else {
+				    instructions.push(tee_local(producer.get_io_info_tag()));
+				    instructions.push(load32(None)); // get offset; first slot in io_info (to start adding offsets)
+				    // if the first access is qualified we place the address of the bus_id
+				    if let AccessType::Qualified(_) = &indexes[0] {
+					instructions.push(get_local(producer.get_io_info_tag()));
+					instructions.push(load32(Some("4"))); // it is a bus, so the bus_id is in the second position
+				    }
+				    let mut idxpos = 0;			    
+				    while idxpos < indexes.len() {
+					if let AccessType::Indexed(index_info) = &indexes[idxpos] {					    
+					    let index_list = &index_info.indexes;
+					    let dim = index_info.symbol_dim;
+					    let mut infopos = 0;
+					    assert!(index_list.len() > 0);
+					    //We first compute the number of elements as
+					    //((index_list[0] * length_of_dim[1]) + index_list[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + index_list[n-1]
+					    //first position in the array access
+					    let mut instructions_idx0 = index_list[0].produce_wasm(producer);				    
+					    instructions.append(&mut instructions_idx0);				    
+					    for i in 1..index_list.len() {
+						instructions.push(get_local(producer.get_io_info_tag()));
+						infopos += 4;	//position in io or bus info of dimension of [1] (recall that first dimension is not added)
+						instructions.push(load32(Some(&infopos.to_string()))); // second dimension
+						instructions.push(mul32());
+						let mut instructions_idxi = index_list[i].produce_wasm(producer);				    
+						instructions.append(&mut instructions_idxi);				    
+						instructions.push(add32());
+					    }
+					    assert!(index_list.len() <= dim);
+					    let diff = dim - index_list.len();
+					    if diff > 0 {
+						//println!("There is difference: {}",diff);
+						//instructions.push(format!(";; There is a difference {}", diff));
+						// must be last access
+						assert!(idxpos+1 == indexes.len());
+						instructions.push(get_local(producer.get_io_info_tag()));
+						infopos += 4; //position in io or bus info of the next dimension 
+						instructions.push(load32(Some(&infopos.to_string()))); // length of next dimension					
+						for _i in 1..diff {
+						    //instructions.push(format!(";; Next dim {}", i));
+						    instructions.push(get_local(producer.get_io_info_tag()));
+						    infopos += 4; //position in io or bus info of the next dimension 
+						    instructions.push(load32(Some(&infopos.to_string()))); // length of next dimension					
+						    instructions.push(mul32()); // multiply with previous dimensions
+						}
+					    } // after this we have the product of the remaining dimensions
+					    let field_size = producer.get_size_32_bits_in_memory() * 4;
+					    instructions.push(set_constant(&field_size.to_string()));
+					    instructions.push(get_local(producer.get_io_info_tag()));
+					    infopos += 4; //position in io or bus info of size 
+					    instructions.push(load32(Some(&infopos.to_string()))); // size
+					    instructions.push(mul32()); // size mult by size of field in bytes
+					    if diff > 0 {
+						//instructions.push(format!(";; Multiply dimensions"));
+						instructions.push(mul32()); // total size of the content according to the missing dimensions
+					    }
+					    instructions.push(mul32()); // total offset in the array
+					    instructions.push(add32()); // to the current offset
+					    idxpos += 1;
+					    if idxpos < indexes.len() {
+						//next must be Qualified
+						if let AccessType::Indexed(_) = &indexes[idxpos] {
+						    assert!(false);
+						}
+						// we add the type of bus it is
+						instructions.push(get_local(producer.get_io_info_tag()));
+						infopos += 4;
+						instructions.push(load32(Some(&infopos.to_string()))); // bus_id
+					    }
+					} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
+					    //we have on the stack the bus_id
+					    instructions.push(set_constant("4")); //size in byte of i32
+					    instructions.push(mul32()); //maybe better in the memory like this
+					    instructions.push(load32(Some(
+						&producer.get_bus_instance_to_field_start().to_string()
+					    ))); // get position in the bus to field in memory
+					    let field_no_bytes = field_no * 4;
+					    instructions.push(load32(Some(&field_no_bytes.to_string()))); // get position in the field info in memory
+					    if idxpos +1 < indexes.len() {				    
+						instructions.push(tee_local(producer.get_io_info_tag()));
+					    }
+					    //let field_size = producer.get_size_32_bits_in_memory() * 4;
+					    //instructions.push(set_constant(&field_size.to_string()));
+					    instructions.push(load32(None)); // get the offset
+					    //instructions.push(mul32()); // mult by size of field in bytes
+					    instructions.push(add32()); // add to the current offset
+					    idxpos += 1;
+					    if idxpos < indexes.len() {
+						if let AccessType::Qualified(_) = &indexes[idxpos] {
+						    instructions.push(get_local(producer.get_io_info_tag()));
+						    instructions.push(load32(Some("4"))); // bus_id
+						}
+					    }
+					} else {
+					    assert!(false);
+					}
+				    }
+				}
                                 instructions.push(get_local(producer.get_sub_cmp_tag()));
                                 instructions.push(set_constant(
                                     &producer.get_signal_start_address_in_component().to_string(),
@@ -273,7 +352,20 @@ impl WriteWasm for CallBucket {
                         }
                     }
                 }
-                instructions.push(set_constant(&data.context.size.to_string()));
+		// We check if we have to compute the possible sizes, case multiple size
+                match &data.context.size{
+		    SizeOption::Single(value) => {
+			instructions.push(set_constant(&value.to_string()));
+		    }
+		    SizeOption::Multiple(values) => { //create a nested if-else with all cases
+			instructions.push(get_local(producer.get_sub_cmp_tag()));
+			instructions.push(load32(None)); // get template id
+			instructions.push(set_local(producer.get_aux_0_tag()));
+			let mut instr_if = create_if_selection(&values,producer.get_aux_0_tag());
+			instructions.append(&mut instr_if);
+			instructions.push(tee_local(producer.get_result_size_tag()));
+		    }
+		};
                 instructions.push(call(&format!("${}", self.symbol)));
                 instructions.push(tee_local(producer.get_merror_tag()));
 		instructions.push(add_if());
@@ -295,7 +387,14 @@ impl WriteWasm for CallBucket {
                         instructions.push(load32(Some(
                             &producer.get_input_counter_address_in_component().to_string(),
                         ))); //remaining inputs to be set
-                        instructions.push(set_constant(&data.context.size.to_string()));
+			match &data.context.size{
+			    SizeOption::Single(value) => {
+				instructions.push(set_constant(&value.to_string()));
+			    }
+			    SizeOption::Multiple(_) => { 
+				instructions.push(get_local(producer.get_result_size_tag()));
+			    }
+			};
                         instructions.push(sub32());
                         instructions.push(store32(Some(
                             &producer.get_input_counter_address_in_component().to_string(),
@@ -381,9 +480,17 @@ impl WriteC for CallBucket {
             let (mut prologue_value, src) = p.produce_c(producer, parallel);
             prologue.append(&mut prologue_value);
             let arena_position = format!("&{}[{}]", L_VAR_FUNC_CALL_STORAGE, count);
-            if self.argument_types[i].size > 1 {
+            // TODO, CASE CALL ARGUMENTS
+            let size = match &self.argument_types[i].size{
+                SizeOption::Single(value) => *value,
+                SizeOption::Multiple(_values) => {
+		    assert!(false); //should never be the case!
+		    0
+                }
+            };
+            if size > 1 {
                 let copy_arguments =
-                    vec![arena_position, src, self.argument_types[i].size.to_string()];
+                    vec![arena_position, src, size.to_string()];
                 prologue
                     .push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
             } else {
@@ -392,7 +499,7 @@ impl WriteC for CallBucket {
                     .push(format!("{};", build_call("Fr_copy".to_string(), copy_arguments)));
             }
             prologue.push(format!("// end copying argument {}", i));
-            count += self.argument_types[i].size;
+            count += size;
             i += 1;
         }
         let result;
@@ -415,37 +522,89 @@ impl WriteC for CallBucket {
 		    let (mut cmp_prologue, cmp_index) = cmp_address.produce_c(producer, parallel);
 		    prologue.append(&mut cmp_prologue);
 		    prologue.push(format!("{{"));
-	            prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
-	        
+	        prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
 		}
+        let size = match &data.context.size{
+            SizeOption::Single(value) => value.to_string(),
+            SizeOption::Multiple(values) => {
+                prologue.push(format!("std::map<int,int> size_store {};",
+                    set_list_tuple(values.to_vec())
+                ));
+                let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                format!("size_store[{}]", temp_id)
+            }
+        };
 
                 let ((mut dest_prologue, dest_index), my_template_header) =
                     if let LocationRule::Indexed { location, template_header } = &data.dest {
                         (location.produce_c(producer, parallel), template_header.clone())
-		    } else if let LocationRule::Mapped { signal_code, indexes } = &data.dest {
-			let mut map_prologue = vec![];
+		    } else if let LocationRule::Mapped { signal_code, indexes} = &data.dest {
+            let mut map_prologue = vec![];
 			let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref.clone());
 			let mut map_access = format!("{}->{}[{}].defs[{}].offset",
 						     circom_calc_wit(), template_ins_2_io_info(),
 						     template_id_in_component(sub_component_pos_in_memory.clone()),
 						     signal_code.to_string());
-			if indexes.len()>0 {
+			if indexes.len() > 0 {
 			    map_prologue.push(format!("{{"));
-			    map_prologue.push(format!("uint map_index_aux[{}];",indexes.len().to_string()));		    
-			    let (mut index_code_0, mut map_index) = indexes[0].produce_c(producer, parallel);
-			    map_prologue.append(&mut index_code_0);
-			    map_prologue.push(format!("map_index_aux[0]={};",map_index));
-			    map_index = format!("map_index_aux[0]");
-			    for i in 1..indexes.len() {
-				let (mut index_code, index_exp) = indexes[i].produce_c(producer, parallel);
-				map_prologue.append(&mut index_code);
-				map_prologue.push(format!("map_index_aux[{}]={};",i.to_string(),index_exp));
-				map_index = format!("({})*{}->{}[{}].defs[{}].lengths[{}]+map_index_aux[{}]",
-						    map_index, circom_calc_wit(), template_ins_2_io_info(),
-						    template_id_in_component(sub_component_pos_in_memory.clone()),
-						    signal_code.to_string(),(i-1).to_string(),i.to_string());
+			    map_prologue.push(format!("uint map_accesses_aux[{}];",indexes.len().to_string()));	
+			    map_prologue.push(format!("{{"));
+			    //cur_def contains a pointer to the definion of the next acces.
+			    //The first time it is taken from template_ins_2_io_info
+			    map_prologue.push(format!("IOFieldDef *cur_def = &({}->{}[{}].defs[{}]);",
+						      circom_calc_wit(), template_ins_2_io_info(),
+						      template_id_in_component(sub_component_pos_in_memory.clone()),
+						      signal_code.to_string()));
+			    let mut idxpos = 0;
+			    while idxpos < indexes.len() {
+				if let AccessType::Indexed(index_info) = &indexes[idxpos] {
+				    let index_list = &index_info.indexes;
+				    let dim = index_info.symbol_dim;
+				    map_prologue.push(format!("{{"));
+				    map_prologue.push(format!("uint map_index_aux[{}];",index_list.len().to_string()));
+				    //We first compute the number of elements as
+				    //((map_index_aux[0] * length_of_dim[1]) + map_index_aux[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + map_index_aux[n-1] with
+				    // map_index_aux[i] = computation of index_list[i]
+				    let (mut index_code_0, mut map_index) = index_list[0].produce_c(producer, parallel);
+				    map_prologue.append(&mut index_code_0);
+				    map_prologue.push(format!("map_index_aux[0]={};",map_index));
+				    map_index = format!("map_index_aux[0]");
+				    for i in 1..index_list.len() {
+					let (mut index_code, index_exp) = index_list[i].produce_c(producer, parallel);
+					map_prologue.append(&mut index_code);
+					map_prologue.push(format!("map_index_aux[{}]={};",i.to_string(),index_exp));
+					// multiply the offset inthe array by the size of the elements
+					map_index = format!("({})*cur_def->lengths[{}]+map_index_aux[{}]",
+							    map_index,(i-1).to_string(),i.to_string());
+				    }
+				    assert!(index_list.len() <= dim);
+				    if dim - index_list.len() > 0 {
+					map_prologue.push(format!("//There is a difference {};",dim - index_list.len()));
+					// must be last access
+					assert!(idxpos+1 == indexes.len());
+					for i in index_list.len()..dim {
+					    map_index = format!("{}*cur_def->lengths[{}]",
+								map_index, (i-1).to_string());
+					} // after this we have multiplied by the remaining dimensions
+				    }
+				    // multiply the offset in the array (after multiplying by the missing dimensions) by the size of the elements
+				    map_prologue.push(format!("map_accesses_aux[{}] = {}*cur_def->size;", idxpos.to_string(), map_index));
+				    map_prologue.push(format!("}}"));
+				} else if let AccessType::Qualified(field_no) = &indexes[idxpos] {
+				    map_prologue.push(format!("cur_def = &({}->{}[cur_def->busId].defs[{}]);",
+							      circom_calc_wit(), bus_ins_2_field_info(),
+							      field_no.to_string()));
+				    map_prologue.push(format!("map_accesses_aux[{}] = cur_def->offset;", idxpos.to_string()));
+				} else {
+				    assert!(false);
+				}
+				// add to the access expression the computed offset
+				map_access = format!("{}+map_accesses_aux[{}]",
+						     map_access, idxpos.to_string());
+				idxpos += 1;
 			    }
-			    map_access = format!("{}+{}",map_access,map_index);
+			    map_prologue.push(format!("}}"));
 			}
 			((map_prologue, map_access),Some(template_id_in_component(sub_component_pos_in_memory.clone())))
                     } else {
@@ -472,7 +631,7 @@ impl WriteC for CallBucket {
                     }
                 };
                 call_arguments.push(result_ref);
-                call_arguments.push(data.context.size.to_string());
+                call_arguments.push(size.clone());
                 prologue.push(format!("{};", build_call(self.symbol.clone(), call_arguments)));
 		if let LocationRule::Mapped { indexes, .. } = &data.dest {
 		    if indexes.len() > 0 {
@@ -482,9 +641,9 @@ impl WriteC for CallBucket {
 		// if output and parallel send notify
 		if let AddressType::Signal = &data.dest_address_type {
 		    if parallel.unwrap()  && data.dest_is_output {
-			if data.context.size > 0 {
+			if size != "0" {
 			    prologue.push(format!("{{"));
-			    prologue.push(format!("for (int i = 0; i < {}; i++) {{",data.context.size));
+			    prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
 			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].lock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}+i]=true;",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
@@ -509,7 +668,7 @@ impl WriteC for CallBucket {
                         );
                         let sub_cmp_counter_decrease = format!(
                             "{} -= {}",
-                            sub_cmp_counter, &data.context.size
+                            sub_cmp_counter, size
                         );
 			if let InputInformation::Input{status} = input_information {
 			    if let StatusInput::NoLast = status {

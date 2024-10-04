@@ -55,6 +55,10 @@ pub fn build_call(meta: Meta, id: String, args: Vec<Expression>) -> Expression {
     Call { meta, id, args }
 }
 
+pub fn build_bus_call(meta: Meta, id: String, args: Vec<Expression>) -> Expression {
+    BusCall { meta, id, args }
+}
+
 pub fn build_anonymous_component(meta: Meta, id: String, params: Vec<Expression>, signals: Vec<Expression>, names: Option<Vec<(AssignOp, String)>>, is_parallel: bool) -> Expression {
     AnonymousComp { meta, id, params, signals, names, is_parallel }
 }

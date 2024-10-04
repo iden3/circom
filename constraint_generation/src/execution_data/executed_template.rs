@@ -1,4 +1,6 @@
+use super::executed_bus::BusConnexion;
 use super::type_definitions::*;
+use super::ExecutedBus;
 use circom_algebra::algebra::ArithmeticExpression;
 use compiler::hir::very_concrete_program::*;
 use dag::DAG;
@@ -64,10 +66,10 @@ pub struct ExecutedTemplate {
     pub code: Statement,
     pub template_name: String,
     pub report_name: String,
-    pub inputs: SignalCollector,
-    pub outputs: SignalCollector,
-    pub intermediates: SignalCollector,
-    pub ordered_signals: Vec<String>,
+    pub inputs: WireCollector,
+    pub outputs: WireCollector,
+    pub intermediates: WireCollector,
+    pub ordered_signals: WireCollector,
     pub constraints: Vec<Constraint>,
     pub components: ComponentCollector,
     pub number_of_components: usize,
@@ -80,6 +82,7 @@ pub struct ExecutedTemplate {
     pub is_custom_gate: bool,
     pub underscored_signals: Vec<String>,
     connexions: Vec<Connexion>,
+    pub bus_connexions: HashMap<String, BusConnexion>,
 }
 
 impl ExecutedTemplate {
@@ -105,14 +108,15 @@ impl ExecutedTemplate {
             parameter_instances: instance,
             signal_to_tags: tag_instances.clone(),
             tag_instances,
-            inputs: SignalCollector::new(),
-            outputs: SignalCollector::new(),
-            intermediates: SignalCollector::new(),
-            ordered_signals: Vec::new(),
+            inputs: WireCollector::new(),
+            outputs: WireCollector::new(),
+            intermediates: WireCollector::new(),
+            ordered_signals: WireCollector::new(),
             constraints: Vec::new(),
             components: ComponentCollector::new(),
             number_of_components: 0,
             connexions: Vec::new(),
+            bus_connexions: HashMap::new(),
             underscored_signals: Vec::new(),
         }
     }
@@ -129,37 +133,40 @@ impl ExecutedTemplate {
             self.connexions.push(cnn);
     }
 
-    pub fn add_input(&mut self, input_name: &str, dimensions: &[usize]) {
-        self.inputs.push((input_name.to_string(), dimensions.to_vec()));
+    pub fn add_bus_arrow(&mut self, bus_name: String, data: BusData){
+        let cnn =
+            BusConnexion { full_name:bus_name.clone(), inspect: data, dag_offset: 0, dag_jump: 0};
+            self.bus_connexions.insert(bus_name, cnn);
     }
 
-    pub fn add_output(&mut self, output_name: &str, dimensions: &[usize]) {
-        self.outputs.push((output_name.to_string(), dimensions.to_vec()));
+    pub fn add_input(&mut self, input_name: &str, dimensions: &[usize], is_bus: bool) {
+        let wire_info = WireData{
+            name: input_name.to_string(),
+            length: dimensions.to_vec(),
+            is_bus
+        };
+        self.inputs.push(wire_info.clone());
+        self.ordered_signals.push(wire_info);
     }
 
-    pub fn add_intermediate(&mut self, intermediate_name: &str, dimensions: &[usize]) {
-        self.intermediates.push((intermediate_name.to_string(), dimensions.to_vec()));
+    pub fn add_output(&mut self, output_name: &str, dimensions: &[usize], is_bus: bool) {
+        let wire_info = WireData{
+            name: output_name.to_string(),
+            length: dimensions.to_vec(),
+            is_bus
+        };
+        self.outputs.push(wire_info.clone());
+        self.ordered_signals.push(wire_info);
     }
 
-    pub fn add_ordered_signal(&mut self, signal_name: &str, dimensions: &[usize]) {
-        fn generate_symbols(name: String, current: usize, dimensions: &[usize]) -> Vec<String> {
-            let symbol_name = name.clone();
-            if current == dimensions.len() {
-                vec![name]
-            } else {
-                let mut generated_symbols = vec![];
-                let mut index = 0;
-                while index < dimensions[current] {
-                    let new_name = format!("{}[{}]", symbol_name, index);
-                    generated_symbols.append(&mut generate_symbols(new_name, current + 1, dimensions));
-                    index += 1;
-                }
-                generated_symbols
-            }
-        }
-        for signal in generate_symbols(signal_name.to_string(), 0, dimensions) {
-            self.ordered_signals.push(signal);
-        }
+    pub fn add_intermediate(&mut self, intermediate_name: &str, dimensions: &[usize], is_bus: bool) {
+        let wire_info = WireData{
+            name: intermediate_name.to_string(),
+            length: dimensions.to_vec(),
+            is_bus
+        };
+        self.intermediates.push(wire_info.clone());    
+        self.ordered_signals.push(wire_info);
     }
 
     pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>){
@@ -198,19 +205,19 @@ impl ExecutedTemplate {
         &self.tag_instances
     }
 
-    pub fn inputs(&self) -> &SignalCollector {
+    pub fn inputs(&self) -> &WireCollector {
         &self.inputs
     }
 
-    pub fn outputs(&self) -> &SignalCollector {
+    pub fn outputs(&self) -> &WireCollector {
         &self.outputs
     }
 
-    pub fn intermediates(&self) -> &SignalCollector {
+    pub fn intermediates(&self) -> &WireCollector {
         &self.intermediates
     }
 
-    pub fn insert_in_dag(&mut self, dag: &mut DAG) {
+    pub fn insert_in_dag(&mut self, dag: &mut DAG, buses_info : &Vec<ExecutedBus>) {
         let parameters = {
             let mut parameters = vec![];
             for (_, data) in self.parameter_instances.clone() {
@@ -225,41 +232,70 @@ impl ExecutedTemplate {
         dag.add_node(
             self.report_name.clone(),
             parameters,
-            self.ordered_signals.clone(), // pensar si calcularlo en este momento para no hacer clone
             self.is_parallel,
             self.is_custom_gate
         );
-        self.build_signals(dag);
+        self.build_wires(dag, buses_info);
+        self.build_ordered_signals(dag, buses_info);
         self.build_connexions(dag);
         self.build_constraints(dag);
     }
 
-    fn build_signals(&self, dag: &mut DAG) {
-        for (name, dim) in self.outputs() {
-            let state = State { name: name.clone(), dim: 0 };
-            let config = SignalConfig { signal_type: 1, dimensions: dim, is_public: false };
-            generate_symbols(dag, state, &config);
-        }
-        for (name, dim) in self.inputs() {
-            if self.public_inputs.contains(name) {
-                let state = State { name: name.clone(), dim: 0 };
-                let config = SignalConfig { signal_type: 0, dimensions: dim, is_public: true };
+    fn build_wires(&self, dag: &mut DAG, buses_info : &Vec<ExecutedBus>) {
+        for wire_data in self.outputs() {
+            let state = State { basic_name: wire_data.name.clone(), name: wire_data.name.clone(), dim: 0 };
+            let config = SignalConfig { signal_type: 1, dimensions: &wire_data.length, is_public: false };
+            if wire_data.is_bus{
+                generate_bus_symbols(dag, state, &config, &self.bus_connexions, buses_info );
+            } else{
                 generate_symbols(dag, state, &config);
             }
         }
-        for (name, dim) in self.inputs() {
-            if !self.public_inputs.contains(name) {
-                let state = State { name: name.clone(), dim: 0 };
-                let config = SignalConfig { signal_type: 0, dimensions: dim, is_public: false };
-                generate_symbols(dag, state, &config);
+        for wire_data in self.inputs() {
+            if self.public_inputs.contains(&wire_data.name) {
+                let state = State { basic_name: wire_data.name.clone(),  name: wire_data.name.clone(), dim: 0 };
+                let config = SignalConfig { signal_type: 0, dimensions: &wire_data.length, is_public: true };
+                if wire_data.is_bus{
+                    generate_bus_symbols(dag, state, &config, &self.bus_connexions, buses_info );
+                } else{
+                    generate_symbols(dag, state, &config);
+                }
             }
         }
-        for (name, dim) in self.intermediates() {
-            let state = State { name: name.clone(), dim: 0 };
-            let config = SignalConfig { signal_type: 2, dimensions: dim, is_public: false };
-            generate_symbols(dag, state, &config);
+        for wire_data in self.inputs() {
+            if !self.public_inputs.contains(&wire_data.name) {
+                let state = State { basic_name: wire_data.name.clone(), name: wire_data.name.clone(), dim: 0 };
+                let config = SignalConfig { signal_type: 0, dimensions: &wire_data.length, is_public: false };
+                if wire_data.is_bus{
+                    generate_bus_symbols(dag, state, &config, &self.bus_connexions, buses_info );
+                } else{
+                    generate_symbols(dag, state, &config);
+                }
+            }
+        }
+        for wire_data in self.intermediates() {
+            let state = State { basic_name: wire_data.name.clone(), name: wire_data.name.clone(), dim: 0 };
+            let config = SignalConfig { signal_type: 2, dimensions: &wire_data.length, is_public: false };
+            if wire_data.is_bus{
+                generate_bus_symbols(dag, state, &config, &self.bus_connexions, buses_info );
+            } else{
+                generate_symbols(dag, state, &config);
+            }
         }
     }
+
+    fn build_ordered_signals(&self, dag: &mut DAG, buses_info : &Vec<ExecutedBus>) {
+        for wire_data in &self.ordered_signals {
+            let state = State { basic_name: wire_data.name.clone(), name: wire_data.name.clone(), dim: 0 };
+            let config = OrderedSignalConfig { dimensions: &wire_data.length };
+            if wire_data.is_bus{
+                generate_ordered_bus_symbols(dag, state, &config, &self.bus_connexions, buses_info );
+            } else{
+                generate_ordered_symbols(dag, state, &config);
+            }
+        }
+    }
+
     fn build_connexions(&mut self, dag: &mut DAG) {
         self.connexions.sort_by(|l, r| {
             use std::cmp::Ordering;
@@ -298,7 +334,7 @@ impl ExecutedTemplate {
         }
     }
 
-    pub fn export_to_circuit(self, instances: &mut [TemplateInstance]) -> TemplateInstance {
+    pub fn export_to_circuit(self, instances: &mut [TemplateInstance], buses_info : &Vec<BusInstance>) -> TemplateInstance {
         use SignalType::*;
         fn build_triggers(
             instances: &mut [TemplateInstance],
@@ -309,6 +345,14 @@ impl ExecutedTemplate {
                 let data = cnn.inspect;
                 instances[data.goes_to].is_parallel_component |= data.is_parallel;
                 instances[data.goes_to].is_not_parallel_component |= !(data.is_parallel);
+                
+                let mut external_wires = Vec::new();
+                for wire in &instances[data.goes_to].wires{
+                    if wire.xtype() != SignalType::Intermediate{
+                        external_wires.push(wire.clone());
+                    }
+                }
+
                 let trigger = Trigger {
                     offset: cnn.dag_offset,
                     component_offset: cnn.dag_component_offset,
@@ -317,7 +361,7 @@ impl ExecutedTemplate {
                     is_parallel: data.is_parallel || instances[data.goes_to].is_parallel,
                     runs: instances[data.goes_to].template_header.clone(),
                     template_id: data.goes_to,
-                    external_signals: instances[data.goes_to].signals.clone(),
+                    external_wires,
                     has_inputs: instances[data.goes_to].number_of_inputs > 0,
                 };
                 triggers.push(trigger);
@@ -368,7 +412,7 @@ impl ExecutedTemplate {
         let mut public = vec![];
         let mut not_public = vec![];
         for s in self.inputs {
-            if self.public_inputs.contains(&s.0) {
+            if self.public_inputs.contains(&s.name) {
                 public.push(s);
             } else {
                 not_public.push(s);
@@ -376,33 +420,111 @@ impl ExecutedTemplate {
         }
         let mut local_id = 0;
         let mut dag_local_id = 1;
-        for (name, lengths) in self.outputs {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Output};
-            local_id += signal.size();
-            dag_local_id += signal.size();
-            instance.add_signal(signal);
+        for s in self.outputs {
+            if s.is_bus{
+                let bus_node = self.bus_connexions.get(&s.name).unwrap().inspect.goes_to;
+                let info_bus = buses_info.get(bus_node).unwrap();
+                let size = s.length.iter().fold(info_bus.size, |p, c| p * (*c));
+                let bus = Bus{
+                    name: s.name,
+                    lengths: s.length,
+                    local_id,
+                    dag_local_id,
+                    bus_id: bus_node,
+                    size,
+                    xtype: Output,
+                };
+                local_id += bus.size;
+                dag_local_id += bus.size;
+                instance.add_signal(Wire::TBus(bus));
+            } else{
+                let size = s.length.iter().fold(1, |p, c| p * (*c));
+                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Output, size};
+                local_id += signal.size;
+                dag_local_id += signal.size;
+                instance.add_signal(Wire::TSignal(signal));
+            }
         }
-        for (name, lengths) in public {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input};
-            local_id += signal.size();
-            dag_local_id += signal.size();
-            instance.add_signal(signal);
+
+        for s in public {
+            if s.is_bus{
+                let bus_node = self.bus_connexions.get(&s.name).unwrap().inspect.goes_to;
+                let info_bus = buses_info.get(bus_node).unwrap();
+                let size = s.length.iter().fold(info_bus.size, |p, c| p * (*c));
+                let bus = Bus{
+                    name: s.name,
+                    lengths: s.length,
+                    local_id,
+                    dag_local_id,
+                    bus_id: bus_node,
+                    size,
+                    xtype: Input,
+                };
+                local_id += bus.size;
+                dag_local_id += bus.size;
+                instance.add_signal(Wire::TBus(bus));
+            } else{
+                let size = s.length.iter().fold(1, |p, c| p * (*c));
+                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Input, size};
+                local_id += signal.size;
+                dag_local_id += signal.size;
+                instance.add_signal(Wire::TSignal(signal));
+            }
         }
-        for (name, lengths) in not_public {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Input};
-            local_id += signal.size();
-            dag_local_id += signal.size();
-            instance.add_signal(signal);
+        for s in not_public {
+            if s.is_bus{
+                let bus_node = self.bus_connexions.get(&s.name).unwrap().inspect.goes_to;
+                let info_bus = buses_info.get(bus_node).unwrap();
+                let size = s.length.iter().fold(info_bus.size, |p, c| p * (*c));
+                let bus = Bus{
+                    name: s.name,
+                    lengths: s.length,
+                    local_id,
+                    dag_local_id,
+                    bus_id: bus_node,
+                    size,
+                    xtype: Input,
+                };
+                local_id += bus.size;
+                dag_local_id += bus.size;
+                instance.add_signal(Wire::TBus(bus));
+            } else{
+                let size = s.length.iter().fold(1, |p, c| p * (*c));
+                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Input, size};
+                local_id += signal.size;
+                dag_local_id += signal.size;
+                instance.add_signal(Wire::TSignal(signal));
+            }
         }
-        for (name, lengths) in self.intermediates {
-            let signal = Signal { name, lengths, local_id, dag_local_id, xtype: Intermediate};
-            local_id += signal.size();
-            dag_local_id += signal.size();
-            instance.add_signal(signal);
+        for s in self.intermediates {
+            if s.is_bus{
+                let bus_node = self.bus_connexions.get(&s.name).unwrap().inspect.goes_to;
+                let info_bus = buses_info.get(bus_node).unwrap();
+                let size = s.length.iter().fold(info_bus.size, |p, c| p * (*c));
+                let bus = Bus{
+                    name: s.name,
+                    lengths: s.length,
+                    local_id,
+                    dag_local_id,
+                    bus_id: bus_node,
+                    size,
+                    xtype: Intermediate,
+                };
+                local_id += bus.size;
+                dag_local_id += bus.size;
+                instance.add_signal(Wire::TBus(bus));
+            } else{
+                let size = s.length.iter().fold(1, |p, c| p * (*c));
+                let signal = Signal { name: s.name, lengths: s.length, local_id, dag_local_id, xtype: Intermediate, size};
+                local_id += signal.size;
+                dag_local_id += signal.size;
+                instance.add_signal(Wire::TSignal(signal));
+            }
         }
 
         instance
     }
+    
 }
 
 struct SignalConfig<'a> {
@@ -411,7 +533,8 @@ struct SignalConfig<'a> {
     dimensions: &'a [usize],
 }
 struct State {
-    name: String,
+    basic_name: String, //Only name without array accesses [].
+    name: String, //Full name with array accesses.
     dim: usize,
 }
 fn generate_symbols(dag: &mut DAG, state: State, config: &SignalConfig) {
@@ -427,8 +550,80 @@ fn generate_symbols(dag: &mut DAG, state: State, config: &SignalConfig) {
         let mut index = 0;
         while index < config.dimensions[state.dim] {
             let new_state =
-                State { name: format!("{}[{}]", state.name, index), dim: state.dim + 1 };
+                State { basic_name: state.basic_name.clone(), name: format!("{}[{}]", state.name, index), dim: state.dim + 1 };
             generate_symbols(dag, new_state, config);
+            index += 1;
+        }
+    }
+}
+
+// TODO: move to bus?
+fn generate_bus_symbols(dag: &mut DAG, state: State, config: &SignalConfig, bus_connexions: &HashMap<String, BusConnexion>, buses: &Vec<ExecutedBus>) {
+    let bus_connection = bus_connexions.get(&state.basic_name).unwrap();
+    let ex_bus2 = buses.get(bus_connection.inspect.goes_to).unwrap();
+    if state.dim == config.dimensions.len() {
+        for info_field in ex_bus2.fields(){
+            let signal_name = format!("{}.{}",state.name, info_field.name);
+            let state = State { basic_name: info_field.name.clone(), name: signal_name, dim: 0 };
+            let config = SignalConfig { signal_type: config.signal_type, dimensions: &info_field.length, is_public: config.is_public };
+            if info_field.is_bus{
+                generate_bus_symbols(dag, state, &config, ex_bus2.bus_connexions(), buses);
+            } else{
+                generate_symbols(dag, state, &config);
+            }
+        }
+
+    } else {
+        let mut index = 0;
+        while index < config.dimensions[state.dim] {
+            let new_state =
+                State { basic_name: state.basic_name.clone(), name: format!("{}[{}]", state.name, index), dim: state.dim + 1 };
+            generate_bus_symbols(dag, new_state, config, bus_connexions, buses);
+            index += 1;
+        }
+    }
+}
+
+
+struct OrderedSignalConfig<'a> {
+    dimensions: &'a [usize],
+}
+fn generate_ordered_symbols(dag: &mut DAG, state: State, config: &OrderedSignalConfig) {
+    if state.dim == config.dimensions.len() {
+        dag.add_ordered_signal(state.name);
+    } else {
+        let mut index = 0;
+        while index < config.dimensions[state.dim] {
+            let new_state =
+                State { basic_name: state.basic_name.clone(), name: format!("{}[{}]", state.name, index), dim: state.dim + 1 };
+            generate_ordered_symbols(dag, new_state, config);
+            index += 1;
+        }
+    }
+}
+
+// TODO: move to bus?
+fn generate_ordered_bus_symbols(dag: &mut DAG, state: State, config: &OrderedSignalConfig, bus_connexions: &HashMap<String, BusConnexion>, buses: &Vec<ExecutedBus>) {
+    let bus_connection = bus_connexions.get(&state.basic_name).unwrap();
+    let ex_bus2 = buses.get(bus_connection.inspect.goes_to).unwrap();
+    if state.dim == config.dimensions.len() {
+        for info_field in ex_bus2.fields(){
+            let signal_name = format!("{}.{}",state.name, info_field.name);
+            let state = State { basic_name: info_field.name.clone(), name: signal_name, dim: 0 };
+            let config = OrderedSignalConfig {dimensions: &info_field.length };
+            if info_field.is_bus{
+                generate_ordered_bus_symbols(dag, state, &config, ex_bus2.bus_connexions(), buses);
+            } else{
+                generate_ordered_symbols(dag, state, &config);
+            }
+        }
+
+    } else {
+        let mut index = 0;
+        while index < config.dimensions[state.dim] {
+            let new_state =
+                State { basic_name: state.basic_name.clone(), name: format!("{}[{}]", state.name, index), dim: state.dim + 1 };
+            generate_ordered_bus_symbols(dag, new_state, config, bus_connexions, buses);
             index += 1;
         }
     }

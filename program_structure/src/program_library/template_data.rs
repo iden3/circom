@@ -1,13 +1,10 @@
 use super::ast;
 use super::ast::{FillMeta, Statement};
-use super::file_definition::FileID;
-use crate::file_definition::FileLocation;
-use std::collections::{HashMap, HashSet, BTreeMap};
+use super::file_definition::{FileID, FileLocation};
+use super::wire_data::*;
+use std::collections::{HashMap};
 
 pub type TemplateInfo = HashMap<String, TemplateData>;
-pub type TagInfo = HashSet<String>;
-type SignalInfo = BTreeMap<String, (usize, TagInfo)>;
-type SignalDeclarationOrder = Vec<(String, usize)>;
 
 #[derive(Clone)]
 pub struct TemplateData {
@@ -17,13 +14,13 @@ pub struct TemplateData {
     num_of_params: usize,
     name_of_params: Vec<String>,
     param_location: FileLocation,
-    input_signals: SignalInfo,
-    output_signals: SignalInfo,
+    input_wires: WireInfo,
+    output_wires: WireInfo,
     is_parallel: bool,
     is_custom_gate: bool,
     /* Only used to know the order in which signals are declared.*/
-    input_declarations: SignalDeclarationOrder,
-    output_declarations: SignalDeclarationOrder,
+    input_declarations: WireDeclarationOrder,
+    output_declarations: WireDeclarationOrder,
 }
 
 impl TemplateData {
@@ -39,11 +36,11 @@ impl TemplateData {
         is_custom_gate: bool,
     ) -> TemplateData {
         body.fill(file_id, elem_id);
-        let mut input_signals = SignalInfo::new();
-        let mut output_signals = SignalInfo::new();
-        let mut input_declarations =  SignalDeclarationOrder::new();
-        let mut output_declarations = SignalDeclarationOrder::new();
-        fill_inputs_and_outputs(&body, &mut input_signals, &mut output_signals, &mut input_declarations, &mut output_declarations);
+        let mut input_wires = WireInfo::new();
+        let mut output_wires = WireInfo::new();
+        let mut input_declarations = WireDeclarationOrder::new();
+        let mut output_declarations = WireDeclarationOrder::new();
+        fill_inputs_and_outputs(&body, &mut input_wires, &mut output_wires, &mut input_declarations, &mut output_declarations);
         TemplateData {
             name,
             file_id,
@@ -51,8 +48,8 @@ impl TemplateData {
             num_of_params,
             name_of_params,
             param_location,
-            input_signals,
-            output_signals,
+            input_wires,
+            output_wires,
             is_parallel,
             is_custom_gate,
             input_declarations,
@@ -67,12 +64,12 @@ impl TemplateData {
         num_of_params: usize,
         name_of_params: Vec<String>,
         param_location: FileLocation,
-        input_signals: SignalInfo,
-        output_signals: SignalInfo,
+        input_wires: WireInfo,
+        output_wires: WireInfo,
         is_parallel: bool,
         is_custom_gate: bool,
-        input_declarations :SignalDeclarationOrder,
-        output_declarations : SignalDeclarationOrder
+        input_declarations: WireDeclarationOrder,
+        output_declarations: WireDeclarationOrder
     ) -> TemplateData {
         TemplateData {
             name,
@@ -81,8 +78,8 @@ impl TemplateData {
             num_of_params,
             name_of_params,
             param_location,
-            input_signals,
-            output_signals,
+            input_wires,
+            output_wires,
             is_parallel,
             is_custom_gate,
             input_declarations,
@@ -123,22 +120,22 @@ impl TemplateData {
     pub fn get_name_of_params(&self) -> &Vec<String> {
         &self.name_of_params
     }
-    pub fn get_input_info(&self, name: &str) -> Option<&(usize, TagInfo)> {
-        self.input_signals.get(name)
+    pub fn get_input_info(&self, name: &str) -> Option<&WireData> {
+        self.input_wires.get(name)
     }
-    pub fn get_output_info(&self, name: &str) -> Option<&(usize, TagInfo)> {
-        self.output_signals.get(name)
+    pub fn get_output_info(&self, name: &str) -> Option<&WireData> {
+        self.output_wires.get(name)
     }
-    pub fn get_inputs(&self) -> &SignalInfo {
-        &self.input_signals
+    pub fn get_inputs(&self) -> &WireInfo {
+        &self.input_wires
     }
-    pub fn get_outputs(&self) -> &SignalInfo {
-        &self.output_signals
+    pub fn get_outputs(&self) -> &WireInfo {
+        &self.output_wires
     }
-    pub fn get_declaration_inputs(&self) -> &SignalDeclarationOrder {
-        &&self.input_declarations
+    pub fn get_declaration_inputs(&self) -> &WireDeclarationOrder {
+        &self.input_declarations
     }
-    pub fn get_declaration_outputs(&self) -> &SignalDeclarationOrder {
+    pub fn get_declaration_outputs(&self) -> &WireDeclarationOrder {
         &self.output_declarations
     }
     pub fn get_name(&self) -> &str {
@@ -154,51 +151,78 @@ impl TemplateData {
 
 fn fill_inputs_and_outputs(
     template_statement: &Statement,
-    input_signals: &mut SignalInfo,
-    output_signals: &mut SignalInfo,
-    input_declarations : &mut SignalDeclarationOrder,
-    output_declarations : &mut SignalDeclarationOrder
+    input_wires: &mut WireInfo,
+    output_wires: &mut WireInfo,
+    input_declarations: &mut WireDeclarationOrder,
+    output_declarations: &mut WireDeclarationOrder
 ) {
+    use Statement::*;
     match template_statement {
-        Statement::IfThenElse { if_case, else_case, .. } => {
-            fill_inputs_and_outputs(if_case, input_signals, output_signals, input_declarations, output_declarations);
+        IfThenElse { if_case, else_case, .. } => {
+            fill_inputs_and_outputs(if_case, input_wires, output_wires, input_declarations, output_declarations);
             if let Option::Some(else_value) = else_case {
-                fill_inputs_and_outputs(else_value, input_signals, output_signals, input_declarations, output_declarations);
+                fill_inputs_and_outputs(else_value, input_wires, output_wires, input_declarations, output_declarations);
             }
         }
-        Statement::Block { stmts, .. } => {
+        Block { stmts, .. } => {
             for stmt in stmts.iter() {
-                fill_inputs_and_outputs(stmt, input_signals, output_signals, input_declarations, output_declarations);
+                fill_inputs_and_outputs(stmt, input_wires, output_wires, input_declarations, output_declarations);
             }
         }
-        Statement::While { stmt, .. } => {
-            fill_inputs_and_outputs(stmt, input_signals, output_signals, input_declarations, output_declarations);
+        While { stmt, .. } => {
+            fill_inputs_and_outputs(stmt, input_wires, output_wires, input_declarations, output_declarations);
         }
-        Statement::InitializationBlock { initializations, .. } => {
+        InitializationBlock { initializations, .. } => {
             for initialization in initializations.iter() {
-                fill_inputs_and_outputs(initialization, input_signals, output_signals, input_declarations, output_declarations);
+                fill_inputs_and_outputs(initialization, input_wires, output_wires, input_declarations, output_declarations);
             }
         }
-        Statement::Declaration { xtype, name, dimensions, .. } => {
-            if let ast::VariableType::Signal(stype, tag_list) = xtype {
-                let signal_name = name.clone();
-                let dim = dimensions.len();
-                let mut tag_info = HashSet::new();
-                for tag in tag_list{
-                    tag_info.insert(tag.clone());
-                }
+        Declaration { xtype, name, dimensions, .. } => {
+            match xtype {
+                ast::VariableType::Signal(stype, tag_list) => {
+                    let wire_name = name.clone();
+                    let dim = dimensions.len();
+                    let mut tag_info = TagInfo::new();
+                    for tag in tag_list{
+                        tag_info.insert(tag.clone());
+                    }
+                    let wire_data = WireData::new(WireType::Signal,dim,tag_info);
 
-                match stype {
-                    ast::SignalType::Input => {
-                        input_signals.insert(signal_name.clone(), (dim, tag_info));
-                        input_declarations.push((signal_name,dim));
+                    match stype {
+                        ast::SignalType::Input => {
+                            input_wires.insert(wire_name.clone(), wire_data);
+                            input_declarations.push((wire_name,dim));
+                        }
+                        ast::SignalType::Output => {
+                            output_wires.insert(wire_name.clone(), wire_data);
+                            output_declarations.push((wire_name,dim));
+                        }
+                        _ => {} //no need to deal with intermediate signals
                     }
-                    ast::SignalType::Output => {
-                        output_signals.insert(signal_name.clone(), (dim, tag_info));
-                        output_declarations.push((signal_name,dim));
+                },
+                ast::VariableType::Bus(tname, stype, tag_list) => {
+                    let wire_name = name.clone();
+                    let dim = dimensions.len();
+                    let type_name = tname.clone();
+                    let mut tag_info = TagInfo::new();
+                    for tag in tag_list{
+                        tag_info.insert(tag.clone());
                     }
-                    _ => {} //no need to deal with intermediate signals
-                }
+                    let wire_data = WireData::new(WireType::Bus(type_name),dim,tag_info);
+
+                    match stype {
+                        ast::SignalType::Input => {
+                            input_wires.insert(wire_name.clone(), wire_data);
+                            input_declarations.push((wire_name,dim));
+                        }
+                        ast::SignalType::Output => {
+                            output_wires.insert(wire_name.clone(), wire_data);
+                            output_declarations.push((wire_name,dim));
+                        }
+                        _ => {} //no need to deal with intermediate signals
+                    }
+                },
+                _ => {},
             }
         }
         _ => {}

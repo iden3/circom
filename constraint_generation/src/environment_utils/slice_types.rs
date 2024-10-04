@@ -1,4 +1,5 @@
 pub use super::component_representation::ComponentRepresentation;
+pub use super::bus_representation::BusRepresentation;
 pub use super::memory_slice::MemorySlice;
 pub use super::memory_slice::{MemoryError, TypeInvalidAccess, TypeAssignmentError, SliceCapacity};
 pub use circom_algebra::algebra::ArithmeticExpression;
@@ -17,3 +18,30 @@ pub type AExpressionSlice = MemorySlice<ArithmeticExpression<String>>;
 // The boolean is true if the signal contains a value
 pub type SignalSlice = MemorySlice<bool>;
 pub type ComponentSlice = MemorySlice<ComponentRepresentation>;
+
+// To store the buses, similar to the components
+pub type BusSlice = MemorySlice<BusRepresentation>;
+
+// To store the fields of a bus
+#[derive(Clone)]
+pub enum FieldTypes { // For each field, we store the info depending on if it is a signal o a bus
+                    // Depending on the case we store a different slice
+    Signal(SignalSlice),
+    Bus(BusSlice),
+}
+
+#[derive(Clone)]
+pub enum FoldedResult { // For each possible returning value, we store the info depending on if it is a signal o a bus
+    // Depending on the case we store a different slice
+    Signal(SignalSlice),
+    Bus(BusSlice),
+    Tag(BigInt)
+}
+
+
+pub enum FoldedArgument<'a> { // For each possible argument, we store the info depending on if it is a signal o a bus
+    // Depending on the case we store a different slice
+    Signal(&'a Vec<usize>),
+    Bus(&'a BusSlice),
+    Tag(&'a BigInt)
+}

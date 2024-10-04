@@ -25,18 +25,122 @@ impl PartialEq for Argument {
 }
 
 #[derive(Clone)]
+pub enum Wire{
+    TSignal(Signal),
+    TBus(Bus)
+}
+impl Wire {
+
+    pub fn xtype(&self) -> SignalType {
+        match self{
+            Wire::TSignal(s) => {
+                s.xtype
+            },
+            Wire::TBus(s) => {
+                s.xtype
+            },
+        }
+    }
+    pub fn name(&self) -> &String {
+        match self{
+            Wire::TSignal(s) => {
+                &s.name
+            },
+            Wire::TBus(s) => {
+                &s.name
+            },
+        }
+    }
+    pub fn lengths(&self) -> &Vec<usize> {
+        match self{
+            Wire::TSignal(s) => {
+                &s.lengths
+            },
+            Wire::TBus(s) => {
+                &s.lengths
+            },
+        }
+    }
+    pub fn local_id(&self) -> usize {
+        match self{
+            Wire::TSignal(s) => {
+                s.local_id
+            },
+            Wire::TBus(s) => {
+                s.local_id
+            },
+        }
+    }
+    pub fn dag_local_id(&self) -> usize {
+        match self{
+            Wire::TSignal(s) => {
+                s.dag_local_id
+            },
+            Wire::TBus(s) => {
+                s.dag_local_id
+            },
+        }
+    }
+    pub fn size(&self) -> usize {
+        match self{
+            Wire::TSignal(s) => {
+                s.size
+            },
+            Wire::TBus(s) => {
+                s.size
+            },
+        }
+    }
+    pub fn bus_id(&self) -> Option<usize> {
+        match self{
+            Wire::TSignal(_s) => {
+                None
+            },
+            Wire::TBus(s) => {
+                Some(s.bus_id)
+            },
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct Signal {
     pub name: String,
     pub lengths: Vec<Length>,
     pub xtype: SignalType,
     pub local_id: usize,
     pub dag_local_id: usize,
+    pub size: usize,
 }
 
-impl Signal {
-    pub fn size(&self) -> usize {
-        self.lengths.iter().fold(1, |p, c| p * (*c))
-    }
+
+#[derive(Clone)]
+pub struct Bus{
+    pub name: String,
+    pub lengths: Vec<Length>,
+    pub xtype: SignalType,
+    pub local_id: usize,
+    pub dag_local_id: usize,
+    pub bus_id: usize, // position of the bus in the table of the buses
+    pub size: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct FieldInfo{
+    pub field_id: usize,
+    pub offset: usize,
+    pub dimensions: Vec<usize>,
+    pub size: usize,
+    pub bus_id: Option<usize>, // indicates the position of the bus in the table    
+}
+
+
+
+#[derive(Clone, Debug)]
+pub struct BusInstance{
+    pub name: String,
+    pub size: usize,
+    pub fields: BTreeMap<String, FieldInfo>,
 }
 
 #[derive(Clone)]
@@ -59,7 +163,7 @@ pub struct Trigger {
     pub template_id: usize,
     pub component_name: String,
     pub indexed_with: Vec<usize>,
-    pub external_signals: Vec<Signal>,
+    pub external_wires: Vec<Wire>,
     pub has_inputs: bool,
     pub is_parallel: bool,
 }
@@ -91,7 +195,7 @@ pub struct TemplateInstance {
     pub number_of_inputs: usize,
     pub number_of_outputs: usize,
     pub number_of_intermediates: usize,
-    pub signals: Vec<Signal>,
+    pub wires: Vec<Wire>,
     pub signals_to_tags: BTreeMap<String, TagInfo>,
     pub components: Vec<Component>,
     pub number_of_components: usize,
@@ -130,7 +234,7 @@ impl TemplateInstance {
             number_of_outputs: 0,
             number_of_intermediates: 0,
             number_of_components: config.number_of_components,
-            signals: Vec::new(),
+            wires: Vec::new(),
             components: config.components,
             triggers: config.triggers,
             clusters: config.clusters,
@@ -138,10 +242,10 @@ impl TemplateInstance {
         }
     }
 
-    pub fn add_signal(&mut self, signal: Signal) {
+    pub fn add_signal(&mut self, wire: Wire) {
         use SignalType::*;
-        let new_signals = signal.lengths.iter().fold(1, |r, c| r * (*c));
-        match signal.xtype {
+        let new_signals = wire.size();
+        match wire.xtype() {
             Input => {
                 self.number_of_inputs += new_signals;
             }
@@ -152,7 +256,7 @@ impl TemplateInstance {
                 self.number_of_intermediates += new_signals;
             }
         }
-        self.signals.push(signal);
+        self.wires.push(wire);
     }
 }
 
@@ -188,6 +292,8 @@ pub struct VCPConfig {
     pub templates_in_mixed: Vec<usize>,
     pub program: ProgramArchive,
     pub prime: String,
+    pub buses: Vec<BusInstance>,
+
 }
 
 #[derive(Clone)]
@@ -201,6 +307,8 @@ pub struct VCP {
     pub quick_knowledge: HashMap<String, VCT>,
     pub templates_in_mixed: Vec<usize>,
     pub prime: String,
+    pub buses: Vec<BusInstance>,
+
 }
 impl VCP {
     pub fn new(config: VCPConfig) -> VCP {
@@ -214,6 +322,7 @@ impl VCP {
             functions: vec![],
             quick_knowledge: HashMap::new(),
             prime: config.prime,
+            buses: config.buses
         };
         super::merger::run_preprocessing(&mut vcp, config.program);
         vcp

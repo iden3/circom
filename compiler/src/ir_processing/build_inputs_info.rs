@@ -96,9 +96,14 @@ pub fn visit_call(
     inside_loop: bool
 )-> bool {
     use ReturnType::*;
-
     if let Final(data) = &mut bucket.return_info {
-        if data.context.size > 0{
+        let needs_consider = match data.context.size{
+            SizeOption::Single(value) if value == 0 =>{
+                false
+            }
+            _ => true
+        };
+        if needs_consider{
             visit_address_type(
                 &mut data.dest_address_type, 
                 known_last_component,
@@ -216,7 +221,13 @@ pub fn visit_store(
     found_unknown_address: bool,
     inside_loop: bool
 )-> bool{
-    if bucket.context.size > 0{
+    let needs_consider = match bucket.context.size{
+        SizeOption::Single(value) if value == 0 =>{
+            false
+        }
+        _ => true
+    };
+    if needs_consider{
         visit_address_type(
             &mut bucket.dest_address_type, 
             known_last_component,

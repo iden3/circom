@@ -1,6 +1,6 @@
 [package]
 name = "dag"
-version = "2.1.8"
+version = "2.2.0"
 authors = ["Costa Group UCM","iden3"]
 edition = "2018"
 

@@ -189,6 +189,9 @@ fn apply_computed_expr(expr: &mut Expression, analysis: &Analysis) {
             *rhe = Box::new(computed_or_original(analysis, rhe));
             apply_computed_expr(rhe, analysis);
         }
+        BusCall{args, ..} =>{
+            apply_computed_expr_vec(args, analysis);
+        }
         _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
     }
 }

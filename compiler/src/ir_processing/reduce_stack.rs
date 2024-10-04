@@ -159,15 +159,31 @@ pub fn reduce_location_rule(lc: LocationRule) -> LocationRule {
             let location = Allocate::allocate(reduce_instruction(*location));
             Indexed { location, template_header }
         }
-        Mapped { signal_code, indexes } => {
-            let no_indexes = InstructionList::len(&indexes);
-            let work = indexes;
-            let mut indexes = InstructionList::with_capacity(no_indexes);
-            for index in work {
-                let index = Allocate::allocate(reduce_instruction(*index));
-                InstructionList::push(&mut indexes, index);
+        Mapped { signal_code, indexes: accesses } => {
+            let no_accesses = accesses.len();
+            let work_accesses = accesses;
+            let mut accesses = Vec::with_capacity(no_accesses);
+            for acc in work_accesses{
+                match acc{
+                    AccessType::Indexed(indexes) =>{
+                        let no_indexes = InstructionList::len(&indexes.indexes);
+                        let work = indexes.indexes;
+                        let symbol_dim = indexes.symbol_dim;
+                        let mut indexes = InstructionList::with_capacity(no_indexes);
+                        for index in work {
+                            let index = Allocate::allocate(reduce_instruction(*index));
+                            InstructionList::push(&mut indexes, index);
+                        }
+                        accesses.push(AccessType::Indexed(IndexedInfo{indexes, symbol_dim}));
+                    }
+                    AccessType::Qualified(_) =>{
+                        accesses.push(acc);
+
+                    }
+                }
             }
-            Mapped { signal_code, indexes }
+            
+            Mapped { signal_code, indexes: accesses }
         }
     }
 }
