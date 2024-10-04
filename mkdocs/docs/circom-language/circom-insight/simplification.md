@@ -2,7 +2,7 @@
 
 Constraint simplification is a key part of the `circom` compiler. A fast simplification `--O1` is activated by default (it only applies constant and renaming simplifications), and its associated flag is `--O1` (see the [compilation options](../../getting-started/compilation-options.md)). Simplification is not applied when the flag `--O0` is activated, and a full form of simplification is applied when using the flag `--O2`.
 
-Let us explain the performed simplification in detail.
+Let us explain the kind of simplification we can perform in detail.
 
 As pointed out in Section 2.3 (Quadratic arithmetic programs) of the [Groth16 paper](https://eprint.iacr.org/2016/260) (where ZK-SNARKs based on arithmetic circuits were introduced): 
 
