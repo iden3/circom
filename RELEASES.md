@@ -2,9 +2,12 @@
 ## October 04, 2024 circom 2.2.0
 #### New features
 - Buses: more information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/buses.md).
-  
+
+#### Changes
+- input/output keywords are the first token in declarations (though having it after "signal" is still accepted).
+- The default option for constraint simplification is --O1 (instead of --O2 which was the default until now). More information in [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/circom-insight/simplification.md).
+
 #### Extensions
-- input/output declaration can now be made before signal keyword, though the previous way remains supported.
 - Allowing array assignments of different sizes. 
 - Improving error reports when parsing.
 - Improving documentation.
