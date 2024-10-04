@@ -758,15 +758,7 @@ Expression0: Expression = {
     => build_number(Meta::new(s,e),value, field),
 
     "(" <ParseExpression> ")",
-
-    <!> => match <>.error {
-        ParseError::UnrecognizedToken { ref token, .. } => {
-            errors.push(produce_report(ReportCode::IllegalExpression, token.0..token.2, file_id));
-            // doesn't matter
-            build_number(Meta::new(0,0),BigInt::from(0), field)
-        }
-        _ => unreachable!(),
-    }
+    
 };
 
 // ====================================================================
