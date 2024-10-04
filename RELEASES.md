@@ -1,4 +1,21 @@
 # Release notes
+## October 04, 2024 circom 2.2.0
+#### New features
+- Buses: more information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/buses.md).
+  
+#### Extensions
+- input/output declaration can now be made before signal keyword, though the previous way remains supported.
+- Allowing array assignments of different sizes. 
+- Improving error reports when parsing.
+- Improving documentation.
+  
+#### Fixed bugs
+- Main with no inputs is now executed once.
+- Fixing complement function to depend on the prime number used.
+- Applying modulo prime number to any constant in the circuit.
+- Fixing minor panic: the number of signals passed to the anonymous component must be equal to the actual number of inputs.
+
+
 ## April 23, 2024 circom 2.1.9
 
 #### Extensions 
