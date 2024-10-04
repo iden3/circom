@@ -20,7 +20,7 @@ bus NameBus(param1,...,paramN){
 In many circuits we have pairs of signals `x` and `y`, which represent the two components of a point. With the new bus feature, we can define a `Point` bus as follows:
 
 ```
-bus Point{
+bus Point(){
     signal x;
     signal y;
 }
@@ -32,8 +32,8 @@ Using buses, we can modify many templates from the circomlib to make them more r
 
 ```
 template Edwards2Montgomery () {
- Point input { edwards_point } in ;
- Point output { montgomery_point } out ;
+ input Point() { edwards_point } in ;
+ output Point() { montgomery_point } out ;
 
  out.x <–- (1 + in.y ) / (1 - in.y ) ;
  out.y <–- out.x / in.x ;
@@ -51,7 +51,7 @@ But now, we can tag each bus with the corresponding expected format.
 Besides tagging buses defined in a template, we can also tag their different fields. Let us see this feature in the following example:
 
 ```
-bus Book {
+bus Book () {
     signal {maxvalue} title[50];
     signal {maxvalue} author[50];
     signal {maxvalue} sold_copies;
@@ -64,8 +64,8 @@ signal arrays  `title` and `author` whose letters have a maximum value, the numb
 
 ``` 
 template BestSeller2024(){
-    Book input book;
-    Book output {best_seller2024} best_book;
+    input Book() book;
+    output Book() {best_seller2024} best_book;
     signal check_copies <== LessThan(book.sold_copies.maxvalue)([1000000,book.sold_copies]);
     check_copies === 1;
     signal check_2024 <== IsEqual()([book.year,2024]);
@@ -86,13 +86,13 @@ bus B1(){
     signal x;
 }
 
-bus B2{
+bus B2() {
     signal x;
 }
 
 template B1toB2(){
-    B1 input b1;
-    B2 output b2;
+    input B1() b1;
+    output B2() b2;
     b2 <== b1;
 }
 
@@ -114,22 +114,22 @@ Consider again the `BestSeller2024` template and a possible instantiation: `Book
 We can have buses inside the definition other buses, as long as we do not define buses  recursively. To illustrate this, let us consider now, a new kind of bus, `Person`, which contains some information about a person:
 
 ```
-bus Film{
+bus Film() {
     signal title[50];
     signal director[50];
     signal year;
 }
 
-bus Date{
+bus Date() {
     signal day;
     signal month;
     signal year;
 }
 
-bus Person{
+bus Person() {
     signal name[50];
-    Film films[10];
-    Date birthday;
+    Film() films[10];
+    Date() birthday;
 }
 ```
 
@@ -139,7 +139,7 @@ Buses can have parameters as well. These parameters must be known during compila
 Let us generalize the `Point` bus for a given dimension. 
 
 ```
-bus Point(dim){
+bus PointN(dim){
     signal x[dim];
 }
 ```
@@ -172,8 +172,8 @@ We define a `Triangle2D` bus with three lines whose points are 2-dimensional, an
 
 ```
 template well_defined_figure(num_sides, dimension){
-    Figure(num_sides,dimension) input t;
-    Figure(num_sides,dimension) {correct_t} output t;
+    input Figure(num_sides,dimension) t;
+    output Figure(num_sides,dimension) {well_defined} correct_t;
     var all_equals = 0;
     var isequal = 0;
     for(var i = 0; i < num_sides; i=i+1){
@@ -197,22 +197,22 @@ Similar to signals, buses can be part of the main circuit's inputs. Therefore, w
   
 Let us consider again the `Person` bus:
 ```
-bus Film{
+bus Film() {
     signal title[2];
     signal director[2];
     signal year;
 }
 
-bus Date{
+bus Date() {
     signal day;
     signal month;
     signal year;
 }
 
-bus Person{
+bus Person() {
     signal name[2];
-    Film films[2];
-    Date birthday;
+    Film() films[2];
+    Date() birthday;
 }
 ```
 
