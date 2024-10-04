@@ -39,7 +39,7 @@ In the following, we explain these options.
 ##### Flags and options related to the compiler's output
 * Flag ```--r1cs``` outputs the constraints in binary R1CS format (see the detailed format [here](https://github.com/iden3/r1csfile/blob/master/doc/r1cs_bin_format.md)).
 * Flag ```--sym``` outputs for every signal of the circuit: the unique number given by the compiler, the circom qualified name, the number of the witness signal that contains it and the (unique) number of the component (given by the compiler) it belongs (see the detailed format and examples [here](../circom-language/formats/sym.md)).
-* Flag ```--simplification_substitution``` outputs the substitutions performed by the --O1 and --O2 (default) constraint simplification options in json format (see the detailed format [here](../circom-language/formats/simplification-json.md)).
+* Flag ```--simplification_substitution``` outputs the substitutions performed by the --O1 (default) and --O2 constraint simplification options in json format (see the detailed format [here](../circom-language/formats/simplification-json.md)).
 * Flag ```--wasm``` produces a WebAssembly program that receives the private and public inputs and generates the circuit witness.
 * Flag ```-c / --c``` produces a C++ program that receives the private and public inputs and generates the circuit witness.
 * Flag ```--wat``` compiles the circuit to wat.

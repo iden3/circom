@@ -30,6 +30,10 @@ pub struct CProducer {
     pub patch_version: usize,
     name_tag: String,
     string_table: Vec<String>,
+    //New for buses
+    pub num_of_bus_instances: usize,  //total number of different bus instances
+    //pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances
+    pub busid_field_info: FieldMap, //for every busId (0..num-1) provides de offset, size, dimensions and busId of each field (0..n-1) in it
 }
 
 impl Default for CProducer {
@@ -38,26 +42,27 @@ impl Default for CProducer {
         my_map.insert(
             0,
             vec![
-                IODef { code: 0, offset: 0, lengths: [2, 3].to_vec() },
-                IODef { code: 1, offset: 6, lengths: [].to_vec() },
-                IODef { code: 2, offset: 7, lengths: [2].to_vec() },
+                IODef { code: 0, offset: 0, lengths: [2, 3].to_vec(), size: 6, bus_id:None },
+                IODef { code: 1, offset: 6, lengths: [].to_vec(), size: 1, bus_id:None },
+                IODef { code: 2, offset: 7, lengths: [2].to_vec(), size: 2, bus_id:None },
             ],
         );
         my_map.insert(
             1,
             vec![
-                IODef { code: 0, offset: 0, lengths: [3].to_vec() },
-                IODef { code: 1, offset: 3, lengths: [4, 8, 6].to_vec() },
+                IODef { code: 0, offset: 0, lengths: [3].to_vec(), size: 3, bus_id:None },
+                IODef { code: 1, offset: 3, lengths: [4, 8, 6].to_vec(), size: 192, bus_id:None },
             ],
         );
         my_map.insert(
             2,
             vec![
-                IODef { code: 0, offset: 0, lengths: [].to_vec() },
-                IODef { code: 1, offset: 1, lengths: [4].to_vec() },
-                IODef { code: 2, offset: 5, lengths: [2, 6].to_vec() },
+                IODef { code: 0, offset: 0, lengths: [].to_vec(), size: 1, bus_id:None },
+                IODef { code: 1, offset: 1, lengths: [4].to_vec(), size: 4, bus_id:None },
+                IODef { code: 2, offset: 5, lengths: [2, 6].to_vec(), size: 12, bus_id:None },
             ],
         );
+        
         CProducer {
             main_header: "Main_0".to_string(),
             main_is_parallel: false,
@@ -68,7 +73,22 @@ impl Default for CProducer {
             prime_str: "bn128".to_string(),
             number_of_main_outputs: 1,
             number_of_main_inputs: 2,
-            main_input_list: [("in1".to_string(), 2, 1), ("in2".to_string(), 3, 1)].to_vec(), //[].to_vec(),
+            main_input_list: [
+                InputInfo{
+                    name:"in1".to_string(), 
+                    size:1, 
+		    dimensions: Vec::new(),
+                    start: 2, 
+                    bus_id: None
+                },
+                InputInfo{
+                    name:"in2".to_string(), 
+                    size:1,
+		    dimensions: Vec::new(),
+                    start: 3, 
+                    bus_id: None
+                },
+            ].to_vec(),
             signals_in_witness: 20,
             witness_to_signal_list: [
                 0, 1, 2, 3, 4, 5, 6, 12, 16, 19, 24, 27, 33, 42, 46, 50, 51, 65, 78, 79,
@@ -96,6 +116,10 @@ impl Default for CProducer {
             patch_version: 0,
             name_tag: "name".to_string(),
             string_table: Vec::new(),
+            //New for buses
+	        num_of_bus_instances: 0,
+//	        size_of_bus_fields: 0,
+	        busid_field_info: Vec::new(), 
         }
     }
 }
@@ -134,9 +158,12 @@ impl CProducer {
     pub fn get_main_input_list(&self) -> &InputList {
         &self.main_input_list
     }
+//<<<<<<< HEAD  
+//=======
     pub fn get_input_hash_map_entry_size(&self) -> usize {
         std::cmp::max(usize::pow(2,(self.main_input_list.len() as f32).log2().ceil() as u32),256)
     }    
+//>>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
     pub fn get_number_of_witness(&self) -> usize {
         self.signals_in_witness
     }
@@ -178,4 +205,14 @@ impl CProducer {
     pub fn set_string_table(&mut self, string_table: Vec<String>) {
         self.string_table = string_table;
     }
+    
+    //New for buses
+    pub fn get_number_of_bus_instances(&self) -> usize {
+        self.num_of_bus_instances
+    }
+    
+    pub fn get_busid_field_info(&self) -> &FieldMap {
+        &self.busid_field_info
+    }
+    // end
 }

@@ -35,6 +35,7 @@ Circom_CalcWit::Circom_CalcWit (Circom_Circuit *aCircuit, uint maxTh) {
   componentMemory = new Circom_Component[get_number_of_components()];
   circuitConstants = circuit ->circuitConstants;
   templateInsId2IOSignalInfo = circuit -> templateInsId2IOSignalInfo;
+  busInsId2FieldInfo = circuit -> busInsId2FieldInfo;
 
   maxThread = maxTh;
 

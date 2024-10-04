@@ -4,7 +4,7 @@ use super::sugar_cleaner;
 use super::very_concrete_program::*;
 use program_structure::ast::*;
 use program_structure::program_archive::ProgramArchive;
-use num_traits::{ToPrimitive};
+use num_traits::ToPrimitive;
 
 
 pub fn run_preprocessing(vcp: &mut VCP, program_archive: ProgramArchive) {
@@ -22,13 +22,14 @@ fn produce_vcf(vcp: &VCP, state: &mut State) {
         let code = &n.code;
         let constants = &n.header;
         let params = vec![];
-        state.external_signals = build_component_info(&n.triggers);
+        state.external_signals = build_component_info(&n.triggers, &vcp.buses);
+        state.buses_info = build_buses_info(&n.wires, &vcp.buses);
         let mut env = build_environment(constants, &params);
         produce_vcf_stmt(code, state, &mut env);
     }
     let mut index = 0;
     while index < state.vcf_collector.len() {
-        state.external_signals = build_component_info(&vec![]);
+        state.external_signals = build_component_info(&vec![], &vcp.buses);
         let mut env = build_environment(&vec![], &state.vcf_collector[index].params_types);
         let body = state.vcf_collector[index].body.clone();
         produce_vcf_stmt(&body, state, &mut env);
@@ -39,7 +40,8 @@ fn produce_vcf(vcp: &VCP, state: &mut State) {
 fn link_circuit(vcp: &mut VCP, state: &mut State) {
     for node in &mut vcp.templates {
         let mut env = build_environment(&node.header, &vec![]);
-        state.external_signals = build_component_info(&node.triggers);
+        state.external_signals = build_component_info(&node.triggers, &vcp.buses);
+        state.buses_info = build_buses_info(&node.wires, &vcp.buses);
         link_stmt(&mut node.code, state, &mut env);
     }
     let mut linked_vcf_collector = state.vcf_collector.clone();
@@ -117,6 +119,7 @@ fn produce_vcf_stmt(stmt: &Statement, state: &mut State, environment: &mut E) {
 }
 
 fn produce_vcf_expr(expr: &Expression, state: &mut State, environment: &E) {
+
     if expr.is_infix() {
         produce_vcf_infix(expr, state, environment);
     } else if expr.is_prefix() {
@@ -133,6 +136,8 @@ fn produce_vcf_expr(expr: &Expression, state: &mut State, environment: &E) {
         produce_vcf_array(expr, state, environment);
     } else if expr.is_parallel(){
         produce_vcf_parallel(expr, state, environment);
+    } else if expr.is_bus_call(){
+        produce_vcf_bus_call(expr, state, environment);
     } else {
         unreachable!();
     }
@@ -189,6 +194,7 @@ fn produce_vcf_substitution(stmt: &Statement, state: &mut State, environment: &E
                 produce_vcf_expr(index, state, environment);
             }
         }
+        
     } else {
         unreachable!();
     }
@@ -274,6 +280,17 @@ fn produce_vcf_call(expr: &Expression, state: &mut State, environment: &E) {
         if state.generic_functions.contains_key(id) {
             let params = map_to_params(id, args, state, environment);
             add_instance(id, params, state);
+        }
+    } else {
+        unreachable!();
+    }
+}
+
+fn produce_vcf_bus_call(expr: &Expression, state: &mut State, environment: &E) {
+    use Expression::BusCall;
+    if let BusCall {  args, .. } = expr {
+        for arg in args {
+            produce_vcf_expr(arg, state, environment);
         }
     } else {
         unreachable!();
@@ -498,6 +515,8 @@ fn link_expression(expr: &mut Expression, state: &State, env: &E) {
         link_prefix(expr, state, env);
     } else if expr.is_parallel(){
         link_parallel(expr, state, env);
+    } else if expr.is_bus_call(){
+        link_bus_call(expr, state, env);
     } else {
         unreachable!();
     }
@@ -515,6 +534,17 @@ fn link_call(expr: &mut Expression, state: &State, env: &E) {
             let params = map_to_params(id, args, state, env);
             let (index, _) = look_for_existing_instance(id, &params, state).unwrap();
             *id = state.vcf_collector[index].header.clone();
+        }
+    } else {
+        unreachable!();
+    }
+}
+
+fn link_bus_call(expr: &mut Expression, state: &State, env: &E) {
+    use Expression::BusCall;
+    if let BusCall { args, .. } = expr {
+        for arg in args.iter_mut() {
+            link_expression(arg, state, env);
         }
     } else {
         unreachable!();
@@ -609,18 +639,53 @@ fn cast_type_variable(expr: &Expression, state: &State, environment: &E) -> VCT 
     if let Variable { name, access, .. } = expr {
         let mut xtype = environment.get_variable(name).unwrap().clone();
         xtype.reverse();
+        let mut possible_bus_info = if state.buses_info.contains_key(name){
+            Some(state.buses_info.get(name).unwrap())
+        } else{
+            None
+        };
         for acc in access {
             match acc {
                 Access::ArrayAccess(_) => {
                     xtype.pop();
                 }
                 Access::ComponentAccess(signal) => {
-                    xtype = state.external_signals.get(name).unwrap().get(signal).unwrap().clone();
-                    xtype.reverse();
+                    if possible_bus_info.is_some(){
+                        // case buses
+                        let bus = possible_bus_info.unwrap();
+                        if bus.signals.contains_key(signal){
+                            xtype = bus.signals.get(signal).unwrap().clone();
+                            xtype.reverse();
+                            possible_bus_info = None;
+                        } else{
+                            let aux_info =  bus.buses.get(signal).unwrap();
+                            xtype = aux_info.0.clone();
+                            xtype.reverse();
+                            possible_bus_info = Some(&aux_info.1);
+                        }
+                    } else{
+                        // case io component
+                        let (signals, buses) = state.external_signals.get(name).unwrap();
+                        if signals.contains_key(signal){
+                            // case io signal
+                            xtype = signals.get(signal).unwrap().clone();
+                            xtype.reverse();
+                            possible_bus_info = None;
+                        } else{
+                            // case io bus
+                            let aux_info =  buses.get(signal).unwrap();
+                            xtype = aux_info.0.clone();
+                            xtype.reverse();
+                            possible_bus_info = Some(&aux_info.1);
+                        }
+                    }
                 }
             }
         }
         xtype.reverse();
+        if possible_bus_info.is_some(){
+            xtype.push(possible_bus_info.unwrap().size);
+        }
         xtype
     } else {
         unreachable!();

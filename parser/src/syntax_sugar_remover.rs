@@ -236,6 +236,14 @@ pub fn check_anonymous_components_expression(
             }
             Result::Ok(())
         },
+        BusCall { meta, args, .. } => {
+            for value in args{
+                if value.contains_anonymous_comp() {
+                    return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used as a parameter in a bus call ".to_string()));
+                }
+            }
+            Result::Ok(())
+        },
         AnonymousComp {meta, params, signals, .. } => {
             for value in params{
                 if value.contains_anonymous_comp() {
@@ -497,19 +505,13 @@ pub fn remove_anonymous_from_expression(
             else{
                 let inputs = template.unwrap().get_declaration_inputs();
                 let mut n_expr = 0;
-
                 if inputs.len() != signals.len() {
                     return Result::Err(anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
                 }
-
                 for value in signals {
                     inputs_to_assignments.insert(inputs[n_expr].0.clone(), (AssignOp::AssignConstraintSignal, value));
                     n_expr += 1;
-                }
-                
-                if inputs.len() != inputs_to_assignments.len() {
-                    return Result::Err(anonymous_general_error(meta.clone(),"The number of template input signals must coincide with the number of input parameters ".to_string()));
-                }
+                }    
             }
             
 
@@ -764,6 +766,14 @@ pub fn check_tuples_expression(exp: &Expression) -> Result<(), Report>{
             }
             Result::Ok(())
         },
+        BusCall { meta, args, .. } => {
+            for value in args{
+                if value.contains_tuple() {
+                    return Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used as a parameter of a bus call".to_string()));       
+                }
+            }
+            Result::Ok(())
+        },
         AnonymousComp { .. } => {
             unreachable!();
         }
@@ -928,4 +938,3 @@ pub fn remove_tuple_from_expression(exp : Expression) -> Expression{
         _ => exp,
     }
 }
-

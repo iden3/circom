@@ -109,6 +109,14 @@ pub ParseMainComponent : MainComponent = {
        },
 };
 
+pub ParseParenthesisArguments : Vec<String> = {
+    "("  <arg_names: IdentifierListDef?>  ")" =>{
+        match arg_names {
+            None => Vec::new(),
+            Some(a) => a
+        }
+    },
+};
 
 pub ParseDefinition : Definition = {
     <s:@L> "function" <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?>  <arge:@R> ")" <body: ParseBlock> <e:@R>
@@ -118,13 +126,24 @@ pub ParseDefinition : Definition = {
         Some(a)
         => build_function(Meta::new(s,e),name,a,args..arge,body),
     },
-    <s:@L> "template" <custom_gate: "custom"?> <parallel: "parallel"?> <name: IDENTIFIER> "(" <args:@L> <arg_names: IdentifierListDef?> <arge:@R> ")" <body: ParseBlock> <e:@R>
+    <s:@L> "template" <custom_gate: "custom"?> <parallel: "parallel"?> <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R>  <body: ParseBlock> <e:@R>
     => match arg_names {
         None
         => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), custom_gate.is_some()),
         Some(a)
         => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), custom_gate.is_some()),
     },
+
+    <s:@L> "bus" <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R> <body: ParseBlock> <e:@R>
+    => {
+        match arg_names{
+            None =>
+                build_bus(Meta::new(s,e), name, Vec::new(), args..arge, body),
+            Some(a) =>
+                build_bus(Meta::new(s,e), name, a, args..arge, body),
+        }
+    },
+
 };
 
 
@@ -144,18 +163,72 @@ ParseSignalType: SignalType = {
     "output" => SignalType::Output
 };
 
-SignalHeader : VariableType = {
-    "signal"  <signal_type: ParseSignalType?> <tags_list: ParseTagsList?>
+
+
+ParseTagsVector: Vec<String> = {
+    <tags_list: ParseTagsList?>
     => {
-        let s = match signal_type {
+        match tags_list {
+            None => Vec::new(),
+            Some(tl) => tl,
+        }
+    }
+}
+
+SignalHeader : VariableType = {
+    "signal" <signal_type: ParseSignalType?> <tags_list: ParseTagsVector>
+    => {
+        let signal_type = match signal_type {
             None => SignalType::Intermediate,
             Some(st) => st,
         };
-        let t = match tags_list {
-            None => Vec::new(),
-            Some(tl) => tl,
+        VariableType::Signal(signal_type, tags_list)
+    },
+    <signal_type: ParseSignalType> "signal" <tags_list: ParseTagsVector>
+    => {
+        VariableType::Signal(signal_type, tags_list)
+    }
+};
+
+BusHeader : (Expression, VariableType) = {
+    <s:@L> <id: IDENTIFIER> <e:@R> <wire_type: ParseSignalType?> <tags_list: ParseTagsVector>
+    => {
+        let wire = match wire_type {
+            None => SignalType::Intermediate,
+            Some(st) => st,
         };
-        VariableType::Signal(s, t)
+        let bus_builder = build_bus_call(Meta::new(s,e),id.clone(),Vec::new());
+        (bus_builder, VariableType::Bus(id, wire, tags_list))
+    },
+
+    <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R> 
+                                    <wire_type: ParseSignalType?> <tags_list: ParseTagsVector>
+    => {
+        let wire = match wire_type {
+            None => SignalType::Intermediate,
+            Some(st) => st,
+        };
+        let bus_builder = match args {
+                            None => build_bus_call(Meta::new(s,e),id.clone(),Vec::new()),
+                            Some(a) => build_bus_call(Meta::new(s,e),id.clone(),a),
+                            };
+        (bus_builder,VariableType::Bus(id, wire, tags_list))
+    },
+
+    <wire: ParseSignalType> <s:@L> <id: IDENTIFIER> <e:@R> <tags_list: ParseTagsVector>
+    => {
+        let bus_builder = build_bus_call(Meta::new(s,e),id.clone(),Vec::new());
+        (bus_builder, VariableType::Bus(id, wire, tags_list))
+    },
+
+    <wire: ParseSignalType> <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R>
+                                                                 <tags_list: ParseTagsVector>
+    => {
+        let bus_builder = match args {
+                            None => build_bus_call(Meta::new(s,e),id.clone(),Vec::new()),
+                            Some(a) => build_bus_call(Meta::new(s,e),id.clone(),a),
+                            };
+        (bus_builder,VariableType::Bus(id, wire, tags_list))
     }
 };
 
@@ -242,6 +315,7 @@ ParseDeclaration : Statement = {
         symbols.push(symbol);
         ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init)
     },
+
     <s:@L> "component" "(" <symbols:(<SimpleSymbol> ",")*> <symbol: SimpleSymbol> ")" <init : TupleInitialization?>  <e:@R> => {
         let mut symbols = symbols;
         let meta = Meta::new(s,e);
@@ -267,21 +341,40 @@ ParseDeclaration : Statement = {
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
     },
 
-    <s:@L><xtype: SignalHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol>  <e:@R>
+    <s:@L> <xtype: SignalHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol>  <e:@R>
     => {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
             symbols.push(symbol);
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignConstraintSignal)
     },
-    <s:@L><xtype: SignalHeader> <symbols:(<SignalSimpleSymbol> ",")*> <symbol: SignalSimpleSymbol>  <e:@R>
+    <s:@L> <xtype: SignalHeader> <symbols:(<SignalSimpleSymbol> ",")*> <symbol: SignalSimpleSymbol>  <e:@R>
     => {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
             symbols.push(symbol);
             ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignSignal)
     },
+
+    <s:@L> <bus_header: BusHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol> <e:@R> => {
+            let (bus_type,xtype) = bus_header;
+            let mut symbols = symbols;
+            let meta = Meta::new(s,e);
+            symbols.push(symbol);
+            ast_shortcuts::split_bus_declaration_into_single_nodes(meta,bus_type,xtype,symbols,AssignOp::AssignConstraintSignal)
+    },
+
+    <s:@L> <bus_header: BusHeader> <symbols:(<SignalSimpleSymbol> ",")*> <symbol: SignalSimpleSymbol> <e:@R> => {
+        let (bus_type,xtype) = bus_header;
+        let mut symbols = symbols;
+        let meta = Meta::new(s,e);
+        symbols.push(symbol);
+        ast_shortcuts::split_bus_declaration_into_single_nodes(meta,bus_type,xtype,symbols,AssignOp::AssignSignal)
+},
+
+    
 };
+
 ParseSubstitution : Statement = {
     <s:@L> <variable: ParseExpression> <ops: ParseAssignOp> <rhe: ParseExpression> <e:@R>
     => {if let Expression::Variable {meta, name, access} = variable {
@@ -398,6 +491,7 @@ ParseStatement1 : Statement = {
     =>  build_conditional_block(Meta::new(s,e),cond,if_case,Option::Some(else_case)),
     ParseStatement2
 };
+
 ParseStatement2 : Statement = {
     <s:@L> "for" "(" <init: ParseDeclaration> Semicolon <cond: ParseExpression> Semicolon <step: ParseSubstitution> ")" <body: ParseStatement2> <e:@R>
     => ast_shortcuts::for_into_while(Meta::new(s,e),init,cond,step,body),
@@ -422,8 +516,17 @@ ParseStatement2 : Statement = {
     <s:@L> "assert" "(" <arg: ParseExpression> ")" Semicolon <e:@R>
     => build_assert(Meta::new(s,e),arg),
 
-    <s:@L> <lhe: ExpressionAnonymous> Semicolon <e:@R>
-    => build_anonymous_component_statement(Meta::new(s,e), lhe),
+    <s:@L> <lhe: ParseExpression> Semicolon <e:@R>
+    => {
+        match lhe {
+            Expression::AnonymousComp { .. } => build_anonymous_component_statement(Meta::new(s,e), lhe),
+            _ => {
+                errors.push(produce_report(ReportCode::IllegalExpression, s..e, file_id));
+                //doesn't matter
+                build_log_call(Meta::new(s,e),Vec::new())
+            } ,
+        }   
+    },
 
     ParseBlock
 };
@@ -455,7 +558,7 @@ ParseVarAccess : Access  = {
     <component_acc: ParseComponentAcc> => build_component_access(component_acc),
 };
 ParseArrayAcc: Expression = {
-    "["<dim: ParseExpression>"]" => dim
+    "[" <dim: ParseExpression> "]" => dim
 };
 ParseComponentAcc: String = {
     "." <id: IDENTIFIER> => id,
@@ -606,7 +709,8 @@ Expression3 = InfixOpTier<ParseExp,Expression2>;
 // ops: Unary - ! ~
 Expression2 = PrefixOpTier<ParseExpressionPrefixOpcode,Expression1>;
 
-ExpressionAnonymous: Expression = {
+// function call, array inline, anonymous component call
+Expression1: Expression = {
     <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" "(" <args2: ListableAnon?> ")"  <e:@R>
     => {let params = match args {
         None => Vec::new(),
@@ -617,11 +721,7 @@ ExpressionAnonymous: Expression = {
         Some(a) => a
     };
     build_anonymous_component(Meta::new(s,e),id,params,signals,names,false)}
-}
-
-// function call, array inline, anonymous component call
-Expression1: Expression = {
-    ExpressionAnonymous,
+    ,
     
     <s:@L> <id: IDENTIFIER> "(" <args: Listable?> ")" <e:@R>
     => match args {
@@ -658,15 +758,7 @@ Expression0: Expression = {
     => build_number(Meta::new(s,e),value, field),
 
     "(" <ParseExpression> ")",
-
-    <!> => match <>.error {
-        ParseError::UnrecognizedToken { ref token, .. } => {
-            errors.push(produce_report(ReportCode::IllegalExpression, token.0..token.2, file_id));
-            // doesn't matter
-            build_number(Meta::new(0,0),BigInt::from(0), field)
-        }
-        _ => unreachable!(),
-    }
+    
 };
 
 // ====================================================================

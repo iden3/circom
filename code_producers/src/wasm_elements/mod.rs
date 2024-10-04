@@ -36,6 +36,7 @@ pub struct WASMProducer {
     signal_offset_tag: String,
     signal_start_tag: String,
     sub_cmp_tag: String,
+    sub_cmp_src_tag: String,
     sub_cmp_load_tag: String,
     io_info_tag: String,
     result_address_tag: String,
@@ -57,6 +58,10 @@ pub struct WASMProducer {
     create_loop_counter_tag: String,
     merror_tag: String,
     string_table:  Vec<String>,
+    //New for buses
+    pub num_of_bus_instances: usize,  //total number of different bus instances
+//    pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances ???
+    pub busid_field_info: FieldMap, //for every busId (0..num-1) provides de offset, the dimensions and size of each field (0..n-1) in it
 }
 
 impl Default for WASMProducer {
@@ -76,7 +81,22 @@ impl Default for WASMProducer {
             size_32_shift: 5,
             number_of_main_outputs: 0, //2,
             number_of_main_inputs: 0,  // 4,
-            main_input_list: [("in1".to_string(), 1, 1), ("in2".to_string(), 2, 1)].to_vec(), //("inpair".to_string(),2),
+            main_input_list: [
+                InputInfo{
+                    name:"in1".to_string(), 
+                    size:1, 
+		    dimensions: Vec::new(),
+                    start: 1, 
+                    bus_id: None
+                },
+                InputInfo{
+                    name:"in2".to_string(), 
+                    size:1, 
+		    dimensions: Vec::new(),
+                    start: 2, 
+                    bus_id: None
+                }
+            ].to_vec(),
             signals_in_witness: 0,                                                      //20,
             witness_to_signal_list: [].to_vec(), //[0,1,2,3,4,5,6,12,16,19,24,27,33,42,46,50,51,65,78,79].to_vec(),
             message_list: [].to_vec(), //["Main".to_string(),"Hola Herme".to_string(),"Hola Albert".to_string()].to_vec(),
@@ -98,6 +118,7 @@ impl Default for WASMProducer {
             signal_offset_tag: "$signaloffset".to_string(),
             signal_start_tag: "$signalstart".to_string(),
             sub_cmp_tag: "$subcmp".to_string(),
+            sub_cmp_src_tag: "$subcmpsrc".to_string(),
             sub_cmp_load_tag: "$subcmpload".to_string(),
             io_info_tag: "$ioinfo".to_string(),
             result_address_tag: "$resultaddress".to_string(),
@@ -119,7 +140,11 @@ impl Default for WASMProducer {
             create_loop_counter_tag: "$createloopcounter".to_string(),
 	        merror_tag: "$merror".to_string(),
             string_table: Vec::new(),
-        }
+	    //New for buses
+	    num_of_bus_instances: 0,
+//	    size_of_bus_fields: 0,
+	    busid_field_info: Vec::new(), 
+       }
     }
 }
 
@@ -179,8 +204,11 @@ impl WASMProducer {
     pub fn get_main_input_list(&self) -> &InputList {
         &self.main_input_list
     }
+//HEAD
+//=======
     pub fn get_input_hash_map_entry_size(&self) -> usize {
         std::cmp::max(usize::pow(2,(self.main_input_list.len() as f32).log2().ceil() as u32),256)
+//>>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
     }
     pub fn get_number_of_witness(&self) -> usize {
         self.signals_in_witness
@@ -238,16 +266,55 @@ impl WASMProducer {
         let mut n = 0;
         for (_c, v) in &self.io_map {
             for s in v {
-                // since we take offset and all lengths but last one
+                // we take always offset, and size and all lengths but last one if len !=0, 
                 if s.lengths.len() == 0 {
                     n += 1;
                 } else {
-                    n += s.lengths.len();
+                    n += s.lengths.len() + 1;
                 }
+		// we take the bus_id if it has type bus
+		if let Some(_) = &s.bus_id {
+		    n += 1;
+		}
             }
         }
         n * 4
     }
+    //New for buses
+    pub fn get_number_of_bus_instances(&self) -> usize {
+        self.num_of_bus_instances
+    }
+    
+    pub fn get_number_of_bus_fields(&self) -> usize {
+        let mut n = 0;
+        for v in &self.busid_field_info {
+            n += v.len();
+        }
+        n
+    }
+
+    pub fn get_size_of_bus_info(&self) -> usize {
+        let mut n = 0;
+        for v in &self.busid_field_info {
+	    for s in v {
+                // since we take offset, busid (if it is) and all lengths but first one and size if not zero
+                if s.dimensions.len() == 0 {
+                    n += 1;
+                } else {
+                    n += s.dimensions.len() + 1;
+                }
+		if let Some(_) = &s.bus_id {
+		    n += 1;
+		}
+            }
+        }
+	n * 4
+    }
+
+    pub fn get_busid_field_info(&self) -> &FieldMap {
+        &self.busid_field_info
+    }
+    // end
     pub fn get_message_list(&self) -> &MessageList {
         &self.message_list
     }
@@ -311,8 +378,21 @@ impl WASMProducer {
         let b = self.get_number_of_io_signals() * 4;
         a + b
     }
+    pub fn get_bus_instance_to_field_start(&self) -> usize {
+	self.get_io_signals_info_start() + self.get_io_signals_info_size()
+    }
+    pub fn get_field_to_info_start(&self) -> usize {
+        let a = self.get_bus_instance_to_field_start();
+        let b = self.get_number_of_bus_instances() * 4;
+        a + b
+    }
+    pub fn get_field_info_start(&self) -> usize {
+        let a = self.get_field_to_info_start();
+        let b = self.get_number_of_bus_fields() * 4;
+        a + b
+    }
     pub fn get_message_buffer_counter_position(&self) -> usize {
-        self.get_io_signals_info_start() + self.get_io_signals_info_size()
+        self.get_field_info_start() + self.get_size_of_bus_info()
     }
     pub fn get_message_buffer_start(&self) -> usize {
         self.get_message_buffer_counter_position() + 4
@@ -345,6 +425,9 @@ impl WASMProducer {
     }
     pub fn get_sub_cmp_tag(&self) -> &str {
         &self.sub_cmp_tag
+    }
+    pub fn get_sub_cmp_src_tag(&self) -> &str {
+        &self.sub_cmp_src_tag
     }
     pub fn get_sub_cmp_load_tag(&self) -> &str {
         &self.sub_cmp_load_tag

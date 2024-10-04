@@ -62,6 +62,39 @@ component main = A();
 
 In the code above, an array is defined with an unknown size of value `in` (as signals are always considered unknown).
 
+## Bus
+A bus definition must be parametrized only by known values. 
+
+```text
+pragma circom 2.0.0;
+
+bus b(n){
+  signal array[n];
+}
+
+template A(){
+   signal input in;
+   b(in) out;
+   for(i = 0; i < in; i++){
+      out.array[i] <== i;
+   }
+}
+
+component main = A();
+```
+
+In the code above, the array inside the bus `out` is initialized depending on the size of signal `in`, whose value is unknown at compilation time. Thus, the compiler arises an error:
+````
+error[T20467]: Typing error found
+  ┌─ "pruebas.circom":9:4
+  │
+9 │    b(in) out;
+  │    ^^^^^^^^^ Parameters of a bus must be known during the constraint generation phase
+
+previous errors were found```
+
+
+
 ## Control Flow
 
 If `if-else` or `for-loop`blocks have unknown conditions, then the block is considered unknown and no constraint can be generated inside it. Consequently, constraint can only be generated in a control flow with known conditions. 

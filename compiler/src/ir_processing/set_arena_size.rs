@@ -98,10 +98,21 @@ pub fn visit_store(bucket: &mut StoreBucket, function_to_arena_size: &HashMap<St
 pub fn visit_value(_: &mut ValueBucket, _: &HashMap<String, usize>) {}
 
 pub fn visit_location(bucket: &mut LocationRule, function_to_arena_size: &HashMap<String, usize>) {
-    use LocationRule::*;
+
     match bucket {
-        Indexed { location, .. } => visit_instruction(location, function_to_arena_size),
-        Mapped { indexes, .. } => visit_list(indexes, function_to_arena_size),
+        LocationRule::Indexed { location, .. } => visit_instruction(location, function_to_arena_size),
+        LocationRule::Mapped { indexes, .. } => {
+            for access in indexes{
+                match access{
+                    AccessType::Indexed(instr) =>{
+                        visit_list(&mut instr.indexes, function_to_arena_size)
+                    },
+                    AccessType::Qualified(_) =>{
+
+                    }
+                }
+            }
+        }
     }
 }
 

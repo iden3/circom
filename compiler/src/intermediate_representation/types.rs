@@ -14,7 +14,13 @@ impl ToString for ValueType {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+pub enum SizeOption{
+    Single(usize),
+    Multiple(Vec<(usize, usize)>) // The first value indicates the cmp_id, the second the size
+}
+
+#[derive(Clone, PartialEq, Eq)]
 pub struct InstrContext {
-    pub size: usize,
+    pub size: SizeOption,
 }

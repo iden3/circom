@@ -360,6 +360,10 @@ impl WriteC for Circuit {
             "uint get_size_of_io_map() {{return {};}}\n",
             producer.get_io_map().len()
         ));
+        code.push(format!(
+            "uint get_size_of_bus_field_map() {{return {};}}\n", 
+            producer.get_busid_field_info().len()
+        ));
         //code.append(&mut generate_message_list_def(producer, producer.get_message_list()));
         
         // Functions to release the memory
@@ -479,6 +483,10 @@ impl WriteC for Circuit {
             "uint get_size_of_io_map() {{return {};}}\n",
             producer.get_io_map().len()
         ));
+        code.push(format!(
+            "uint get_size_of_bus_field_map() {{return {};}}\n", 
+            producer.get_busid_field_info().len()
+        ));
         //code.append(&mut generate_message_list_def(producer, producer.get_message_list()));
         
         // Functions to release the memory
@@ -527,22 +535,27 @@ impl WriteC for Circuit {
         // let start_msg = "printf(\"Starting...\\n\");".to_string();
         // let end_msg = "printf(\"End\\n\");".to_string();
 
-        let main_template_run = if producer.main_is_parallel{
-            producer.main_header.clone() + "_run_parallel"
+        let run_call = if producer.number_of_main_inputs > 0{
+
+            let main_template_run = if producer.main_is_parallel{
+                producer.main_header.clone() + "_run_parallel"
+            } else{
+                producer.main_header.clone() + "_run"
+            };
+            let mut run_args = vec![];
+            // run_args.push(CTX_INDEX.to_string());
+	        run_args.push("0".to_string());
+            run_args.push(CIRCOM_CALC_WIT.to_string());
+            format!("{};", build_call(main_template_run, run_args.clone()))
         } else{
-            producer.main_header.clone() + "_run"
+            "// no input signals, the creation will automatically execute".to_string()
         };
-        let mut run_args = vec![];
-        // run_args.push(CTX_INDEX.to_string());
-	run_args.push("0".to_string());
-        run_args.push(CIRCOM_CALC_WIT.to_string());
-        let run_call = format!("{};", build_call(main_template_run, run_args.clone()));
 
         let main_run_body = vec![ctx_index, run_call];
-	code_write = build_callable(run_circuit, run_circuit_args, main_run_body) + "\n";
+	    code_write = build_callable(run_circuit, run_circuit_args, main_run_body) + "\n";
         writer.write_all(code_write.as_bytes()).map_err(|_| {})?;
         writer.flush().map_err(|_| {})
-	    
+        
     }
 
 }

@@ -70,18 +70,30 @@ fn rm_init(stmt: &mut Statement) {
     use Statement::InitializationBlock;
     use VariableType::*;
     if let InitializationBlock { initializations, xtype, .. } = stmt {
-        if let Signal(..) = xtype {
+
+        if let Signal(..) = xtype  {
             let work = std::mem::take(initializations);
             for mut i in work {
                 if i.is_substitution() {
                     initializations.push(i);
-                }
-                else if i.is_block(){
+                } else if i.is_block(){
                     rm_block(&mut i);
                     initializations.push(i);
                 }
             }
-        } else {
+        } else if let Bus(..) = xtype{
+            let work = std::mem::take(initializations);
+            for mut i in work {
+                if i.is_substitution() {
+                    if !should_be_removed(&i) {
+                        initializations.push(i);
+                    }
+                } else if i.is_block(){
+                    rm_block(&mut i);
+                    initializations.push(i);
+                }
+            }
+        }else {
             let filter = std::mem::take(initializations);
             for mut s in filter {
                 rm_statement(&mut s);
@@ -109,8 +121,10 @@ fn should_be_removed(stmt: &Statement) -> bool {
     use VariableType::*;
     if let InitializationBlock { xtype, .. } = stmt {
         Component == *xtype || AnonymousComponent == *xtype
-    } else if let Substitution { meta, .. } = stmt {
-        meta.get_type_knowledge().is_component() || meta.get_type_knowledge().is_tag()
+    } else if let Substitution { meta, rhe, .. } = stmt {
+            meta.get_type_knowledge().is_component() 
+            || meta.get_type_knowledge().is_tag()
+            || rhe.is_bus_call() || rhe.is_bus_call_array()
     } else {
         false
     }

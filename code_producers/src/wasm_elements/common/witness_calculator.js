@@ -18,6 +18,9 @@ module.exports = async function builder(code, options) {
     
     const instance = await WebAssembly.instantiate(wasmModule, {
         runtime: {
+	    printDebug : function(value) {
+                console.log("printDebug:",value);
+	    },
             exceptionHandler : function(code) {
 		let err;
                 if (code == 1) {
@@ -128,9 +131,14 @@ class WitnessCalculator {
 	return this.instance.exports.getVersion();
     }
 
-    async _doCalculateWitness(input, sanityCheck) {
+    async _doCalculateWitness(input_orig, sanityCheck) {
 	//input is assumed to be a map from signals to arrays of bigints
         this.instance.exports.init((this.sanityCheck || sanityCheck) ? 1 : 0);
+	let prefix = "";
+	var input = new Object();
+	//console.log("Input: ", input_orig);
+	qualify_input(prefix,input_orig,input);
+	//console.log("Input after: ",input);	
         const keys = Object.keys(input);
 	var input_counter = 0;
         keys.forEach( (k) => {
@@ -171,7 +179,6 @@ class WitnessCalculator {
     async calculateWitness(input, sanityCheck) {
 
         const w = [];
-
         await this._doCalculateWitness(input, sanityCheck);
 
         for (let i=0; i<this.witnessSize; i++) {
@@ -273,6 +280,46 @@ class WitnessCalculator {
 
 }
 
+
+function qualify_input_list(prefix,input,input1){
+    if (Array.isArray(input)) {
+	for (let i = 0; i<input.length; i++) {
+	    let new_prefix = prefix + "[" + i + "]";
+	    qualify_input_list(new_prefix,input[i],input1);
+	}
+    } else {
+	qualify_input(prefix,input,input1);
+    }
+}
+
+function qualify_input(prefix,input,input1) {
+    if (Array.isArray(input)) {
+	a = flatArray(input);
+	if (a.length > 0) {
+	    let t = typeof a[0];
+	    for (let i = 1; i<a.length; i++) {
+		if (typeof a[i] != t){
+		    throw new Error(`Types are not the same in the the key ${prefix}`);
+		}
+	    }
+	    if (t == "object") {
+		qualify_input_list(prefix,input,input1);
+	    } else {
+		input1[prefix] = input;
+	    }
+	} else {	    
+	    input1[prefix] = input;
+	}
+    } else if (typeof input == "object") {
+        const keys = Object.keys(input);
+	keys.forEach( (k) => {
+	    let new_prefix = prefix == ""? k : prefix + "." + k;
+	    qualify_input(new_prefix,input[k],input1);
+	});
+    } else {
+	input1[prefix] = input;
+    }
+}
 
 function toArray32(rem,size) {
     const res = []; //new Uint32Array(size); //has no unshift

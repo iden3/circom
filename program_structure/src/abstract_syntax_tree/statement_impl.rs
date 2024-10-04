@@ -13,8 +13,8 @@ impl Statement {
             | Block { meta, .. }
             | Assert { meta, .. }
             | ConstraintEquality { meta, .. }
-            | InitializationBlock { meta, .. } => meta,
-            | MultSubstitution { meta, ..} => meta,
+            | InitializationBlock { meta, .. }
+            | MultSubstitution { meta, ..}
             | UnderscoreSubstitution { meta, .. } => meta,
         }
     }
@@ -30,8 +30,8 @@ impl Statement {
             | Block { meta, .. }
             | Assert { meta, .. }
             | ConstraintEquality { meta, .. }
-            | InitializationBlock { meta, .. } => meta,
-            | MultSubstitution { meta, ..} => meta,
+            | InitializationBlock { meta, .. }
+            | MultSubstitution { meta, ..}
             | UnderscoreSubstitution { meta, .. } => meta,
         }
     }

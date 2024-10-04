@@ -1,10 +1,11 @@
-use program_structure::ast::{Access, Expression, Meta, Statement, LogArgument};
+use program_structure::ast::{Access, Expression, LogArgument, Meta, Statement, VariableType};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::{Report, ReportCollection};
 use program_structure::file_definition::{self, FileID, FileLocation};
-use program_structure::function_data::FunctionInfo;
 use program_structure::program_archive::ProgramArchive;
+use program_structure::function_data::FunctionInfo;
 use program_structure::template_data::TemplateInfo;
+use program_structure::bus_data::BusInfo;
 use std::collections::HashSet;
 type Block = HashSet<String>;
 type Environment = Vec<Block>;
@@ -12,6 +13,7 @@ type Environment = Vec<Block>;
 pub fn check_naming_correctness(program_archive: &ProgramArchive) -> Result<(), ReportCollection> {
     let template_info = program_archive.get_templates();
     let function_info = program_archive.get_functions();
+    let bus_info = program_archive.get_buses();
     let mut reports = ReportCollection::new();
     let mut instances = Vec::new();
     for (_, data) in template_info {
@@ -32,6 +34,15 @@ pub fn check_naming_correctness(program_archive: &ProgramArchive) -> Result<(), 
         );
         instances.push(instance);
     }
+    for (_, data) in bus_info {
+        let instance = (
+            data.get_file_id(),
+            data.get_param_location(),
+            data.get_name_of_params(),
+            data.get_body_as_vec(),
+        );
+        instances.push(instance);
+    }
     if let Err(mut r) = analyze_main(program_archive) {
         reports.append(&mut r);
     }
@@ -43,6 +54,7 @@ pub fn check_naming_correctness(program_archive: &ProgramArchive) -> Result<(), 
             body,
             function_info,
             template_info,
+            bus_info,
         );
         if let Result::Err(mut r) = res {
             reports.append(&mut r);
@@ -60,6 +72,7 @@ fn analyze_main(program: &ProgramArchive) -> Result<(), Vec<Report>> {
     let signals = program.get_public_inputs_main_component();
     let template_info = program.get_templates();
     let function_info = program.get_functions();
+    let bus_info = program.get_buses();
 
     let mut reports = vec![];
     if let Expression::Call { id, .. } = call {
@@ -87,6 +100,7 @@ fn analyze_main(program: &ProgramArchive) -> Result<(), Vec<Report>> {
         call.get_meta().get_file_id(),
         function_info,
         template_info,
+        bus_info,
         &mut reports,
         &environment,
     );
@@ -101,6 +115,7 @@ pub fn analyze_symbols(
     body: &[Statement],
     function_info: &FunctionInfo,
     template_info: &TemplateInfo,
+    bus_info: &BusInfo,
 ) -> Result<(), ReportCollection> {
     let mut param_name_collision = false;
     let mut reports = ReportCollection::new();
@@ -126,6 +141,7 @@ pub fn analyze_symbols(
             file_id,
             function_info,
             template_info,
+            bus_info,
             &mut reports,
             &mut environment,
         );
@@ -160,19 +176,20 @@ fn analyze_statement(
     file_id: FileID,
     function_info: &FunctionInfo,
     template_info: &TemplateInfo,
+    bus_info: &BusInfo,
     reports: &mut ReportCollection,
     environment: &mut Environment,
 ) {
     match stmt {
         Statement::MultSubstitution { .. } => unreachable!(),
         Statement::Return { value, .. } => {
-            analyze_expression(value, file_id, function_info, template_info, reports, environment)
+            analyze_expression(value, file_id, function_info, template_info, bus_info, reports, environment)
         }
         Statement::UnderscoreSubstitution { rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
+            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment);
         }
         Statement::Substitution { meta, var, access, rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
+            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment);
             treat_variable(
                 meta,
                 var,
@@ -180,13 +197,14 @@ fn analyze_statement(
                 file_id,
                 function_info,
                 template_info,
+                bus_info,
                 reports,
                 environment,
             );
         }
         Statement::ConstraintEquality { lhe, rhe, .. } => {
-            analyze_expression(lhe, file_id, function_info, template_info, reports, environment);
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
+            analyze_expression(lhe, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment);
         }
         Statement::InitializationBlock { initializations, .. } => {
             for initialization in initializations.iter() {
@@ -195,18 +213,20 @@ fn analyze_statement(
                     file_id,
                     function_info,
                     template_info,
+                    bus_info,
                     reports,
                     environment,
                 );
             }
         }
-        Statement::Declaration { meta, name, dimensions, .. } => {
+        Statement::Declaration { meta, name, dimensions, xtype, .. } => {
             for index in dimensions {
                 analyze_expression(
                     index,
                     file_id,
                     function_info,
                     template_info,
+                    bus_info,
                     reports,
                     environment,
                 );
@@ -223,16 +243,34 @@ fn analyze_statement(
                 );
                 reports.push(report);
             }
+            if let VariableType::Bus(b_name,_,tags ) = xtype {
+                if let Some(bus) = bus_info.get(b_name) {
+                    for t in tags {
+                         if bus.get_fields().contains_key(t) {
+                            let mut report = Report::error(
+                                format!("Declaring same symbol twice"),
+                                ReportCode::SameSymbolDeclaredTwice,
+                            );
+                            report.add_primary(
+                                meta.location.clone(),
+                                file_id.clone(),
+                                format!("This tag name is also a field name in the bus."),
+                            );
+                            reports.push(report);
+                         }
+                    }
+                }
+            }
         }
         Statement::LogCall { args, .. } => {
             for logarg in args {
                 if let LogArgument::LogExp(arg) = logarg {
-                    analyze_expression(arg, file_id, function_info, template_info, reports, environment);
+                    analyze_expression(arg, file_id, function_info, template_info, bus_info, reports, environment);
                 }
             }
         }
         Statement::Assert { arg, .. } => {
-            analyze_expression(arg, file_id, function_info, template_info, reports, environment)
+            analyze_expression(arg, file_id, function_info, template_info, bus_info, reports, environment)
         }
         Statement::Block { stmts, .. } => {
             environment.push(Block::new());
@@ -242,6 +280,7 @@ fn analyze_statement(
                     file_id,
                     function_info,
                     template_info,
+                    bus_info,
                     reports,
                     environment,
                 );
@@ -249,18 +288,19 @@ fn analyze_statement(
             environment.pop();
         }
         Statement::While { stmt, cond, .. } => {
-            analyze_expression(cond, file_id, function_info, template_info, reports, environment);
-            analyze_statement(stmt, file_id, function_info, template_info, reports, environment);
+            analyze_expression(cond, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_statement(stmt, file_id, function_info, template_info, bus_info, reports, environment);
         }
         Statement::IfThenElse { cond, if_case, else_case, .. } => {
-            analyze_expression(cond, file_id, function_info, template_info, reports, environment);
-            analyze_statement(if_case, file_id, function_info, template_info, reports, environment);
+            analyze_expression(cond, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_statement(if_case, file_id, function_info, template_info, bus_info, reports, environment);
             if let Option::Some(else_stmt) = else_case {
                 analyze_statement(
                     else_stmt,
                     file_id,
                     function_info,
                     template_info,
+                    bus_info,
                     reports,
                     environment,
                 );
@@ -276,6 +316,7 @@ fn treat_variable(
     file_id: FileID,
     function_info: &FunctionInfo,
     template_info: &TemplateInfo,
+    bus_info: &BusInfo,
     reports: &mut ReportCollection,
     environment: &Environment,
 ) {
@@ -289,8 +330,11 @@ fn treat_variable(
         reports.push(report);
     }
     for acc in access.iter() {
-        if let Access::ArrayAccess(index) = acc {
-            analyze_expression(index, file_id, function_info, template_info, reports, environment);
+        match acc {
+            Access::ArrayAccess(index) => {
+                analyze_expression(index, file_id, function_info, template_info, bus_info, reports, environment);
+            }
+            Access::ComponentAccess(_) => {}
         }
     }
 }
@@ -300,27 +344,29 @@ fn analyze_expression(
     file_id: FileID,
     function_info: &FunctionInfo,
     template_info: &TemplateInfo,
+    bus_info: &BusInfo,
     reports: &mut ReportCollection,
     environment: &Environment,
 ) {
     match expression {
         Expression::InfixOp { lhe, rhe, .. } => {
-            analyze_expression(lhe, file_id, function_info, template_info, reports, environment);
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment);
+            analyze_expression(lhe, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment);
         }
         Expression::PrefixOp { rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment)
+            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment)
         }
         Expression::ParallelOp { rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, reports, environment)
+            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment)
         }
         Expression::InlineSwitchOp { cond, if_true, if_false, .. } => {
-            analyze_expression(cond, file_id, function_info, template_info, reports, environment);
+            analyze_expression(cond, file_id, function_info, template_info, bus_info, reports, environment);
             analyze_expression(
                 if_true,
                 file_id,
                 function_info,
                 template_info,
+                bus_info,
                 reports,
                 environment,
             );
@@ -329,6 +375,7 @@ fn analyze_expression(
                 file_id,
                 function_info,
                 template_info,
+                bus_info,
                 reports,
                 environment,
             );
@@ -340,6 +387,7 @@ fn analyze_expression(
             file_id,
             function_info,
             template_info,
+            bus_info,
             reports,
             environment,
         ),
@@ -379,6 +427,7 @@ fn analyze_expression(
                     file_id,
                     function_info,
                     template_info,
+                    bus_info,
                     reports,
                     environment,
                 );
@@ -391,6 +440,7 @@ fn analyze_expression(
                     file_id,
                     function_info,
                     template_info,
+                    bus_info,
                     reports,
                     environment,
                 );
@@ -402,6 +452,7 @@ fn analyze_expression(
                 file_id,
                 function_info,
                 template_info,
+                bus_info,
                 reports,
                 environment,
             );
@@ -410,9 +461,49 @@ fn analyze_expression(
                 file_id,
                 function_info,
                 template_info,
+                bus_info,
                 reports,
                 environment,
             );
+        },
+        Expression::BusCall { meta, id, args } => 
+        {
+            if !bus_info.contains_key(id) {
+                let mut report =
+                    Report::error(format!("Calling symbol"), ReportCode::NonExistentSymbol);
+                report.add_primary(
+                    file_definition::generate_file_location(meta.get_start(), meta.get_end()),
+                    file_id.clone(),
+                    format!("Calling unknown symbol"),
+                );
+                reports.push(report);
+                return;
+            }
+            let expected_num_of_params = bus_info.get(id).unwrap().get_num_of_params();
+            if args.len() != expected_num_of_params {
+                let mut report = Report::error(
+                    format!("Instantiating bus with wrong number of arguments"),
+                    ReportCode::BusWrongNumberOfArguments,
+                );
+                report.add_primary(
+                    file_definition::generate_file_location(meta.get_start(), meta.get_end()),
+                    file_id.clone(),
+                    format!("Got {} params, {} where expected", args.len(), expected_num_of_params),
+                );
+                reports.push(report);
+                return;
+            }
+            for arg in args.iter() {
+                analyze_expression(
+                    arg,
+                    file_id,
+                    function_info,
+                    template_info,
+                    bus_info,
+                    reports,
+                    environment,
+                );
+            }
         },
         _ => {}
     }

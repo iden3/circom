@@ -1,19 +1,21 @@
 use super::slice_types::{
     AExpressionSlice, 
     ComponentRepresentation, 
+    BusRepresentation,
     ComponentSlice,
     SignalSlice, 
     SliceCapacity,
     TagInfo, 
     TagDefinitions,
-    TagState
+    TagState,
+    BusSlice
 };
 use super::{ArithmeticExpression, CircomEnvironment, CircomEnvironmentError};
 use program_structure::memory_slice::MemoryError;
 use crate::ast::Meta;
 
 pub type ExecutionEnvironmentError = CircomEnvironmentError;
-pub type ExecutionEnvironment = CircomEnvironment<ComponentSlice, (TagInfo, TagDefinitions, SignalSlice), (TagInfo, AExpressionSlice)>;
+pub type ExecutionEnvironment = CircomEnvironment<ComponentSlice, (TagInfo, TagDefinitions, SignalSlice), (TagInfo, AExpressionSlice), (TagInfo, TagDefinitions, BusSlice)>;
 
 pub fn environment_shortcut_add_component(
     environment: &mut ExecutionEnvironment,
@@ -23,6 +25,7 @@ pub fn environment_shortcut_add_component(
     let slice = ComponentSlice::new_with_route(dimensions, &ComponentRepresentation::default());
     environment.add_component(component_name, slice);
 }
+
 pub fn environment_shortcut_add_input(
     environment: &mut ExecutionEnvironment,
     input_name: &str,
@@ -62,6 +65,47 @@ pub fn environment_shortcut_add_intermediate(
         tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: false});
     }
     environment.add_intermediate(intermediate_name, (tags.clone(), tags_defined, slice));
+}
+pub fn environment_shortcut_add_bus_input(
+    environment: &mut ExecutionEnvironment,
+    input_name: &str,
+    dimensions: &[SliceCapacity],
+    tags: &TagInfo,
+) {
+    // In this case we need to set all the signals of the bus to known -> in the default method
+    let slice = BusSlice::new_with_route(dimensions, &BusRepresentation::default());
+    let mut tags_defined = TagDefinitions::new();
+    for (t, value) in tags{
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: true});
+    }
+    
+    environment.add_input_bus(input_name, (tags.clone(), tags_defined,  slice));
+}
+pub fn environment_shortcut_add_bus_output(
+    environment: &mut ExecutionEnvironment,
+    output_name: &str,
+    dimensions: &[SliceCapacity],
+    tags: &TagInfo,
+) {
+    let slice = BusSlice::new_with_route(dimensions, &BusRepresentation::default());
+    let mut tags_defined = TagDefinitions::new();
+    for (t, value) in tags{
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: false});
+    }
+    environment.add_output_bus(output_name, (tags.clone(), tags_defined, slice));
+}
+pub fn environment_shortcut_add_bus_intermediate(
+    environment: &mut ExecutionEnvironment,
+    intermediate_name: &str,
+    dimensions: &[SliceCapacity],
+    tags: &TagInfo,
+) {
+    let slice = BusSlice::new_with_route(dimensions, &BusRepresentation::default());
+    let mut tags_defined = TagDefinitions::new();
+    for (t, value) in tags{
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: false});
+    }
+    environment.add_intermediate_bus(intermediate_name, (tags.clone(), tags_defined, slice));
 }
 pub fn environment_shortcut_add_variable(
     environment: &mut ExecutionEnvironment,
