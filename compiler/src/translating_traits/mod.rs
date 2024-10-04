@@ -9,7 +9,7 @@ pub trait WriteC {
             y: if the instructions in x compute some value, that value is stored in y.
     */
     fn produce_c(&self, producer: &CProducer, is_parallel: Option<bool>) -> (Vec<String>, String);
-    fn write_c<T: Write>(&self, writer: &mut T, producer: &CProducer) -> Result<(), ()> {
+    fn write_c<T: Write>(&self, writer: &mut T, _run_name: &str, producer: &CProducer) -> Result<(), ()> {
         use code_producers::wasm_elements::wasm_code_generator::merge_code;
         let (c_instructions, _) = self.produce_c(producer, None);
         let code = merge_code(c_instructions);

@@ -9,6 +9,8 @@
 
 #include "fr.hpp"
 
+namespace CIRCUIT_NAME {
+
 typedef unsigned long long u64;
 typedef uint32_t u32;
 typedef uint8_t u8;
@@ -82,4 +84,5 @@ uint get_size_of_witness();
 uint get_size_of_constants();
 uint get_size_of_io_map();
 
+} //namespace
 #endif  // __CIRCOM_H
