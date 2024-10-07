@@ -2806,8 +2806,40 @@ fn execute_bus(
         }
 
         Result::Ok(FoldedValue{bus_slice: Some((symbol.to_string(), bus_slice)), tags: Some(tags_propagated), ..FoldedValue::default()})
+    } else if tags.contains_key(access_information.field_access.as_ref().unwrap()){
+        // case tags
+        let acc = access_information.field_access.unwrap();
+        let value_tag = tags.get(&acc).unwrap();
+        let state = tags_definitions.get(&acc).unwrap();
+        if let Some(value_tag) = value_tag { // tag has value
+            // access only allowed when (1) it is value defined by user or (2) it is completely assigned
+            if state.value_defined || state.complete{
+                let a_value = AExpr::Number { value: value_tag.clone() };
+                let ae_slice = AExpressionSlice::new(&a_value);
+                Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
+            } else{
+                let error = MemoryError::TagValueNotInitializedAccess;
+                treat_result_with_memory_error(
+                    Result::Err(error),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?
+            }
+                
+        }
+        else {
+            let error = MemoryError::TagValueNotInitializedAccess;
+            treat_result_with_memory_error(
+                Result::Err(error),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?
+        }
+        
     } else{
-        // access to the field or tag
+        // access to the field or tag of a field
 
         let resulting_bus = safe_unwrap_to_single(bus_slice, line!());
         let symbol = create_symbol_bus(symbol, &access_information);
