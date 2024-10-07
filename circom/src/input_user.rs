@@ -367,7 +367,7 @@ mod input_processing {
                     .long("O1")
                     .hidden(false)
                     .takes_value(false)
-                    .help("Only applies signal to signal and signal to constant simplification")
+                    .help("Only applies signal to signal and signal to constant simplification. This is the default option")
                     .display_order(460)
             )
             .arg(
