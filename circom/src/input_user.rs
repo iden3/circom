@@ -263,8 +263,7 @@ mod input_processing {
                     else {Ok(SimplificationStyle::O2(no_rounds))}} 
                 else { Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds"))) }
             },
-            
-            (false, false, false, true) => Ok(SimplificationStyle::O1),
+            (false, false, false, true) => Ok(SimplificationStyle::O2(usize::MAX)),
             (false, false, false, false) => Ok(SimplificationStyle::O1),
         }
     }
