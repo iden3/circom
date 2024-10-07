@@ -399,9 +399,9 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
     use Tag::*;
     match expression {
         Number(_, _) => Known,
-        Variable { meta, name, access,.. } => {
+        Variable { meta, name,.. } => {
             let reduced_type = meta.get_type_knowledge().get_reduces_to();
-            let mut symbol_tag = match reduced_type {
+            match reduced_type {
                 TypeReduction::Variable => {
                     let (tag, is_array) = environment.get_variable_or_break(name, file!(), line!());
                     if *is_array{
@@ -414,23 +414,6 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
                 TypeReduction::Bus(_) => Unknown,
                 TypeReduction::Component(_) => *environment.get_component_or_break(name, file!(), line!()),
                 TypeReduction::Tag => Known,
-            };
-
-  
-            let mut index = 0;
-            loop {
-                if index == access.len() {
-                    break symbol_tag;
-                }
-                if symbol_tag == Unknown {
-                    break Unknown;
-                }
-                if let Access::ArrayAccess(exp) = &access[index] {
-                    symbol_tag = tag(exp, environment);
-                } else if !environment.has_intermediate(name) {
-                    symbol_tag = Unknown;
-                }
-                index += 1;
             }
         }
         ArrayInLine { values, .. } 
