@@ -1,6 +1,6 @@
 # Unknowns
 
-As expressions accepted during [constraint generation](../constraint-generation) can at most be quadratic only, certain checks and conditions are imposed on the use of unknown values at compile time.
+As expressions accepted during [constraint generation](../../constraint-generation/) can at most be quadratic only, certain checks and conditions are imposed on the use of unknown values at compile time.
 
 In circom, **constant values** and **template parameters** are always considered known, while **signals** are always considered unknown.
 
