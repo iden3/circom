@@ -179,7 +179,7 @@ class WitnessCalculator {
     async calculateWitness(input, sanityCheck) {
 
         const w = [];
-        this._doCalculateWitness(input, sanityCheck);
+        await this._doCalculateWitness(input, sanityCheck);
 
         for (let i=0; i<this.witnessSize; i++) {
             this.instance.exports.getWitness(i);
@@ -198,7 +198,7 @@ class WitnessCalculator {
 
         const buff32 = new Uint32Array(this.witnessSize*this.n32);
 	const buff = new  Uint8Array( buff32.buffer);
-        this._doCalculateWitness(input, sanityCheck);
+        await this._doCalculateWitness(input, sanityCheck);
 
         for (let i=0; i<this.witnessSize; i++) {
             this.instance.exports.getWitness(i);
@@ -216,7 +216,7 @@ class WitnessCalculator {
 
         const buff32 = new Uint32Array(this.witnessSize*this.n32+this.n32+11);
 	const buff = new  Uint8Array( buff32.buffer);
-        this._doCalculateWitness(input, sanityCheck);
+        await this._doCalculateWitness(input, sanityCheck);
   
 	//"wtns"
 	buff[0] = "w".charCodeAt(0)
