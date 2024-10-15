@@ -630,10 +630,6 @@ pub fn generate_imports_list() -> Vec<WasmInstruction> {
         "(import \"runtime\" \"showSharedRWMemory\" (func $showSharedRWMemory (type $_t_void)))"
             .to_string(),
     );
-    imports.push(
-        "(import \"runtime\" \"printDebug\" (func $printDebug (type $_t_i32)))"
-            .to_string(),
-    );
     imports
 }
 
