@@ -196,7 +196,7 @@ pub struct TemplateInstance {
     pub number_of_outputs: usize,
     pub number_of_intermediates: usize,
     pub wires: Vec<Wire>,
-    pub signals_to_tags: BTreeMap<String, TagInfo>,
+    pub signals_to_tags: HashMap<Vec<String>, BigInt>,
     pub components: Vec<Component>,
     pub number_of_components: usize,
     pub triggers: Vec<Trigger>,
@@ -216,7 +216,7 @@ pub struct TemplateConfig {
     pub clusters: Vec<TriggerCluster>,
     pub components: Vec<Component>,
     pub arguments: Vec<Argument>,
-    pub signals_to_tags: BTreeMap<String, TagInfo>,
+    pub signals_to_tags: HashMap<Vec<String>, BigInt>,
 }
 impl TemplateInstance {
     pub fn new(config: TemplateConfig) -> TemplateInstance {

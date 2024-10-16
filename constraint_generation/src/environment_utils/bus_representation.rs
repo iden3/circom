@@ -1,5 +1,5 @@
 
-use super::slice_types::{BusSlice, FieldTypes, FoldedArgument, FoldedResult, MemoryError, SignalSlice, SliceCapacity, TagDefinitions, TagInfo, TagState, TypeAssignmentError};
+use super::slice_types::{BusSlice, FieldTypes, FoldedArgument, FoldedResult, MemoryError, SignalSlice, SliceCapacity, TypeAssignmentError};
 use crate::execution_data::type_definitions::{NodePointer, AccessingInformationBus};
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap};
@@ -11,7 +11,6 @@ pub struct BusRepresentation {
     pub node_pointer: Option<NodePointer>,
     pub meta: Option<Meta>,
     fields: BTreeMap<String, FieldTypes>,
-    pub field_tags: BTreeMap<String, (TagDefinitions, TagInfo)>,
     unassigned_fields: HashMap<String, SliceCapacity>,
     has_assignment: bool,
 }
@@ -21,7 +20,6 @@ impl Default for BusRepresentation {
         BusRepresentation {
             node_pointer: Option::None,
             fields: BTreeMap::new(),
-            field_tags: BTreeMap::new(),
             meta: Option::None,
             unassigned_fields: HashMap::new(),
             has_assignment: false
@@ -33,7 +31,6 @@ impl Clone for BusRepresentation {
         BusRepresentation {
             node_pointer: self.node_pointer,
             fields: self.fields.clone(),
-            field_tags: self.field_tags.clone(),
             meta : self.meta.clone(),
             unassigned_fields: self.unassigned_fields.clone(),
             has_assignment: self.has_assignment
@@ -91,23 +88,7 @@ impl BusRepresentation {
                 let field_bus = FieldTypes::Bus(bus_slice);
                 component.fields.insert(symbol.clone(), field_bus);
             }
-            
-
-            // add the tags 
-            if node.signal_to_tags.get(symbol).is_some(){
-                let defined_tags = node.signal_to_tags.get(symbol).unwrap();
-                let mut definitions = BTreeMap::new();
-                let mut values = BTreeMap::new();
-                for (tag, value) in defined_tags{
-                    let tag_state = TagState{defined:true, value_defined: value.is_some(), complete: true};
-                    definitions.insert(tag.clone(), tag_state);
-                    values.insert(tag.clone(), value.clone());
-
-                }
-                component.field_tags.insert(symbol.clone(), (definitions, values));
-            } else{
-                component.field_tags.insert(symbol.clone(), (BTreeMap::new(), BTreeMap::new()));
-            }
+        
             if is_initialized{
                 component.unassigned_fields.remove(symbol);
             }
@@ -124,61 +105,35 @@ impl BusRepresentation {
         &self, 
         field_name: &str,
         remaining_access: &AccessingInformationBus
-    ) -> Result<(Option<TagInfo>, FoldedResult), MemoryError>{
+    ) -> Result<FoldedResult, MemoryError>{
         
         let field = self.fields.get(field_name).unwrap(); 
-        let (tags_defs, tags_info) = self.field_tags.get(field_name).unwrap();
         if remaining_access.field_access.is_some(){
-            // we are still considering an intermediate bus or a tag, check cases
-            let next_access = remaining_access.field_access.as_ref().unwrap();
-            if tags_info.contains_key(next_access){
-                // case tag, return its value
-                
-                // access only allowed when (1) it is value defined by user or (2) it is completely assigned
-                let state = tags_defs.get(next_access).unwrap();
-                if state.value_defined || state.complete{
-                    let value_tag = tags_info.get(next_access).unwrap();
-                    match value_tag{
-                        Option::None =>{
-                            let error = MemoryError::TagValueNotInitializedAccess;
-                            Result::Err(error)
-                        },
-                        Some(v) =>{
-                            let folded_tag = FoldedResult::Tag(v.clone());
-                            Result::Ok((None, folded_tag))
-                        }
-                    }
-                } else{
-                    let error = MemoryError::TagValueNotInitializedAccess;
-                    Result::Err(error)
-                }
-            } else{
-                // case bus, access to the next field
-                match field{
-                    FieldTypes::Bus(bus_slice)=>{
+            // we are still considering an intermediate bus, check cases            
+            match field{
+                FieldTypes::Bus(bus_slice)=>{
     
-                        let memory_response = BusSlice::access_values_by_reference(
-                        &bus_slice, 
-                            &remaining_access.array_access
-                        );
-                        match memory_response{
-                            Result::Ok(bus_slice) =>{
-                                assert!(bus_slice.len() == 1);
-                                let resulting_bus = bus_slice[0];
-                                resulting_bus.get_field( 
-                                    remaining_access.field_access.as_ref().unwrap(), 
-                                    &remaining_access.remaining_access.as_ref().unwrap()
-                                )
-                            }
-                            Result::Err(err)=>{
-                                return Err(err);
-                            }
+                    let memory_response = BusSlice::access_values_by_reference(
+                    &bus_slice, 
+                        &remaining_access.array_access
+                    );
+                    match memory_response{
+                        Result::Ok(bus_slice) =>{
+                            assert!(bus_slice.len() == 1);
+                            let resulting_bus = bus_slice[0];
+                            resulting_bus.get_field( 
+                                remaining_access.field_access.as_ref().unwrap(), 
+                                &remaining_access.remaining_access.as_ref().unwrap()
+                            )
+                        }
+                        Result::Err(err)=>{
+                            return Err(err);
                         }
                     }
-                    FieldTypes::Signal(_) => unreachable!(),
                 }
+                FieldTypes::Signal(_) => unreachable!(),
             }
- 
+
         } else{
             // in this case there is no need for recursion, final access
             
@@ -186,15 +141,12 @@ impl BusRepresentation {
                 FieldTypes::Signal(signal_slice) =>{
                     // Case it is just a signal or an array of signals, 
                     // in this case there is no need for recursion
-                    
-                    // compute which tags are propagated
-                    let propagated_tags = compute_propagated_tags(tags_info, tags_defs);
-                    
+                                        
                     let accessed_slice_result = SignalSlice::access_values(&signal_slice, &remaining_access.array_access);
                     match accessed_slice_result{
                         Ok(slice) =>{
                             let folded_slice = FoldedResult::Signal(slice);
-                            Result::Ok((Some(propagated_tags), folded_slice))
+                            Result::Ok(folded_slice)
                         },
                         Err(err) => Err(err)
                     }                
@@ -202,15 +154,12 @@ impl BusRepresentation {
                 FieldTypes::Bus(bus_slice) => {
                     // Case it is just a bus or an array of buses, 
                     // in this case there is no need for recursion
-
-                    // compute which tags are propagated
-                    let propagated_tags = compute_propagated_tags(tags_info, tags_defs);
                     
                     let accessed_slice_result = BusSlice::access_values(&bus_slice, &remaining_access.array_access);
                     match accessed_slice_result{
                         Ok(slice) =>{
                             let folded_slice = FoldedResult::Bus(slice);
-                            Result::Ok((Some(propagated_tags), folded_slice))
+                            Result::Ok( folded_slice)
                         },
                         Err(err) => Err(err)
                     }  
@@ -230,7 +179,6 @@ impl BusRepresentation {
         field_name: &str,
         remaining_access: &AccessingInformationBus,
         assigned_value: FoldedArgument,
-        tags: Option<TagInfo>,
         is_input: bool,
     ) -> Result<(), MemoryError> {
             // TODO: move to auxiliar function to do not repeat effort
@@ -245,169 +193,67 @@ impl BusRepresentation {
                     let total_size = route.iter().fold(1, |acc, x| acc * x);
                     total_size > 0
                 },
-                FoldedArgument::Tag(_) => false
             };
             if has_assignment{
                 self.has_assignment = true;
             }
 
-            // We later distinguish the case of tags
             // check if we need to access to another bus or if it is the final access
             let field: &mut FieldTypes = self.fields.get_mut(field_name).unwrap();
-            let (status_tags, info_tags) = self.field_tags.get_mut(field_name).unwrap();
 
             if remaining_access.field_access.is_some(){
-                // case still intermediate access or a tag
-                let next_access = remaining_access.field_access.as_ref().unwrap();
+                // case still intermediate access
 
-                // Distinguish between tag and intermediate access
-                if info_tags.contains_key(next_access){
-                    
-                    // it is tag assignment -> check if valid
-                    match field{
-                        FieldTypes::Signal(s) =>{
-                            let signal_is_init = SignalSlice::get_number_of_inserts(&s) > 0;
-                            if signal_is_init{
-                                return Result::Err(MemoryError::AssignmentTagAfterInit)
+                match field{
+                    FieldTypes::Bus(bus_slice)=>{
+                        // case bus -> apply recursion
+
+                        let memory_response = BusSlice::access_values_by_mut_reference(
+                        bus_slice, 
+                            &remaining_access.array_access
+                        );                            
+                        match memory_response{
+                            Result::Ok(mut bus_slice) =>{
+                                assert!(bus_slice.len() == 1);
+                                let resulting_bus = bus_slice.get_mut(0).unwrap();
+                                resulting_bus.assign_value_to_field( 
+                                    remaining_access.field_access.as_ref().unwrap(), 
+                                    &remaining_access.remaining_access.as_ref().unwrap(),
+                                    assigned_value,
+                                    is_input
+                                )?;
+
+                                // Update from unassigned if it is completely assigned
+                                if !resulting_bus.has_unassigned_fields(){
+                                    match self.unassigned_fields.get_mut(field_name){
+                                        Some(left) => {
+                                            *left -= 1;
+                                            if *left == 0 {
+                                                self.unassigned_fields.remove(field_name);
+                                            }
+                                        }
+                                        Option::None => {}
+                                    }
+                                }
+                                Result::Ok(())
+                            }
+                            Result::Err(err)=>{
+                                return Err(err);
                             }
                         }
-                        FieldTypes::Bus(s) =>{
-                            for i in 0..BusSlice::get_number_of_cells(s){
-                                let accessed_bus = BusSlice::get_reference_to_single_value_by_index(&s, i)?;
-                                if accessed_bus.has_assignment(){
-                                    return Result::Err(MemoryError::AssignmentTagAfterInit)
-                                }
-                            }
-                        }   
                     }
-                    // Get the assigned value
-                    let value = match assigned_value{
-                        FoldedArgument::Tag(value) =>{
-                            value
-                        },
-                        _ => unreachable!()
-                    };
-                    
-                    let possible_tag = info_tags.get_mut(next_access);
-                    if let Some(val) = possible_tag {
-                        if let Some(_) = val {
-                            // already assigned value, return error
-                            Result::Err(MemoryError::AssignmentTagTwice)
-                        } else { // we add the info saying that the tag is defined
-                            let tag_state = status_tags.get_mut(next_access).unwrap();
-                            tag_state.value_defined = true;
-                            *val = Option::Some(value.clone());
-                            Result::Ok(())
-                        }   
-                    } else{
+                    FieldTypes::Signal(_) => {
+                        // no possible, already checked in check_types
                         unreachable!()
                     }
-                } else{
-                    // it is intermediate access
-
-                    match field{
-                        FieldTypes::Bus(bus_slice)=>{
-                            // case bus -> apply recursion
-
-                            // no tags assigned to the complete bus 
-                            // Check in case input if it is expecting tags, if so return error
-                            if is_input{
-                                if !info_tags.is_empty(){
-                                    let (possible_tag, _) = info_tags.iter().next().unwrap();
-                                    return Result::Err(MemoryError::AssignmentMissingTags(field_name.to_string(), possible_tag.clone()));
-                                }
-                            }
-
-
-                            let memory_response = BusSlice::access_values_by_mut_reference(
-                            bus_slice, 
-                                &remaining_access.array_access
-                            );                            
-                            match memory_response{
-                                Result::Ok(mut bus_slice) =>{
-                                    assert!(bus_slice.len() == 1);
-                                    let resulting_bus = bus_slice.get_mut(0).unwrap();
-                                    resulting_bus.assign_value_to_field( 
-                                        remaining_access.field_access.as_ref().unwrap(), 
-                                        &remaining_access.remaining_access.as_ref().unwrap(),
-                                        assigned_value,
-                                        tags,
-                                        is_input
-                                    )?;
-
-                                    // Update from unassigned if it is completely assigned
-                                    if !resulting_bus.has_unassigned_fields(){
-                                        match self.unassigned_fields.get_mut(field_name){
-                                            Some(left) => {
-                                                *left -= 1;
-                                                if *left == 0 {
-                                                    self.unassigned_fields.remove(field_name);
-                                                }
-                                            }
-                                            Option::None => {}
-                                        }
-                                    }
-                                    Result::Ok(())
-                                }
-                                Result::Err(err)=>{
-                                    return Err(err);
-                                }
-                            }
-                        }
-                        FieldTypes::Signal(_) => {
-                            // no possible, already checked in check_types
-                            unreachable!()
-                        }
-                    }
                 }
+            
+                    
+                    
+                
 
             } else{
-                // case final assignment of signal or bus
-                let tags = tags.unwrap();
-
-                // first propagate the tags or check if conditions satisfied if input
-                let is_init = match field{
-                    FieldTypes::Signal(signal_slice) =>{
-                        SignalSlice::get_number_of_inserts(&signal_slice) > 0
-                    },
-                    FieldTypes::Bus(bus_slice) =>{
-                        let mut bus_is_init = false;
-                        for i in 0..BusSlice::get_number_of_cells(bus_slice){
-                            match BusSlice::get_reference_to_single_value_by_index(bus_slice, i){
-                                Ok(bus) => {
-                                    bus_is_init |= bus.has_assignment();
-                                }
-                                Err(_) => unreachable!()
-                            }
-                        }
-                        bus_is_init
-                    }
-                };
-                if !is_input{
-                    // case no input, just propagate
-                    perform_tag_propagation(info_tags, status_tags, &tags, is_init);
-                } else{
-                    // in case input check if tags are satisfied
-                    for (t, value) in info_tags{
-                        if !tags.contains_key(t){
-                            return Result::Err(MemoryError::AssignmentMissingTags(field_name.to_string(), t.clone()));
-                        } else{
-                            if !is_init{
-                                // First assignment of input tag
-                                *value = tags.get(t).unwrap().clone();
-                            }
-                            else{
-                                // already given a value, check that it is the same
-                                // if not return error
-                                if value != tags.get(t).unwrap(){
-                                    return Result::Err(MemoryError::AssignmentTagInputTwice(field_name.to_string(), t.clone()));
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // then assign the values to the signal or bus
+                // assign the values to the signal or bus
                 match field{
                     FieldTypes::Signal(signal_slice) =>{
                         let route = match assigned_value{
@@ -438,7 +284,6 @@ impl BusRepresentation {
                     FoldedArgument::Bus(bus_slice) =>{
                         bus_slice.route()
                     },
-                    _ => unreachable!()
                 };
 
                 let mut dim_slice = 1;
@@ -454,35 +299,6 @@ impl BusRepresentation {
                         }
                     }
                     Option::None => {}
-                }
-
-                // Update the value of the signal tags it is complete
-
-                let is_completely_initialized = match field{
-                    FieldTypes::Signal(signal_slice) =>{
-                        SignalSlice::get_number_of_inserts(signal_slice) == 
-                            SignalSlice::get_number_of_cells(signal_slice)
-                    },
-                    FieldTypes::Bus(bus_slice) =>{
-                        let mut bus_is_completely_init = true;
-                        for i in 0..BusSlice::get_number_of_cells(bus_slice){
-                            match BusSlice::get_reference_to_single_value_by_index(bus_slice, i){
-                                Ok(bus) => {
-                                    bus_is_completely_init &= bus.has_assignment();
-                                }
-                                Err(_) => unreachable!()
-                            }
-                        }
-                        bus_is_completely_init
-                    }
-
-                };
-                    
-                if is_completely_initialized && !is_input{
-
-                    for (_tag, state) in status_tags{
-                        state.complete = true;
-                    }  
                 }
                 Ok(())
             }
@@ -503,31 +319,6 @@ impl BusRepresentation {
         self.has_assignment = true;
         for (field_name, value)  in &mut self.fields{
             
-            // get the tags that are propagated
-            let (tags_definition, tags_info) = self.field_tags.get_mut(field_name).unwrap();
-            let (tags_assigned_definition, tags_assigned_info) =  assigned_bus.field_tags.get(field_name).unwrap();
-            let tags_propagated = compute_propagated_tags(tags_assigned_info, tags_assigned_definition);
-
-            let is_init = false;
-
-            // perform the tag assignment
-            if !is_input{
-                // case no input, just propagate
-                perform_tag_propagation(tags_info, tags_definition, &tags_propagated, is_init);
-            } else{
-
-                // in case input check if tags are satisfied
-                for (t, value) in tags_info{
-                    if !tags_propagated.contains_key(t){
-                        return Result::Err(MemoryError::AssignmentMissingTags(field_name.to_string(), t.clone()));
-                    } else{
-                        // Not needed check, always not init, if not error
-                        // First assignment of input tag
-                        *value = tags_propagated.get(t).unwrap().clone();
-                    }
-                }
-            }
-
             // perform the assignment
             match value{
                 FieldTypes::Bus(ref mut bus_slice) =>{
@@ -574,11 +365,7 @@ impl BusRepresentation {
 
             // Update the value of unnasigned fields
             self.unassigned_fields.remove(field_name);
-            
-            // Update the value of the complete tags
-            for (_tag, state) in tags_definition{
-                state.complete = true;
-            }       
+              
         }
         Ok(())
 
@@ -626,12 +413,6 @@ impl BusRepresentation {
             }
         }
         result
-    }
-
-
-
-    pub fn has_assignment(&self)-> bool{
-        self.has_assignment
     }
 
 }

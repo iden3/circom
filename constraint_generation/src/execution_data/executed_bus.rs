@@ -1,8 +1,6 @@
 use super::type_definitions::*;
 
-use num_bigint::BigInt;
 use std::collections::{HashMap, BTreeMap};
-use crate::execution_data::TagInfo;
 use compiler::hir::very_concrete_program::*;
 
 
@@ -20,10 +18,10 @@ pub struct ExecutedBus {
     pub report_name: String,
     pub fields: WireCollector,
     pub parameter_instances: ParameterContext,
-    pub signal_to_tags: TagContext,
     pub bus_connexions: HashMap<String, BusConnexion>,
     pub size: usize, 
     pub bus_id: Option<usize>,
+    pub tag_names: HashMap<String, Vec<String>>,
 }
 
 impl ExecutedBus {
@@ -37,10 +35,10 @@ impl ExecutedBus {
             bus_name: name,
             parameter_instances: instance,
             fields: Vec::new(),
-            signal_to_tags: TagContext::new(),
             bus_connexions: HashMap::new(),
             size: 0,
             bus_id: None,
+            tag_names: HashMap::new(),
         }
     }
 
@@ -68,7 +66,7 @@ impl ExecutedBus {
         self.bus_connexions.insert(component_name, cnn);
     }
 
-    pub fn add_signal(&mut self, signal_name: &str, dimensions: &[usize]) {
+    pub fn add_signal(&mut self, signal_name: &str, dimensions: &[usize], tags: Vec<String>) {
         let info_signal = WireData{
             name: signal_name.to_string(),
             length: dimensions.to_vec(),
@@ -79,27 +77,19 @@ impl ExecutedBus {
         for v in dimensions{
             total_size *= v;
         }
+        self.tag_names.insert(signal_name.to_string(), tags);
         self.size += total_size;
     }
 
-    pub fn add_bus(&mut self, bus_name: &str, dimensions: &[usize]) {
+    pub fn add_bus(&mut self, bus_name: &str, dimensions: &[usize], tags: Vec<String>) {
         let info_bus = WireData{
             name: bus_name.to_string(),
             length: dimensions.to_vec(),
             is_bus: true
         };
         self.fields.push(info_bus);
-    }
+        self.tag_names.insert(bus_name.to_string(), tags);
 
-    pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>){
-        let tags_signal = self.signal_to_tags.get_mut(signal_name);
-        if tags_signal.is_none(){
-            let mut new_tags_signal = TagInfo::new();
-            new_tags_signal.insert(tag_name.to_string(), value);
-            self.signal_to_tags.insert(signal_name.to_string(), new_tags_signal);
-        } else {
-            tags_signal.unwrap().insert(tag_name.to_string(), value);
-        }
     }
 
     pub fn bus_name(&self) -> &String {
@@ -179,6 +169,4 @@ impl ExecutedBus {
             
         }
     }
-
-   
 }

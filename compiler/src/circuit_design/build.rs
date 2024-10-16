@@ -162,7 +162,7 @@ fn build_function_instances(
             component_to_parallel: HashMap::with_capacity(0),
             template_database: &c_info.template_database,
             string_table : string_table,
-            signals_to_tags: BTreeMap::new(),
+            signals_to_tags: HashMap::new(),
             buses: &c_info.buses
         };
         let mut function_info = FunctionCodeInfo {

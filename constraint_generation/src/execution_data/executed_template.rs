@@ -8,7 +8,6 @@ use num_bigint::BigInt;
 use program_structure::ast::{SignalType, Statement};
 use std::collections::{HashMap, HashSet};
 use crate::execution_data::AExpressionSlice;
-use crate::execution_data::TagInfo;
 
 
 struct Connexion {
@@ -24,16 +23,16 @@ struct Connexion {
 pub struct PreExecutedTemplate {
     pub template_name: String,
     pub parameter_instances: Vec<AExpressionSlice>,
-    pub inputs: HashMap<String, HashSet<String>>,
-    pub outputs: HashMap<String, HashSet<String>>,
+    pub inputs: HashMap<String, TagNames>,
+    pub outputs: HashMap<String, TagNames>,
 } 
 
 impl PreExecutedTemplate {
     pub fn new(
         name: String,
         instance: Vec<AExpressionSlice>,
-        inputs: HashMap<String, HashSet<String>>,
-        outputs: HashMap<String, HashSet<String>>,
+        inputs: HashMap<String, TagNames>,
+        outputs: HashMap<String, TagNames>,
     ) -> PreExecutedTemplate {
         PreExecutedTemplate {
             template_name: name,
@@ -51,11 +50,11 @@ impl PreExecutedTemplate {
         &self.parameter_instances
     }
 
-    pub fn inputs(&self) -> &HashMap<String, HashSet<String>> {
+    pub fn inputs(&self) -> &HashMap<String, TagNames>{
         &self.inputs
     }
 
-    pub fn outputs(&self) -> &HashMap<String, HashSet<String>> {
+    pub fn outputs(&self) -> &HashMap<String, TagNames> {
         &self.outputs
     }
 }
@@ -75,8 +74,10 @@ pub struct ExecutedTemplate {
     pub number_of_components: usize,
     pub public_inputs: HashSet<String>,
     pub parameter_instances: ParameterContext,
-    pub tag_instances: TagContext,
-    pub signal_to_tags: TagContext,
+    pub tag_instances: HashMap<String, TagWire>,
+    pub signal_to_tags: HashMap<Vec<String>, BigInt>, 
+    // only store the info of the tags with value
+    // name of tag -> value
     pub is_parallel: bool,
     pub has_parallel_sub_cmp: bool,
     pub is_custom_gate: bool,
@@ -91,12 +92,14 @@ impl ExecutedTemplate {
         name: String,
         report_name: String,
         instance: ParameterContext,
-        tag_instances: TagContext,
+        tag_instances: HashMap<String, TagWire>,
         code: Statement,
         is_parallel: bool,
         is_custom_gate: bool
     ) -> ExecutedTemplate {
         let public_inputs: HashSet<_> = public.iter().cloned().collect();
+
+
         ExecutedTemplate {
             report_name,
             public_inputs,
@@ -106,7 +109,7 @@ impl ExecutedTemplate {
             code: code.clone(),
             template_name: name,
             parameter_instances: instance,
-            signal_to_tags: tag_instances.clone(),
+            signal_to_tags: HashMap::new(),
             tag_instances,
             inputs: WireCollector::new(),
             outputs: WireCollector::new(),
@@ -121,7 +124,7 @@ impl ExecutedTemplate {
         }
     }
 
-    pub fn is_equal(&self, name: &str, context: &ParameterContext, tag_context: &TagContext) -> bool {
+    pub fn is_equal(&self, name: &str, context: &ParameterContext, tag_context: &HashMap<String, TagWire>) -> bool {
         self.template_name == name 
             && self.parameter_instances == *context
             && self.tag_instances == *tag_context
@@ -139,7 +142,12 @@ impl ExecutedTemplate {
             self.bus_connexions.insert(bus_name, cnn);
     }
 
-    pub fn add_input(&mut self, input_name: &str, dimensions: &[usize], is_bus: bool) {
+    pub fn add_input(
+        &mut self, 
+        input_name: &str, 
+        dimensions: &[usize], 
+        is_bus: bool
+    ) {
         let wire_info = WireData{
             name: input_name.to_string(),
             length: dimensions.to_vec(),
@@ -149,7 +157,12 @@ impl ExecutedTemplate {
         self.ordered_signals.push(wire_info);
     }
 
-    pub fn add_output(&mut self, output_name: &str, dimensions: &[usize], is_bus: bool) {
+    pub fn add_output(
+        &mut self, 
+        output_name: &str, 
+        dimensions: &[usize], 
+        is_bus: bool
+    ) {
         let wire_info = WireData{
             name: output_name.to_string(),
             length: dimensions.to_vec(),
@@ -159,7 +172,12 @@ impl ExecutedTemplate {
         self.ordered_signals.push(wire_info);
     }
 
-    pub fn add_intermediate(&mut self, intermediate_name: &str, dimensions: &[usize], is_bus: bool) {
+    pub fn add_intermediate(
+        &mut self, 
+        intermediate_name: &str, 
+        dimensions: &[usize], 
+        is_bus: bool
+    ) {
         let wire_info = WireData{
             name: intermediate_name.to_string(),
             length: dimensions.to_vec(),
@@ -169,15 +187,15 @@ impl ExecutedTemplate {
         self.ordered_signals.push(wire_info);
     }
 
-    pub fn add_tag_signal(&mut self, signal_name: &str, tag_name: &str, value: Option<BigInt>){
-        let tags_signal = self.signal_to_tags.get_mut(signal_name);
-        if tags_signal.is_none(){
-            let mut new_tags_signal = TagInfo::new();
-            new_tags_signal.insert(tag_name.to_string(), value);
-            self.signal_to_tags.insert(signal_name.to_string(), new_tags_signal);
-        } else {
-            tags_signal.unwrap().insert(tag_name.to_string(), value);
-        }
+    // Used to update the values of the signals 
+    // We call to this function to store the signals with values
+    // when we finish the execution of a template
+    pub fn add_tag_signal(
+        &mut self, 
+        signal_name: Vec<String>, 
+        value: BigInt
+    ){
+        self.signal_to_tags.insert(signal_name, value);
     }
 
     pub fn add_component(&mut self, component_name: &str, dimensions: &[usize]) {
@@ -201,7 +219,7 @@ impl ExecutedTemplate {
         &self.parameter_instances
     }
 
-    pub fn tag_instances(&self) -> &TagContext {
+    pub fn tag_instances(&self) -> &HashMap<String, TagWire> {
         &self.tag_instances
     }
 

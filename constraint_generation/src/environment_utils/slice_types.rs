@@ -14,6 +14,18 @@ pub struct TagState{
 }
 pub type TagInfo = BTreeMap<String, Option<BigInt>>;
 pub type TagDefinitions = BTreeMap<String, TagState>; // the tags defined for each signal and if the info about their state
+
+#[derive(Debug, Clone)]
+pub struct BusTagInfo{
+    pub tags: TagInfo,
+    pub definitions: TagDefinitions,
+    pub remaining_inserts: usize, // indicates the number of remaining inserts to be complete
+    pub size: usize, // the size of the array generating the bus
+    pub is_init: bool, // to check if the bus has been initialized or not (no valid tag declarations if init)
+    pub fields: BTreeMap<String, BusTagInfo>,
+}
+
+
 pub type AExpressionSlice = MemorySlice<ArithmeticExpression<String>>;
 // The boolean is true if the signal contains a value
 pub type SignalSlice = MemorySlice<bool>;
@@ -35,7 +47,6 @@ pub enum FoldedResult { // For each possible returning value, we store the info 
     // Depending on the case we store a different slice
     Signal(SignalSlice),
     Bus(BusSlice),
-    Tag(BigInt)
 }
 
 
@@ -43,5 +54,4 @@ pub enum FoldedArgument<'a> { // For each possible argument, we store the info d
     // Depending on the case we store a different slice
     Signal(&'a Vec<usize>),
     Bus(&'a BusSlice),
-    Tag(&'a BigInt)
 }
