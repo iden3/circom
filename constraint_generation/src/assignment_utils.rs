@@ -2,13 +2,25 @@ use super::environment_utils::
 
     slice_types::{MemoryError, TypeAssignmentError, 
         SignalSlice, SliceCapacity, TagInfo, TagState, TagDefinitions, 
-        BusSlice
+        BusSlice, BusTagInfo
     };
-
+use crate::execution_data::type_definitions::TagWire;
 use std::mem;
-
+use std::collections::HashMap;
 
 // Utils for assigning tags
+
+pub fn compute_propagated_tags_bus(tag_data: &BusTagInfo) -> TagWire{
+    let tags_propagated = compute_propagated_tags(&tag_data.tags, &tag_data.definitions);
+    let mut fields_propagated = HashMap::new();
+    for (field_name, field_tags) in &tag_data.fields{
+        fields_propagated.insert(field_name.clone(), compute_propagated_tags_bus(field_tags));
+    }
+    TagWire{
+        tags: tags_propagated,
+        fields: Some(fields_propagated),
+    }
+}
 
 pub fn compute_propagated_tags(tags_values: &TagInfo, tags_definitions: &TagDefinitions)-> TagInfo{
     let mut tags_propagated = TagInfo::new();
@@ -104,6 +116,17 @@ pub fn perform_tag_propagation(tags_values: &mut TagInfo, tags_definitions: &mut
             }
         }
 
+}
+
+pub fn perform_tag_propagation_bus(tag_data: &mut BusTagInfo, assigned_tags: &TagWire, n_inserts: usize){
+    perform_tag_propagation(&mut tag_data.tags, &mut tag_data.definitions, &assigned_tags.tags, tag_data.is_init);
+    tag_data.remaining_inserts -= n_inserts; 
+    for (field_name, field_data) in &mut tag_data.fields{
+        let aux = assigned_tags.fields.as_ref().unwrap();
+        let field_assigned = aux.get(field_name).unwrap();
+        let field_n_inserts = field_data.size * n_inserts;
+        perform_tag_propagation_bus(field_data, field_assigned, field_n_inserts);
+    }
 }
 
 

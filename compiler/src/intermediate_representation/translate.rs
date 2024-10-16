@@ -124,7 +124,7 @@ struct State {
     component_to_parallel:  HashMap<String, ParallelClusters>,
     component_to_instance: HashMap<String, HashSet<usize>>,
     signal_to_type: HashMap<String, SignalType>,
-    signal_to_tags: BTreeMap<String, TagInfo>,
+    signal_to_tags: HashMap<Vec<String>, BigInt>,
     message_id: usize,
     signal_stack: usize,
     variable_stack: usize,
@@ -142,7 +142,7 @@ impl State {
         cmp_id_offset: usize,
         field_tracker: FieldTracker,
         component_to_parallel:  HashMap<String, ParallelClusters>,
-        signal_to_tags: BTreeMap<String, TagInfo>
+        signal_to_tags: HashMap<Vec<String>, BigInt>
     ) -> State {
         State {
             field_tracker,
@@ -857,26 +857,26 @@ fn check_tag_access(name_signal: &String, access: &Vec<Access>, state: &mut Stat
     use Access::*;
 
     let symbol_info = state.environment.get_variable(name_signal).unwrap().clone();
-    let mut value_tag = None;
-    // TODO: case tags of buses -> future work
-    if !symbol_info.is_component && !symbol_info.is_bus{
+    let mut complete_access = vec![name_signal.clone()];
+    if !symbol_info.is_component{
         for acc in access {
             match acc {
-                ArrayAccess(..) => {},
+                ArrayAccess(..) => {return None},
                 ComponentAccess(name) => {
-                    let tags_signal = state.signal_to_tags.get(name_signal).unwrap();
-                    let value = tags_signal.get(name).unwrap();
-
-                    value_tag = if value.is_some() {
-                        Some(value.clone().unwrap())
-                    } else {
-                        unreachable!()
-                    };
+                    complete_access.push(name.clone());
                 }
             }
         }
+        if state.signal_to_tags.contains_key(&complete_access){
+            let value = state.signal_to_tags.get(&complete_access).unwrap();
+            Some(value.clone())
+        } else{
+            None
+        }
+    } else{
+        None
     }
-    value_tag
+    
 }
 
 fn translate_variable(
@@ -1861,7 +1861,7 @@ pub struct CodeInfo<'a> {
     pub field_tracker: FieldTracker,
     pub component_to_parallel: HashMap<String, ParallelClusters>,
     pub string_table: HashMap<String, usize>,
-    pub signals_to_tags: BTreeMap<String, TagInfo>,
+    pub signals_to_tags: HashMap<Vec<String>, BigInt>,
     pub buses: &'a Vec<BusInstance>
 }
 

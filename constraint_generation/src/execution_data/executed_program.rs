@@ -34,7 +34,7 @@ impl ExecutedProgram {
         }
     }
 
-    pub fn identify_node(&self, name: &str, context: &ParameterContext, tag_context: &TagContext) -> Option<NodePointer> {
+    pub fn identify_node(&self, name: &str, context: &ParameterContext, tag_context: &HashMap<String, TagWire>) -> Option<NodePointer> {
         if !self.template_to_nodes.contains_key(name) {
             return Option::None;
         }
