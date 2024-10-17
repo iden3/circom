@@ -121,6 +121,7 @@ pub fn perform_tag_propagation(tags_values: &mut TagInfo, tags_definitions: &mut
 pub fn perform_tag_propagation_bus(tag_data: &mut BusTagInfo, assigned_tags: &TagWire, n_inserts: usize){
     perform_tag_propagation(&mut tag_data.tags, &mut tag_data.definitions, &assigned_tags.tags, tag_data.is_init);
     tag_data.remaining_inserts -= n_inserts; 
+    tag_data.is_init = true;
     for (field_name, field_data) in &mut tag_data.fields{
         let aux = assigned_tags.fields.as_ref().unwrap();
         let field_assigned = aux.get(field_name).unwrap();

@@ -195,7 +195,7 @@ pub fn environment_get_value_tags_bus(environment: &ExecutionEnvironment, name: 
         for (tag, value) in &tag_data.tags{
             if value.is_some(){
                 let state = tag_data.definitions.get(tag).unwrap();
-                if state.defined && (state.value_defined || state.complete){
+                if state.defined && (state.value_defined || tag_data.remaining_inserts == 0){
                     let mut aux = name.clone();
                     aux.push(tag.clone());
                     to_add.push((aux, value.clone().unwrap()));
