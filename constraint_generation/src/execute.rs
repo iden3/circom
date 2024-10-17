@@ -1448,7 +1448,7 @@ fn perform_assign(
 
         let tag = accessing_information.signal_access.clone().unwrap();
         let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
-        let (reference_to_tags, reference_to_tags_defined, reference_to_signal_content) = treat_result_with_environment_error(
+        let (reference_to_tags, reference_to_signal_content) = treat_result_with_environment_error(
                 environment_response,
                 meta,
                 &mut runtime.runtime_errors,
@@ -1475,7 +1475,7 @@ fn perform_assign(
                 &runtime.call_trace,
             )?
         };
-        let possible_tag = reference_to_tags.get(&tag.clone());
+        let possible_tag = reference_to_tags.tags.get(&tag.clone());
         if let Some(val) = possible_tag {
             if let Some(_) = val {
                 treat_result_with_memory_error(
@@ -1485,8 +1485,8 @@ fn perform_assign(
                     &runtime.call_trace,
                 )?
             } else { // we add the info saying that the tag is defined
-                reference_to_tags.insert(tag.clone(), Option::Some(value.clone()));
-                let tag_state = reference_to_tags_defined.get_mut(&tag).unwrap();
+                reference_to_tags.tags.insert(tag.clone(), Option::Some(value.clone()));
+                let tag_state = reference_to_tags.definitions.get_mut(&tag).unwrap();
                 tag_state.value_defined = true;            
             }
         } else {
@@ -1511,7 +1511,7 @@ fn perform_assign(
         }
 
         let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
-        let (reference_to_tags, reference_to_tags_defined, reference_to_signal_content) = treat_result_with_environment_error(
+        let (reference_to_tags, reference_to_signal_content) = treat_result_with_environment_error(
             environment_response,
             meta,
             &mut runtime.runtime_errors,
@@ -1525,15 +1525,14 @@ fn perform_assign(
         } else{
             TagWire::default()
         };
-
-        let signal_is_init = SignalSlice::get_number_of_inserts(reference_to_signal_content) > 0;
-
-        perform_tag_propagation(reference_to_tags, reference_to_tags_defined, &new_tags.tags, signal_is_init);
-
         
-        // Perform the signal assignment
+        // Perform the tag propagation
         let r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
-        
+
+        reference_to_tags.remaining_inserts -= MemorySlice::get_number_of_inserts(&r_slice);
+        perform_tag_propagation(&mut reference_to_tags.tags, &mut reference_to_tags.definitions, &new_tags.tags, reference_to_tags.is_init);
+
+        // Perform the signal assignment
         let signal_assignment_response = perform_signal_assignment(reference_to_signal_content, &accessing_information.before_signal, &r_slice.route());
         
         treat_result_with_memory_error_void(
@@ -1542,22 +1541,6 @@ fn perform_assign(
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-
-
-        // Update complete tags if completely init
-        let signal_is_completely_initialized = 
-            SignalSlice::get_number_of_inserts(reference_to_signal_content) == 
-            SignalSlice::get_number_of_cells(reference_to_signal_content);
-
-
-
-        if signal_is_completely_initialized {
-
-            for (tag, _value) in reference_to_tags{
-                let tag_state = reference_to_tags_defined.get_mut(tag).unwrap();
-                tag_state.complete = true;
-            }
-        }
 
         // Get left arithmetic slice
         let mut l_signal_names = Vec::new();
@@ -2005,7 +1988,6 @@ fn perform_assign(
                         definitions.insert(tag.clone(), TagState{
                             defined: true,
                             value_defined: false,
-                            complete: false,
                         });
                     }
                     // in this case it is a bus, add its fields
@@ -2304,7 +2286,7 @@ fn perform_assign(
                 let memory_response = single_bus.assign_value_to_field(
                     accessing_information.field_access.as_ref().unwrap(),
                     accessing_information.remaining_access.as_ref().unwrap(),
-                    FoldedArgument::Bus(bus_slice),
+                    FoldedArgument::Bus(&bus_slice),
                     false
                 );
                 treat_result_with_memory_error_void(
@@ -2624,19 +2606,19 @@ fn execute_signal(
     } else {
         unreachable!();
     };
-    let (tags,tags_definitions,  signal_slice) = treat_result_with_environment_error(
+    let (tag_data,  signal_slice) = treat_result_with_environment_error(
         environment_response,
         meta,
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
     if let Some(acc) = access_information.signal_access {
-        if tags.contains_key(&acc) {
-            let value_tag = tags.get(&acc).unwrap();
-            let state = tags_definitions.get(&acc).unwrap();
+        if tag_data.tags.contains_key(&acc) {
+            let value_tag = tag_data.tags.get(&acc).unwrap();
+            let state = tag_data.definitions.get(&acc).unwrap();
             if let Some(value_tag) = value_tag { // tag has value
                 // access only allowed when (1) it is value defined by user or (2) it is completely assigned
-                if state.value_defined || state.complete{
+                if state.value_defined || tag_data.remaining_inserts == 0{
                     let a_value = AExpr::Number { value: value_tag.clone() };
                     let ae_slice = AExpressionSlice::new(&a_value);
                     Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
@@ -2682,7 +2664,7 @@ fn execute_signal(
         )?;
 
         // check which tags are propagated
-        let tags_propagated = compute_propagated_tags(tags, tags_definitions);
+        let tags_propagated = compute_propagated_tags(&tag_data.tags, &tag_data.definitions, tag_data.remaining_inserts);
         let tags = TagWire{
             tags: tags_propagated,
             fields: None

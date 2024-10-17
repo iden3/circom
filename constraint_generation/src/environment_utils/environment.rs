@@ -9,7 +9,8 @@ use super::slice_types::{
     TagDefinitions,
     TagState,
     BusSlice,
-    BusTagInfo
+    BusTagInfo,
+    SignalTagInfo
 };
 use super::{ArithmeticExpression, CircomEnvironment, CircomEnvironmentError};
 use program_structure::memory_slice::MemoryError;
@@ -20,7 +21,7 @@ use crate::environment_utils::slice_types::BigInt;
 
 
 pub type ExecutionEnvironmentError = CircomEnvironmentError;
-pub type ExecutionEnvironment = CircomEnvironment<ComponentSlice, (TagInfo, TagDefinitions, SignalSlice), (TagInfo, AExpressionSlice), (BusTagInfo, BusSlice)>;
+pub type ExecutionEnvironment = CircomEnvironment<ComponentSlice, (SignalTagInfo, SignalSlice), (TagInfo, AExpressionSlice), (BusTagInfo, BusSlice)>;
 
 pub fn environment_shortcut_add_component(
     environment: &mut ExecutionEnvironment,
@@ -40,10 +41,17 @@ pub fn environment_shortcut_add_input(
     let slice = SignalSlice::new_with_route(dimensions, &true);
     let mut tags_defined = TagDefinitions::new();
     for (t, value) in tags{
-        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: true});
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some()});
     }
-    
-    environment.add_input(input_name, (tags.clone(), tags_defined,  slice));
+    let tag_info = SignalTagInfo{
+        tags: tags.clone(),
+        definitions: tags_defined,
+        remaining_inserts: 0,
+        is_init: true
+    };
+
+
+    environment.add_input(input_name, (tag_info,  slice));
 }
 pub fn environment_shortcut_add_output(
     environment: &mut ExecutionEnvironment,
@@ -54,9 +62,16 @@ pub fn environment_shortcut_add_output(
     let slice = SignalSlice::new_with_route(dimensions, &false);
     let mut tags_defined = TagDefinitions::new();
     for (t, value) in tags{
-        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: false});
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some()});
     }
-    environment.add_output(output_name, (tags.clone(), tags_defined, slice));
+    let size = dimensions.iter().fold(1, |acc, dim| acc * dim);
+    let tag_info = SignalTagInfo{
+        tags: tags.clone(),
+        definitions: tags_defined,
+        remaining_inserts: size,
+        is_init: false
+    };
+    environment.add_output(output_name, (tag_info, slice));
 }
 pub fn environment_shortcut_add_intermediate(
     environment: &mut ExecutionEnvironment,
@@ -67,9 +82,16 @@ pub fn environment_shortcut_add_intermediate(
     let slice = SignalSlice::new_with_route(dimensions, &false);
     let mut tags_defined = TagDefinitions::new();
     for (t, value) in tags{
-        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: false});
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some()});
     }
-    environment.add_intermediate(intermediate_name, (tags.clone(), tags_defined, slice));
+    let size = dimensions.iter().fold(1, |acc, dim| acc * dim);
+    let tag_info = SignalTagInfo{
+        tags: tags.clone(),
+        definitions: tags_defined,
+        remaining_inserts: size,
+        is_init: false
+    };
+    environment.add_intermediate(intermediate_name, (tag_info, slice));
 }
 pub fn environment_shortcut_add_bus_input(
     environment: &mut ExecutionEnvironment,
@@ -81,7 +103,7 @@ pub fn environment_shortcut_add_bus_input(
         let mut tags_defined = TagDefinitions::new();
     
         for (t, value) in &tags.tags{
-            tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: true});
+            tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some()});
         }
         let mut fields = BTreeMap::new();
         if tags.fields.is_some(){
@@ -116,7 +138,7 @@ pub fn environment_shortcut_add_bus_output(
     let slice = BusSlice::new_with_route(dimensions, &BusRepresentation::default());
     let mut tags_defined = TagDefinitions::new();
     for (t, value) in tags{
-        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: false});
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some()});
     }
     let size = dimensions.iter().fold(1, |aux, val| aux * val);
     let tag_info= BusTagInfo{
@@ -138,7 +160,7 @@ pub fn environment_shortcut_add_bus_intermediate(
     let slice = BusSlice::new_with_route(dimensions, &BusRepresentation::default());
     let mut tags_defined = TagDefinitions::new();
     for (t, value) in tags{
-        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some(), complete: false});
+        tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some()});
     }
     let size = dimensions.iter().fold(1, |aux, val| aux * val);
 
@@ -177,11 +199,11 @@ pub fn environment_check_all_components_assigned(environment: &ExecutionEnvironm
 
 pub fn environment_get_value_tags_signal(environment: &ExecutionEnvironment, name: &String) -> Vec<(Vec<String>, BigInt)>{
     let mut to_add = Vec::new();
-    let (tags, definitions, _) = environment.get_signal(name).unwrap();
-    for (tag, value) in tags{
+    let (tag_data, _) = environment.get_signal(name).unwrap();
+    for (tag, value) in &tag_data.tags{
         if value.is_some(){
-            let state = definitions.get(tag).unwrap();
-            if state.defined && (state.value_defined || state.complete){
+            let state = tag_data.definitions.get(tag).unwrap();
+            if state.defined && (state.value_defined || tag_data.remaining_inserts == 0){
                 to_add.push((vec![name.clone(), tag.clone()], value.clone().unwrap()));
             }
         }
