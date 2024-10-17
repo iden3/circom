@@ -55,7 +55,7 @@ pub struct BusData {
         pub remaining_access: Option<AccessingInformation>, // may not appear
     }
 */
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AccessingInformationBus {
     pub undefined: bool,
     pub array_access: Vec<usize>,

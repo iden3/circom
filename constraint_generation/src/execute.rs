@@ -2154,9 +2154,11 @@ fn perform_assign(
 
                 let mut ref_to_tags_info = tags_info;
                 let mut to_access = accessing_information;
-                while to_access.remaining_access.is_some(){
+                let mut next_access = accessing_information.remaining_access.as_ref().unwrap();
+                while next_access.remaining_access.is_some(){ // it is not the tag access
                     ref_to_tags_info = ref_to_tags_info.fields.get_mut(to_access.field_access.as_ref().unwrap()).unwrap();
                     to_access = to_access.remaining_access.as_ref().unwrap();
+                    next_access = next_access.remaining_access.as_ref().unwrap();
                 }
 
                 if ref_to_tags_info.is_init{
@@ -2790,17 +2792,19 @@ fn execute_bus(
         // in this case we access to the value of a tag (of the complete bus or a field)
         let mut to_do_access = &access_information;
         let mut ref_tag_data = tag_data;
-        // we perform all the field accesses
-        while to_do_access.remaining_access.is_some(){
+        let mut next_access = access_information.remaining_access.as_ref().unwrap();        
+        // we perform all the field accesses, we stop in the previous one to the tag
+        while next_access.remaining_access.is_some(){
             let field = to_do_access.field_access.as_ref().unwrap();
             ref_tag_data = ref_tag_data.fields.get(field).unwrap();
             to_do_access = to_do_access.remaining_access.as_ref().unwrap();
+            next_access = next_access.remaining_access.as_ref().unwrap();
         }
         // the last access is the tag access
         let tag_access = to_do_access.field_access.as_ref().unwrap();
-        let value_tag = tag_data.tags.get(tag_access).unwrap();
-        let is_complete = tag_data.remaining_inserts == 0;
-        let state = tag_data.definitions.get(tag_access).unwrap();
+        let value_tag = ref_tag_data.tags.get(tag_access).unwrap();
+        let is_complete = ref_tag_data.remaining_inserts == 0;
+        let state = ref_tag_data.definitions.get(tag_access).unwrap();
         if let Some(value_tag) = value_tag { // tag has value
             // access only allowed when (1) it is value defined by user or (2) it is completely assigned
             if state.value_defined || is_complete{
