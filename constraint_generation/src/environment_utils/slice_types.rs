@@ -15,7 +15,14 @@ pub struct TagState{
 pub type TagInfo = BTreeMap<String, Option<BigInt>>;
 pub type TagDefinitions = BTreeMap<String, TagState>; // the tags defined for each signal and if the info about their state
 
-#[derive(Debug, Clone)]
+pub struct SignalTagInfo{
+    pub tags: TagInfo,
+    pub definitions: TagDefinitions,
+    pub remaining_inserts: usize,
+    pub is_init: bool,
+}
+
+#[derive(Clone)]
 pub struct BusTagInfo{
     pub tags: TagInfo,
     pub definitions: TagDefinitions,
