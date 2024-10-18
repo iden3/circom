@@ -1303,9 +1303,10 @@ fn execute_bus_declaration(
                 if let Some(tags_input) = node.tag_instances().get(bus_name){
                     environment_shortcut_add_bus_input(environment, bus_name, dimensions, tags_input);
                 } else{
+                    
                     let tag_wire = TagWire{
                         tags,
-                        fields: None
+                        fields: None // TODO: FILL THE TAGS
                     };
                     environment_shortcut_add_bus_input(environment, bus_name, dimensions, &tag_wire);
                 }
@@ -2841,7 +2842,7 @@ fn execute_bus(
             to_do_access = to_do_access.remaining_access.as_ref().unwrap();
         }
         // Compute which tags are propagated 
-        let tags_propagated = compute_propagated_tags_bus(&tag_data);
+        let tags_propagated = compute_propagated_tags_bus(&ref_tag_data);
 
         // match the result and generate the output
         match result{
