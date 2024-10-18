@@ -751,7 +751,6 @@ impl ComponentRepresentation {
             Result::Ok(())
         }
 
-        
         check_tags(
             input_tags,
             &mut component.unassigned_tags,

@@ -17,7 +17,7 @@ pub struct TagNames{
     pub fields: Option<HashMap<String, TagNames>>,
 }
 
-#[derive(Clone, PartialEq, Default)]
+#[derive(Clone, PartialEq, Default, Debug)]
 pub struct TagWire{
     pub tags: TagInfo,
     pub fields: Option<HashMap<String, TagWire>>,
