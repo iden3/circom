@@ -1448,14 +1448,14 @@ fn perform_assign(
 
         let tag = accessing_information.signal_access.clone().unwrap();
         let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
-        let (reference_to_tags, reference_to_signal_content) = treat_result_with_environment_error(
+        let (reference_to_tags, _) = treat_result_with_environment_error(
                 environment_response,
                 meta,
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
         )?;
 
-        if SignalSlice::get_number_of_inserts(&reference_to_signal_content) > 0{
+        if reference_to_tags.is_init{
             treat_result_with_memory_error(
                 Result::Err(MemoryError::AssignmentTagAfterInit),
                 meta,
@@ -1529,7 +1529,8 @@ fn perform_assign(
         // Perform the tag propagation
         let r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
 
-        reference_to_tags.remaining_inserts -= MemorySlice::get_number_of_inserts(&r_slice);
+        reference_to_tags.remaining_inserts -= MemorySlice::get_number_of_cells(&r_slice);
+        reference_to_tags.is_init = true;
         perform_tag_propagation(&mut reference_to_tags.tags, &mut reference_to_tags.definitions, &new_tags.tags, reference_to_tags.is_init);
 
         // Perform the signal assignment
