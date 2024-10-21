@@ -1694,7 +1694,7 @@ fn perform_assign(
                     // it is signal assignment of a input signal or a field of the bus
                     let signal_accessed = accessing_information.field_access.as_ref().unwrap();
                     let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
-                    let tags = if r_folded.tags.is_some() {
+                    let tags = if r_folded.tags.is_some() && op == AssignOp::AssignConstraintSignal {
                         r_folded.tags.unwrap()
                     } else {
                         TagWire::default()
@@ -1741,7 +1741,7 @@ fn perform_assign(
                     let (name_bus, assigned_bus_slice) = r_folded.bus_slice.unwrap();
                     
                     
-                    let tags = if r_folded.tags.is_some() {
+                    let tags = if r_folded.tags.is_some()  && op == AssignOp::AssignConstraintSignal{
                         r_folded.tags.unwrap()
                     } else {
                         TagWire::default()
@@ -2012,8 +2012,9 @@ fn perform_assign(
                 }
                 fields
             }
-            // only if it is not an input_bus
-            if !is_input_bus {
+            // only if it is not an input_bus if we are in the main component
+            let is_main_component = runtime.call_trace.len() == 1;
+            if !is_input_bus || is_main_component{
                 let bus_inside_tags = collect_info_tags(bus_info, &runtime.exec_program, BusSlice::get_number_of_cells(&bus_slice));
                 tags_info.fields = bus_inside_tags;
             }            
@@ -2060,7 +2061,7 @@ fn perform_assign(
                 assert!(accessing_information.field_access.is_some());
 
                 let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
-                let tags = if r_folded.tags.is_some() {
+                let tags = if r_folded.tags.is_some()  && op == AssignOp::AssignConstraintSignal{
                     r_folded.tags.unwrap()
                 } else {
                     TagWire::default()
@@ -2098,7 +2099,7 @@ fn perform_assign(
                 }
                 let l_slice = AExpressionSlice::new_array(arithmetic_slice.route().to_vec(), l_expressions);
                 Some((l_slice, arithmetic_slice))
-
+                
             } else if meta.get_type_knowledge().is_tag(){
                 // in case we are assigning a tag of the complete bus
                 // check not valid in input buses

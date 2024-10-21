@@ -130,9 +130,17 @@ pub fn perform_tag_propagation_bus(tag_data: &mut BusTagInfo, assigned_tags: &Ta
     perform_tag_propagation(&mut tag_data.tags, &mut tag_data.definitions, &assigned_tags.tags, tag_data.is_init);
     tag_data.remaining_inserts -= n_inserts; 
     tag_data.is_init = true;
+
     for (field_name, field_data) in &mut tag_data.fields{
-        let aux = assigned_tags.fields.as_ref().unwrap();
-        let field_assigned = aux.get(field_name).unwrap();
+        // if the field does not appear in the assigned tags we take an empty TagWire
+        let mut field_assigned = &TagWire::default();
+        
+        if assigned_tags.fields.is_some() {
+            let assigned_tag_fields = assigned_tags.fields.as_ref().unwrap();
+            if assigned_tag_fields.contains_key(field_name){ // check if it appears in the fields
+                field_assigned = assigned_tag_fields.get(field_name).unwrap();
+            } 
+        }
         let field_n_inserts = field_data.size * n_inserts;
         perform_tag_propagation_bus(field_data, field_assigned, field_n_inserts);
     }
