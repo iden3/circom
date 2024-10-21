@@ -735,14 +735,19 @@ impl ComponentRepresentation {
             }
             if input_tags.fields.is_some(){
                 let input_fields = input_tags.fields.as_mut().unwrap();
-                let tags_fields = tags_info.fields.as_ref().unwrap();
                 for (field_name, input_field) in input_fields{
-                    let tags = tags_fields.get(field_name).unwrap();
+                    let mut tags_assigned = &TagWire::default();
+                    if tags_info.fields.is_some(){
+                        let tags_fields = tags_info.fields.as_ref().unwrap();
+                        if tags_fields.contains_key(field_name){
+                            tags_assigned = tags_fields.get(field_name).unwrap();
+                        }
+                    }
                     signal_name.push(field_name.clone());
                     check_tags(
                         input_field,
                         unassigned_tags,
-                        tags, 
+                        tags_assigned, 
                         signal_name
                     )?;
                     signal_name.pop();
@@ -787,12 +792,19 @@ impl ComponentRepresentation {
                 }
             }
             if input_tags.fields.is_some(){
-                let tags_field = tags.fields.as_ref().unwrap();
                 for (field_name, input_field) in input_tags.fields.as_ref().unwrap(){
+                    
+                    let mut tags_assigned = &TagWire::default();
+                    if tags.fields.is_some(){
+                        let tags_fields = tags.fields.as_ref().unwrap();
+                        if tags_fields.contains_key(field_name){
+                            tags_assigned = tags_fields.get(field_name).unwrap();
+                        }
+                    }
                     signal_name.push(field_name.clone());
                     check_tags(
                         input_field, 
-                        tags_field.get(field_name).as_ref().unwrap(), 
+                        tags_assigned, 
                         signal_name                    
                     )?;
                     signal_name.pop();
