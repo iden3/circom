@@ -671,7 +671,7 @@ impl ComponentRepresentation {
     }
 
     pub fn has_unassigned_inputs(&self) -> bool{
-        !self.unassigned_inputs.is_empty()
+        !self.unassigned_tags.is_empty () || !self.unassigned_inputs.is_empty() 
     }
      
 
@@ -704,7 +704,7 @@ impl ComponentRepresentation {
         let input_tags = accessed_info.get_mut(&signal_name[signal_name.len()-1]).unwrap();
 
         // We copy tags in any case, complete or incomplete assignment
-        // Th.e values of the tags must be the same than the ones stored before
+        // The values of the tags must be the same than the ones stored before
         
         fn check_tags(
             input_tags: &mut TagWire, 
