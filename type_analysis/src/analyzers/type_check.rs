@@ -1040,6 +1040,116 @@ enum SymbolInformation {
     Tag,
 }
 
+fn check_if_it_is_a_tag(
+    symbol: &str,
+    meta: &Meta,
+    access_information: AccessInfo,
+    environment: &TypingEnvironment,
+    reports: &mut ReportCollection,
+    program_archive: &ProgramArchive,
+) -> Result<bool, ()> {
+    let buses_and_signals = if access_information.1.is_none() { // no access
+        return Result::Ok(false);
+    } else {
+        access_information.1.unwrap()
+    };
+    let mut num_dims_accessed = 0;
+    let mut pos = 0;
+    let (mut kind, mut symbol, mut tags) = if environment.has_component(symbol){ 
+        // we are inside component
+        let (name, dim) = environment.get_component_or_break(symbol, file!(), line!()).clone();
+        let current_dim = dim - access_information.0;
+        if current_dim != 0{ // only allowed complete accesses to component
+            return add_report_and_end(ReportCode::InvalidPartialArray, meta, reports);
+        } else if buses_and_signals.len() <= 1 {
+            return Result::Ok(false);
+        }
+        //current_dim == 0 => component completely defined
+        //buses_and_signals.len() > 1 => we are accessing a signal, or a bus and later maybe a tag
+        let template_name = name.unwrap();
+        let (accessed_element,accessed_dim) = buses_and_signals.get(0).unwrap();
+        pos += 1;
+        num_dims_accessed += accessed_dim; 
+        let input = program_archive.get_template_data(&template_name).get_input_info(&accessed_element);
+        let output = program_archive.get_template_data(&template_name).get_output_info(&accessed_element);
+        let (dim, kind, atags) = match (input, output) {
+            (Option::Some(wire_data), _) | (_, Option::Some(wire_data)) =>
+                (wire_data.get_dimension(), wire_data.get_type(), wire_data.get_tags()),
+            _ => {
+                return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
+            }
+        };
+        (kind, accessed_element.as_str(), atags.clone())
+    } 
+    else { // we are outside component
+        num_dims_accessed = access_information.0;
+        let (kind, possible_tags) = if environment.has_variable(symbol) { return Result::Ok(false); }
+        else if environment.has_bus(symbol){
+            let (current_bus,_,possible_tags) = environment.get_bus_or_break(symbol, file!(), line!()).clone();
+            let kind = WireType::Bus(current_bus.unwrap());
+            (kind, possible_tags)
+        } else {
+            let kind = WireType::Signal;
+            let (_, possible_tags) = environment.get_signal_or_break(symbol, file!(), line!()).clone();
+            (kind,possible_tags)
+        };
+        let mut tags = HashSet::new();
+        for i in possible_tags.clone() {
+            tags.insert(i);
+        }
+        (kind, symbol, tags) };
+    while pos < buses_and_signals.len() {
+        let (accessed_element, accessed_dim) = buses_and_signals.get(pos).unwrap().clone();
+        num_dims_accessed += accessed_dim;
+        if kind == WireType::Signal {
+                if tags.contains(&accessed_element) {
+
+                    //Tags cannot be partially accessed. Then, the previous bus or signal cannot be array accessed.
+                    if pos == buses_and_signals.len()-1 && num_dims_accessed == 0{
+                        return Result::Ok(true);
+                    } else if num_dims_accessed > 0 {
+                        return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
+                    } else{
+                            return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
+                    }
+                }
+                else{
+                    return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
+                }
+        } else if let WireType::Bus(b_name) = kind  {
+                let field = program_archive.get_bus_data(&b_name).get_field_info(&accessed_element);
+                match field {
+                    Some(wire) => {
+                        if pos == buses_and_signals.len()-1 {
+                            return Result::Ok(false);
+                        } else {
+                            kind = wire.get_type();
+                            tags = wire.get_tags().clone();
+                        }
+                    },
+                    Option::None => {
+                        if tags.contains(&accessed_element) {
+                            if pos == buses_and_signals.len()-1 && num_dims_accessed == 0{
+                                return Result::Ok(true);
+                            } else if num_dims_accessed > 0 {
+                                return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
+                            } else{
+                                    return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
+                            }
+                        }
+                        else {
+                            return Ok(false);
+                        }
+                    },
+            }
+        } else{
+            unreachable!()
+        }
+        pos += 1;
+    }
+    return Ok(false);
+}
+
 fn apply_access_to_symbol(
     symbol: &str,
     meta: &Meta,
@@ -1048,6 +1158,10 @@ fn apply_access_to_symbol(
     reports: &mut ReportCollection,
     program_archive: &ProgramArchive,
 ) -> Result<SymbolInformation, ()> {
+    let it_is_tag = check_if_it_is_a_tag(symbol, meta, access_information.clone(), environment, reports, program_archive)?;
+    if it_is_tag {
+        return Result::Ok(SymbolInformation::Tag);
+    }
     let (current_template_or_bus, mut current_dim, possible_tags) = if environment.has_component(symbol) {
         let (temp, dim) = environment.get_component_or_break(symbol, file!(), line!()).clone();
         (temp.clone(),dim, Vec::new())
@@ -1060,7 +1174,6 @@ fn apply_access_to_symbol(
         let dim = environment.get_variable_or_break(symbol, file!(), line!());
         (Option::None, *dim, Vec::new())
     };
-
     if access_information.0 > current_dim {
         return add_report_and_end(ReportCode::InvalidArrayAccess(current_dim, access_information.0), meta, reports);
     } else {
