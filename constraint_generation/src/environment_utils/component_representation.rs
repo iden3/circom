@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use crate::ast::Meta;
 use crate::execution_data::type_definitions::{TagNames,TagWire};
 use crate::assignment_utils::*;
+use num_bigint_dig::BigInt;
 
 pub struct ComponentRepresentation {
     pub node_pointer: Option<NodePointer>,
@@ -370,12 +371,41 @@ impl ComponentRepresentation {
             let mut to_access = remaining_access;
             while to_access.field_access != None {
                 let acc = to_access.field_access.as_ref().unwrap();
+
                 tag_info = tag_info.fields.as_ref().unwrap().get(acc).unwrap();
-                to_access = remaining_access.remaining_access.as_ref().unwrap();
+                to_access = to_access.remaining_access.as_ref().unwrap();
             }
             Ok((tag_info.clone(), result))
         }
     
+    }
+
+    pub fn get_tag_value(&self, field_name: &str, remaining_access: &AccessingInformationBus)-> Result<BigInt, MemoryError>{
+        
+        if let Result::Err(value) = self.check_initialized_inputs(field_name) {
+            return Err(value);
+        }
+        
+        let mut tags_info = if self.inputs_tags.contains_key(field_name){
+            self.inputs_tags.get(field_name).unwrap()
+        } else{
+            self.outputs_tags.get(field_name).unwrap()
+        };
+        let mut to_access = remaining_access;
+        let mut next_access = remaining_access.remaining_access.as_ref().unwrap();
+        while next_access.field_access.is_some(){
+            let field = to_access.field_access.as_ref().unwrap();
+            tags_info = tags_info.fields.as_ref().unwrap().get(field).unwrap();
+            to_access = to_access.remaining_access.as_ref().unwrap();
+            next_access = next_access.remaining_access.as_ref().unwrap();
+        }
+        let tag_value = tags_info.tags.get(to_access.field_access.as_ref().unwrap()).unwrap();
+        if let Some(value_tag) = tag_value { // tag has value
+                Result::Ok(value_tag.clone() )
+        } else {
+            let error = MemoryError::TagValueNotInitializedAccess;
+            return Result::Err(error);
+        }
     }
 
     // Assign signals: Operations to assign signals -> case init and no init

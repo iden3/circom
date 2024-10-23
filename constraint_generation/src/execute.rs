@@ -2936,56 +2936,73 @@ fn execute_component(
         let remaining_access = access_information.remaining_access.as_ref().unwrap();
         let symbol = create_symbol_bus(symbol, &access_information);
 
-        let (tags, result) = treat_result_with_memory_error(
-            resulting_component.get_io_value(signal_name, remaining_access),
-            meta,
-            &mut runtime.runtime_errors,
-            &runtime.call_trace,
-        )?;
-        
-        match result{
-            FoldedResult::Signal(signals) =>{
-                let result = signal_to_arith(symbol, signals)
-                    .map(|s| FoldedValue { 
-                        arithmetic_slice: Option::Some(s),
-                        tags: Option::Some(tags),
-                        ..FoldedValue::default() 
-                    });
-                treat_result_with_memory_error(
-                    result,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )
-            },
-            FoldedResult::Bus(buses) =>{
-                // Check that all the buses are completely assigned
+        if meta.get_type_knowledge().is_tag(){
+            // case accessing a tag of a field of the subcomponent
+            let result = treat_result_with_memory_error(
+                resulting_component.get_tag_value(signal_name, remaining_access),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            let a_value = AExpr::Number { value: result };
+            let ae_slice = AExpressionSlice::new(&a_value);
+            Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
 
-                for i in 0..BusSlice::get_number_of_cells(&buses){
-                    let value_left = treat_result_with_memory_error(
-                        BusSlice::get_reference_to_single_value_by_index(&buses, i),
+        } else{
+            // case accessing a field
+            let (tags, result) = treat_result_with_memory_error(
+                resulting_component.get_io_value(signal_name, remaining_access),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            
+            match result{
+                FoldedResult::Signal(signals) =>{
+                    let result = signal_to_arith(symbol, signals)
+                        .map(|s| FoldedValue { 
+                            arithmetic_slice: Option::Some(s),
+                            tags: Option::Some(tags),
+                            ..FoldedValue::default() 
+                        });
+                    treat_result_with_memory_error(
+                        result,
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
-                    )?;
-            
-                    if value_left.has_unassigned_fields(){
-                        treat_result_with_memory_error(
-                            Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedBus)),
+                    )
+                },
+                FoldedResult::Bus(buses) =>{
+                    // Check that all the buses are completely assigned
+    
+                    for i in 0..BusSlice::get_number_of_cells(&buses){
+                        let value_left = treat_result_with_memory_error(
+                            BusSlice::get_reference_to_single_value_by_index(&buses, i),
                             meta,
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
                         )?;
+                
+                        if value_left.has_unassigned_fields(){
+                            treat_result_with_memory_error(
+                                Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedBus)),
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
+                        }
                     }
+                    Ok(FoldedValue { 
+                        bus_slice: Option::Some((symbol, buses)),
+                        tags: Option::Some(tags),
+                        ..FoldedValue::default() 
+                    })
+    
                 }
-                Ok(FoldedValue { 
-                    bus_slice: Option::Some((symbol, buses)),
-                    tags: Option::Some(tags),
-                    ..FoldedValue::default() 
-                })
-
             }
         }
+
+        
 
     } else {
             let read_result = if resulting_component.is_ready_initialize() {
