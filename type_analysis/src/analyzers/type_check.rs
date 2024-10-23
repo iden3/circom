@@ -1060,7 +1060,7 @@ fn check_if_it_is_a_tag(
     let mut num_dims_accessed = 0;
     let mut pos = 0;
     let mut it_is_input_subcomponent = false;
-    let (mut kind, mut symbol, mut tags) = if environment.has_component(symbol){ 
+    let (mut kind, mut tags) = if environment.has_component(symbol){ 
         // we are inside component
         let (name, dim) = environment.get_component_or_break(symbol, file!(), line!()).clone();
         let current_dim = dim - access_information.0;
@@ -1077,15 +1077,15 @@ fn check_if_it_is_a_tag(
         num_dims_accessed += accessed_dim; 
         let input = program_archive.get_template_data(&template_name).get_input_info(&accessed_element);
         let output = program_archive.get_template_data(&template_name).get_output_info(&accessed_element);
-        let (dim, kind, atags) = if let Some(wire_data) = input {
+        let (kind, atags) = if let Some(wire_data) = input {
             it_is_input_subcomponent = true;
-            (wire_data.get_dimension(), wire_data.get_type(), wire_data.get_tags())
+            (wire_data.get_type(), wire_data.get_tags())
         } else if let Some(wire_data) = output {
-            (wire_data.get_dimension(), wire_data.get_type(), wire_data.get_tags())
+            (wire_data.get_type(), wire_data.get_tags())
         } else {
             return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
         };
-        (kind, accessed_element.as_str(), atags.clone())
+        (kind, atags.clone())
     } 
     else { // we are outside component
         num_dims_accessed = access_information.0;
@@ -1103,7 +1103,7 @@ fn check_if_it_is_a_tag(
         for i in possible_tags.clone() {
             tags.insert(i);
         }
-        (kind, symbol, tags) };
+        (kind, tags) };
     while pos < buses_and_signals.len() {
         let (accessed_element, accessed_dim) = buses_and_signals.get(pos).unwrap().clone();
         num_dims_accessed += accessed_dim;
