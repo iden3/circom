@@ -197,9 +197,9 @@ impl ComponentRepresentation {
             for (tag_name, value) in &node.signal_to_tags{
                 if component.outputs_tags.contains_key(&tag_name[0]){
                     // in this case we have to store the value
-                    let info_output_tags = component.outputs_tags.get_mut(&tag_name[0]).unwrap();
+                    let mut info_output_tags = component.outputs_tags.get_mut(&tag_name[0]).unwrap();
                     for i in 1..tag_name.len()-1{
-                        info_output_tags.fields.as_mut().unwrap().get_mut(&tag_name[i]).unwrap();
+                        info_output_tags = info_output_tags.fields.as_mut().unwrap().get_mut(&tag_name[i]).unwrap();
                     }
                     info_output_tags.tags.insert(tag_name.last().unwrap().clone(), Some(value.clone()));
                 }
@@ -391,6 +391,7 @@ impl ComponentRepresentation {
         } else{
             self.outputs_tags.get(field_name).unwrap()
         };
+
         let mut to_access = remaining_access;
         let mut next_access = remaining_access.remaining_access.as_ref().unwrap();
         while next_access.field_access.is_some(){
