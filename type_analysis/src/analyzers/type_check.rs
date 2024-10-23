@@ -290,6 +290,10 @@ fn type_statement(
                             if output.is_some() {
                                 return add_report( ReportCode::OutputTagCannotBeModifiedOutside,meta, &mut analysis_information.reports);
                             }
+                            let input = program_archive.get_template_data(&template_name).get_input_info(&first_access);
+                            if input.is_some() {
+                                return add_report( ReportCode::InputTagCannotBeModifiedOutside,meta, &mut analysis_information.reports);
+                            }
                         }
                     }
                 }
@@ -1055,6 +1059,7 @@ fn check_if_it_is_a_tag(
     };
     let mut num_dims_accessed = 0;
     let mut pos = 0;
+    let mut it_is_input_subcomponent = false;
     let (mut kind, mut symbol, mut tags) = if environment.has_component(symbol){ 
         // we are inside component
         let (name, dim) = environment.get_component_or_break(symbol, file!(), line!()).clone();
@@ -1072,12 +1077,13 @@ fn check_if_it_is_a_tag(
         num_dims_accessed += accessed_dim; 
         let input = program_archive.get_template_data(&template_name).get_input_info(&accessed_element);
         let output = program_archive.get_template_data(&template_name).get_output_info(&accessed_element);
-        let (dim, kind, atags) = match (input, output) {
-            (Option::Some(wire_data), _) | (_, Option::Some(wire_data)) =>
-                (wire_data.get_dimension(), wire_data.get_type(), wire_data.get_tags()),
-            _ => {
-                return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
-            }
+        let (dim, kind, atags) = if let Some(wire_data) = input {
+            it_is_input_subcomponent = true;
+            (wire_data.get_dimension(), wire_data.get_type(), wire_data.get_tags())
+        } else if let Some(wire_data) = output {
+            (wire_data.get_dimension(), wire_data.get_type(), wire_data.get_tags())
+        } else {
+            return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
         };
         (kind, accessed_element.as_str(), atags.clone())
     } 
@@ -1106,7 +1112,8 @@ fn check_if_it_is_a_tag(
 
                     //Tags cannot be partially accessed. Then, the previous bus or signal cannot be array accessed.
                     if pos == buses_and_signals.len()-1 && num_dims_accessed == 0{
-                        return Result::Ok(true);
+                        return if it_is_input_subcomponent { add_report_and_end(ReportCode::InputTagCannotBeAccessedOutside, meta, reports)} 
+                                else {Result::Ok(true)};
                     } else if num_dims_accessed > 0 {
                         return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
                     } else{
@@ -1130,7 +1137,8 @@ fn check_if_it_is_a_tag(
                     Option::None => {
                         if tags.contains(&accessed_element) {
                             if pos == buses_and_signals.len()-1 && num_dims_accessed == 0{
-                                return Result::Ok(true);
+                                return if it_is_input_subcomponent { add_report_and_end(ReportCode::InputTagCannotBeAccessedOutside, meta, reports)} 
+                                       else {Result::Ok(true)};
                             } else if num_dims_accessed > 0 {
                                 return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
                             } else{
@@ -1501,6 +1509,8 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         MustBeSingleArithmeticB => format!("Must be a single arithmetic expression.\n Found bus"),
         MustBeArithmetic => "Must be a single arithmetic expression or an array of arithmetic expressions. \n Found component".to_string(),
         OutputTagCannotBeModifiedOutside => "Output tag from a subcomponent cannot be modified".to_string(),
+        InputTagCannotBeModifiedOutside => "Input tag from a subcomponent cannot be modified".to_string(),
+        InputTagCannotBeAccessedOutside => "Input tag from a subcomponent cannot be accessed".to_string(),
         MustBeSameDimension(dim_1, dim_2) =>{
             format!("Must be two arrays of the same dimensions.\n Found {} and {} dimensions", dim_1, dim_2)
         }
