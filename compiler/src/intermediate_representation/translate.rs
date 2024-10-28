@@ -669,14 +669,13 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
     if let ConstraintEquality { meta, lhe, rhe } = stmt {
         let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
 
-        let length = if let Variable { meta, name, access} = lhe.clone() {
+        let length = if let Variable { meta, name, access} = rhe.clone() {
             let def = SymbolDef { meta, symbol: name, acc: access };
             let aux = ProcessedSymbol::new(def, state, context).length;
-            match aux{
-                SizeOption::Single(value) => value,
-                SizeOption::Multiple(_) => unreachable!("Should be single possible lenght"),
-            }
-        } else {1};
+            aux
+        } else {
+            SizeOption::Single(1)
+        };
         
         let lhe_pointer = translate_expression(lhe, state, context);
         let rhe_pointer = translate_expression(rhe, state, context);
@@ -935,7 +934,7 @@ fn translate_infix_operator(op: ExpressionInfixOpcode) -> OperatorType {
         GreaterEq => OperatorType::GreaterEq,
         Lesser => OperatorType::Lesser,
         Greater => OperatorType::Greater,
-        Eq => OperatorType::Eq(1),
+        Eq => OperatorType::Eq(SizeOption::Single(1)),
         NotEq => OperatorType::NotEq,
         BoolOr => OperatorType::BoolOr,
         BoolAnd => OperatorType::BoolAnd,
@@ -1745,7 +1744,7 @@ fn fold(using: OperatorType, mut stack: Vec<InstructionPointer>, state: &State) 
             line: instruction.get_line(),
             message_id: instruction.get_message_id(),
             op_aux_no: 0,
-            op: using,
+            op: using.clone(),
             stack: vec![fold(using, stack, state), instruction],
         }
         .allocate()
