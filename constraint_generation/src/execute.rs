@@ -2408,8 +2408,28 @@ fn execute_conditional_statement(
         if let Option::Some(else_stmt) = false_case {
             let (else_ret, can_simplify_else) = execute_statement(else_stmt, program_archive, runtime, actual_node, flags)?;
             can_simplify &= can_simplify_else;
+            
+            // Choose the biggest return value possible
+            
             if ret_value.is_none() {
                 ret_value = else_ret;
+            } else if ret_value.is_some() && else_ret.is_some(){
+                let slice_if = safe_unwrap_to_arithmetic_slice(ret_value.unwrap(),line!());
+                let size_if = AExpressionSlice::get_number_of_cells(&slice_if);
+                let slice_else = safe_unwrap_to_arithmetic_slice(else_ret.unwrap(),line!());
+                let size_else  =  AExpressionSlice::get_number_of_cells(&slice_else);
+                if size_else > size_if{
+                    ret_value = Some(FoldedValue{
+                        arithmetic_slice: Some(slice_else), 
+                        ..FoldedValue::default()
+                    });
+                } else{
+                    ret_value = Some(FoldedValue{
+                        arithmetic_slice: Some(slice_if), 
+                        ..FoldedValue::default()
+                    });
+                }
+
             }
         }
         runtime.block_type = previous_block_type;
