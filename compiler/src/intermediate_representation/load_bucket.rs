@@ -350,7 +350,7 @@ impl WriteC for LoadBucket {
             if uniform_parallel_value.is_some(){
                 if uniform_parallel_value.unwrap(){
                     prologue.push(format!("{{"));
-		            prologue.push(format!("int aux1 = {};",cmp_index_ref.clone()));
+		            prologue.push(format!("int cmp_index_ref_load = {};",cmp_index_ref.clone()));
 		            prologue.push(format!("int aux2 = {};",src_index.clone()));
                     // check each one of the outputs of the assignment, we add i to check them one by one
                     
@@ -361,11 +361,11 @@ impl WriteC for LoadBucket {
                     prologue.push(format!("ctx->numThreadMutex.unlock();"));
                     prologue.push(format!("ctx->ntcvs.notify_one();"));	 
 		            prologue.push(format!(
-                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[aux1]].mutexes[aux2 + i]);",
+                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[cmp_index_ref_load]].mutexes[aux2 + i]);",
                         CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
 		            prologue.push(format!(
-                        "{}->componentMemory[{}[aux1]].cvs[aux2 + i].wait(lk, [{},{},aux1,aux2, i]() {{return {}->componentMemory[{}[aux1]].outputIsSet[aux2 + i];}});",
+                        "{}->componentMemory[{}[cmp_index_ref_load]].cvs[aux2 + i].wait(lk, [{},{},cmp_index_ref_load,aux2, i]() {{return {}->componentMemory[{}[cmp_index_ref_load]].outputIsSet[aux2 + i];}});",
 			            CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, CIRCOM_CALC_WIT,
 			            MY_SUBCOMPONENTS, CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
@@ -387,7 +387,7 @@ impl WriteC for LoadBucket {
 
                 // case parallel
                 prologue.push(format!("{{"));
-		        prologue.push(format!("int aux1 = {};",cmp_index_ref.clone()));
+		        prologue.push(format!("int cmp_index_ref_load = {};",cmp_index_ref.clone()));
 		        prologue.push(format!("int aux2 = {};",src_index.clone()));
 		        // check each one of the outputs of the assignment, we add i to check them one by one
                 prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
@@ -397,11 +397,11 @@ impl WriteC for LoadBucket {
                 prologue.push(format!("ctx->numThreadMutex.unlock();"));
                 prologue.push(format!("ctx->ntcvs.notify_one();"));	 
 	            prologue.push(format!(
-                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[aux1]].mutexes[aux2 + i]);",
+                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[cmp_index_ref_load]].mutexes[aux2 + i]);",
                         CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
 		        prologue.push(format!(
-                        "{}->componentMemory[{}[aux1]].cvs[aux2 + i].wait(lk, [{},{},aux1,aux2, i]() {{return {}->componentMemory[{}[aux1]].outputIsSet[aux2 + i];}});",
+                        "{}->componentMemory[{}[cmp_index_ref_load]].cvs[aux2 + i].wait(lk, [{},{},cmp_index_ref_load,aux2, i]() {{return {}->componentMemory[{}[cmp_index_ref_load]].outputIsSet[aux2 + i];}});",
 			            CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, CIRCOM_CALC_WIT,
 			            MY_SUBCOMPONENTS, CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
