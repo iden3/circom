@@ -111,9 +111,12 @@ impl WriteWasm for LoadBucket {
                         instructions.push(add32());
                         instructions.push(load32(None)); //subcomponent block
                         instructions.push(tee_local(producer.get_sub_cmp_load_tag()));
-                        //instructions.push(set_local(producer.get_sub_cmp_load_tag()));
-                        //instructions.push(get_local(producer.get_sub_cmp_load_tag()));
-                        instructions.push(load32(None)); // get template id                     A
+                        instructions.push(load32(Some(
+                            &producer.get_signal_start_address_in_component().to_string()
+                        ))); //subcomponent start_of_signals
+                        // and now, we compute the offset
+                        instructions.push(get_local(producer.get_sub_cmp_load_tag()));
+                        instructions.push(load32(None)); // get template id
                         instructions.push(set_constant("4")); //size in byte of i32
                         instructions.push(mul32());
                         instructions.push(load32(Some(
@@ -136,12 +139,10 @@ impl WriteWasm for LoadBucket {
 			    }
 			    let mut idxpos = 0;			    
 			    while idxpos < indexes.len() {
-				if let AccessType::Indexed(index_info) = &indexes[idxpos] {
-				    
-                    let index_list = &index_info.indexes;
-                    let dim = index_info.symbol_dim;
-                    
-                    let mut infopos = 0;
+				if let AccessType::Indexed(index_info) = &indexes[idxpos] {				    
+                                    let index_list = &index_info.indexes;
+                                    let dim = index_info.symbol_dim;
+                                    let mut infopos = 0;
 				    assert!(index_list.len() > 0);
 				    //We first compute the number of elements as
 				    //((index_list[0] * length_of_dim[1]) + index_list[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + index_list[n-1]
@@ -227,12 +228,7 @@ impl WriteWasm for LoadBucket {
 				}
 			    }
 			}
-                        instructions.push(get_local(producer.get_sub_cmp_load_tag()));
-                        instructions.push(set_constant(
-                            &producer.get_signal_start_address_in_component().to_string(),
-                        ));
-                        instructions.push(add32());
-                        instructions.push(load32(None)); //subcomponent start_of_signals
+                        //after this we have  the offset on top of the stack and the subcomponent start_of_signals just below
                         instructions.push(add32()); // we get the position of the signal (with indexes) in memory
 			if producer.needs_comments() {
                             instructions.push(";; end of load bucket".to_string());
