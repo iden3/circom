@@ -290,6 +290,9 @@ impl TemplateCodeInfo {
         run_body.push(format!("{};", declare_lvar(self.var_stack_depth)));
         run_body.push(format!("{};", declare_sub_component_aux()));
         run_body.push(format!("{};", declare_index_multiple_eq()));
+        run_body.push(format!("int cmp_index_ref_load = -1;"));
+
+
         
         for t in &self.body {
             let (mut instructions_body, _) = t.produce_c(producer, Some(parallel));
