@@ -212,18 +212,30 @@ impl WriteWasm for ComputeBucket {
                         instructions.push(call("$Fr_gt"));
                     }
                     OperatorType::Eq(n) => {
-                        // TODO: COMPUTE THE SIZE AS IN THE MULTIPLE STORE, NOW JUST USING FIRST POSITION
-                        let length = match n{
-                            SizeOption::Single(v) => *v,
-                            SizeOption::Multiple(v) => v[0].1.clone()
+                        let mut is_multiple = false;
+                        let (length,values) = match n{
+                            SizeOption::Single(v) => (*v,vec![]),
+                            SizeOption::Multiple(v) => {
+                            	is_multiple = true;
+                                (v.len(),v.clone())
+                            }
                         };
 			assert!(length != 0);
-			if length == 1 {
+			if !is_multiple && length == 1 {
                             instructions.push(call("$Fr_eq"));
                         } else {
-                            instructions.push(set_local(producer.get_aux_2_tag()));
-			    instructions.push(set_local(producer.get_aux_1_tag()));
-			    instructions.push(set_local(producer.get_aux_0_tag()));
+		            if is_multiple { //create a nested if-else with all cases
+		                instructions.push(get_local(producer.get_sub_cmp_load_tag()));
+		                instructions.push(load32(None)); // get template id
+		                instructions.push(set_local(producer.get_aux_0_tag()));
+		                let mut instr_if = create_if_selection(&values,producer.get_aux_0_tag());
+		                instructions.append(&mut instr_if);
+		            } else { 
+		                instructions.push(set_constant(&length.to_string()));
+		            }
+                            instructions.push(set_local(producer.get_aux_2_tag()));  // size
+			    instructions.push(set_local(producer.get_aux_1_tag()));  // second argument initial position
+			    instructions.push(set_local(producer.get_aux_0_tag()));  // first argument initial position
                             instructions.push(set_constant(&length.to_string()));
                             instructions.push(set_local(producer.get_counter_tag()));
                             instructions.push(add_block());
