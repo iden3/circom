@@ -672,10 +672,32 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
         let length = if let Variable { meta, name, access} = rhe.clone() {
             let def = SymbolDef { meta, symbol: name, acc: access };
             let aux = ProcessedSymbol::new(def, state, context).length;
+
             aux
+            
+            // TODO: only multiple if both of them are multiple, if not take the Single one
+            /*
+            match aux{
+                SizeOption::Single(_) => aux,
+                SizeOption::Multiple(possible_lengths) =>{
+                    if let Variable { meta, name, access} = lhe.clone() {
+                        let def_left = SymbolDef { meta, symbol: name, acc: access };
+                        let aux_left = ProcessedSymbol::new(def_left, state, context).length;
+                        match aux_left{
+                            SizeOption::Single(v) => SizeOption::Single(v),
+                            SizeOption::Multiple(_) =>{
+                                SizeOption::Multiple(possible_lengths) 
+                            }
+                        }
+                    } else{
+                        SizeOption::Single(1)
+                    }
+                }
+            }*/
         } else {
             SizeOption::Single(1)
         };
+        
         
         let lhe_pointer = translate_expression(lhe, state, context);
         let rhe_pointer = translate_expression(rhe, state, context);

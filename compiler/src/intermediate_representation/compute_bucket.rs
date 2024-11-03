@@ -357,6 +357,7 @@ impl WriteC for ComputeBucket {
                 let mut arguments = vec![result_ref.clone()];
                 let operands_copy = operands.clone();
                 arguments.append(&mut operands);
+                compute_c.push("{{".to_string());
                 compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
                 
                 // We compute the possible sizes, case multiple sizes
@@ -365,12 +366,12 @@ impl WriteC for ComputeBucket {
                     SizeOption::Multiple(values) => {
                         let cmp_index_ref = "cmp_index_ref_load".to_string();
 
-                        compute_c.push(format!("std::map<int,int> size_store {};",
+                        compute_c.push(format!("std::map<int,int> size_eq {};",
                             set_list_tuple(values.clone())
                         ));
                         let sub_component_pos_in_memory = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
                         let temp_id = template_id_in_component(sub_component_pos_in_memory);
-                        format!("size_expr[{}]", temp_id)
+                        format!("size_eq[{}]", temp_id)
                     }
                 };
                 
@@ -388,6 +389,8 @@ impl WriteC for ComputeBucket {
                     compute_c.push(format!("}}"));
                     
                 }
+                compute_c.push("}}".to_string());
+
                 result = result_ref;
 
                 

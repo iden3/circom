@@ -334,23 +334,26 @@ impl WriteC for LoadBucket {
                 format!("&{}", signal_values(src_index))
             }
             AddressType::SubcmpSignal { uniform_parallel_value, is_output, .. } => {
+
+            // we store the value of the cmp index
+            prologue.push(format!("cmp_index_ref_load = {};",cmp_index_ref.clone()));
+
 		if *is_output {
-            // We compute the possible sizes, case multiple size
-            let size = match &self.context.size{
-                SizeOption::Single(value) => value.to_string(),
-                SizeOption::Multiple(values) => {
-                    prologue.push(format!("std::map<int,int> size_store {};",
-                        set_list_tuple(values.clone())
-                    ));
-                    let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
-                    let temp_id = template_id_in_component(sub_component_pos_in_memory);
-                    format!("size_load[{}]", temp_id)
-                }
-            };
             if uniform_parallel_value.is_some(){
                 if uniform_parallel_value.unwrap(){
                     prologue.push(format!("{{"));
-		            prologue.push(format!("int cmp_index_ref_load = {};",cmp_index_ref.clone()));
+                    // We compute the possible sizes, case multiple size
+                    let size = match &self.context.size{
+                        SizeOption::Single(value) => value.to_string(),
+                        SizeOption::Multiple(values) => {
+                            prologue.push(format!("std::map<int,int> size_load {};",
+                                set_list_tuple(values.clone())
+                            ));
+                            let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                            let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                            format!("size_load[{}]", temp_id)
+                        }
+                    };
 		            prologue.push(format!("int aux2 = {};",src_index.clone()));
                     // check each one of the outputs of the assignment, we add i to check them one by one
                     
@@ -379,6 +382,18 @@ impl WriteC for LoadBucket {
             }
             // Case we only know if it is parallel at execution
             else{
+                // We compute the possible sizes, case multiple size
+                let size = match &self.context.size{
+                    SizeOption::Single(value) => value.to_string(),
+                    SizeOption::Multiple(values) => {
+                        prologue.push(format!("std::map<int,int> size_load {};",
+                            set_list_tuple(values.clone())
+                        ));
+                        let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                        let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                        format!("size_load[{}]", temp_id)
+                    }
+                };
                 prologue.push(format!(
                     "if ({}[{}]){{",
                     MY_SUBCOMPONENTS_PARALLEL, 
@@ -387,7 +402,6 @@ impl WriteC for LoadBucket {
 
                 // case parallel
                 prologue.push(format!("{{"));
-		        prologue.push(format!("int cmp_index_ref_load = {};",cmp_index_ref.clone()));
 		        prologue.push(format!("int aux2 = {};",src_index.clone()));
 		        // check each one of the outputs of the assignment, we add i to check them one by one
                 prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
@@ -425,6 +439,7 @@ impl WriteC for LoadBucket {
                 format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)
             }
         };
+        
 	//prologue.push(format!("// end of load line {} with access {}",self.line.to_string(),access));
         (prologue, access)
     }
