@@ -233,11 +233,10 @@ impl WriteWasm for ComputeBucket {
 		            } else { 
 		                instructions.push(set_constant(&length.to_string()));
 		            }
-                            instructions.push(set_local(producer.get_aux_2_tag()));  // size
-			    instructions.push(set_local(producer.get_aux_1_tag()));  // second argument initial position
-			    instructions.push(set_local(producer.get_aux_0_tag()));  // first argument initial position
-                            instructions.push(set_constant(&length.to_string()));
                             instructions.push(set_local(producer.get_counter_tag()));
+                            instructions.push(set_local(producer.get_aux_2_tag()));  // second argument initial position
+			    instructions.push(set_local(producer.get_aux_1_tag()));  // first argument initial position
+			    instructions.push(set_local(producer.get_aux_0_tag()));  // resut position
                             instructions.push(add_block());
                             instructions.push(add_loop());
                             instructions.push(get_local(producer.get_aux_0_tag()));
