@@ -58,6 +58,8 @@ nav:
           - New features circom 2.1: 
                - Anonymous Components and tuples: 'circom-language/anonymous-components-and-tuples.md'
                - Tags: 'circom-language/tags.md'
+          - New features circom 2.2:
+               - Buses: 'circom-language/buses.md'
           - Code Quality:
                - Code Assertion: 'circom-language/code-quality/code-assertion.md'
                - Debugging Operations: 'circom-language/code-quality/debugging-operations.md'

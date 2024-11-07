@@ -18,9 +18,6 @@ module.exports = async function builder(code, options) {
     
     const instance = await WebAssembly.instantiate(wasmModule, {
         runtime: {
-	    printDebug : function(value) {
-                console.log("printDebug:",value);
-	    },
             exceptionHandler : function(code) {
 		let err;
                 if (code == 1) {
