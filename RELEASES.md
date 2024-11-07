@@ -1,5 +1,5 @@
 # Release notes
-## October 04, 2024 circom 2.2.0
+## October 07, 2024 circom 2.2.0
 #### New features
 - Buses: more information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/buses.md).
 

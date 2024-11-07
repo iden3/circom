@@ -263,8 +263,7 @@ mod input_processing {
                     else {Ok(SimplificationStyle::O2(no_rounds))}} 
                 else { Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds"))) }
             },
-            
-            (false, false, false, true) => Ok(SimplificationStyle::O1),
+            (false, false, false, true) => Ok(SimplificationStyle::O2(usize::MAX)),
             (false, false, false, false) => Ok(SimplificationStyle::O1),
         }
     }
@@ -368,7 +367,7 @@ mod input_processing {
                     .long("O1")
                     .hidden(false)
                     .takes_value(false)
-                    .help("Only applies signal to signal and signal to constant simplification")
+                    .help("Only applies signal to signal and signal to constant simplification. This is the default option")
                     .display_order(460)
             )
             .arg(
