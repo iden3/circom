@@ -190,7 +190,8 @@ struct Context<'a> {
     tmp_database: &'a TemplateDB,
     _functions: &'a HashMap<String, Vec<Length>>,
     cmp_to_type: HashMap<String, ClusterType>,
-    buses: &'a Vec<BusInstance>
+    buses: &'a Vec<BusInstance>,
+    constraint_assert_dissabled_flag: bool,
 }
 
 fn initialize_parameters(state: &mut State, params: Vec<Param>) {
@@ -667,53 +668,57 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
     use Statement::ConstraintEquality;
     use Expression::Variable;
     if let ConstraintEquality { meta, lhe, rhe } = stmt {
-        let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
+        // if constraint_assert_dissabled is active then do not translate
+        if !context.constraint_assert_dissabled_flag{
+            let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
 
-        let length = if let Variable { meta, name, access} = rhe.clone() {
-            let def = SymbolDef { meta, symbol: name, acc: access };
-            let aux = ProcessedSymbol::new(def, state, context).length;
-
-            aux
-            
-            // TODO: only multiple if both of them are multiple, if not take the Single one
-            /*
-            match aux{
-                SizeOption::Single(_) => aux,
-                SizeOption::Multiple(possible_lengths) =>{
-                    if let Variable { meta, name, access} = lhe.clone() {
-                        let def_left = SymbolDef { meta, symbol: name, acc: access };
-                        let aux_left = ProcessedSymbol::new(def_left, state, context).length;
-                        match aux_left{
-                            SizeOption::Single(v) => SizeOption::Single(v),
-                            SizeOption::Multiple(_) =>{
-                                SizeOption::Multiple(possible_lengths) 
+            let length = if let Variable { meta, name, access} = rhe.clone() {
+                let def = SymbolDef { meta, symbol: name, acc: access };
+                let aux = ProcessedSymbol::new(def, state, context).length;
+    
+                aux
+                
+                // TODO: only multiple if both of them are multiple, if not take the Single one
+                /*
+                match aux{
+                    SizeOption::Single(_) => aux,
+                    SizeOption::Multiple(possible_lengths) =>{
+                        if let Variable { meta, name, access} = lhe.clone() {
+                            let def_left = SymbolDef { meta, symbol: name, acc: access };
+                            let aux_left = ProcessedSymbol::new(def_left, state, context).length;
+                            match aux_left{
+                                SizeOption::Single(v) => SizeOption::Single(v),
+                                SizeOption::Multiple(_) =>{
+                                    SizeOption::Multiple(possible_lengths) 
+                                }
                             }
+                        } else{
+                            SizeOption::Single(1)
                         }
-                    } else{
-                        SizeOption::Single(1)
                     }
-                }
-            }*/
-        } else {
-            SizeOption::Single(1)
-        };
-        
-        
-        let lhe_pointer = translate_expression(lhe, state, context);
-        let rhe_pointer = translate_expression(rhe, state, context);
-        let stack = vec![lhe_pointer, rhe_pointer];
-        let equality = ComputeBucket {
-            line: starts_at,
-            message_id: state.message_id,
-            op_aux_no: 0,
-            op: OperatorType::Eq(length),
-            stack,
+                }*/
+            } else {
+                SizeOption::Single(1)
+            };
+            
+            
+            let lhe_pointer = translate_expression(lhe, state, context);
+            let rhe_pointer = translate_expression(rhe, state, context);
+            let stack = vec![lhe_pointer, rhe_pointer];
+            let equality = ComputeBucket {
+                line: starts_at,
+                message_id: state.message_id,
+                op_aux_no: 0,
+                op: OperatorType::Eq(length),
+                stack,
+            }
+            .allocate();
+            let assert_instruction =
+                AssertBucket { line: starts_at, message_id: state.message_id, evaluate: equality }
+                    .allocate();
+            state.code.push(assert_instruction);
         }
-        .allocate();
-        let assert_instruction =
-            AssertBucket { line: starts_at, message_id: state.message_id, evaluate: equality }
-                .allocate();
-        state.code.push(assert_instruction);
+        
     } else {
         unimplemented!()
     }
@@ -1883,7 +1888,8 @@ pub struct CodeInfo<'a> {
     pub component_to_parallel: HashMap<String, ParallelClusters>,
     pub string_table: HashMap<String, usize>,
     pub signals_to_tags: HashMap<Vec<String>, BigInt>,
-    pub buses: &'a Vec<BusInstance>
+    pub buses: &'a Vec<BusInstance>,
+    pub constraint_assert_dissabled_flag: bool
 }
 
 pub struct CodeOutput {
@@ -1917,7 +1923,8 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         _functions: code_info.functions,
         cmp_to_type: code_info.cmp_to_type,
         tmp_database: code_info.template_database,
-        buses: code_info.buses
+        buses: code_info.buses,
+        constraint_assert_dissabled_flag: code_info.constraint_assert_dissabled_flag,
     };
 
     create_components(&mut state, &code_info.triggers, code_info.clusters);
