@@ -61,6 +61,7 @@ fn start() -> Result<(), ()> {
         wat_file: user_input.wat_file().to_string(),
         wasm_file: user_input.wasm_file().to_string(),
         produce_input_log: user_input.main_inputs_flag(),
+        constraint_assert_dissabled_flag: user_input.constraint_assert_dissabled_flag()
     };
     compilation_user::compile(compilation_config)?;
     Result::Ok(())
