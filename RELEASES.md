@@ -1,5 +1,5 @@
 # Release notes
-## November 08, 2024 circom 2.2.1
+## November 12, 2024 circom 2.2.1
 #### Improvements: 
 - Improving the use and heritance of tags inside buses. Now the values are propagated correctly following the same rules as arrays.
 - Unassigned inputs: do not executing the circuit twice in C++.
@@ -7,6 +7,8 @@
 - Handling equality checks with dynamic size in witness generation code.
 - Improving error messages.
 - Improving error recovery in parser.
+- Adding flag --constraint_assert_dissabled. When this flag is activated the compiler does not add asserts in the generated code (C++, WASM) for === constraint equalities
+
   
 #### Fixed bugs: 
 - Importing function printDebug removed from WASM (circom tests from circomlib working now).
