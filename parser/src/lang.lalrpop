@@ -528,7 +528,12 @@ ParseStatement2 : Statement = {
         }   
     },
 
-    ParseBlock
+    ParseBlock,
+
+    <s:@L> ! Semicolon  <e:@R> => {
+        errors.push(produce_report(ReportCode::IllegalExpression, s..e, file_id));
+        build_block(Meta::new(s,e), Vec::new())
+    }
 };
 
 ParseStatementLog : Statement = {

@@ -2,13 +2,28 @@ use super::AExpressionSlice;
 use super::Constraint as ConstraintGen;
 use std::collections::BTreeMap;
 use num_bigint_dig::BigInt;
+use std::collections::HashSet;
+use std::collections::HashMap;
 
 
 pub type NodePointer = usize;
 pub type Constraint = ConstraintGen<String>;
 pub type ParameterContext = BTreeMap<String, AExpressionSlice>;
-pub type TagContext = BTreeMap<String, TagInfo>;
 pub type TagInfo = BTreeMap<String, Option<BigInt>>;
+
+#[derive(Clone)]
+pub struct TagNames{
+    pub tag_names: HashSet<String>,
+    pub fields: Option<HashMap<String, TagNames>>,
+}
+
+#[derive(Clone, PartialEq, Default, Debug)]
+pub struct TagWire{
+    pub tags: TagInfo,
+    pub fields: Option<HashMap<String, TagWire>>,
+}
+
+
 // From name to dimensions and if it is bus or not
 #[derive(Clone)]
 pub struct WireData{
@@ -40,7 +55,7 @@ pub struct BusData {
         pub remaining_access: Option<AccessingInformation>, // may not appear
     }
 */
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AccessingInformationBus {
     pub undefined: bool,
     pub array_access: Vec<usize>,

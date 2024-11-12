@@ -45,7 +45,6 @@ pub type SimpleSlice = MemorySlice<BigInt>;
 pub struct MemorySlice<C> {
     route: Vec<SliceCapacity>,
     values: Vec<C>,
-    number_inserts: usize,
 }
 
 impl<C: PartialEq> PartialEq for MemorySlice<C> {
@@ -59,7 +58,6 @@ impl<C: Clone> Clone for MemorySlice<C> {
         MemorySlice {
             route: self.route.clone(),
             values: self.values.clone(),
-            number_inserts: self.number_inserts,
         }
     }
 }
@@ -201,7 +199,7 @@ impl<C: Clone> MemorySlice<C> {
             offset += 1;
         }
 
-        Result::Ok(MemorySlice { route: size, values, number_inserts: 0 })
+        Result::Ok(MemorySlice { route: size, values })
     }
 
     fn generate_references_from_access<'a>(
@@ -265,7 +263,7 @@ impl<C: Clone> MemorySlice<C> {
         MemorySlice::new_with_route(&[], initial_value)
     }
     pub fn new_array(route: Vec<SliceCapacity>, values: Vec<C>) -> MemorySlice<C> {
-        MemorySlice { route, values, number_inserts: 0 }
+        MemorySlice { route, values }
     }
     pub fn new_with_route(route: &[SliceCapacity], initial_value: &C) -> MemorySlice<C> {
         let mut length = 1;
@@ -278,7 +276,7 @@ impl<C: Clone> MemorySlice<C> {
             values.push(initial_value.clone());
         }
 
-        MemorySlice { route: route.to_vec(), values, number_inserts: 0 }
+        MemorySlice { route: route.to_vec(), values }
     }
     pub fn insert_values(
         memory_slice: &mut MemorySlice<C>,
@@ -290,7 +288,6 @@ impl<C: Clone> MemorySlice<C> {
             Result::Ok(_) => {
                 let mut cell = MemorySlice::get_initial_cell(memory_slice, access)?;
 
-                memory_slice.number_inserts += MemorySlice::get_number_of_cells(new_values);
                 for value in new_values.values.iter() {
                     memory_slice.values[cell] = value.clone();
                     cell += 1;
@@ -306,7 +303,6 @@ impl<C: Clone> MemorySlice<C> {
                     MemorySlice::get_number_of_cells(memory_slice)
                 );
 
-                memory_slice.number_inserts += number_inserts;
                 for i in 0..number_inserts{
                     memory_slice.values[cell] = new_values.values[i].clone();
                     cell += 1;
@@ -326,7 +322,6 @@ impl<C: Clone> MemorySlice<C> {
         if index > MemorySlice::get_number_of_cells(memory_slice) {
             return Result::Err(MemoryError::OutOfBoundsError);
         }
-        memory_slice.number_inserts += 1;
         memory_slice.values[index] = new_value;
         return Result::Ok(());
     }
@@ -433,9 +428,7 @@ impl<C: Clone> MemorySlice<C> {
     pub fn get_number_of_cells(memory_slice: &MemorySlice<C>) -> SliceCapacity {
         memory_slice.values.len()
     }
-    pub fn get_number_of_inserts(memory_slice: &MemorySlice<C>) -> SliceCapacity {
-        memory_slice.number_inserts
-    }
+
     pub fn route(&self) -> &[SliceCapacity] {
         &self.route
     }

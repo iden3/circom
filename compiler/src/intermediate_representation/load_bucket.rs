@@ -111,9 +111,12 @@ impl WriteWasm for LoadBucket {
                         instructions.push(add32());
                         instructions.push(load32(None)); //subcomponent block
                         instructions.push(tee_local(producer.get_sub_cmp_load_tag()));
-                        //instructions.push(set_local(producer.get_sub_cmp_load_tag()));
-                        //instructions.push(get_local(producer.get_sub_cmp_load_tag()));
-                        instructions.push(load32(None)); // get template id                     A
+                        instructions.push(load32(Some(
+                            &producer.get_signal_start_address_in_component().to_string()
+                        ))); //subcomponent start_of_signals
+                        // and now, we compute the offset
+                        instructions.push(get_local(producer.get_sub_cmp_load_tag()));
+                        instructions.push(load32(None)); // get template id
                         instructions.push(set_constant("4")); //size in byte of i32
                         instructions.push(mul32());
                         instructions.push(load32(Some(
@@ -136,12 +139,10 @@ impl WriteWasm for LoadBucket {
 			    }
 			    let mut idxpos = 0;			    
 			    while idxpos < indexes.len() {
-				if let AccessType::Indexed(index_info) = &indexes[idxpos] {
-				    
-                    let index_list = &index_info.indexes;
-                    let dim = index_info.symbol_dim;
-                    
-                    let mut infopos = 0;
+				if let AccessType::Indexed(index_info) = &indexes[idxpos] {				    
+                                    let index_list = &index_info.indexes;
+                                    let dim = index_info.symbol_dim;
+                                    let mut infopos = 0;
 				    assert!(index_list.len() > 0);
 				    //We first compute the number of elements as
 				    //((index_list[0] * length_of_dim[1]) + index_list[1]) * length_of_dim[2] + ... )* length_of_dim[n-1] + index_list[n-1]
@@ -227,12 +228,7 @@ impl WriteWasm for LoadBucket {
 				}
 			    }
 			}
-                        instructions.push(get_local(producer.get_sub_cmp_load_tag()));
-                        instructions.push(set_constant(
-                            &producer.get_signal_start_address_in_component().to_string(),
-                        ));
-                        instructions.push(add32());
-                        instructions.push(load32(None)); //subcomponent start_of_signals
+                        //after this we have  the offset on top of the stack and the subcomponent start_of_signals just below
                         instructions.push(add32()); // we get the position of the signal (with indexes) in memory
 			if producer.needs_comments() {
                             instructions.push(";; end of load bucket".to_string());
@@ -334,23 +330,26 @@ impl WriteC for LoadBucket {
                 format!("&{}", signal_values(src_index))
             }
             AddressType::SubcmpSignal { uniform_parallel_value, is_output, .. } => {
+
+            // we store the value of the cmp index
+            prologue.push(format!("cmp_index_ref_load = {};",cmp_index_ref.clone()));
+
 		if *is_output {
-            // We compute the possible sizes, case multiple size
-            let size = match &self.context.size{
-                SizeOption::Single(value) => value.to_string(),
-                SizeOption::Multiple(values) => {
-                    prologue.push(format!("std::map<int,int> size_store {};",
-                        set_list_tuple(values.clone())
-                    ));
-                    let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
-                    let temp_id = template_id_in_component(sub_component_pos_in_memory);
-                    format!("size_load[{}]", temp_id)
-                }
-            };
             if uniform_parallel_value.is_some(){
                 if uniform_parallel_value.unwrap(){
                     prologue.push(format!("{{"));
-		            prologue.push(format!("int aux1 = {};",cmp_index_ref.clone()));
+                    // We compute the possible sizes, case multiple size
+                    let size = match &self.context.size{
+                        SizeOption::Single(value) => value.to_string(),
+                        SizeOption::Multiple(values) => {
+                            prologue.push(format!("std::map<int,int> size_load {};",
+                                set_list_tuple(values.clone())
+                            ));
+                            let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                            let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                            format!("size_load[{}]", temp_id)
+                        }
+                    };
 		            prologue.push(format!("int aux2 = {};",src_index.clone()));
                     // check each one of the outputs of the assignment, we add i to check them one by one
                     
@@ -361,11 +360,11 @@ impl WriteC for LoadBucket {
                     prologue.push(format!("ctx->numThreadMutex.unlock();"));
                     prologue.push(format!("ctx->ntcvs.notify_one();"));	 
 		            prologue.push(format!(
-                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[aux1]].mutexes[aux2 + i]);",
+                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[cmp_index_ref_load]].mutexes[aux2 + i]);",
                         CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
 		            prologue.push(format!(
-                        "{}->componentMemory[{}[aux1]].cvs[aux2 + i].wait(lk, [{},{},aux1,aux2, i]() {{return {}->componentMemory[{}[aux1]].outputIsSet[aux2 + i];}});",
+                        "{}->componentMemory[{}[cmp_index_ref_load]].cvs[aux2 + i].wait(lk, [{},{},cmp_index_ref_load,aux2, i]() {{return {}->componentMemory[{}[cmp_index_ref_load]].outputIsSet[aux2 + i];}});",
 			            CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, CIRCOM_CALC_WIT,
 			            MY_SUBCOMPONENTS, CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
@@ -379,6 +378,18 @@ impl WriteC for LoadBucket {
             }
             // Case we only know if it is parallel at execution
             else{
+                // We compute the possible sizes, case multiple size
+                let size = match &self.context.size{
+                    SizeOption::Single(value) => value.to_string(),
+                    SizeOption::Multiple(values) => {
+                        prologue.push(format!("std::map<int,int> size_load {};",
+                            set_list_tuple(values.clone())
+                        ));
+                        let sub_component_pos_in_memory = format!("{}[{}]",MY_SUBCOMPONENTS,cmp_index_ref);
+                        let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                        format!("size_load[{}]", temp_id)
+                    }
+                };
                 prologue.push(format!(
                     "if ({}[{}]){{",
                     MY_SUBCOMPONENTS_PARALLEL, 
@@ -387,7 +398,6 @@ impl WriteC for LoadBucket {
 
                 // case parallel
                 prologue.push(format!("{{"));
-		        prologue.push(format!("int aux1 = {};",cmp_index_ref.clone()));
 		        prologue.push(format!("int aux2 = {};",src_index.clone()));
 		        // check each one of the outputs of the assignment, we add i to check them one by one
                 prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
@@ -397,11 +407,11 @@ impl WriteC for LoadBucket {
                 prologue.push(format!("ctx->numThreadMutex.unlock();"));
                 prologue.push(format!("ctx->ntcvs.notify_one();"));	 
 	            prologue.push(format!(
-                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[aux1]].mutexes[aux2 + i]);",
+                        "std::unique_lock<std::mutex> lk({}->componentMemory[{}[cmp_index_ref_load]].mutexes[aux2 + i]);",
                         CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
 		        prologue.push(format!(
-                        "{}->componentMemory[{}[aux1]].cvs[aux2 + i].wait(lk, [{},{},aux1,aux2, i]() {{return {}->componentMemory[{}[aux1]].outputIsSet[aux2 + i];}});",
+                        "{}->componentMemory[{}[cmp_index_ref_load]].cvs[aux2 + i].wait(lk, [{},{},cmp_index_ref_load,aux2, i]() {{return {}->componentMemory[{}[cmp_index_ref_load]].outputIsSet[aux2 + i];}});",
 			            CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, CIRCOM_CALC_WIT,
 			            MY_SUBCOMPONENTS, CIRCOM_CALC_WIT, MY_SUBCOMPONENTS)
                     );
@@ -425,6 +435,7 @@ impl WriteC for LoadBucket {
                 format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)
             }
         };
+        
 	//prologue.push(format!("// end of load line {} with access {}",self.line.to_string(),access));
         (prologue, access)
     }

@@ -21,6 +21,7 @@ pub struct CompilerConfig {
     pub c_flag: bool,
     pub debug_output: bool,
     pub produce_input_log: bool,
+    pub constraint_assert_dissabled_flag: bool,
     pub vcp: VCP,
 }
 
@@ -30,7 +31,12 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
     if config.c_flag || config.wat_flag || config.wasm_flag{
         let circuit = compiler_interface::run_compiler(
             config.vcp,
-            Config { debug_output: config.debug_output, produce_input_log: config.produce_input_log, wat_flag: config.wat_flag },
+            Config { 
+                debug_output: config.debug_output, 
+                produce_input_log: config.produce_input_log, 
+                wat_flag: config.wat_flag,
+                constraint_assert_dissabled_flag: config.constraint_assert_dissabled_flag,
+            },
             VERSION
         )?;
     

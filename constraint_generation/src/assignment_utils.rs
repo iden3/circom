@@ -2,19 +2,39 @@ use super::environment_utils::
 
     slice_types::{MemoryError, TypeAssignmentError, 
         SignalSlice, SliceCapacity, TagInfo, TagState, TagDefinitions, 
-        BusSlice
+        BusSlice, BusTagInfo
     };
-
+use crate::execution_data::type_definitions::TagWire;
 use std::mem;
-
+use std::collections::HashMap;
 
 // Utils for assigning tags
 
-pub fn compute_propagated_tags(tags_values: &TagInfo, tags_definitions: &TagDefinitions)-> TagInfo{
+pub fn compute_propagated_tags_bus(tag_data: &BusTagInfo) -> TagWire{
+    let tags_propagated = compute_propagated_tags(
+        &tag_data.tags, 
+        &tag_data.definitions,
+        tag_data.remaining_inserts
+    );
+    let mut fields_propagated = HashMap::new();
+    for (field_name, field_tags) in &tag_data.fields{
+        fields_propagated.insert(field_name.clone(), compute_propagated_tags_bus(field_tags));
+    }
+    TagWire{
+        tags: tags_propagated,
+        fields: Some(fields_propagated),
+    }
+}
+
+pub fn compute_propagated_tags(
+    tags_values: &TagInfo, 
+    tags_definitions: &TagDefinitions, 
+    remaining_inserts: usize
+)-> TagInfo{
     let mut tags_propagated = TagInfo::new();
     for (tag, value) in tags_values{
         let state = tags_definitions.get(tag).unwrap();
-        if state.value_defined || state.complete{
+        if state.value_defined || remaining_inserts == 0{
             tags_propagated.insert(tag.clone(), value.clone());
         } else if state.defined{
             tags_propagated.insert(tag.clone(), None);
@@ -98,12 +118,32 @@ pub fn perform_tag_propagation(tags_values: &mut TagInfo, tags_definitions: &mut
             for (tag, value) in assigned_tags{
                 if !tags_values.contains_key(tag){ // in case it is a new tag (not defined by user)
                     tags_values.insert(tag.clone(), value.clone());
-                    let state = TagState{defined: false, value_defined: false, complete: false};
+                    let state = TagState{defined: false, value_defined: false};
                     tags_definitions.insert(tag.clone(), state);
                 }
             }
         }
 
+}
+
+pub fn perform_tag_propagation_bus(tag_data: &mut BusTagInfo, assigned_tags: &TagWire, n_inserts: usize){
+    perform_tag_propagation(&mut tag_data.tags, &mut tag_data.definitions, &assigned_tags.tags, tag_data.is_init);
+    tag_data.remaining_inserts -= n_inserts; 
+    tag_data.is_init = true;
+
+    for (field_name, field_data) in &mut tag_data.fields{
+        // if the field does not appear in the assigned tags we take an empty TagWire
+        let mut field_assigned = &TagWire::default();
+        
+        if assigned_tags.fields.is_some() {
+            let assigned_tag_fields = assigned_tags.fields.as_ref().unwrap();
+            if assigned_tag_fields.contains_key(field_name){ // check if it appears in the fields
+                field_assigned = assigned_tag_fields.get(field_name).unwrap();
+            } 
+        }
+        let field_n_inserts = field_data.size * n_inserts;
+        perform_tag_propagation_bus(field_data, field_assigned, field_n_inserts);
+    }
 }
 
 

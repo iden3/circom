@@ -2,26 +2,27 @@ use super::slice_types::{FoldedResult, FoldedArgument, BusSlice, MemoryError, Si
 use crate::execution_data::type_definitions::AccessingInformationBus;
 use crate::{environment_utils::slice_types::BusRepresentation, execution_data::type_definitions::NodePointer};
 use crate::execution_data::ExecutedProgram;
-use std::collections::{BTreeMap,HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use crate::ast::Meta;
-
+use crate::execution_data::type_definitions::{TagNames,TagWire};
 use crate::assignment_utils::*;
+use num_bigint_dig::BigInt;
 
 pub struct ComponentRepresentation {
     pub node_pointer: Option<NodePointer>,
     pub is_parallel: bool,
     pub meta: Option<Meta>,
     unassigned_inputs: HashMap<String, SliceCapacity>,
-    unassigned_tags: HashSet<String>,
+    unassigned_tags: HashSet<Vec<String>>,
     to_assign_inputs: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>)>,
     to_assign_input_buses: Vec<(String, Vec<SliceCapacity>, BusSlice)>,
-    to_assign_input_bus_fields: Vec<(String, AccessingInformationBus, FoldedResult, TagInfo)>,
+    to_assign_input_bus_fields: Vec<(String, AccessingInformationBus, FoldedResult)>,
     inputs: HashMap<String, SignalSlice>,
     input_buses: HashMap<String, BusSlice>,
-    pub inputs_tags: BTreeMap<String, TagInfo>,
+    pub inputs_tags: HashMap<String, TagWire>,
     outputs: HashMap<String, SignalSlice>,
     output_buses: HashMap<String, BusSlice>,
-    pub outputs_tags: BTreeMap<String, TagInfo>,
+    pub outputs_tags: HashMap<String, TagWire>,
     pub is_initialized: bool,
 }
 
@@ -34,9 +35,9 @@ impl Default for ComponentRepresentation {
             unassigned_tags: HashSet::new(),
             to_assign_inputs: Vec::new(),
             inputs: HashMap::new(),
-            inputs_tags: BTreeMap::new(),
+            inputs_tags: HashMap::new(),
             outputs: HashMap::new(),
-            outputs_tags: BTreeMap::new(),
+            outputs_tags: HashMap::new(),
             is_initialized: false,
             meta: Option::None,
             to_assign_input_buses: Vec::new(),
@@ -85,25 +86,49 @@ impl ComponentRepresentation {
         let node = possible_node.unwrap();
 
         let mut unassigned_tags = HashSet::new();
-        let mut inputs_tags = BTreeMap::new();
-        let mut outputs_tags = BTreeMap::new();
-        for (symbol, tags) in node.inputs() {
-            if !tags.is_empty() {
-                unassigned_tags.insert(symbol.clone());
-            }
+        let mut inputs_tags = HashMap::new();
+        let mut outputs_tags = HashMap::new();
+        pub fn collect_info_tag(tags: &TagNames, complete_name: &mut Vec<String>, unassigned_tags: &mut HashSet<Vec<String>>, is_input:bool)-> TagWire{
             let mut new_tags = TagInfo::new();
-            for t in tags{
+            if !tags.tag_names.is_empty() && is_input{
+                unassigned_tags.insert(complete_name.clone());
+            }
+            for t in &tags.tag_names{
                 new_tags.insert(t.clone(), Option::None);
             }
-            inputs_tags.insert(symbol.clone(), new_tags);
+            let new_tag_fields = if tags.fields.is_some(){
+                let mut info = HashMap::new();
+                for (name, tags) in tags.fields.as_ref().unwrap(){
+                    complete_name.push(name.clone());
+                    info.insert(
+                        name.clone(), 
+                        collect_info_tag(tags, complete_name, unassigned_tags, is_input)
+                    );
+                    complete_name.pop();
+                }
+                Some(info)
+            } else{
+                None
+            };
+            TagWire{
+                tags: new_tags,
+                fields: new_tag_fields,
+            }
+        }
+        for (symbol, tags) in node.inputs() {
+            let mut complete_name = vec![symbol.clone()];
+            if !tags.tag_names.is_empty() {
+                unassigned_tags.insert(complete_name.clone());
+            }
+            let tag_info = collect_info_tag(tags, &mut complete_name, &mut unassigned_tags, true);
+            inputs_tags.insert(symbol.clone(), tag_info);
+
         }
 
         for (symbol, tags) in node.outputs() {
-            let mut new_tags = TagInfo::new();
-            for t in tags{
-                new_tags.insert(t.clone(), Option::None);
-            }
-            outputs_tags.insert(symbol.clone(), new_tags);
+            let mut complete_name = vec![symbol.clone()];
+            let tag_info = collect_info_tag(tags, &mut complete_name, &mut unassigned_tags, false);
+            outputs_tags.insert(symbol.clone(), tag_info);
         }
 
         *component = ComponentRepresentation {
@@ -167,19 +192,19 @@ impl ComponentRepresentation {
         }
 
 
-        fn insert_tags_output(node: &crate::execution_data::ExecutedTemplate, symbol: &String, component: &mut ComponentRepresentation) {
-            let tags_output = node.signal_to_tags.get(symbol);
-            let component_tags_output = component.outputs_tags.get_mut(symbol);
-            if tags_output.is_some() && component_tags_output.is_some(){
-                let result_tags_output = tags_output.unwrap();
-                let result_component_tags_output = component_tags_output.unwrap();
-                for (tag, value) in result_tags_output{
-                    // only update the output tag in case it contains the tag in the definition
-                    if result_component_tags_output.contains_key(tag){
-                        result_component_tags_output.insert(tag.clone(), value.clone());
+        fn insert_tags_output(node: &crate::execution_data::ExecutedTemplate, component: &mut ComponentRepresentation) {
+            
+            for (tag_name, value) in &node.signal_to_tags{
+                if component.outputs_tags.contains_key(&tag_name[0]){
+                    // in this case we have to store the value
+                    let mut info_output_tags = component.outputs_tags.get_mut(&tag_name[0]).unwrap();
+                    for i in 1..tag_name.len()-1{
+                        info_output_tags = info_output_tags.fields.as_mut().unwrap().get_mut(&tag_name[i]).unwrap();
                     }
+                    info_output_tags.tags.insert(tag_name.last().unwrap().clone(), Some(value.clone()));
                 }
             }
+            
         }
 
         for info_wire in node.outputs() {
@@ -200,8 +225,10 @@ impl ComponentRepresentation {
     
                 component.output_buses.insert(symbol.clone(), bus_slice);
             }
-            insert_tags_output(node, symbol, component);
         }
+        // To insert the info of the output tags
+        insert_tags_output(node, component);
+
         
         component.node_pointer = Option::Some(node_pointer);
 
@@ -219,7 +246,13 @@ impl ComponentRepresentation {
         }
 
         let to_assign = std::mem::replace(&mut component.to_assign_input_bus_fields, vec![]);
-        for (signal_name, access, field_value, tags_input) in to_assign{
+        for (signal_name, access, field_value) in &to_assign{
+            let mut tags_input = &component.inputs_tags[signal_name].clone();
+            let mut aux_access = access;
+            while aux_access.field_access.is_some(){
+                tags_input = tags_input.fields.as_ref().unwrap().get(aux_access.field_access.as_ref().unwrap()).unwrap();
+                aux_access = aux_access.remaining_access.as_ref().unwrap();
+            }
             component.assign_value_to_bus_field_init(&signal_name, &access, &field_value, tags_input)?;
         }
 
@@ -241,28 +274,31 @@ impl ComponentRepresentation {
         if !self.is_initialized {
             // we return the name of an input with tags that has not been assigned
             let ex_signal = self.unassigned_tags.iter().next().unwrap().clone();
-            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputTags(ex_signal)));
+            return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::MissingInputTags(ex_signal[0].clone()))); // TODO: improve, show complete trace
         }
         Result::Ok(())
     }
     
-    pub fn get_io_value(&self, field_name: &str, remaining_access: &AccessingInformationBus) ->Result<(Option<TagInfo>, FoldedResult), MemoryError>{
+    pub fn get_io_value(&self, field_name: &str, remaining_access: &AccessingInformationBus) ->Result<(TagWire, FoldedResult), MemoryError>{
         if let Result::Err(value) = self.check_initialized_inputs(field_name) {
             return Err(value);
         }
     
         if self.inputs.contains_key(field_name) || self.outputs.contains_key(field_name){
             // in this case we are accessing a signal
+            
+            // We get the info of the tags
             let (tag_info, signal_slice) = if self.inputs.contains_key(field_name) {
                 (self.inputs_tags.get(field_name).unwrap(), self.inputs.get(field_name).unwrap())
             } else {
                 (self.outputs_tags.get(field_name).unwrap(), self.outputs.get(field_name).unwrap())
             };
-    
+
+            /* NOT VALID: to access a tag of a subcomponent
             if remaining_access.field_access.is_some(){
                 // in case it is a tag access
                 assert!(remaining_access.array_access.len() == 0);
-                let value_tag = tag_info.get(remaining_access.field_access.as_ref().unwrap()).unwrap();
+                let value_tag = tag_info.tags.get(remaining_access.field_access.as_ref().unwrap()).unwrap();
                 match value_tag{
                     Option::None =>{
                         let error = MemoryError::TagValueNotInitializedAccess;
@@ -273,37 +309,35 @@ impl ComponentRepresentation {
                         Result::Ok((None, folded_tag))
                     }
                 }
-            } else{
+            } else{*/
                 // case signals
                 // We access to the selected signal if it is an array
                 let accessed_slice_result = SignalSlice::access_values(signal_slice, &remaining_access.array_access);
                 match accessed_slice_result{
                     Ok(slice) =>{
                         let folded_slice = FoldedResult::Signal(slice);
-                        Result::Ok((Some(tag_info.clone()), folded_slice))
+                        Result::Ok((tag_info.clone(), folded_slice))
                     },
                     Err(err) => Err(err)
                 }
-            }
+            //}
         } else{
             // in this case we are accessing a bus
-            let (tag_info, bus_slice) = if self.input_buses.contains_key(field_name) {
+            let (mut tag_info, bus_slice) = if self.input_buses.contains_key(field_name) {
                 (self.inputs_tags.get(field_name).unwrap(), self.input_buses.get(field_name).unwrap())
             } else {
                 (self.outputs_tags.get(field_name).unwrap(), self.output_buses.get(field_name).unwrap())
             };
     
-            if remaining_access.field_access.is_some(){
-                // In this case we need to access to values of the bus or one of its tags
-                let next_array_access = &remaining_access.array_access;
+            let result = if remaining_access.field_access.is_some(){
+                // In this case we need to access to values of the bus 
                 let next_field_access = remaining_access.field_access.as_ref().unwrap();
                 let next_remaining_access = remaining_access.remaining_access.as_ref().unwrap();
                 
-                // we distingish between tags or buses 
-                if tag_info.contains_key(remaining_access.field_access.as_ref().unwrap()){
+                /* NOT VALID-> case tags: if tag_info.tags.contains_key(remaining_access.field_access.as_ref().unwrap()){
                     // in this case we are returning a tag
                     assert!(next_array_access.len() == 0);
-                    let value_tag = tag_info.get(next_field_access).unwrap();
+                    let value_tag = tag_info.tags.get(next_field_access).unwrap();
                     match value_tag{
                         Option::None =>{
                             let error = MemoryError::TagValueNotInitializedAccess;
@@ -314,8 +348,8 @@ impl ComponentRepresentation {
                             Result::Ok((None, folded_tag))
                         }
                     }
-                } else{
-                    // in this case we are returning a field of the bus
+                } else{ */
+                    // we are returning a field of the bus
     
                     let accessed_slice_result = BusSlice::access_values(bus_slice, &remaining_access.array_access);
                     let accessed_bus = match accessed_slice_result{
@@ -324,23 +358,55 @@ impl ComponentRepresentation {
                         },
                         Err(err) => return Err(err)
                     };
-                    accessed_bus.get_field(next_field_access, next_remaining_access)
-                }
+                    accessed_bus.get_field(next_field_access, next_remaining_access)?
+                //}
             } else{
 
                 // In this case we are accessing the complete bus
-                let accessed_slice_result = BusSlice::access_values(bus_slice, &remaining_access.array_access);
-                
-                match accessed_slice_result{
-                    Ok(slice) =>{
-                        let folded_slice = FoldedResult::Bus(slice);
-                        Result::Ok((Some(tag_info.clone()), folded_slice))
-                    },
-                    Err(err) => Err(err)
-                }
+                let slice = BusSlice::access_values(bus_slice, &remaining_access.array_access)?;
+                FoldedResult::Bus(slice)
+            };
+
+            // Finally, get the tags
+            let mut to_access = remaining_access;
+            while to_access.field_access != None {
+                let acc = to_access.field_access.as_ref().unwrap();
+
+                tag_info = tag_info.fields.as_ref().unwrap().get(acc).unwrap();
+                to_access = to_access.remaining_access.as_ref().unwrap();
             }
+            Ok((tag_info.clone(), result))
         }
     
+    }
+
+    pub fn get_tag_value(&self, field_name: &str, remaining_access: &AccessingInformationBus)-> Result<BigInt, MemoryError>{
+        
+        if let Result::Err(value) = self.check_initialized_inputs(field_name) {
+            return Err(value);
+        }
+        
+        let mut tags_info = if self.inputs_tags.contains_key(field_name){
+            self.inputs_tags.get(field_name).unwrap()
+        } else{
+            self.outputs_tags.get(field_name).unwrap()
+        };
+
+        let mut to_access = remaining_access;
+        let mut next_access = remaining_access.remaining_access.as_ref().unwrap();
+        while next_access.field_access.is_some(){
+            let field = to_access.field_access.as_ref().unwrap();
+            tags_info = tags_info.fields.as_ref().unwrap().get(field).unwrap();
+            to_access = to_access.remaining_access.as_ref().unwrap();
+            next_access = next_access.remaining_access.as_ref().unwrap();
+        }
+        let tag_value = tags_info.tags.get(to_access.field_access.as_ref().unwrap()).unwrap();
+        if let Some(value_tag) = tag_value { // tag has value
+                Result::Ok(value_tag.clone() )
+        } else {
+            let error = MemoryError::TagValueNotInitializedAccess;
+            return Result::Err(error);
+        }
     }
 
     // Assign signals: Operations to assign signals -> case init and no init
@@ -350,7 +416,7 @@ impl ComponentRepresentation {
         signal_name: &str,
         access: &[SliceCapacity],
         slice_route: &[SliceCapacity],
-        tags: &TagInfo,
+        tags: &TagWire,
     ) -> Result<(), MemoryError> {
         if !component.is_initialized{
             ComponentRepresentation::assign_value_to_signal_no_init(
@@ -376,11 +442,11 @@ impl ComponentRepresentation {
         signal_name: &str,
         access: &[SliceCapacity],
         slice_route: &[SliceCapacity],
-        tags: &TagInfo,
+        tags: &TagWire,
     ) -> Result<(), MemoryError> {
 
         // check that the tags are correct and update values
-        ComponentRepresentation::handle_tag_assignment_no_init(component, signal_name, tags)?;
+        ComponentRepresentation::handle_tag_assignment_no_init(component, &vec![signal_name.to_string()], tags)?;
         component.to_assign_inputs.push((signal_name.to_string(), access.to_vec(), slice_route.to_vec()));
         
         Result::Ok(())
@@ -391,7 +457,7 @@ impl ComponentRepresentation {
         signal_name: &str,
         access: &[SliceCapacity],
         slice_route: &[SliceCapacity],
-        tags: &TagInfo,
+        tags: &TagWire,
     ) -> Result<(), MemoryError> {
 
         if !self.is_preinitialized() {
@@ -403,7 +469,7 @@ impl ComponentRepresentation {
         }
 
         // Check that the assignment satisfies the tags requisites
-        ComponentRepresentation::handle_tag_assignment_init(self, signal_name, tags)?;
+        ComponentRepresentation::handle_tag_assignment_init(self, &vec![signal_name.to_string()], tags)?;
 
         
         // Perform the assignment
@@ -424,7 +490,7 @@ impl ComponentRepresentation {
         bus_name: &str,
         access: &[SliceCapacity],
         bus_slice: BusSlice,
-        tags: &TagInfo,
+        tags: &TagWire,
     ) -> Result<(), MemoryError> {
         if !component.is_initialized{
             ComponentRepresentation::assign_value_to_bus_no_init(
@@ -450,11 +516,11 @@ impl ComponentRepresentation {
         bus_name: &str,
         access: &[SliceCapacity],
         bus_slice: BusSlice,
-        tags: &TagInfo,
+        tags: &TagWire,
     ) -> Result<(), MemoryError> {
 
         // check that the tags are correct and update values
-        ComponentRepresentation::handle_tag_assignment_no_init(component, bus_name, tags)?;
+        ComponentRepresentation::handle_tag_assignment_no_init(component, &vec![bus_name.to_string()], tags)?;
         component.to_assign_input_buses.push((bus_name.to_string(), access.to_vec(), bus_slice));
         
         Result::Ok(())
@@ -465,7 +531,7 @@ impl ComponentRepresentation {
         bus_name: &str,
         access: &[SliceCapacity],
         bus_slice: &BusSlice,
-        tags: &TagInfo,
+        tags: &TagWire,
     ) -> Result<(), MemoryError> {
 
         if !self.is_preinitialized() {
@@ -477,7 +543,7 @@ impl ComponentRepresentation {
         }
 
         // Check that the assignment satisfies the tags requisites
-        ComponentRepresentation::handle_tag_assignment_init(self, bus_name, tags)?;
+        ComponentRepresentation::handle_tag_assignment_init(self, &vec![bus_name.to_string()], tags)?;
         
         // Perform the assignment
         let inputs_response = self.input_buses.get_mut(bus_name).unwrap();
@@ -499,7 +565,7 @@ impl ComponentRepresentation {
         bus_name: &str,
         access: &AccessingInformationBus,
         field_value: FoldedResult,
-        tags: &TagInfo,
+        tags: &TagWire,
     ) -> Result<(), MemoryError> {
         if !component.is_initialized{
             ComponentRepresentation::assign_value_to_bus_field_no_init(
@@ -515,7 +581,7 @@ impl ComponentRepresentation {
                 bus_name, 
                 access, 
                 &field_value,
-                tags.clone()
+                tags
             )
         }
     }
@@ -525,21 +591,37 @@ impl ComponentRepresentation {
         bus_name: &str,
         access: &AccessingInformationBus,
         field_value: FoldedResult,
-        tags: &TagInfo,
+        tags: &TagWire,
     ) -> Result<(), MemoryError> {
 
-        // check that the tags are correct and update values, in this case none inputs
-        // are assigned to the complete bus
+        fn build_name(complete_bus_name: &mut Vec<String>, access: &AccessingInformationBus){
+            match &access.field_access{
+                Option::None =>{},
+                Option::Some(name) =>{
+                    complete_bus_name.push(name.clone());
+                }
+            }
+            match &access.remaining_access{
+                Option::None =>{},
+                Option::Some(remaining) =>{
+                    build_name(complete_bus_name, &remaining)
+                }
+            }
+        }
+        let mut complete_name = vec![bus_name.to_string()];
+        build_name(&mut complete_name, access);
+
+        // check that the tags are correct and update values
         ComponentRepresentation::handle_tag_assignment_no_init(
             component, 
-            bus_name, 
-            &TagInfo::new())?;
+            &complete_name, 
+            &tags
+        )?;
         
         component.to_assign_input_bus_fields.push((
             bus_name.to_string(), 
             access.clone(), 
             field_value,
-            tags.clone()
         )
         );
         
@@ -551,7 +633,7 @@ impl ComponentRepresentation {
         bus_name: &str,
         access: &AccessingInformationBus,
         field_value: &FoldedResult,
-        tags: TagInfo,
+        tags: &TagWire,
     ) -> Result<(), MemoryError> {
 
         if !self.is_preinitialized() {
@@ -562,6 +644,10 @@ impl ComponentRepresentation {
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput));
         }
 
+        // Check that the assignment satisfies the tags requisites
+        let mut complete_bus_name = vec![bus_name.to_string()];
+        build_name(&mut complete_bus_name, access);
+        ComponentRepresentation::handle_tag_assignment_init(self, &complete_bus_name, &tags)?;
         
         // Get the assigned input bus
         let inputs_slice = self.input_buses.get_mut(bus_name).unwrap();
@@ -587,22 +673,17 @@ impl ComponentRepresentation {
             FoldedResult::Bus (bs)=>{
                 FoldedArgument::Bus(&bs)
             },
-            FoldedResult::Tag(_) =>{
-                unreachable!()
-            }
         };
 
         single_bus.assign_value_to_field(
             access.field_access.as_ref().unwrap(),
             access.remaining_access.as_ref().unwrap(),
             folded_arg,
-            Some(tags),
-            true, // it is an input so check tags instead of propagate
+            true, 
         )?;
         
         
         // In case it is completely assigned update unassigned
-        
         if !single_bus.has_unassigned_fields(){
             ComponentRepresentation::update_unassigned_inputs(self, bus_name, &[1]);
         }
@@ -621,7 +702,7 @@ impl ComponentRepresentation {
     }
 
     pub fn has_unassigned_inputs(&self) -> bool{
-        !self.unassigned_inputs.is_empty()
+        !self.unassigned_tags.is_empty () || !self.unassigned_inputs.is_empty() 
     }
      
 
@@ -633,55 +714,138 @@ impl ComponentRepresentation {
      */
 
 
-     fn handle_tag_assignment_no_init(component: &mut ComponentRepresentation, signal_name: &str, tags: &TagInfo) -> Result<(), MemoryError> {
+    fn handle_tag_assignment_no_init(
+        component: &mut ComponentRepresentation, 
+        signal_name: &Vec<String>, 
+        tags: &TagWire
+    ) -> Result<(), MemoryError> {
         
         if !component.is_preinitialized() {
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::NoInitializedComponent));
         }
-        if !component.inputs_tags.contains_key(signal_name){
+        if !component.inputs_tags.contains_key(&signal_name[0]){
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentOutput));
         }
 
-        let tags_input = component.inputs_tags.get_mut(signal_name).unwrap();
-        let is_first_assignment_signal = component.unassigned_tags.contains(signal_name);
-        component.unassigned_tags.remove(signal_name);
+        // perform all the intermediate accesses to the field
+        let mut accessed_info = &mut component.inputs_tags;
+        for i in 0..signal_name.len()-1{
+            accessed_info = accessed_info.get_mut(&signal_name[i]).unwrap().fields.as_mut().unwrap();
+        }
+        let input_tags = accessed_info.get_mut(&signal_name[signal_name.len()-1]).unwrap();
 
         // We copy tags in any case, complete or incomplete assignment
         // The values of the tags must be the same than the ones stored before
+        
+        fn check_tags(
+            input_tags: &mut TagWire, 
+            unassigned_tags: &mut HashSet<Vec<String>>,
+            tags_info: &TagWire,
+            signal_name: &mut Vec<String>
+        )-> Result<(), MemoryError> {
 
-        for (t, value) in tags_input{
-            if !tags.contains_key(t){
-                return Result::Err(MemoryError::AssignmentMissingTags(signal_name.to_string(), t.clone()));
-            } else{
-                if is_first_assignment_signal{
-                    *value = tags.get(t).unwrap().clone();
-                }
-                else{
-                    // already given a value, check that it is the same
-                    if value != tags.get(t).unwrap(){
-                        return Result::Err(MemoryError::AssignmentTagInputTwice(signal_name.to_string(), t.clone()));
+             // remove the signal name of unassigned inputs
+            let is_first_assignment_signal = unassigned_tags.contains(signal_name);
+            unassigned_tags.remove(signal_name);
+
+            for (t, value) in &mut input_tags.tags{
+                if !tags_info.tags.contains_key(t){
+                    // TODO: change error message to consider Vec<String>
+                    return Result::Err(MemoryError::AssignmentMissingTags(signal_name[0].to_string(), t.clone()));
+                } else{
+                    if is_first_assignment_signal{
+                        *value = tags_info.tags.get(t).unwrap().clone();
+                    }
+                    else{
+                        // already given a value, check that it is the same
+                        if value != tags_info.tags.get(t).unwrap(){
+                            return Result::Err(MemoryError::AssignmentTagInputTwice(signal_name[0].to_string(), t.clone()));
+                        }
                     }
                 }
             }
-        }
-        Result::Ok(())
-    }
-
-    fn handle_tag_assignment_init(component: &ComponentRepresentation, signal_name: &str, tags: &TagInfo)-> Result<(), MemoryError>{
-        let tags_input = component.inputs_tags.get(signal_name).unwrap();
-        for (t, value) in tags_input{
-            if !tags.contains_key(t){
-                return Result::Err(MemoryError::AssignmentMissingTags(signal_name.to_string(), t.clone()));
-            } else{            
-                // We are in the case wher.e the component is initialized, so we 
-                // assume that all tags already have their value and check if it is
-                // the same as the one we are receiving
-                if value != tags.get(t).unwrap(){
-                    return Result::Err(MemoryError::AssignmentTagInputTwice(signal_name.to_string(), t.clone()));
+            if input_tags.fields.is_some(){
+                let input_fields = input_tags.fields.as_mut().unwrap();
+                for (field_name, input_field) in input_fields{
+                    let mut tags_assigned = &TagWire::default();
+                    if tags_info.fields.is_some(){
+                        let tags_fields = tags_info.fields.as_ref().unwrap();
+                        if tags_fields.contains_key(field_name){
+                            tags_assigned = tags_fields.get(field_name).unwrap();
+                        }
+                    }
+                    signal_name.push(field_name.clone());
+                    check_tags(
+                        input_field,
+                        unassigned_tags,
+                        tags_assigned, 
+                        signal_name
+                    )?;
+                    signal_name.pop();
                 }
             }
+            Result::Ok(())
         }
-        Ok(())
+
+        check_tags(
+            input_tags,
+            &mut component.unassigned_tags,
+            tags, 
+            &mut signal_name.clone()
+        )
+
+    
+    }
+
+    fn handle_tag_assignment_init(
+        component: &ComponentRepresentation,
+        signal_name: &Vec<String>,
+        tags: &TagWire
+    )-> Result<(), MemoryError>{
+        // perform all the intermediate accesses to the field
+        let mut accessed_info = &component.inputs_tags;
+        for i in 0..signal_name.len()-1{
+            accessed_info = accessed_info.get(&signal_name[i]).unwrap().fields.as_ref().unwrap();
+        }
+        let input_tags = accessed_info.get(&signal_name[signal_name.len()-1]).unwrap();
+
+        fn check_tags(input_tags: &TagWire, tags: &TagWire, signal_name: &mut Vec<String>)-> Result<(), MemoryError>{
+            for (t, value) in &input_tags.tags{
+                if !tags.tags.contains_key(t){
+                    return Result::Err(MemoryError::AssignmentMissingTags(signal_name[0].to_string(), t.clone()));
+                } else{            
+                    // We are in the case where the component is initialized, so we 
+                    // assume that all tags already have their value and check if it is
+                    // the same as the one we are receiving
+                    if value != tags.tags.get(t).unwrap(){
+                        return Result::Err(MemoryError::AssignmentTagInputTwice(signal_name[0].to_string(), t.clone()));
+                    }
+                }
+            }
+            if input_tags.fields.is_some(){
+                for (field_name, input_field) in input_tags.fields.as_ref().unwrap(){
+                    
+                    let mut tags_assigned = &TagWire::default();
+                    if tags.fields.is_some(){
+                        let tags_fields = tags.fields.as_ref().unwrap();
+                        if tags_fields.contains_key(field_name){
+                            tags_assigned = tags_fields.get(field_name).unwrap();
+                        }
+                    }
+                    signal_name.push(field_name.clone());
+                    check_tags(
+                        input_field, 
+                        tags_assigned, 
+                        signal_name                    
+                    )?;
+                    signal_name.pop();
+                }
+
+            }
+            Ok(())
+        }
+        let mut aux_name = signal_name.clone();
+        check_tags(input_tags, tags, &mut aux_name)
     }
 
     // Auxiliar function to update the unassigned inputs
@@ -699,6 +863,23 @@ impl ComponentRepresentation {
                 }
             }
             Option::None => {}
+        }
+    }
+}
+
+
+// Auxiliar function to build the name of a bus field
+fn build_name(complete_bus_name: &mut Vec<String>, access: &AccessingInformationBus){
+    match &access.field_access{
+        Option::None =>{},
+        Option::Some(name) =>{
+            complete_bus_name.push(name.clone());
+        }
+    }
+    match &access.remaining_access{
+        Option::None =>{},
+        Option::Some(remaining) =>{
+            build_name(complete_bus_name, &remaining)
         }
     }
 }

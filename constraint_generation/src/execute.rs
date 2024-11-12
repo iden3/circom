@@ -5,7 +5,9 @@ use super::environment_utils::{
         environment_shortcut_add_bus_input, environment_shortcut_add_bus_intermediate,
         environment_shortcut_add_bus_output,
         environment_shortcut_add_variable, ExecutionEnvironment, ExecutionEnvironmentError,
-        environment_check_all_components_assigned
+        environment_check_all_components_assigned,
+        environment_get_value_tags_bus, environment_get_value_tags_signal
+    
     },
     slice_types::{
         AExpressionSlice, ArithmeticExpression as ArithmeticExpressionGen, ComponentRepresentation,
@@ -14,15 +16,15 @@ use super::environment_utils::{
         FoldedResult, FoldedArgument
     },
 };
-
+use program_structure::wire_data::WireType;
 use crate::assignment_utils::*;
 
-
+use crate::environment_utils::slice_types::BusTagInfo;
 use program_structure::constants::UsefulConstants;
-
+use program_structure::bus_data::BusData;
 use super::execution_data::analysis::Analysis;
 use super::execution_data::{ExecutedBus, ExecutedProgram, ExecutedTemplate, PreExecutedTemplate, NodePointer};
-use super::execution_data::type_definitions::{AccessingInformationBus, AccessingInformation};
+use super::execution_data::type_definitions::{AccessingInformationBus, AccessingInformation, TagNames, TagWire};
 
 use super::{
     ast::*, ArithmeticError, FileID, ProgramArchive, Report, ReportCode, ReportCollection
@@ -74,7 +76,7 @@ struct FoldedValue {
     pub node_pointer: Option<NodePointer>,
     pub bus_node_pointer: Option<NodePointer>,
     pub is_parallel: Option<bool>,
-    pub tags: Option<TagInfo>,
+    pub tags: Option<TagWire>,
 }
 impl FoldedValue {
     pub fn valid_arithmetic_slice(f_value: &FoldedValue) -> bool {
@@ -152,7 +154,7 @@ pub fn constraint_execution(
             execute_template_call_complete(
                 id,
                 arg_values,
-                BTreeMap::new(),
+                HashMap::new(),
                 program_archive,
                 &mut runtime_information,
                 flags,
@@ -1131,7 +1133,7 @@ fn execute_call(
 fn execute_template_call_complete(
     id: &String,
     arg_values: Vec<AExpressionSlice>,
-    tags: BTreeMap<String, TagInfo>,
+    tags: HashMap<String, TagWire>,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     flags: FlagsExecution,
@@ -1238,7 +1240,7 @@ fn execute_signal_declaration(
         match signal_type {
             Input => {
                 if let Some(tags_input) = node.tag_instances().get(signal_name){
-                    environment_shortcut_add_input(environment, signal_name, dimensions, &tags_input);
+                    environment_shortcut_add_input(environment, signal_name, dimensions, &tags_input.tags);
                 } else{
                     environment_shortcut_add_input(environment, signal_name, dimensions, &tags);
                 }
@@ -1272,16 +1274,13 @@ fn execute_declaration_bus(
     } 
 
     if is_bus{
-        actual_node.add_bus(signal_name, dimensions);
+        actual_node.add_bus(signal_name, dimensions, list_tags.clone());
         environment_shortcut_add_bus_intermediate(environment, signal_name, dimensions, &tags);
     } else{
-        actual_node.add_signal(signal_name, dimensions);
+        actual_node.add_signal(signal_name, dimensions, list_tags.clone());
         environment_shortcut_add_intermediate(environment, signal_name, dimensions, &tags);
 
     }
-    for t in list_tags{
-        actual_node.add_tag_signal(signal_name, t, None);
-    } 
 }
 
 fn execute_bus_declaration(
@@ -1297,13 +1296,19 @@ fn execute_bus_declaration(
     for t in list_tags{
         tags.insert(t.clone(), None);
     } 
+
     if let Option::Some(node) = actual_node {
         match signal_type {
             Input => {
                 if let Some(tags_input) = node.tag_instances().get(bus_name){
-                    environment_shortcut_add_bus_input(environment, bus_name, dimensions, &tags_input);
+                    environment_shortcut_add_bus_input(environment, bus_name, dimensions, tags_input);
                 } else{
-                    environment_shortcut_add_bus_input(environment, bus_name, dimensions, &tags);
+                    
+                    let tag_wire = TagWire{
+                        tags,
+                        fields: None // TODO: FILL THE TAGS
+                    };
+                    environment_shortcut_add_bus_input(environment, bus_name, dimensions, &tag_wire);
                 }
                 node.add_input(bus_name, dimensions, true);
             }
@@ -1377,12 +1382,12 @@ fn perform_assign(
         let mut r_tags = if r_folded.tags.is_some(){
             r_folded.tags.as_ref().unwrap().clone()
         } else{
-            TagInfo::new()
+            TagWire::default()
         };
         let mut r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
         if runtime.block_type == BlockType::Unknown {
             r_slice = AExpressionSlice::new_with_route(r_slice.route(), &AExpr::NonQuadratic);
-            r_tags = TagInfo::new();
+            r_tags = TagWire::default();
         }
         if accessing_information.undefined {
             let new_value =
@@ -1412,7 +1417,7 @@ fn perform_assign(
             )?;
             // in case it is a complete assignment assign the tags, if not set the tags to empty
             if AExpressionSlice::get_number_of_cells(symbol_content) == AExpressionSlice::get_number_of_cells(&r_slice){
-                *symbol_tags = r_tags;
+                *symbol_tags = r_tags.tags;
             } else {
                 *symbol_tags = TagInfo::new();
             }
@@ -1444,68 +1449,53 @@ fn perform_assign(
 
         let tag = accessing_information.signal_access.clone().unwrap();
         let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
-        let (reference_to_tags, reference_to_tags_defined, reference_to_signal_content) = treat_result_with_environment_error(
+        let (reference_to_tags, _) = treat_result_with_environment_error(
                 environment_response,
                 meta,
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
         )?;
 
-        if SignalSlice::get_number_of_inserts(&reference_to_signal_content) > 0{
+        if reference_to_tags.is_init{
             treat_result_with_memory_error(
                 Result::Err(MemoryError::AssignmentTagAfterInit),
                 meta,
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
+            )?;
+        }    
+        let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
+        let value_aux = AExpressionSlice::unwrap_to_single(arithmetic_slice);
+        let value = if let ArithmeticExpressionGen::Number { value } = value_aux {
+            value
+        } else {
+            treat_result_with_execution_error(
+                Result::Err(ExecutionError::NonValidTagAssignment),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
             )?
-        }
-        else if let Some(a_slice) = r_folded.arithmetic_slice {
-            
-            let value = AExpressionSlice::unwrap_to_single(a_slice);   
-            match value {
-                ArithmeticExpressionGen::Number { value } => {
-                    let possible_tag = reference_to_tags.get(&tag.clone());
-                    if let Some(val) = possible_tag {
-                        if let Some(_) = val {
-                            treat_result_with_memory_error(
-                                Result::Err(MemoryError::AssignmentTagTwice),
-                                meta,
-                                &mut runtime.runtime_errors,
-                                &runtime.call_trace,
-                            )?
-                        } else { // we add the info saying that the tag is defined
-                            reference_to_tags.insert(tag.clone(), Option::Some(value.clone()));
-                            let tag_state = reference_to_tags_defined.get_mut(&tag).unwrap();
-                            tag_state.value_defined = true;
-                            match actual_node{
-                                ExecutedStructure::Template(node) =>{
-                                    node.add_tag_signal(symbol, &tag, Some(value));
-                                },
-                                ExecutedStructure::Bus(node) =>{
-                                    node.add_tag_signal(symbol, &tag, Some(value));
-                                },
-                                ExecutedStructure::None => {
-                                    unreachable!();
-                                }
-                            }
-                                
-                        }
-                    } else {unreachable!()} 
-                },
-
-                _ =>{
-                    treat_result_with_execution_error(
-                        Result::Err(ExecutionError::NonValidTagAssignment),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-                },            }   
-        }
-        else { 
-            unreachable!() 
-        }
+        };
+        let possible_tag = reference_to_tags.tags.get(&tag.clone());
+        if let Some(val) = possible_tag {
+            if let Some(_) = val {
+                treat_result_with_memory_error(
+                    Result::Err(MemoryError::AssignmentTagTwice),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?
+            } else { // we add the info saying that the tag is defined
+                reference_to_tags.tags.insert(tag.clone(), Option::Some(value.clone()));
+                let tag_state = reference_to_tags.definitions.get_mut(&tag).unwrap();
+                tag_state.value_defined = true;            
+            }
+        } else {
+            unreachable!()
+        } 
+               
         Option::None
+        
     }else {
         // it is just a signal
         debug_assert!(accessing_information.signal_access.is_none());
@@ -1522,7 +1512,7 @@ fn perform_assign(
         }
 
         let environment_response = ExecutionEnvironment::get_mut_signal_res(&mut runtime.environment, symbol);
-        let (reference_to_tags, reference_to_tags_defined, reference_to_signal_content) = treat_result_with_environment_error(
+        let (reference_to_tags, reference_to_signal_content) = treat_result_with_environment_error(
             environment_response,
             meta,
             &mut runtime.runtime_errors,
@@ -1534,17 +1524,17 @@ fn perform_assign(
         let new_tags = if r_folded.tags.is_some() && op == AssignOp::AssignConstraintSignal{
             r_folded.tags.clone().unwrap()
         } else{
-            TagInfo::new()
+            TagWire::default()
         };
-
-        let signal_is_init = SignalSlice::get_number_of_inserts(reference_to_signal_content) > 0;
-
-        perform_tag_propagation(reference_to_tags, reference_to_tags_defined, &new_tags, signal_is_init);
-
         
-        // Perform the signal assignment
+        // Perform the tag propagation
         let r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
-        
+
+        reference_to_tags.remaining_inserts -= MemorySlice::get_number_of_cells(&r_slice);
+        reference_to_tags.is_init = true;
+        perform_tag_propagation(&mut reference_to_tags.tags, &mut reference_to_tags.definitions, &new_tags.tags, reference_to_tags.is_init);
+
+        // Perform the signal assignment
         let signal_assignment_response = perform_signal_assignment(reference_to_signal_content, &accessing_information.before_signal, &r_slice.route());
         
         treat_result_with_memory_error_void(
@@ -1553,35 +1543,6 @@ fn perform_assign(
             &mut runtime.runtime_errors,
             &runtime.call_trace,
         )?;
-
-
-        // Update complete tags if completely init
-        let signal_is_completely_initialized = 
-            SignalSlice::get_number_of_inserts(reference_to_signal_content) == 
-            SignalSlice::get_number_of_cells(reference_to_signal_content);
-
-
-
-        if signal_is_completely_initialized {
-
-            for (tag, value) in reference_to_tags{
-                let tag_state = reference_to_tags_defined.get_mut(tag).unwrap();
-                tag_state.complete = true;
-                match actual_node{
-                    ExecutedStructure::Template(node) =>{
-                        if !tag_state.value_defined{
-                            node.add_tag_signal(symbol, &tag, value.clone());
-                        }
-                    },
-                    ExecutedStructure::Bus(_) =>{
-                        unreachable!();
-                    },
-                    ExecutedStructure::None => {
-                        unreachable!();
-                    }
-                }
-            }
-        }
 
         // Get left arithmetic slice
         let mut l_signal_names = Vec::new();
@@ -1733,10 +1694,10 @@ fn perform_assign(
                     // it is signal assignment of a input signal or a field of the bus
                     let signal_accessed = accessing_information.field_access.as_ref().unwrap();
                     let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
-                    let tags = if r_folded.tags.is_some() {
+                    let tags = if r_folded.tags.is_some() && op == AssignOp::AssignConstraintSignal {
                         r_folded.tags.unwrap()
                     } else {
-                        TagInfo::new()
+                        TagWire::default()
                     };
                         
                     let memory_response = if remaining_access.field_access.is_none(){
@@ -1778,10 +1739,12 @@ fn perform_assign(
                     // it is a bus input    
                     let bus_accessed = accessing_information.field_access.as_ref().unwrap();
                     let (name_bus, assigned_bus_slice) = r_folded.bus_slice.unwrap();
-                    let tags = if r_folded.tags.is_some() {
+                    
+                    
+                    let tags = if r_folded.tags.is_some()  && op == AssignOp::AssignConstraintSignal{
                         r_folded.tags.unwrap()
                     } else {
-                        TagInfo::new()
+                        TagWire::default()
                     };
 
                     // Generate an arithmetic slice for the buses left and right
@@ -1959,7 +1922,7 @@ fn perform_assign(
         
         let environment_response = ExecutionEnvironment::get_mut_bus_res(&mut runtime.environment, symbol);
         
-        let (tags_info, tags_definition, bus_slice) = treat_result_with_environment_error(
+        let (tags_info, bus_slice) = treat_result_with_environment_error(
             environment_response,
             meta,
             &mut runtime.runtime_errors,
@@ -1984,7 +1947,7 @@ fn perform_assign(
             debug_assert!(accessing_information.array_access.len() == 0);
             debug_assert!(accessing_information.field_access.is_none());
 
-
+            
             for i in 0..BusSlice::get_number_of_cells(&bus_slice){
                 let mut value_left = treat_result_with_memory_error(
                     BusSlice::get_mut_reference_to_single_value_by_index(bus_slice, i),
@@ -2008,6 +1971,54 @@ fn perform_assign(
 
             }
             let bus_info = runtime.exec_program.get_bus_node(bus_pointer).unwrap();
+            
+            // Get and update the inside tags of the bus 
+            // -> similar to collect_info_tags
+            fn collect_info_tags(data_bus: &ExecutedBus, exec_program: &ExecutedProgram, n_inserts: usize)->BTreeMap<String, BusTagInfo>{
+                use crate::environment_utils::slice_types::TagState;
+                let mut fields = BTreeMap::new();
+
+                for wire_data in &data_bus.fields{
+                    let mut tags = BTreeMap::new();
+                    let mut definitions = BTreeMap::new();
+                    let mut inside_fields = BTreeMap::new();
+                    let tag_names = data_bus.tag_names.get(&wire_data.name).unwrap();
+                    let size = wire_data.length.iter().fold(1, |aux, val| aux * val);
+                    let n_inserts_field = size * n_inserts;
+                    for tag in tag_names{
+                        tags.insert(tag.clone(), Option::None);
+                        definitions.insert(tag.clone(), TagState{
+                            defined: true,
+                            value_defined: false,
+                        });
+                    }
+                    // in this case it is a bus, add its fields
+                    if wire_data.is_bus{
+                        let bus_pointer = data_bus.bus_connexions.get(&wire_data.name).unwrap().inspect.goes_to;
+                        let data_inside_bus = exec_program.get_bus_node(bus_pointer).unwrap();
+                        inside_fields = collect_info_tags(data_inside_bus, exec_program, n_inserts_field);
+                    }
+                    fields.insert(
+                        wire_data.name.clone(),
+                        BusTagInfo{
+                            tags,
+                            definitions,
+                            fields: inside_fields,
+                            remaining_inserts: n_inserts_field,
+                            size,
+                            is_init: false,
+                        }
+                    ); 
+                }
+                fields
+            }
+            // only if it is not an input_bus if we are in the main component
+            let is_main_component = runtime.call_trace.len() == 1;
+            if !is_input_bus || is_main_component{
+                let bus_inside_tags = collect_info_tags(bus_info, &runtime.exec_program, BusSlice::get_number_of_cells(&bus_slice));
+                tags_info.fields = bus_inside_tags;
+            }            
+            
             let size = bus_info.size;
             match actual_node{
                 ExecutedStructure::Template(node) =>{
@@ -2050,17 +2061,16 @@ fn perform_assign(
                 assert!(accessing_information.field_access.is_some());
 
                 let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
-                let tags = if r_folded.tags.is_some() {
+                let tags = if r_folded.tags.is_some()  && op == AssignOp::AssignConstraintSignal{
                     r_folded.tags.unwrap()
                 } else {
-                    TagInfo::new()
+                    TagWire::default()
                 };
     
                 let memory_response = single_bus.assign_value_to_field(
                     accessing_information.field_access.as_ref().unwrap(),
                     accessing_information.remaining_access.as_ref().unwrap(),
                     FoldedArgument::Signal(&arithmetic_slice.route().to_vec()),
-                    Some(tags),
                     false
                 );
                 treat_result_with_memory_error_void(
@@ -2069,6 +2079,16 @@ fn perform_assign(
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?;
+                
+                // Perform the tag propagation
+                // access to the field that is assigned and then propagate the tags
+                let mut to_access = accessing_information;
+                let mut tag_data = tags_info;
+                while to_access.remaining_access.is_some(){
+                    tag_data = tag_data.fields.get_mut(to_access.field_access.as_ref().unwrap()).unwrap();
+                    to_access = to_access.remaining_access.as_ref().unwrap();
+                }
+                perform_tag_propagation_bus(tag_data, &tags, MemorySlice::get_number_of_cells(&arithmetic_slice));
 
                 // Get left arithmetic slice
                 let mut l_signal_names = Vec::new();
@@ -2079,112 +2099,78 @@ fn perform_assign(
                 }
                 let l_slice = AExpressionSlice::new_array(arithmetic_slice.route().to_vec(), l_expressions);
                 Some((l_slice, arithmetic_slice))
-
+                
             } else if meta.get_type_knowledge().is_tag(){
                 // in case we are assigning a tag of the complete bus
-                // or one of its fields
-                assert!(accessing_information.array_access.len() == 0);
-                assert!(accessing_information.field_access.is_some());
-                if accessing_information.remaining_access.as_ref().unwrap().field_access.is_none(){
-                    // case tag of the complete bus
-                    let tag = accessing_information.field_access.as_ref().unwrap();
-                    let environment_response = ExecutionEnvironment::get_mut_bus_res(&mut runtime.environment, symbol);
-                    let (reference_to_tags, reference_to_tags_defined, bus_content) = treat_result_with_environment_error(
-                        environment_response,
+                // check not valid in input buses
+                if is_input_bus {
+                    treat_result_with_memory_error(
+                        Result::Err(MemoryError::AssignmentTagInput),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
-                    )?;
-
-                    for i in 0..BusSlice::get_number_of_cells(bus_content){
-                        let accessed_bus = treat_result_with_memory_error(
-                            BusSlice::get_reference_to_single_value_by_index(bus_content, i),
-                            meta,
-                            &mut runtime.runtime_errors,
-                            &runtime.call_trace,
-                        )?;
-                        if accessed_bus.has_assignment(){
-                            treat_result_with_memory_error(
-                                Result::Err(MemoryError::AssignmentTagAfterInit),
-                                meta,
-                                &mut runtime.runtime_errors,
-                                &runtime.call_trace,
-                            )?
-                        }
-                    }
-
-                    if let Some(a_slice) = r_folded.arithmetic_slice {
-                        let value = AExpressionSlice::unwrap_to_single(a_slice);
-                            match value {
-                                ArithmeticExpressionGen::Number { value } => {
-                                    let possible_tag = reference_to_tags.get(&tag.clone());
-                                    if let Some(val) = possible_tag {
-                                        if let Some(_) = val {
-                                            treat_result_with_memory_error(
-                                                Result::Err(MemoryError::AssignmentTagTwice),
-                                                meta,
-                                                &mut runtime.runtime_errors,
-                                                &runtime.call_trace,
-                                            )?
-                                        } else { // we add the info saying that the tag is defined
-                                            reference_to_tags.insert(tag.clone(), Option::Some(value.clone()));
-                                            let tag_state = reference_to_tags_defined.get_mut(tag).unwrap();
-                                            tag_state.value_defined = true;
-                                            match actual_node{
-                                                ExecutedStructure::Template(node) =>{
-                                                    node.add_tag_signal(symbol, &tag, Some(value));
-                                                },
-                                                ExecutedStructure::Bus(node) =>{
-                                                    node.add_tag_signal(symbol, &tag, Some(value));
-                                                },
-                                                ExecutedStructure::None => {
-                                                    unreachable!();
-                                                }
-                                            }
-                                        }
-                                    } else {unreachable!()} 
-                                },
-                                _ => unreachable!(),
-                            }   
-                        }
-                    else { 
-                        unreachable!() 
-                    }
-                } else{
-                     // in case it is a tag of one its fields
-                    let mut value_left = treat_result_with_memory_error(
-                        BusSlice::access_values_by_mut_reference(bus_slice, &accessing_information.array_access),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-    
-                    assert!(value_left.len() == 1);
-                    let single_bus = value_left.get_mut(0).unwrap();
-    
-    
-                    assert!(accessing_information.field_access.is_some());
-                    let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
-                    let value_aux = AExpressionSlice::unwrap_to_single(arithmetic_slice);
-                    let value = if let ArithmeticExpressionGen::Number { value } = value_aux {
-                        value
-                    } else {
-                        unreachable!();
-                    };
-                    let memory_response = single_bus.assign_value_to_field(
-                        accessing_information.field_access.as_ref().unwrap(),
-                        accessing_information.remaining_access.as_ref().unwrap(),
-                        FoldedArgument::Tag(&value),
-                        None,
-                        false
-                    );
-                    treat_result_with_memory_error_void(
-                        memory_response,
+                    )?
+                }
+                // check not valid in unknown environment
+                if runtime.block_type == BlockType::Unknown{
+                    // Case not valid constraint Known/Unknown
+                    let err = Result::Err(ExecutionError::TagAssignmentInUnknown);
+                    treat_result_with_execution_error(
+                        err,
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
                     )?;
                 }
+
+                assert!(accessing_information.field_access.is_some());
+                let arithmetic_slice = r_folded.arithmetic_slice.unwrap();
+                let value_aux = AExpressionSlice::unwrap_to_single(arithmetic_slice);
+                let value = if let ArithmeticExpressionGen::Number { value } = value_aux {
+                    value
+                } else {
+                    treat_result_with_execution_error(
+                        Result::Err(ExecutionError::NonValidTagAssignment),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?
+                };
+
+                let mut ref_to_tags_info = tags_info;
+                let mut to_access = accessing_information;
+                let mut next_access = accessing_information.remaining_access.as_ref().unwrap();
+                while next_access.remaining_access.is_some(){ // it is not the tag access
+                    ref_to_tags_info = ref_to_tags_info.fields.get_mut(to_access.field_access.as_ref().unwrap()).unwrap();
+                    to_access = to_access.remaining_access.as_ref().unwrap();
+                    next_access = next_access.remaining_access.as_ref().unwrap();
+                }
+
+                if ref_to_tags_info.is_init{
+                    treat_result_with_memory_error(
+                        Result::Err(MemoryError::AssignmentTagAfterInit),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?
+                }
+
+                let tag_name = to_access.field_access.as_ref().unwrap();
+                let possible_tag = ref_to_tags_info.tags.get_mut(tag_name);
+                if let Some(val) = possible_tag {
+                    if let Some(_) = val {
+                        treat_result_with_memory_error(
+                            Result::Err(MemoryError::AssignmentTagTwice),
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                        )?
+                    } else { // we add the info saying that the tag is defined
+                        ref_to_tags_info.tags.insert(tag_name.clone(), Option::Some(value.clone()));
+                        let tag_state = ref_to_tags_info.definitions.get_mut(tag_name).unwrap();
+                        tag_state.value_defined = true;
+                    }
+                } 
                 None
             } else{
                 unreachable!();
@@ -2194,25 +2180,17 @@ fn perform_assign(
             // case assigning a bus (complete or field)
             if accessing_information.field_access.is_none(){
 
-                // We assign the tags
-                if r_folded.tags.is_some(){
-
-                    let mut bus_is_init = false;
-                    for i in 0..BusSlice::get_number_of_cells(bus_slice){
-                        let accessed_bus = treat_result_with_memory_error(
-                            BusSlice::get_reference_to_single_value_by_index(bus_slice, i),
-                            meta,
-                            &mut runtime.runtime_errors,
-                            &runtime.call_trace,
-                        )?;
-                        bus_is_init |= accessed_bus.has_assignment();
-                    }
-
-                    // Perform the tag assignment
-                    let new_tags = r_folded.tags.unwrap();
-                    perform_tag_propagation(tags_info, tags_definition, &new_tags, bus_is_init);
-
+                // Perform the tag propagation
+                // access to the field that is assigned and then propagate the tags
+                let new_tags = r_folded.tags.unwrap();
+                
+                let mut to_access = accessing_information;
+                let mut tag_data = tags_info;
+                while to_access.remaining_access.is_some(){
+                    tag_data = tag_data.fields.get_mut(to_access.field_access.as_ref().unwrap()).unwrap();
+                    to_access = to_access.remaining_access.as_ref().unwrap();
                 }
+                perform_tag_propagation_bus(tag_data, &new_tags, MemorySlice::get_number_of_cells(&bus_slice));
 
                 // We assign the original buses
                 let bus_assignment_response = perform_bus_assignment(bus_slice, &accessing_information.array_access, assigned_bus_slice, false);
@@ -2275,37 +2253,6 @@ fn perform_assign(
                     ae_signals_right.push(AExpr::Signal { symbol: signal_name });
                 }
 
-                // Update the final tags
-                let mut bus_is_completely_init = true;
-                for i in 0..BusSlice::get_number_of_cells(bus_slice){
-                    let accessed_bus = treat_result_with_memory_error(
-                    BusSlice::get_reference_to_single_value_by_index(bus_slice, i),
-                        meta,
-                        &mut runtime.runtime_errors,
-                        &runtime.call_trace,
-                    )?;
-                    bus_is_completely_init &= accessed_bus.has_assignment();
-                }
-                if bus_is_completely_init{
-                    for (tag, value) in tags_info{
-                        let tag_state = tags_definition.get_mut(tag).unwrap();
-                        tag_state.complete = true;
-                        match actual_node{
-                            ExecutedStructure::Template(node) =>{
-                                if !tag_state.value_defined{
-                                    node.add_tag_signal(symbol, &tag, value.clone());
-                                }
-                            },
-                            ExecutedStructure::Bus(_) =>{
-                                unreachable!();
-                            },
-                            ExecutedStructure::None => {
-                                unreachable!();
-                            }
-                        }
-                    }
-                }
-
                 // Update the left slice
                 let l_slice = AExpressionSlice::new_array([ae_signals_left.len()].to_vec(), ae_signals_left);
                 let r_slice = AExpressionSlice::new_array([ae_signals_right.len()].to_vec(), ae_signals_right);
@@ -2326,17 +2273,23 @@ fn perform_assign(
     
                 assert!(accessing_information.field_access.is_some());
                 let (name_bus, bus_slice) = r_folded.bus_slice.as_ref().unwrap();
-                let tags = if r_folded.tags.is_some() {
-                    r_folded.tags.unwrap()
-                } else {
-                    TagInfo::new()
-                };
+                
+                // Perform the tag propagation
+                // access to the field that is assigned and then propagate the tags
+                let new_tags = r_folded.tags.unwrap();
+                
+                let mut to_access = accessing_information;
+                let mut tag_data = tags_info;
+                while to_access.remaining_access.is_some(){
+                    tag_data = tag_data.fields.get_mut(to_access.field_access.as_ref().unwrap()).unwrap();
+                    to_access = to_access.remaining_access.as_ref().unwrap();
+                }
+                perform_tag_propagation_bus(tag_data, &new_tags, BusSlice::get_number_of_cells(&bus_slice));
     
                 let memory_response = single_bus.assign_value_to_field(
                     accessing_information.field_access.as_ref().unwrap(),
                     accessing_information.remaining_access.as_ref().unwrap(),
-                    FoldedArgument::Bus(bus_slice),
-                    Some(tags),
+                    FoldedArgument::Bus(&bus_slice),
                     false
                 );
                 treat_result_with_memory_error_void(
@@ -2455,8 +2408,28 @@ fn execute_conditional_statement(
         if let Option::Some(else_stmt) = false_case {
             let (else_ret, can_simplify_else) = execute_statement(else_stmt, program_archive, runtime, actual_node, flags)?;
             can_simplify &= can_simplify_else;
+            
+            // Choose the biggest return value possible
+            
             if ret_value.is_none() {
                 ret_value = else_ret;
+            } else if ret_value.is_some() && else_ret.is_some(){
+                let slice_if = safe_unwrap_to_arithmetic_slice(ret_value.unwrap(),line!());
+                let size_if = AExpressionSlice::get_number_of_cells(&slice_if);
+                let slice_else = safe_unwrap_to_arithmetic_slice(else_ret.unwrap(),line!());
+                let size_else  =  AExpressionSlice::get_number_of_cells(&slice_else);
+                if size_else > size_if{
+                    ret_value = Some(FoldedValue{
+                        arithmetic_slice: Some(slice_else), 
+                        ..FoldedValue::default()
+                    });
+                } else{
+                    ret_value = Some(FoldedValue{
+                        arithmetic_slice: Some(slice_if), 
+                        ..FoldedValue::default()
+                    });
+                }
+
             }
         }
         runtime.block_type = previous_block_type;
@@ -2625,7 +2598,11 @@ fn execute_variable(
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
-    Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), tags: Option::Some(var_tag.clone()), ..FoldedValue::default() })
+    let tags = TagWire{
+        tags: var_tag.clone(),
+        fields: None
+    };
+    Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), tags: Option::Some(tags), ..FoldedValue::default() })
 }
 
 fn execute_signal(
@@ -2652,19 +2629,19 @@ fn execute_signal(
     } else {
         unreachable!();
     };
-    let (tags,tags_definitions,  signal_slice) = treat_result_with_environment_error(
+    let (tag_data,  signal_slice) = treat_result_with_environment_error(
         environment_response,
         meta,
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
     if let Some(acc) = access_information.signal_access {
-        if tags.contains_key(&acc) {
-            let value_tag = tags.get(&acc).unwrap();
-            let state = tags_definitions.get(&acc).unwrap();
+        if tag_data.tags.contains_key(&acc) {
+            let value_tag = tag_data.tags.get(&acc).unwrap();
+            let state = tag_data.definitions.get(&acc).unwrap();
             if let Some(value_tag) = value_tag { // tag has value
                 // access only allowed when (1) it is value defined by user or (2) it is completely assigned
-                if state.value_defined || state.complete{
+                if state.value_defined || tag_data.remaining_inserts == 0{
                     let a_value = AExpr::Number { value: value_tag.clone() };
                     let ae_slice = AExpressionSlice::new(&a_value);
                     Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
@@ -2710,11 +2687,14 @@ fn execute_signal(
         )?;
 
         // check which tags are propagated
-        let tags_propagated = compute_propagated_tags(tags, tags_definitions);
-
+        let tags_propagated = compute_propagated_tags(&tag_data.tags, &tag_data.definitions, tag_data.remaining_inserts);
+        let tags = TagWire{
+            tags: tags_propagated,
+            fields: None
+        };
         Result::Ok(FoldedValue {
             arithmetic_slice: Option::Some(arith_slice),
-            tags: Option::Some(tags_propagated),
+            tags: Option::Some(tags),
             ..FoldedValue::default()
         })
     }
@@ -2756,13 +2736,19 @@ fn execute_bus(
     flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
     let access_information = treat_accessing_bus(meta, access, program_archive, runtime, flags)?;
+    
+    let is_tag = match meta.get_type_knowledge().get_reduces_to(){
+        TypeReduction::Tag => true,
+        _ => false
+    };
+
     if access_information.undefined {
         let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
         return Result::Ok(FoldedValue { arithmetic_slice, ..FoldedValue::default() });
     }
     let environment_response =
         ExecutionEnvironment::get_bus_res(&runtime.environment, symbol);
-    let (tags, tags_definitions, bus_slice) = treat_result_with_environment_error(
+    let (tag_data, bus_slice) = treat_result_with_environment_error(
         environment_response,
         meta,
         &mut runtime.runtime_errors,
@@ -2783,8 +2769,8 @@ fn execute_bus(
         let symbol = create_symbol_bus(symbol, &access_information);
 
         // Compute which tags are propagated 
-        let tags_propagated = compute_propagated_tags(tags, tags_definitions);
-        
+        let tags_propagated = compute_propagated_tags_bus(&tag_data);
+
         // Check that all the buses are completely assigned
 
         for i in 0..BusSlice::get_number_of_cells(&bus_slice){
@@ -2804,16 +2790,29 @@ fn execute_bus(
                 )?;
             }
         }
+        
 
         Result::Ok(FoldedValue{bus_slice: Some((symbol.to_string(), bus_slice)), tags: Some(tags_propagated), ..FoldedValue::default()})
-    } else if tags.contains_key(access_information.field_access.as_ref().unwrap()){
-        // case tags
-        let acc = access_information.field_access.unwrap();
-        let value_tag = tags.get(&acc).unwrap();
-        let state = tags_definitions.get(&acc).unwrap();
+    } else if is_tag{
+        // in this case we access to the value of a tag (of the complete bus or a field)
+        let mut to_do_access = &access_information;
+        let mut ref_tag_data = tag_data;
+        let mut next_access = access_information.remaining_access.as_ref().unwrap();        
+        // we perform all the field accesses, we stop in the previous one to the tag
+        while next_access.remaining_access.is_some(){
+            let field = to_do_access.field_access.as_ref().unwrap();
+            ref_tag_data = ref_tag_data.fields.get(field).unwrap();
+            to_do_access = to_do_access.remaining_access.as_ref().unwrap();
+            next_access = next_access.remaining_access.as_ref().unwrap();
+        }
+        // the last access is the tag access
+        let tag_access = to_do_access.field_access.as_ref().unwrap();
+        let value_tag = ref_tag_data.tags.get(tag_access).unwrap();
+        let is_complete = ref_tag_data.remaining_inserts == 0;
+        let state = ref_tag_data.definitions.get(tag_access).unwrap();
         if let Some(value_tag) = value_tag { // tag has value
             // access only allowed when (1) it is value defined by user or (2) it is completely assigned
-            if state.value_defined || state.complete{
+            if state.value_defined || is_complete{
                 let a_value = AExpr::Number { value: value_tag.clone() };
                 let ae_slice = AExpressionSlice::new(&a_value);
                 Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
@@ -2825,8 +2824,7 @@ fn execute_bus(
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
                 )?
-            }
-                
+            }     
         }
         else {
             let error = MemoryError::TagValueNotInitializedAccess;
@@ -2837,9 +2835,8 @@ fn execute_bus(
                 &runtime.call_trace,
             )?
         }
-        
     } else{
-        // access to the field or tag of a field
+        // access to a field 
 
         let resulting_bus = safe_unwrap_to_single(bus_slice, line!());
         let symbol = create_symbol_bus(symbol, &access_information);
@@ -2849,21 +2846,34 @@ fn execute_bus(
         let remaining_access = access_information.remaining_access.as_ref().unwrap();
 
 
-        let (tags, result) = treat_result_with_memory_error(
+        let result= treat_result_with_memory_error(
             resulting_bus.get_field(field_name, remaining_access),
             meta,
             &mut runtime.runtime_errors,
-            &runtime.call_trace,
+            &runtime.call_trace,                                                        
         )?;
+
+        // get the tags from the environment
+        let mut to_do_access = &access_information;
+        let mut ref_tag_data = tag_data;
+        // we perform all the field accesses
+        while to_do_access.field_access.is_some(){
+            let field = to_do_access.field_access.as_ref().unwrap();
+            ref_tag_data = ref_tag_data.fields.get(field).unwrap();
+            to_do_access = to_do_access.remaining_access.as_ref().unwrap();
+        }
+        // Compute which tags are propagated 
+        let tags_propagated = compute_propagated_tags_bus(&ref_tag_data);
 
         // match the result and generate the output
         match result{
             FoldedResult::Signal(signals) =>{
                 // Generate signal slice and check that all assigned
+            
                 let result = signal_to_arith(symbol, signals)
                     .map(|s| FoldedValue { 
                         arithmetic_slice: Option::Some(s),
-                        tags: Option::Some(tags.unwrap()),
+                        tags: Option::Some(tags_propagated),
                         ..FoldedValue::default() 
                     });
                 treat_result_with_memory_error(
@@ -2895,18 +2905,11 @@ fn execute_bus(
                 }
                 Ok(FoldedValue { 
                     bus_slice: Option::Some((symbol, buses)),
-                    tags: Option::Some(tags.unwrap()),
+                    tags: Option::Some(tags_propagated),
                     ..FoldedValue::default() 
                 })
 
             },
-            FoldedResult::Tag(value) =>{
-                // return the tag value
-                let a_value = AExpr::Number { value };
-                let ae_slice = AExpressionSlice::new(&a_value);
-                Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
-
-            }
         }
 
     }
@@ -2953,62 +2956,73 @@ fn execute_component(
         let remaining_access = access_information.remaining_access.as_ref().unwrap();
         let symbol = create_symbol_bus(symbol, &access_information);
 
-        let (tags, result) = treat_result_with_memory_error(
-            resulting_component.get_io_value(signal_name, remaining_access),
-            meta,
-            &mut runtime.runtime_errors,
-            &runtime.call_trace,
-        )?;
-        
-        match result{
-            FoldedResult::Signal(signals) =>{
-                let result = signal_to_arith(symbol, signals)
-                    .map(|s| FoldedValue { 
-                        arithmetic_slice: Option::Some(s),
-                        tags: Option::Some(tags.unwrap()),
-                        ..FoldedValue::default() 
-                    });
-                treat_result_with_memory_error(
-                    result,
-                    meta,
-                    &mut runtime.runtime_errors,
-                    &runtime.call_trace,
-                )
-            },
-            FoldedResult::Bus(buses) =>{
-                // Check that all the buses are completely assigned
+        if meta.get_type_knowledge().is_tag(){
+            // case accessing a tag of a field of the subcomponent
+            let result = treat_result_with_memory_error(
+                resulting_component.get_tag_value(signal_name, remaining_access),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            let a_value = AExpr::Number { value: result };
+            let ae_slice = AExpressionSlice::new(&a_value);
+            Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
 
-                for i in 0..BusSlice::get_number_of_cells(&buses){
-                    let value_left = treat_result_with_memory_error(
-                        BusSlice::get_reference_to_single_value_by_index(&buses, i),
+        } else{
+            // case accessing a field
+            let (tags, result) = treat_result_with_memory_error(
+                resulting_component.get_io_value(signal_name, remaining_access),
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+            )?;
+            
+            match result{
+                FoldedResult::Signal(signals) =>{
+                    let result = signal_to_arith(symbol, signals)
+                        .map(|s| FoldedValue { 
+                            arithmetic_slice: Option::Some(s),
+                            tags: Option::Some(tags),
+                            ..FoldedValue::default() 
+                        });
+                    treat_result_with_memory_error(
+                        result,
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
-                    )?;
-            
-                    if value_left.has_unassigned_fields(){
-                        treat_result_with_memory_error(
-                            Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedBus)),
+                    )
+                },
+                FoldedResult::Bus(buses) =>{
+                    // Check that all the buses are completely assigned
+    
+                    for i in 0..BusSlice::get_number_of_cells(&buses){
+                        let value_left = treat_result_with_memory_error(
+                            BusSlice::get_reference_to_single_value_by_index(&buses, i),
                             meta,
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
                         )?;
+                
+                        if value_left.has_unassigned_fields(){
+                            treat_result_with_memory_error(
+                                Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedBus)),
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
+                        }
                     }
+                    Ok(FoldedValue { 
+                        bus_slice: Option::Some((symbol, buses)),
+                        tags: Option::Some(tags),
+                        ..FoldedValue::default() 
+                    })
+    
                 }
-                Ok(FoldedValue { 
-                    bus_slice: Option::Some((symbol, buses)),
-                    tags: Option::Some(tags.unwrap()),
-                    ..FoldedValue::default() 
-                })
-
-            },
-            FoldedResult::Tag(value) =>{
-                let a_value = AExpr::Number { value };
-                let ae_slice = AExpressionSlice::new(&a_value);
-                Result::Ok(FoldedValue { arithmetic_slice: Option::Some(ae_slice), ..FoldedValue::default() })
-
             }
         }
+
+        
 
     } else {
             let read_result = if resulting_component.is_ready_initialize() {
@@ -3080,7 +3094,7 @@ fn execute_function_call(
 fn execute_template_call(
     id: &str,
     parameter_values: Vec<AExpressionSlice>,
-    tag_values: BTreeMap<String, TagInfo>,
+    tag_values: HashMap<String, TagWire>,
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
     flags: FlagsExecution
@@ -3101,7 +3115,8 @@ fn execute_template_call(
         args_to_values.insert(name.clone(), value.clone());
     }
     for (_input, input_tags) in &tag_values{
-        for (_tag, value) in input_tags {
+        // TODO: does not got inside bus
+        for (_tag, value) in &input_tags.tags {
             if value.is_none(){
                 instantiation_name.push_str("null,");
             }
@@ -3156,8 +3171,24 @@ fn execute_template_call(
             },
             Ok(_) => {},
         }
+        let mut new_node = node_wrap.unwrap();
 
-        let new_node = node_wrap.unwrap();
+
+        // we add the tags to the executed template
+        // TODO: improve and remove clone
+        let outputs = new_node.outputs.clone();
+        for output in outputs{
+            let to_add = if output.is_bus{
+                environment_get_value_tags_bus(&runtime.environment, &output.name)
+            } else{
+                environment_get_value_tags_signal(&runtime.environment, &output.name)
+            };
+            for (name, value) in to_add{
+                new_node.add_tag_signal(name, value);
+            }
+        }   
+        
+
         let analysis = std::mem::replace(&mut runtime.analysis, analysis);
         let node_pointer = runtime.exec_program.add_node_to_scheme(new_node, analysis);
         node_pointer
@@ -3171,6 +3202,35 @@ fn preexecute_template_call(
     program_archive: &ProgramArchive,
     runtime: &mut RuntimeInformation,
 ) -> Result<FoldedValue, ()> {
+    
+    pub fn collect_tag_info(
+        bus_data: &BusData, 
+        program_archive: &ProgramArchive, 
+    )-> HashMap<String, TagNames>{
+        let mut bus_fields_tags = HashMap::new();
+        for (field_name, field_info)  in bus_data.get_fields(){
+            let tags = field_info.get_tags();
+            
+            let fields = match field_info.get_type() {
+                WireType::Signal => {
+                    None
+                },
+                WireType::Bus(bus_name) =>{
+                    let bus_data = program_archive.get_bus_data(&bus_name);
+                    let info = collect_tag_info(bus_data, program_archive);
+                    Some(info)
+                }
+            };
+            let tag_name = TagNames{
+                tag_names: tags.clone(),
+                fields
+            };
+            bus_fields_tags.insert(field_name.clone(), tag_name);
+        }
+        bus_fields_tags
+        
+    }
+
     debug_assert!(runtime.block_type == BlockType::Known);
     let inputs =  program_archive.get_template_data(id).get_inputs();
     let outputs =  program_archive.get_template_data(id).get_outputs();
@@ -3180,11 +3240,45 @@ fn preexecute_template_call(
 
 
     for (name, info_input) in inputs {
-        inputs_to_tags.insert(name.clone(), info_input.get_tags().clone());
+        let tags = info_input.get_tags().clone();
+        
+        let fields = match info_input.get_type() {
+            WireType::Signal => {
+                None
+            },
+            WireType::Bus(bus_name) =>{
+                let bus_data = program_archive.get_bus_data(&bus_name);
+                Some(collect_tag_info(bus_data, program_archive))
+            }
+        };
+        inputs_to_tags.insert(
+            name.clone(),
+            TagNames{
+                tag_names: tags,
+                fields
+            }
+        );
     }
 
     for (name, info_output) in outputs {
-        outputs_to_tags.insert(name.clone(), info_output.get_tags().clone());
+        let tags = info_output.get_tags().clone();
+        
+        let fields = match info_output.get_type() {
+            WireType::Signal => {
+                None
+            },
+            WireType::Bus(bus_name) =>{
+                let bus_data = program_archive.get_bus_data(&bus_name);
+                Some(collect_tag_info(bus_data, program_archive))
+            }
+        };
+        outputs_to_tags.insert(
+            name.clone(),
+            TagNames{
+                tag_names: tags,
+                fields
+            }
+        );
     }
 
     let node_wrap = Option::Some(PreExecutedTemplate::new(
@@ -3244,7 +3338,6 @@ fn execute_bus_call(
             &mut node,
             flags, 
         )?;
-
 
         let analysis = std::mem::replace(&mut runtime.analysis, analysis);
         let node_pointer = runtime.exec_program.add_bus_node_to_scheme(node, analysis);
@@ -3393,8 +3486,8 @@ fn cast_index(ae_index: &AExpr) -> Option<SliceCapacity> {
         return Option::None;
     }
     match AExpr::get_usize(ae_index) {
-        Some(index) => { Option::Some(index) },
-        None => {  Option::None },
+        Option::Some(index) => { Option::Some(index) },
+        Option::None => {  Option::None },
     }
 }
 
@@ -3973,3 +4066,6 @@ fn add_report_to_runtime(
     report.add_note(trace);
     runtime_errors.push(report);
 }
+
+
+
