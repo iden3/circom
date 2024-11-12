@@ -89,7 +89,11 @@ fn reduce_types_in_expression(expression: &mut Expression, environment: &Environ
         }
         InfixOp { lhe, rhe, .. } => reduce_types_in_infix(lhe, rhe, environment,program_archive),
         PrefixOp { rhe, .. } => reduce_types_in_expression(rhe, environment,program_archive),
-        ParallelOp { rhe, .. } => reduce_types_in_expression(rhe, environment,program_archive),
+        ParallelOp { meta, rhe, .. } => {
+            let report = reduce_types_in_expression(rhe, environment,program_archive);
+            meta.get_mut_type_knowledge().set_reduces_to(rhe.get_meta().get_type_knowledge().get_reduces_to());
+            report
+        }
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             reduce_types_in_inline_switch(cond, if_true, if_false, environment,program_archive)
         }

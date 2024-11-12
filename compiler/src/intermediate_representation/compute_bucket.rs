@@ -3,7 +3,7 @@ use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum OperatorType {
     Mul,
     Div,
@@ -18,7 +18,7 @@ pub enum OperatorType {
     GreaterEq,
     Lesser,
     Greater,
-    Eq(usize),
+    Eq(SizeOption),
     NotEq,
     BoolOr,
     BoolAnd,
@@ -42,7 +42,8 @@ impl OperatorType {
 
     pub fn is_multiple_eq(&self) -> bool {
         match self {
-            OperatorType::Eq(n) => *n > 1,
+            OperatorType::Eq(SizeOption::Single(n)) => *n > 1,
+            OperatorType::Eq(SizeOption::Multiple(_)) => true,
             _ => false
         }
     }
@@ -52,7 +53,7 @@ impl ToString for OperatorType {
     fn to_string(&self) -> String {
         use OperatorType::*;
 	if let Eq(n) = self {
-	    format!("EQ({})", n)
+	    format!("EQ({:?})", n)
 	} else {
         match self {
             Mul => "MUL",
@@ -170,7 +171,7 @@ impl WriteWasm for ComputeBucket {
                 instructions.push(call("$Fr_toInt"));
             }
             _ => {
-                match self.op {
+                match &self.op {
                     OperatorType::Add => {
                         instructions.push(call("$Fr_add")); // Result, Argument, Argument
                     }
@@ -211,15 +212,31 @@ impl WriteWasm for ComputeBucket {
                         instructions.push(call("$Fr_gt"));
                     }
                     OperatorType::Eq(n) => {
-			assert!(n != 0);
-			if n == 1 {
+                        let mut is_multiple = false;
+                        let (length,values) = match n{
+                            SizeOption::Single(v) => (*v,vec![]),
+                            SizeOption::Multiple(v) => {
+                            	is_multiple = true;
+                                (v.len(),v.clone())
+                            }
+                        };
+			assert!(length != 0);
+			if !is_multiple && length == 1 {
                             instructions.push(call("$Fr_eq"));
                         } else {
-                            instructions.push(set_local(producer.get_aux_2_tag()));
-			    instructions.push(set_local(producer.get_aux_1_tag()));
-			    instructions.push(set_local(producer.get_aux_0_tag()));
-                            instructions.push(set_constant(&n.to_string()));
+		            if is_multiple { //create a nested if-else with all cases
+		                instructions.push(get_local(producer.get_sub_cmp_load_tag()));
+		                instructions.push(load32(None)); // get template id
+		                instructions.push(set_local(producer.get_aux_0_tag()));
+		                let mut instr_if = create_if_selection(&values,producer.get_aux_0_tag());
+		                instructions.append(&mut instr_if);
+		            } else { 
+		                instructions.push(set_constant(&length.to_string()));
+		            }
                             instructions.push(set_local(producer.get_counter_tag()));
+                            instructions.push(set_local(producer.get_aux_2_tag()));  // second argument initial position
+			    instructions.push(set_local(producer.get_aux_1_tag()));  // first argument initial position
+			    instructions.push(set_local(producer.get_aux_0_tag()));  // resut position
                             instructions.push(add_block());
                             instructions.push(add_loop());
                             instructions.push(get_local(producer.get_aux_0_tag()));
@@ -295,7 +312,7 @@ impl WriteWasm for ComputeBucket {
 impl WriteC for ComputeBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
-        fn get_fr_op(op_type: OperatorType) -> String {
+        fn get_fr_op(op_type: &OperatorType) -> String {
             match op_type {
                 OperatorType::Add => "Fr_add".to_string(),
                 OperatorType::Div => "Fr_div".to_string(),
@@ -346,15 +363,32 @@ impl WriteC for ComputeBucket {
 
             OperatorType::Eq(n) => {
                 let exp_aux_index = self.op_aux_no.to_string();
-                let operator = get_fr_op(self.op);
+                let operator = get_fr_op(&self.op);
                 let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
                 let mut arguments = vec![result_ref.clone()];
                 let operands_copy = operands.clone();
                 arguments.append(&mut operands);
+                compute_c.push("{{".to_string());
                 compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
-                if *n > 1 {
+                
+                // We compute the possible sizes, case multiple sizes
+                let expr_size = match &n{
+                    SizeOption::Single(value) => value.to_string(),
+                    SizeOption::Multiple(values) => {
+                        let cmp_index_ref = "cmp_index_ref_load".to_string();
+
+                        compute_c.push(format!("std::map<int,int> size_eq {};",
+                            set_list_tuple(values.clone())
+                        ));
+                        let sub_component_pos_in_memory = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
+                        let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                        format!("size_eq[{}]", temp_id)
+                    }
+                };
+                
+                if expr_size != "1" {
                     compute_c.push(format!("{} = 1;", index_multiple_eq()));
-                    compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), n, result_ref));
+                    compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), expr_size, result_ref));
                     operands = vec![];
                     arguments = vec![result_ref.clone()];
                     for operand in &operands_copy {
@@ -366,6 +400,8 @@ impl WriteC for ComputeBucket {
                     compute_c.push(format!("}}"));
                     
                 }
+                compute_c.push("}}".to_string());
+
                 result = result_ref;
 
                 
@@ -374,7 +410,7 @@ impl WriteC for ComputeBucket {
             _ => {
                 let exp_aux_index = self.op_aux_no.to_string();
                 // build assign
-                let operator = get_fr_op(self.op);
+                let operator = get_fr_op(&self.op);
                 let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
                 let mut arguments = vec![result_ref.clone()];
                 arguments.append(&mut operands);

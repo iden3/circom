@@ -25,6 +25,7 @@ fn build_template_instances(
     c_info: &CircuitInfo,
     ti: Vec<TemplateInstance>,
     mut field_tracker: FieldTracker,
+    constraint_assert_dissabled_flag: bool
 ) -> (FieldTracker, HashMap<String,usize>) {
 
     fn compute_jump(lengths: &Vec<usize>, indexes: &[usize]) -> usize {
@@ -99,6 +100,7 @@ fn build_template_instances(
             template_database: &c_info.template_database,
             string_table : string_table,
             signals_to_tags: template.signals_to_tags,
+            constraint_assert_dissabled_flag
         };
         let mut template_info = TemplateCodeInfo {
             name,
@@ -134,7 +136,8 @@ fn build_function_instances(
     c_info: &CircuitInfo,
     instances: Vec<VCF>,
     mut field_tracker: FieldTracker,
-    mut string_table : HashMap<String,usize>
+    mut string_table : HashMap<String,usize>,
+    constraint_assert_dissabled_flag: bool,
 ) -> (FieldTracker, HashMap<String, usize>, HashMap<String, usize>) {
     let mut function_to_arena_size = HashMap::new();
     for instance in instances {
@@ -162,8 +165,9 @@ fn build_function_instances(
             component_to_parallel: HashMap::with_capacity(0),
             template_database: &c_info.template_database,
             string_table : string_table,
-            signals_to_tags: BTreeMap::new(),
-            buses: &c_info.buses
+            signals_to_tags: HashMap::new(),
+            buses: &c_info.buses,
+            constraint_assert_dissabled_flag
         };
         let mut function_info = FunctionCodeInfo {
             name,
@@ -598,9 +602,9 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
     };
 
     let (field_tracker, string_table) =
-        build_template_instances(&mut circuit, &circuit_info, vcp.templates, field_tracker);
+        build_template_instances(&mut circuit, &circuit_info, vcp.templates, field_tracker, flag.constraint_assert_dissabled_flag);
     let (field_tracker, function_to_arena_size, table_string_to_usize) =
-        build_function_instances(&mut circuit, &circuit_info, vcp.functions, field_tracker,string_table);
+        build_function_instances(&mut circuit, &circuit_info, vcp.functions, field_tracker,string_table, flag.constraint_assert_dissabled_flag);
 
     let table_usize_to_string = create_table_usize_to_string(table_string_to_usize);
     circuit.wasm_producer.set_string_table(table_usize_to_string.clone());
