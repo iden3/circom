@@ -33,6 +33,7 @@ pub struct Input {
     pub inspect_constraints_flag: bool,
     pub no_rounds: usize,
     pub flag_verbose: bool,
+    pub flag_no_init: bool,
     pub prime: String,
     pub link_libraries : Vec<PathBuf>
 }
@@ -108,6 +109,7 @@ impl Input {
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
             flag_old_heuristics: input_processing::get_flag_old_heuristics(&matches),
             flag_verbose: input_processing::get_flag_verbose(&matches), 
+            flag_no_init: input_processing::get_flag_no_init(&matches), 
             prime: input_processing::get_prime(&matches)?,
             link_libraries
         })
@@ -209,6 +211,9 @@ impl Input {
     }
     pub fn flag_verbose(&self) -> bool {
         self.flag_verbose
+    }
+    pub fn flag_no_init(&self) -> bool {
+        self.flag_no_init
     }
     pub fn reduced_simplification_flag(&self) -> bool {
         self.reduced_simplification_flag
@@ -331,6 +336,10 @@ mod input_processing {
 
     pub fn get_flag_verbose(matches: &ArgMatches) -> bool {
         matches.is_present("flag_verbose")
+    }
+
+    pub fn get_flag_no_init(matches: &ArgMatches) -> bool {
+        matches.is_present("flag_no_init")
     }
 
     pub fn get_flag_old_heuristics(matches: &ArgMatches) -> bool {
@@ -526,6 +535,13 @@ mod input_processing {
                     .takes_value(false)
                     .display_order(800)
                     .help("Shows logs during compilation"),
+            )
+            .arg(
+                Arg::with_name("flag_no_init")
+                    .long("no_init")
+                    .takes_value(false)
+                    .display_order(999)
+                    .help("Removes initializations to 0 of variables"),
             )
             .arg(
                 Arg::with_name("flag_old_heuristics")
