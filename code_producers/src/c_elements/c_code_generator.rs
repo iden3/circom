@@ -39,6 +39,9 @@ pub const L_INTERMEDIATE_COMPUTATIONS_STACK: &str = "expaux"; // type PFrElement
 pub fn declare_expaux(size: usize) -> CInstruction {
     format!("{} {}[{}]", T_FR_ELEMENT, L_INTERMEDIATE_COMPUTATIONS_STACK, size)
 }
+pub fn declare_64bit_expaux(size: usize) -> CInstruction {
+    format!("{} {}[{}]", T_U64, L_INTERMEDIATE_COMPUTATIONS_STACK, size)
+}
 pub fn expaux(at: CInstruction) -> CInstruction {
     format!("{}[{}]", L_INTERMEDIATE_COMPUTATIONS_STACK, at)
 }
@@ -50,13 +53,22 @@ pub const L_VAR_FUNC_CALL_STORAGE: &str = "lvarcall"; // type PFrElements[]
 pub fn declare_lvar_func_call(size: usize) -> CInstruction {
     format!("{} {}[{}]", T_FR_ELEMENT, L_VAR_FUNC_CALL_STORAGE, size)
 }
+pub fn declare_64bit_lvar_func_call(size: usize) -> CInstruction {
+    format!("{} {}[{}]", T_U64, L_VAR_FUNC_CALL_STORAGE, size)
+}
 
 pub const L_VAR_STORAGE: &str = "lvar"; // type PFrElements[]
 pub fn declare_lvar(size: usize) -> CInstruction {
     format!("{} {}[{}]", T_FR_ELEMENT, L_VAR_STORAGE, size)
 }
+pub fn declare_64bit_lvar(size: usize) -> CInstruction {
+    format!("{} {}[{}]", T_U64, L_VAR_STORAGE, size)
+}
 pub fn declare_lvar_pointer() -> CInstruction {
     format!("{}* {}", T_FR_ELEMENT, L_VAR_STORAGE)
+}
+pub fn declare_64bit_lvar_pointer() -> CInstruction {
+    format!("{}* {}", T_U64, L_VAR_STORAGE)
 }
 pub fn lvar(at: CInstruction) -> CInstruction {
     format!("{}[{}]", L_VAR_STORAGE, at)
@@ -81,6 +93,9 @@ pub fn index_multiple_eq() -> CInstruction {
 pub const FUNCTION_DESTINATION: &str = "destination"; // type PFrElements[]
 pub fn declare_dest_pointer() -> CInstruction {
     format!("{}* {}", T_FR_ELEMENT, FUNCTION_DESTINATION)
+}
+pub fn declare_64bit_dest_pointer() -> CInstruction {
+    format!("{}* {}", T_U64, FUNCTION_DESTINATION)
 }
 pub const FUNCTION_DESTINATION_SIZE: &str = "destination_size"; // type PFrElements[]
 pub fn declare_dest_size() -> CInstruction {
@@ -227,6 +242,9 @@ pub fn function_table_parallel() -> CInstruction {
 pub const SIGNAL_VALUES: &str = "signalValues";
 pub fn declare_signal_values() -> CInstruction {
     format!("FrElement* {} = {}->{}", SIGNAL_VALUES, CIRCOM_CALC_WIT, SIGNAL_VALUES)
+}
+pub fn declare_64bit_signal_values() -> CInstruction {
+    format!("u64* {} = {}->{}", SIGNAL_VALUES, CIRCOM_CALC_WIT, SIGNAL_VALUES)
 }
 pub fn signal_values(at: CInstruction) -> CInstruction {
     format!("{}[{} + {}]", SIGNAL_VALUES, MY_SIGNAL_START, at)
@@ -750,8 +768,10 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
                                                                                         //dfile.write_all(&sl.to_be_bytes())?;
     dat_file.write_all(&s)?;
     //dat_file.flush()?;
+    if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits
     let s = generate_dat_constant_list(producer, producer.get_field_constant_list()); // list of bytes Fr
     dat_file.write_all(&s)?;
+    }
     //dat_file.flush()?;
     //let ioml = producer.get_io_map().len() as u64;
     //dfile.write_all(&ioml.to_be_bytes())?;
@@ -859,16 +879,29 @@ pub fn generate_function_release_memory_circuit() -> Vec<String>{
 
 pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
+    let mut code = "".to_string();
+    if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits    if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits
+    let main_template: &str = include_str!("common64/main.cpp");
+    let template = handlebars::Handlebars::new();
+    code = template
+        .render_template(
+            main_template,
+            &json!({
+                "prime": producer.get_prime()
+            }),
+        )
+        .expect("must render");
+    } else {
+    let file = include_str!("common/main.cpp");
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    }
     let mut file_path = c_folder.clone();
     file_path.push("main");
     file_path.set_extension("cpp");
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
-    let mut code = "".to_string();
-    let file = include_str!("common/main.cpp");
-    for line in file.lines() {
-        code = format!("{}{}\n", code, line);
-    }
     c_file.write_all(code.as_bytes())?;
     c_file.flush()?;
     Ok(())

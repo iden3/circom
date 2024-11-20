@@ -350,76 +350,160 @@ impl WriteC for ComputeBucket {
             operands.push(operand);
             compute_c.append(&mut instr_c);
         }
-        match &self.op {
-            OperatorType::AddAddress => {
-                result = format!("({} + {})", operands[0], operands[1]);
-            }
-            OperatorType::MulAddress => {
-                result = format!("({} * {})", operands[0], operands[1]);
-            }
-            OperatorType::ToAddress => {
-                result = build_call("Fr_toInt".to_string(), operands);
-            }
-
-            OperatorType::Eq(n) => {
-                let exp_aux_index = self.op_aux_no.to_string();
-                let operator = get_fr_op(&self.op);
-                let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
-                let mut arguments = vec![result_ref.clone()];
-                let operands_copy = operands.clone();
-                arguments.append(&mut operands);
-                compute_c.push("{{".to_string());
-                compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+        if producer.get_size_32_bit() > 2 {
+            match &self.op {
+                OperatorType::AddAddress => {
+                    result = format!("({} + {})", operands[0], operands[1]);
+                }
+                OperatorType::MulAddress => {
+                    result = format!("({} * {})", operands[0], operands[1]);
+                }
+                OperatorType::ToAddress => {
+                    result = build_call("Fr_toInt".to_string(), operands);
+                }
                 
-                // We compute the possible sizes, case multiple sizes
-                let expr_size = match &n{
-                    SizeOption::Single(value) => value.to_string(),
-                    SizeOption::Multiple(values) => {
-                        let cmp_index_ref = "cmp_index_ref_load".to_string();
-
-                        compute_c.push(format!("std::map<int,int> size_eq {};",
-                            set_list_tuple(values.clone())
-                        ));
-                        let sub_component_pos_in_memory = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
-                        let temp_id = template_id_in_component(sub_component_pos_in_memory);
-                        format!("size_eq[{}]", temp_id)
-                    }
-                };
-                
-                if expr_size != "1" {
-                    compute_c.push(format!("{} = 1;", index_multiple_eq()));
-                    compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), expr_size, result_ref));
-                    operands = vec![];
-                    arguments = vec![result_ref.clone()];
-                    for operand in &operands_copy {
-                        operands.push(format!("{} + {}", operand, index_multiple_eq()));
-                    }
+                OperatorType::Eq(n) => {
+                    let exp_aux_index = self.op_aux_no.to_string();
+                    let operator = get_fr_op(&self.op);
+                    let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
+                    let mut arguments = vec![result_ref.clone()];
+                    let operands_copy = operands.clone();
                     arguments.append(&mut operands);
+                    compute_c.push("{{".to_string());
                     compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
-                    compute_c.push(format!("{}++;", index_multiple_eq()));
-                    compute_c.push(format!("}}"));
+                    
+                    // We compute the possible sizes, case multiple sizes
+                    let expr_size = match &n{
+                        SizeOption::Single(value) => value.to_string(),
+                        SizeOption::Multiple(values) => {
+                            let cmp_index_ref = "cmp_index_ref_load".to_string();
+                            
+                            compute_c.push(format!("std::map<int,int> size_eq {};",
+                                                   set_list_tuple(values.clone())
+                            ));
+                            let sub_component_pos_in_memory = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
+                            let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                            format!("size_eq[{}]", temp_id)
+                        }
+                    };
+                
+                    if expr_size != "1" {
+                        compute_c.push(format!("{} = 1;", index_multiple_eq()));
+                        compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), expr_size, result_ref));
+                        operands = vec![];
+                        arguments = vec![result_ref.clone()];
+                        for operand in &operands_copy {
+                            operands.push(format!("{} + {}", operand, index_multiple_eq()));
+                        }
+                        arguments.append(&mut operands);
+                        compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+                        compute_c.push(format!("{}++;", index_multiple_eq()));
+                        compute_c.push(format!("}}"));
+                        
+                    }
+                    compute_c.push("}}".to_string());
+                    
+                    result = result_ref;
+                    
                     
                 }
-                compute_c.push("}}".to_string());
 
-                result = result_ref;
+                _ => {
+                    let exp_aux_index = self.op_aux_no.to_string();
+                    // build assign
+                    let operator = get_fr_op(&self.op);
+                    let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
+                    let mut arguments = vec![result_ref.clone()];
+                    arguments.append(&mut operands);
+                    compute_c.push(format!("{}; // line circom {}", build_call(operator, arguments),self.line.to_string()));
 
+                    //value address
+                    result = result_ref;
+                }
+            }
+        } else {
+            match &self.op {
+                OperatorType::AddAddress => {
+                    result = format!("({} + {})", operands[0], operands[1]);
+                }
+                OperatorType::MulAddress => {
+                    result = format!("({} * {})", operands[0], operands[1]);
+                }
+                OperatorType::ToAddress => {
+                    result = build_call("Fr_toInt".to_string(), operands);
+                }
+
+                OperatorType::Eq(n) => {
+                    let exp_aux_index = self.op_aux_no.to_string();
+                    let operator = get_fr_op(&self.op);
+                    let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
+                    let mut arguments = vec![result_ref.clone()];
+                    let operands_copy = operands.clone();
+                    arguments.append(&mut operands);
+                    compute_c.push("{{".to_string());
+                    compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+                    
+                    // We compute the possible sizes, case multiple sizes
+                    let expr_size = match &n{
+                        SizeOption::Single(value) => value.to_string(),
+                        SizeOption::Multiple(values) => {
+                            let cmp_index_ref = "cmp_index_ref_load".to_string();
+                            
+                            compute_c.push(format!("std::map<int,int> size_eq {};",
+                                                   set_list_tuple(values.clone())
+                            ));
+                            let sub_component_pos_in_memory = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
+                            let temp_id = template_id_in_component(sub_component_pos_in_memory);
+                            format!("size_eq[{}]", temp_id)
+                        }
+                    };
                 
-            }
-
-            _ => {
-                let exp_aux_index = self.op_aux_no.to_string();
-                // build assign
-                let operator = get_fr_op(&self.op);
-                let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
-                let mut arguments = vec![result_ref.clone()];
-                arguments.append(&mut operands);
-                compute_c.push(format!("{}; // line circom {}", build_call(operator, arguments),self.line.to_string()));
-
-                //value address
-                result = result_ref;
-            }
+                    if expr_size != "1" {
+                        compute_c.push(format!("{} = 1;", index_multiple_eq()));
+                        compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), expr_size, result_ref));
+                        operands = vec![];
+                        arguments = vec![result_ref.clone()];
+                        for operand in &operands_copy {
+                            operands.push(format!("{} + {}", operand, index_multiple_eq()));
+                        }
+                        arguments.append(&mut operands);
+                        compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+                        compute_c.push(format!("{}++;", index_multiple_eq()));
+                        compute_c.push(format!("}}"));
+                        
+                    }
+                    compute_c.push("}}".to_string());
+                    
+                    result = result_ref;                    
+                }
+                OperatorType::Add => {
+                    {
+                    result = format!("({} + {}) % {}", operands[0], operands[1],producer.get_prime());
+                    }
+                OperatorType::Div => "Fr_div".to_string(),
+                OperatorType::Mul => "Fr_mul".to_string(),
+                OperatorType::Sub => "Fr_sub".to_string(),
+                OperatorType::Pow => "Fr_pow".to_string(),
+                OperatorType::IntDiv => "Fr_idiv".to_string(),
+                OperatorType::Mod => "Fr_mod".to_string(),
+                OperatorType::ShiftL => "Fr_shl".to_string(),
+                OperatorType::ShiftR => "Fr_shr".to_string(),
+                OperatorType::LesserEq => "Fr_leq".to_string(),
+                OperatorType::GreaterEq => "Fr_geq".to_string(),
+                OperatorType::Lesser => "Fr_lt".to_string(),
+                OperatorType::Greater => "Fr_gt".to_string(),
+                OperatorType::NotEq => "Fr_neq".to_string(),
+                OperatorType::BoolOr => "Fr_lor".to_string(),
+                OperatorType::BoolAnd => "Fr_land".to_string(),
+                OperatorType::BitOr => "Fr_bor".to_string(),
+                OperatorType::BitAnd => "Fr_band".to_string(),
+                OperatorType::BitXor => "Fr_bxor".to_string(),
+                OperatorType::PrefixSub => "Fr_neg".to_string(),
+                OperatorType::BoolNot => "Fr_lnot".to_string(),
+                OperatorType::Complement => "Fr_bnot".to_string(),
+                _ => unreachable!(),
         }
+        
 	//compute_c.push(format!("// end of compute with result {}",result));
         (compute_c, result)
     }

@@ -100,8 +100,12 @@ impl WriteC for FunctionCodeInfo {
             declare_dest_size(),
         ];
         let mut body = vec![];
+        if producer.get_size_32_bit() > 2 {
         body.push(format!("{};", declare_circuit_constants()));
         body.push(format!("{};", declare_expaux(self.max_number_of_ops_in_expression)));
+        } else {
+            body.push(format!("{};", declare_64bit_expaux(self.max_number_of_ops_in_expression)));
+        }            
         body.push(format!("{};", declare_my_template_name_function(&self.name)));
         body.push(format!("u64 {} = {};", my_id(), component_father()));
         for t in &self.body {
