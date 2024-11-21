@@ -407,7 +407,6 @@ impl WriteC for ComputeBucket {
                     
                     
                 }
-
                 _ => {
                     let exp_aux_index = self.op_aux_no.to_string();
                     // build assign
@@ -476,34 +475,15 @@ impl WriteC for ComputeBucket {
                     
                     result = result_ref;                    
                 }
-                OperatorType::Add => {
-                    {
-                    result = format!("({} + {}) % {}", operands[0], operands[1],producer.get_prime());
-                    }
-                OperatorType::Div => "Fr_div".to_string(),
-                OperatorType::Mul => "Fr_mul".to_string(),
-                OperatorType::Sub => "Fr_sub".to_string(),
-                OperatorType::Pow => "Fr_pow".to_string(),
-                OperatorType::IntDiv => "Fr_idiv".to_string(),
-                OperatorType::Mod => "Fr_mod".to_string(),
-                OperatorType::ShiftL => "Fr_shl".to_string(),
-                OperatorType::ShiftR => "Fr_shr".to_string(),
-                OperatorType::LesserEq => "Fr_leq".to_string(),
-                OperatorType::GreaterEq => "Fr_geq".to_string(),
-                OperatorType::Lesser => "Fr_lt".to_string(),
-                OperatorType::Greater => "Fr_gt".to_string(),
-                OperatorType::NotEq => "Fr_neq".to_string(),
-                OperatorType::BoolOr => "Fr_lor".to_string(),
-                OperatorType::BoolAnd => "Fr_land".to_string(),
-                OperatorType::BitOr => "Fr_bor".to_string(),
-                OperatorType::BitAnd => "Fr_band".to_string(),
-                OperatorType::BitXor => "Fr_bxor".to_string(),
-                OperatorType::PrefixSub => "Fr_neg".to_string(),
-                OperatorType::BoolNot => "Fr_lnot".to_string(),
-                OperatorType::Complement => "Fr_bnot".to_string(),
-                _ => unreachable!(),
+                _ => {
+                    let exp_aux_index = self.op_aux_no.to_string();
+                    // build assign
+                    let operator = get_fr_op(&self.op);
+                    let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
+                    result = build_call(operator, &mut operands);
+                }
+            }
         }
-        
 	//compute_c.push(format!("// end of compute with result {}",result));
         (compute_c, result)
     }
