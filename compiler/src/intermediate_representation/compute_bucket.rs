@@ -433,15 +433,6 @@ impl WriteC for ComputeBucket {
                 }
 
                 OperatorType::Eq(n) => {
-                    let exp_aux_index = self.op_aux_no.to_string();
-                    let operator = get_fr_op(&self.op);
-                    let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
-                    let mut arguments = vec![result_ref.clone()];
-                    let operands_copy = operands.clone();
-                    arguments.append(&mut operands);
-                    compute_c.push("{{".to_string());
-                    compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
-                    
                     // We compute the possible sizes, case multiple sizes
                     let expr_size = match &n{
                         SizeOption::Single(value) => value.to_string(),
@@ -455,13 +446,20 @@ impl WriteC for ComputeBucket {
                             let temp_id = template_id_in_component(sub_component_pos_in_memory);
                             format!("size_eq[{}]", temp_id)
                         }
-                    };
-                
-                    if expr_size != "1" {
+                    };                    
+/*                    if expr_size == "1" {
+                        let operator = get_fr_op(&self.op);
+                        let result_ref = format!("res_eq", );
+                        let mut arguments = vec![result_ref.clone()];
+                        let operands_copy = operands.clone();
+                        arguments.append(&mut operands);
+                        compute_c.push("{{".to_string());
+                        compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+                    } else {
                         compute_c.push(format!("{} = 1;", index_multiple_eq()));
                         compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), expr_size, result_ref));
                         operands = vec![];
-                        arguments = vec![result_ref.clone()];
+                        let mut arguments  = vec![result_ref.clone()];
                         for operand in &operands_copy {
                             operands.push(format!("{} + {}", operand, index_multiple_eq()));
                         }
@@ -472,15 +470,14 @@ impl WriteC for ComputeBucket {
                         
                     }
                     compute_c.push("}}".to_string());
-                    
+                     */
+                    let result_ref = "".to_string();
                     result = result_ref;                    
                 }
                 _ => {
-                    let exp_aux_index = self.op_aux_no.to_string();
                     // build assign
                     let operator = get_fr_op(&self.op);
-                    let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
-                    result = build_call(operator, &mut operands);
+                    result = build_call(operator, operands);
                 }
             }
         }

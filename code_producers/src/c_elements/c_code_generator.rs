@@ -70,6 +70,9 @@ pub fn declare_lvar_pointer() -> CInstruction {
 pub fn declare_64bit_lvar_pointer() -> CInstruction {
     format!("{}* {}", T_U64, L_VAR_STORAGE)
 }
+pub fn declare_64bit_lvar_array() -> CInstruction {
+    format!("{} {}[]", T_U64, L_VAR_STORAGE)
+}
 pub fn lvar(at: CInstruction) -> CInstruction {
     format!("{}[{}]", L_VAR_STORAGE, at)
 }
@@ -94,8 +97,8 @@ pub const FUNCTION_DESTINATION: &str = "destination"; // type PFrElements[]
 pub fn declare_dest_pointer() -> CInstruction {
     format!("{}* {}", T_FR_ELEMENT, FUNCTION_DESTINATION)
 }
-pub fn declare_64bit_dest_pointer() -> CInstruction {
-    format!("{}* {}", T_U64, FUNCTION_DESTINATION)
+pub fn declare_64bit_dest_reference() -> CInstruction {
+    format!("{}& {}", T_U64, FUNCTION_DESTINATION)
 }
 pub const FUNCTION_DESTINATION_SIZE: &str = "destination_size"; // type PFrElements[]
 pub fn declare_dest_size() -> CInstruction {
@@ -484,14 +487,16 @@ pub fn collect_template_headers(instances: &TemplateListParallel) -> Vec<String>
     template_headers
 }
 
-pub fn collect_function_headers(functions: Vec<String>) -> Vec<String> {
+pub fn collect_function_headers(producer: &CProducer, functions: Vec<String>) -> Vec<String> {
     let mut function_headers = vec![];
     for function in functions {
         let params = vec![
             declare_circom_calc_wit(),
-            declare_lvar_pointer(),
+            if producer.get_size_32_bit() > 2 { declare_lvar_pointer()
+            } else { declare_64bit_lvar_array() },
             declare_component_father(),
-            declare_dest_pointer(),
+            if producer.get_size_32_bit() > 2 { declare_dest_pointer()
+            } else { declare_64bit_dest_reference() },
             declare_dest_size(),
         ];
         let params = argument_list(params);
@@ -877,7 +882,7 @@ pub fn generate_function_release_memory_circuit() -> Vec<String>{
     instructions
   }
 
-pub fn generate_main_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_main_cpp_file(c_folder: &PathBuf, producer: &CProducer) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut code = "".to_string();
     if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits    if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits

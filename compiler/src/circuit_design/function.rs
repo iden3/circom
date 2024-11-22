@@ -94,15 +94,23 @@ impl WriteC for FunctionCodeInfo {
         let header = format!("void {}", self.header);
         let params = vec![
             declare_circom_calc_wit(),
-            declare_lvar_pointer(),
+            if producer.get_size_32_bit() > 2 {
+                declare_lvar_pointer()
+            } else {
+                declare_64bit_lvar_array()
+            },
             declare_component_father(),
-            declare_dest_pointer(),
+            if producer.get_size_32_bit() > 2 {
+                declare_dest_pointer()
+            } else {
+                declare_64bit_dest_reference()
+            },
             declare_dest_size(),
         ];
         let mut body = vec![];
         if producer.get_size_32_bit() > 2 {
-        body.push(format!("{};", declare_circuit_constants()));
-        body.push(format!("{};", declare_expaux(self.max_number_of_ops_in_expression)));
+            body.push(format!("{};", declare_circuit_constants()));
+            body.push(format!("{};", declare_expaux(self.max_number_of_ops_in_expression)));
         } else {
             body.push(format!("{};", declare_64bit_expaux(self.max_number_of_ops_in_expression)));
         }            

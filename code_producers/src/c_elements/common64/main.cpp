@@ -326,8 +326,7 @@ void writeBinWitness(Circom_CalcWit *ctx, std::string wtnsFileName) {
 
     u64 v;
     for (int i=0;i<Nwtns;i++) {
-        ctx->getWitness(i, &v);
-        //Fr_toLongNormal(&v, &v);
+        ctx->getWitness(i, v);
         fwrite(&v, 8, 1, write_ptr);
     }
     fclose(write_ptr);

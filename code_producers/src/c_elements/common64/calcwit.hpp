@@ -52,7 +52,7 @@ public:
   }
   
   inline void getWitness(uint idx, u64 & val) {
-    val  = signalValues[circuit->witness2SignalList[idx]]);
+    val  = signalValues[circuit->witness2SignalList[idx]];
   }
 
   std::string getTrace(u64 id_cmp);
