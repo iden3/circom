@@ -324,10 +324,18 @@ impl WriteC for LoadBucket {
         prologue.append(&mut src_prologue);
         let access = match &self.address_type {
             AddressType::Variable => {
-                format!("&{}", lvar(src_index))
+                if producer.get_size_32_bit() > 2 {
+                    format!("&{}", lvar(src_index))
+                } else {
+                    format!("{}", lvar(src_index))
+                }                    
             }
             AddressType::Signal => {
-                format!("&{}", signal_values(src_index))
+                if producer.get_size_32_bit() > 2 {
+                    format!("&{}", signal_values(src_index))
+                } else {
+                    format!("{}", signal_values(src_index))
+                }
             }
             AddressType::SubcmpSignal { uniform_parallel_value, is_output, .. } => {
 
@@ -431,8 +439,11 @@ impl WriteC for LoadBucket {
                     "{}->componentMemory[{}[{}]].signalStart",
                     CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref
                 );
-		
-                format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)
+		if producer.get_size_32_bit() > 2 {   
+                    format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)
+                } else {
+                    format!("{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)
+                }
             }
         };
         
