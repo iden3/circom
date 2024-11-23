@@ -15,8 +15,10 @@
 
 #define Fr_copy(r, a) r = a
 
-inline void Fr_copyn(uint64_t &r, const uint64_t &a, int n){
-  
+inline void Fr_copyn(uint64_t r[], const uint64_t a[], int n){
+  for (int i = 0; i < n; i++) {
+    r[i] = a[i];
+  }
 }
 
 inline int Fr_toInt(const uint64_t & a) {
@@ -181,6 +183,13 @@ inline uint64_t Fr_gt(const uint64_t & a, const uint64_t & b) {
 
 inline uint64_t Fr_eq(const uint64_t & a, const uint64_t & b) {
   return a == b;
+}
+
+inline uint64_t Fr_eq(const uint64_t a[], const uint64_t b[], int n) {
+  for (int i = 0; i < n; i++) {
+    if (a[i] != b[i]) return 0;
+  }
+  return 1;
 }
 
 inline uint64_t Fr_neq(const uint64_t & a, const uint64_t & b) {

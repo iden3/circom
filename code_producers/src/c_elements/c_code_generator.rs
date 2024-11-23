@@ -774,8 +774,8 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     dat_file.write_all(&s)?;
     //dat_file.flush()?;
     if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits
-    let s = generate_dat_constant_list(producer, producer.get_field_constant_list()); // list of bytes Fr
-    dat_file.write_all(&s)?;
+        let s = generate_dat_constant_list(producer, producer.get_field_constant_list()); // list of bytes Fr
+        dat_file.write_all(&s)?;
     }
     //dat_file.flush()?;
     //let ioml = producer.get_io_map().len() as u64;
@@ -886,21 +886,21 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf, producer: &CProducer) -> std::
     use std::io::BufWriter;
     let mut code = "".to_string();
     if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits    if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits
-    let main_template: &str = include_str!("common64/main.cpp");
-    let template = handlebars::Handlebars::new();
-    code = template
-        .render_template(
-            main_template,
-            &json!({
-                "prime": producer.get_prime()
-            }),
-        )
-        .expect("must render");
+        let file = include_str!("common/main.cpp");
+        for line in file.lines() {
+            code = format!("{}{}\n", code, line);
+        }
     } else {
-    let file = include_str!("common/main.cpp");
-    for line in file.lines() {
-        code = format!("{}{}\n", code, line);
-    }
+        let main_template: &str = include_str!("common64/main.cpp");
+        let template = handlebars::Handlebars::new();
+        code = template
+            .render_template(
+                main_template,
+                &json!({
+                    "prime": format!("{}ull",producer.get_prime())
+                }),
+            )
+            .expect("must render");
     }
     let mut file_path = c_folder.clone();
     file_path.push("main");
@@ -912,7 +912,7 @@ pub fn generate_main_cpp_file(c_folder: &PathBuf, producer: &CProducer) -> std::
     Ok(())
 }
 
-pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_circom_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("circom");
@@ -920,7 +920,8 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("common/circom.hpp");
+    let file = if producer.get_size_32_bit() > 2 { include_str!("common/circom.hpp")
+    } else { include_str!("common64/circom.hpp")};
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -940,7 +941,8 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     let file = match prime.as_ref(){
         "bn128" => include_str!("bn128/fr.hpp"),
         "bls12381" => include_str!("bls12381/fr.hpp"),
-        "goldilocks" => include_str!("goldilocks/fr.hpp"),
+        //"goldilocks" => include_str!("goldilocks/fr.hpp"),
+        "goldilocks" => include_str!("common64/fr.hpp"),
         "grumpkin" => include_str!("grumpkin/fr.hpp"),
         "pallas" => include_str!("pallas/fr.hpp"),
         "vesta" => include_str!("vesta/fr.hpp"),
@@ -956,7 +958,7 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     Ok(())
 }
 
-pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_calcwit_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
@@ -964,7 +966,8 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("common/calcwit.hpp");
+    let file = if producer.get_size_32_bit() > 2 { include_str!("common/calcwit.hpp")
+    } else { include_str!("common64/calcwit.hpp")};
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -974,34 +977,36 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
 }
 
 pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
-    use std::io::BufWriter;
-    let mut file_path = c_folder.clone();
-    file_path.push("fr");
-    file_path.set_extension("cpp");
-    let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
-    let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/fr.cpp"),
-        "bls12381" => include_str!("bls12381/fr.cpp"),
-        "goldilocks" => include_str!("goldilocks/fr.cpp"),
-        "grumpkin" => include_str!("grumpkin/fr.cpp"),
-        "pallas" => include_str!("pallas/fr.cpp"),
-        "vesta" => include_str!("vesta/fr.cpp"),
-        "secq256r1" => include_str!("secq256r1/fr.cpp"),
-        "bls12-377" => include_str!("bls12-377/fr.cpp"),
-
-        _ => unreachable!(),
-    };
-    for line in file.lines() {
-        code = format!("{}{}\n", code, line);
+    if prime != "goldilocks" {
+        use std::io::BufWriter;
+        let mut file_path = c_folder.clone();
+        file_path.push("fr");
+        file_path.set_extension("cpp");
+        let file_name = file_path.to_str().unwrap();
+        let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+        let mut code = "".to_string();
+        let file = match prime.as_ref(){
+            "bn128" => include_str!("bn128/fr.cpp"),
+            "bls12381" => include_str!("bls12381/fr.cpp"),
+            //"goldilocks" => include_str!("goldilocks/fr.cpp"),
+            "grumpkin" => include_str!("grumpkin/fr.cpp"),
+            "pallas" => include_str!("pallas/fr.cpp"),
+            "vesta" => include_str!("vesta/fr.cpp"),
+            "secq256r1" => include_str!("secq256r1/fr.cpp"),
+            "bls12-377" => include_str!("bls12-377/fr.cpp"),
+            
+            _ => unreachable!(),
+        };
+        for line in file.lines() {
+            code = format!("{}{}\n", code, line);
+        }
+        c_file.write_all(code.as_bytes())?;
+        c_file.flush()?;
     }
-    c_file.write_all(code.as_bytes())?;
-    c_file.flush()?;
     Ok(())
 }
 
-pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
+pub fn generate_calcwit_cpp_file(c_folder: &PathBuf, producer: &CProducer) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("calcwit");
@@ -1009,7 +1014,8 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = include_str!("common/calcwit.cpp");
+    let file = if producer.get_size_32_bit() > 2 { include_str!("common/calcwit.cpp")
+    } else { include_str!("common64/calcwit.cpp")};
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
     }
@@ -1019,30 +1025,32 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf) -> std::io::Result<()> {
 }
 
 pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
-    use std::io::BufWriter;
-    let mut file_path = c_folder.clone();
-    file_path.push("fr");
-    file_path.set_extension("asm");
-    let file_name = file_path.to_str().unwrap();
-    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
-    let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/fr.asm"),
-        "bls12381" => include_str!("bls12381/fr.asm"),
-        "goldilocks" => include_str!("goldilocks/fr.asm"),
-        "grumpkin" => include_str!("grumpkin/fr.asm"),
-        "pallas" => include_str!("pallas/fr.asm"),
-        "vesta" => include_str!("vesta/fr.asm"),
-        "secq256r1" => include_str!("secq256r1/fr.asm"),
-        "bls12-377" => include_str!("bls12-377/fr.asm"),
-
-        _ => unreachable!(),
-    };    
-    for line in file.lines() {
-        code = format!("{}{}\n", code, line);
+    if prime != "goldilocks" {
+        use std::io::BufWriter;
+        let mut file_path = c_folder.clone();
+        file_path.push("fr");
+        file_path.set_extension("asm");
+        let file_name = file_path.to_str().unwrap();
+        let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+        let mut code = "".to_string();
+        let file = match prime.as_ref(){
+            "bn128" => include_str!("bn128/fr.asm"),
+            "bls12381" => include_str!("bls12381/fr.asm"),
+            //"goldilocks" => include_str!("goldilocks/fr.asm"),
+            "grumpkin" => include_str!("grumpkin/fr.asm"),
+            "pallas" => include_str!("pallas/fr.asm"),
+            "vesta" => include_str!("vesta/fr.asm"),
+            "secq256r1" => include_str!("secq256r1/fr.asm"),
+            "bls12-377" => include_str!("bls12-377/fr.asm"),
+            
+            _ => unreachable!(),
+        };    
+        for line in file.lines() {
+            code = format!("{}{}\n", code, line);
+        }
+        c_file.write_all(code.as_bytes())?;
+        c_file.flush()?;
     }
-    c_file.write_all(code.as_bytes())?;
-    c_file.flush()?;
     Ok(())
 }
 
@@ -1052,9 +1060,8 @@ pub fn generate_make_file(
     producer: &CProducer,
 ) -> std::io::Result<()> {
     use std::io::BufWriter;
-
-    let makefile_template: &str = include_str!("common/makefile");
-
+    let makefile_template: &str = if producer.get_size_32_bit() > 2 { include_str!("common/makefile")
+    } else { include_str!("common64/makefile")};
     let template = handlebars::Handlebars::new();
     let code = template
         .render_template(

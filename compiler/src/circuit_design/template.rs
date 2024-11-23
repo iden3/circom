@@ -296,7 +296,7 @@ impl TemplateCodeInfo {
         run_body.push(format!("{};", declare_list_of_template_messages_use()));
         run_body.push(format!("{};", declare_sub_component_aux()));
         run_body.push(format!("{};", declare_index_multiple_eq()));
-        
+      
         for t in &self.body {
             let (mut instructions_body, _) = t.produce_c(producer, Some(parallel));
             run_body.append(&mut instructions_body);
