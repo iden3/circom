@@ -22,6 +22,7 @@ inline void Fr_copyn(uint64_t r[], const uint64_t a[], int n){
 }
 
 inline int Fr_toInt(const uint64_t & a) {
+  if (a > Fr_half) return -((int)(Fr_prime - a));
   return (int)a;
 }
 
@@ -105,7 +106,7 @@ inline uint64_t Fr_idiv(const uint64_t & a, const uint64_t & b) {
   return a / b;
 }
 
-inline uint64_t Fr_imod(const uint64_t & a, const uint64_t & b) {
+inline uint64_t Fr_mod(const uint64_t & a, const uint64_t & b) {
   return a % b;
 }
 
