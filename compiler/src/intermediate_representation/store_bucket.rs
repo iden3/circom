@@ -622,7 +622,7 @@ impl WriteC for StoreBucket {
             let copy_arguments = if producer.get_size_32_bit() > 2 {
                  vec![aux_dest, src, size.clone()]
             } else {
-                vec![dest, src, size.clone()]
+                vec![format!("&{}",dest), format!("&{}",src), size.clone()]
             };
             prologue.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
 	    if let AddressType::Signal = &self.dest_address_type {

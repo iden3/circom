@@ -498,8 +498,11 @@ impl WriteC for CallBucket {
                 }
             };
             if size > 1 {
-                let copy_arguments =
-                    vec![arena_position, src, size.to_string()];
+                let copy_arguments = if producer.get_size_32_bit() > 2 {
+                    vec![arena_position, src, size.to_string()]
+                }else {
+                    vec![format!("&{}",arena_position), format!("&{}",src), size.to_string()]
+                };
                 prologue
                     .push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
             } else {
