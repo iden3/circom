@@ -67,12 +67,36 @@ inline uint64_t Fr_mul(const uint64_t & a, const uint64_t & b) {
   uint64_t b0 = (uint32_t)b;
   uint64_t b1 = b >> 32;
   // b = b1*2^32 + b0
+  //std::cout << "a0: " << a0 << "; a1: " << a1 << std::endl;
+  //std::cout << "b0: " << b0 << "; b1: " << b1 << std::endl;
   uint64_t a0b0 = (a0 * b0); //by assumption below prime
   uint64_t a0b1 = (a0 * b1); //by assumption below prime
   uint64_t a1b0 = (a1 * b0); //by assumption below prime
   uint64_t a1b1 = (a1 * b1); //by assumption below prime
-  return Fr_add(Fr_add(a1b1,a1b0),Fr_add(a0b1,a0b0));
+  //std::cout << "a0b0: " << a0b0 << "; a0b1: " << a0b1 << std::endl;
+  //std::cout << "a1b0: " << a1b0 << "; a1b1: " << a1b1 << std::endl;
+  //std::cout << "a0b0 + a0b1: " << Fr_add(a0b1,a0b0) << std::endl;
+  //std::cout << "a1b0 + a1b1: " << Fr_add(a1b1,a1b0) << std::endl;
+  // res = a1b1*2**64 +  + a0b0
+  // res = (a1b1 + a1b0 + a0b1)*2**32 + (a0b0-a1b1)
+  uint64_t res32 = Fr_add(Fr_add(a1b1,a1b0),a0b1);
+  uint64_t res0 = Fr_sub(a0b0,a1b1);
+  uint64_t res32_0 = (uint32_t)res32;
+  uint64_t res32_1 = res32 >> 32;
+  // res32*2**32 = res32_1*2**64 + res32_0*2**32
+  // res32*2**32 = (res32_1 + res32_0)*2**32 - res32_1
+  uint64_t aux = Fr_add(res32_1,res32_0) << 32;
+  uint64_t res = Fr_add(Fr_sub(aux,res32_1),Fr_sub(a0b0,a1b1));
+  //std::cout << a << " * " << b << " = " << res << std::endl;
+  return res;
+}
 
+void to_mpz(const uint64_t & a, mpz_t ma) {
+  uint32_t a0 = (uint32_t)a;
+  uint32_t a1 = (uint32_t)(a >> 32);
+  mpz_set_ui(ma, a1);
+  mpz_mul_2exp(ma, ma, 32);
+  mpz_add_ui(ma, ma, a0);
 }
 
 inline uint64_t Fr_inv(const uint64_t & a) {
