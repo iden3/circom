@@ -448,7 +448,8 @@ impl WriteC for ComputeBucket {
                         }
                     };
                     if expr_size != "1" {
-                        operands.push(expr_size);
+                        operands = vec![format!("&{}", operands[0]), format!("&{}", operands[1]),expr_size];
+                        // operands.push(expr_size);
                     }
                     let operator = get_fr_op(&self.op);
                     result = build_call(operator,operands);                     
