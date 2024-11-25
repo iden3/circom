@@ -54,6 +54,6 @@ echo "Exporting the Solidity Verifier..."
 snarkjs zkey export solidityverifier $commitmentproof_zkey $verifier_sol
 
 echo "Generating output of generatecall ..."
-snarkjs generatecall $proof_json > generatecall_output.txt
+snarkjs generatecall $public_json > generatecall_output.txt
 
 echo "Process completed. The verifier Solidity contract is saved as verifier_${UUID}.sol"
