@@ -28,7 +28,7 @@ uint64_t from_mpz(mpz_t ma) {
   uint32_t a0 = mpz_get_ui(ma);
   mpz_tdiv_q_2exp(ma,ma,32);
   uint32_t a1 = mpz_get_ui(ma);
-  mpz_clear(ma);
+  //mpz_clear(ma);
   uint64_t a = (uint64_t)a1 << 32;
   a += (uint64_t)a0;
   return a;
@@ -58,8 +58,8 @@ inline char *Fr_element2str(const uint64_t & a) {
   return cstr;
 }
 
-inline uint64_t Fr_add_r (const uint64_t & a, const uint64_t & b) {
-//inline uint64_t Fr_add (const uint64_t & a, const uint64_t & b) {
+//inline uint64_t Fr_add_r (const uint64_t & a, const uint64_t & b) {
+inline uint64_t Fr_add (const uint64_t & a, const uint64_t & b) {
   if (a <= Fr_half) {
     if (b > Fr_half) {
       uint64_t bn = Fr_prime - b;
@@ -73,6 +73,7 @@ inline uint64_t Fr_add_r (const uint64_t & a, const uint64_t & b) {
   }
 }
 
+/*
 inline uint64_t Fr_add (const uint64_t & a, const uint64_t & b) {
   uint64_t res = Fr_add_r(a,b);
   mpz_t ma;
@@ -92,15 +93,20 @@ inline uint64_t Fr_add (const uint64_t & a, const uint64_t & b) {
     std::cout << a << " + " << b << " == " << res << " != " << mres << std::endl;
   }
   assert(res == mres);
+  mpz_clear(ma);
+  mpz_clear(mb);
+  mpz_clear(mr);
+  mpz_clear(mpz_prime);
   return res;
 }
+*/
 
-
-inline uint64_t Fr_sub_r (const uint64_t & a, const uint64_t & b) {
-  //inline uint64_t Fr_sub (const uint64_t & a, const uint64_t & b) {
+//inline uint64_t Fr_sub_r (const uint64_t & a, const uint64_t & b) {
+inline uint64_t Fr_sub (const uint64_t & a, const uint64_t & b) {
   return (b <= a)? a - b : Fr_prime - (b - a); 
 }
 
+/*
 inline uint64_t Fr_sub (const uint64_t & a, const uint64_t & b) {
   uint64_t res = Fr_sub_r(a,b);
   mpz_t ma;
@@ -120,14 +126,19 @@ inline uint64_t Fr_sub (const uint64_t & a, const uint64_t & b) {
     std::cout << a << " - " << b << " == " << res << " != " << mres << std::endl;
   }
   assert(res == mres);
+  mpz_clear(ma);
+  mpz_clear(mb);
+  mpz_clear(mr);
+  mpz_clear(mpz_prime);
   return res;
 }
+*/
 
 //Assume prime is in (2**64, 2^64 - 2^33 + 1 )
 //For instance goldilocks 2^64 - 2^32 + 1
 //Multiplying 2 32 bits number is below 2^64 - 2^33 + 1, hence below prime
-inline uint64_t Fr_mul_r(const uint64_t & a, const uint64_t & b) {
-  //inline uint64_t Fr_mul(const uint64_t & a, const uint64_t & b) {
+//inline uint64_t Fr_mul_r(const uint64_t & a, const uint64_t & b) {
+inline uint64_t Fr_mul(const uint64_t & a, const uint64_t & b) {
   uint64_t a0 = (uint32_t)a;
   uint64_t a1 = a >> 32;
   // a = a1*2^32 + a0
@@ -163,6 +174,7 @@ inline uint64_t Fr_mul_r(const uint64_t & a, const uint64_t & b) {
   return res;
 }
 
+/*
 inline uint64_t Fr_mul (const uint64_t & a, const uint64_t & b) {
   uint64_t res = Fr_mul_r(a,b);
   mpz_t ma;
@@ -182,8 +194,13 @@ inline uint64_t Fr_mul (const uint64_t & a, const uint64_t & b) {
     std::cout << a << " * " << b << " == " << res << " != " << mres << std::endl;
   }
   assert(res == mres);
+  mpz_clear(ma);
+  mpz_clear(mb);
+  mpz_clear(mr);
+  mpz_clear(mpz_prime);
   return res;
 }
+*/
 
 inline uint64_t Fr_inv(const uint64_t & a) {
   uint32_t a0 = (uint32_t)a;
@@ -202,6 +219,7 @@ inline uint64_t Fr_inv(const uint64_t & a) {
   a1 = mpz_get_ui(mr);
   mpz_clear(ma);
   mpz_clear(mr);
+  mpz_clear(mpz_prime);
   uint64_t ra = (uint64_t)a1 << 32;
   ra += (uint64_t)a0;
   //std::cout << " inv " << a << " = " << ra << std::endl;
