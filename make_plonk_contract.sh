@@ -8,7 +8,7 @@ commitmentproof_r1cs="commitmentproof_${UUID}.r1cs"
 commitmentproof_zkey="commitmentproof_${UUID}.zkey"
 commitmentproof_witness="witness_${UUID}.wtns"
 verification_key="verification_key_${UUID}.json"
-proof_json="proof_${UUID}.json"
+proof_json="proof.json"
 public_json="public_${UUID}.json"
 verifier_sol="verifier_${UUID}.sol"
 random_name="Contribution_$(uuidgen)"
@@ -52,5 +52,8 @@ snarkjs plonk verify $verification_key $public_json $proof_json
 
 echo "Exporting the Solidity Verifier..."
 snarkjs zkey export solidityverifier $commitmentproof_zkey $verifier_sol
+
+echo "Generating output of generatecall ..."
+snarkjs generatecall $proof_json > generatecall_output.txt
 
 echo "Process completed. The verifier Solidity contract is saved as verifier_${UUID}.sol"
