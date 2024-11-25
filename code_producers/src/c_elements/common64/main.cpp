@@ -180,7 +180,7 @@ void json2FrElements (json val, std::vector<u64> & vval){
         errStrStream << "Invalid JSON type\n";
 	      throw std::runtime_error(errStrStream.str() );
     }
-    vval.push_back(atoll(s.c_str()));
+    vval.push_back(strtoull(s.c_str(), NULL, base));
   } else {
     for (uint i = 0; i < val.size(); i++) {
       json2FrElements (val[i], vval);
