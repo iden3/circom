@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XRP Mixer Deposit</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.6.1/dist/web3.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            margin-top: 50px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-connected {
+            background-color: #28a745;
+        }
+        .status-disconnected {
+            background-color: #dc3545;
+        }
+        .wallet-status {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        .loading {
+            display: none;
+            margin-left: 10px;
+        }
+        .info-box {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">XRP Mixer</h1>
+        
+        <!-- Wallet Status -->
+        <div class="wallet-status">
+            <div class="d-flex align-items-center mb-2">
+                <span class="status-indicator status-disconnected" id="connectionStatus"></span>
+                <span id="walletStatus">Wallet Status: Not Connected</span>
+            </div>
+            <div id="accountInfo" class="small text-muted"></div>
+            <div id="networkInfo" class="small text-muted"></div>
+            <div class="mt-2">
+                <button id="connectButton" class="btn btn-success btn-sm">Connect Wallet</button>
+            </div>
+        </div>
+
+        <!-- Info Box -->
+        <div class="info-box mb-4">
+            <h5>Important Information:</h5>
+            <ul class="mb-0">
+                <li>Make sure you have MetaMask installed and connected</li>
+                <li>Ensure you're on the correct network</li>
+                <li>Double-check the amount before depositing</li>
+            </ul>
+        </div>
+
+        <!-- Deposit Form -->
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="amount" class="form-label">Amount to Deposit (XRP)</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="amount" step="0.01" min="0" placeholder="Enter amount">
+                        <span class="input-group-text">XRP</span>
+                    </div>
+                    <div class="form-text">Minimum deposit: 0.01 XRP</div>
+                </div>
+
+                <button onclick="deposit()" class="btn btn-primary" id="depositButton" disabled>
+                    Deposit
+                    <span class="spinner-border spinner-border-sm loading" id="depositSpinner"></span>
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Withdraw XRP</h5>
+                <div class="mb-3">
+                    <label for="proof" class="form-label">SNARK Proof</label>
+                    <textarea class="form-control" id="proof" rows="4" placeholder="Enter snarkjs generatecall output"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="recipient" class="form-label">Recipient Address</label>
+                    <input type="text" class="form-control" id="recipient" placeholder="Enter recipient address">
+                </div>
+                <button onclick="withdraw()" class="btn btn-primary" id="withdrawButton" disabled>
+                    Withdraw
+                    <span class="spinner-border spinner-border-sm loading" id="withdrawSpinner"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Transaction Status -->
+        <div class="alert mt-3" id="txStatus" style="display: none;"></div>
+    </div>
+
+    <script>
+        const contractAddress = "0x29b013021f276b5d9e16edc63d6acb2eaef5995c"; // Replace with actual contract address
+        const abi = [
+            {
+                "inputs": [],
+                "name": "deposit",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getBalance",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        let web3;
+        let contract;
+
+        async function init() {
+            try {
+                const provider = detectProvider();
+                if (!provider) {
+                    throw new Error("Please install MetaMask Chrome extension");
+                }
+
+                web3 = new Web3(provider);
+                
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
+                
+                const accounts = await web3.eth.getAccounts();
+                if (accounts && accounts.length > 0) {
+                    await connectWallet();
+                } else {
+                    updateWalletStatus(false);
+                }
+            } catch (error) {
+                updateWalletStatus(false);
+                handleConnectionError(error);
+            }
+        }
+
+        async function handleAccountsChanged(accounts) {
+            if (accounts.length === 0) {
+                updateWalletStatus(false);
+            } else {
+                const networkId = await web3.eth.net.getId();
+                const networkName = getNetworkName(networkId);
+                updateWalletStatus(true, accounts[0], networkName);
+            }
+        }
+
+        function detectProvider() {
+            let provider;
+            if (window.ethereum) {
+                provider = window.ethereum;
+            } else if (window.web3) {
+                provider = window.web3.currentProvider;
+            }
+            
+            if (provider && provider.isMetaMask) {
+                return provider;
+            }
+            
+            return null;
+        }
+
+        function handleConnectionError(error) {
+            if (error.code === 4001) {
+                alert("Connection rejected. Please approve MetaMask connection");
+            } else if (error.code === -32002) {
+                alert("Connection request already pending. Please check MetaMask");
+            } else if (!window.ethereum) {
+                alert("MetaMask not found. Please install MetaMask Chrome extension: https://metamask.io/download/");
+            } else {
+                alert("Connection error: " + error.message);
+            }
+        }
+
+        async function connectWallet() {
+            try {
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                
+                if (!accounts || accounts.length === 0) {
+                    throw new Error("Please connect your MetaMask wallet");
+                }
+
+                const networkId = await web3.eth.net.getId();
+                const networkName = getNetworkName(networkId);
+                
+                contract = new web3.eth.Contract(abi, contractAddress);
+                
+                updateWalletStatus(true, accounts[0], networkName);
+            } catch (error) {
+                updateWalletStatus(false);
+                handleConnectionError(error);
+            }
+        }
+
+        function updateWalletStatus(connected, account = '', network = '') {
+            const statusIndicator = document.getElementById('connectionStatus');
+            const walletStatus = document.getElementById('walletStatus');
+            const accountInfo = document.getElementById('accountInfo');
+            const networkInfo = document.getElementById('networkInfo');
+            const depositButton = document.getElementById('depositButton');
+            const connectButton = document.getElementById('connectButton');
+
+            if (connected) {
+                statusIndicator.classList.remove('status-disconnected');
+                statusIndicator.classList.add('status-connected');
+                walletStatus.textContent = 'Wallet Status: Connected';
+                accountInfo.textContent = `Account: ${account}`;
+                networkInfo.textContent = `Network: ${network}`;
+                depositButton.disabled = false;
+                connectButton.style.display = 'none';
+            } else {
+                statusIndicator.classList.remove('status-connected');
+                statusIndicator.classList.add('status-disconnected');
+                walletStatus.textContent = 'Wallet Status: Not Connected';
+                accountInfo.textContent = '';
+                networkInfo.textContent = '';
+                depositButton.disabled = true;
+                connectButton.style.display = 'inline-block';
+            }
+        }
+
+        function getNetworkName(networkId) {
+            const networks = {
+                1: 'Ethereum Mainnet',
+                3: 'Ropsten Testnet',
+                4: 'Rinkeby Testnet',
+                5: 'Goerli Testnet',
+                42: 'Kovan Testnet'
+            };
+
+            return networks[networkId] || 'Unknown Network';
+        }
+
+        async function deposit() {
+            const amountInput = document.getElementById('amount');
+            const amount = web3.utils.toWei(amountInput.value, 'ether');
+
+            const depositSpinner = document.getElementById('depositSpinner');
+            const depositButton = document.getElementById('depositButton');
+            depositButton.disabled = true;
+            depositSpinner.style.display = 'inline-block';
+
+            try {
+                const accounts = await web3.eth.getAccounts();
+                await contract.methods.deposit().send({
+                    from: accounts[0],
+                    value: amount
+                });
+
+                alert('Deposit successful!');
+            } catch (error) {
+                alert('Error during deposit: ' + error.message);
+            } finally {
+                depositSpinner.style.display = 'none';
+                depositButton.disabled = false;
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
