@@ -2,8 +2,11 @@ from flask import Flask, jsonify, request
 import subprocess
 import os
 import json
+from xrp_contract import XRPContract
+import asyncio
 
 app = Flask(__name__)
+xrp_contract = XRPContract()
 
 @app.route('/generatecall', methods=['POST'])
 def generatecall():
@@ -62,6 +65,44 @@ def generatecall():
             "message": "Script executed successfully.",
             "output": output_json
         })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": "An exception occurred.",
+            "error": str(e)
+        }), 500
+
+@app.route('/deploy_contract', methods=['POST'])
+async def deploy_contract():
+    try:
+        data = request.get_json()
+        destination_address = data.get('destination_address')
+        
+        if not destination_address:
+            return jsonify({
+                "success": False,
+                "message": "Destination address is required"
+            }), 400
+
+        # Initialize contract wallet
+        contract_wallet = xrp_contract.create_wallet()
+        
+        # Send XRP
+        response = await xrp_contract.send_xrp(
+            contract_wallet,
+            destination_address
+        )
+        
+        # Verify transaction
+        if xrp_contract.verify_transaction(response.result['hash']):
+            # Generate snarkjs call after successful XRP transfer
+            return await generatecall()
+        else:
+            return jsonify({
+                "success": False,
+                "message": "XRP transfer failed"
+            }), 500
 
     except Exception as e:
         return jsonify({
