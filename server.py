@@ -4,28 +4,27 @@ import os
 import json
 from xrp_contract import XRPContract
 import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-xrp_contract = XRPContract()
+# Initialize XRP contract with source wallet seed from environment variable
+xrp_contract = XRPContract(source_wallet_seed=os.getenv('XRP_CONTRACT_SOURCE_WALLET_SEED'))
 
-@app.route('/generatecall', methods=['POST'])
-def generatecall():
+def execute_generate_call():
+    """Helper function to execute the generate call script"""
     try:
-        # Define the script path in the current working directory
         script_path = os.path.join(os.getcwd(), "make_plonk_contract.sh")
-        
-        # Define the directory for the output file
         output_dir = os.path.join(os.getcwd(), "commitmentproof_js")
         output_file_path = os.path.join(output_dir, "generatecall_output.txt")
 
-        # Ensure the script exists in the current directory
         if not os.path.exists(script_path):
-            return jsonify({
+            return {
                 "success": False,
                 "message": "The 'make_plonk_contract.sh' script does not exist in the current directory."
-            }), 500
+            }, 500
 
-        # Execute the script directly
         process = subprocess.run(
             ["bash", script_path],
             text=True,
@@ -33,45 +32,41 @@ def generatecall():
             stderr=subprocess.PIPE
         )
 
-        # Capture the output
-        stdout = process.stdout
-        stderr = process.stderr
-
-        # Check for errors
         if process.returncode != 0:
-            return jsonify({
+            return {
                 "success": False,
                 "message": "Error occurred while running the script.",
-                "error": stderr
-            }), 500
+                "error": process.stderr
+            }, 500
 
-        # Check if the output file exists in the commitmentproof_js directory
         if os.path.exists(output_file_path):
             with open(output_file_path, 'r') as file:
                 output = file.read()
-
-            # Ensure proper JSON formatting, remove extra escaping
             try:
-                # Parse the JSON array and return it as a proper JSON response
                 output_json = json.loads(output)
             except json.JSONDecodeError:
-                output_json = output  # If not valid JSON, return the raw output as a string
+                output_json = output
         else:
             output_json = "Error: generatecall output not found."
 
-        # Return the output as JSON
-        return jsonify({
+        return {
             "success": True,
             "message": "Script executed successfully.",
             "output": output_json
-        })
+        }, 200
 
     except Exception as e:
-        return jsonify({
+        return {
             "success": False,
             "message": "An exception occurred.",
             "error": str(e)
-        }), 500
+        }, 500
+
+@app.route('/generatecall', methods=['POST'])
+def generatecall():
+    # Endpoint to generate call
+    result, status_code = execute_generate_call()
+    return jsonify(result), status_code
 
 @app.route('/deploy_contract', methods=['POST'])
 async def deploy_contract():
@@ -85,19 +80,14 @@ async def deploy_contract():
                 "message": "Destination address is required"
             }), 400
 
-        # Initialize contract wallet
-        contract_wallet = xrp_contract.create_wallet()
-        
-        # Send XRP
-        response = await xrp_contract.send_xrp(
-            contract_wallet,
-            destination_address
-        )
+        # Send XRP using the source wallet
+        response = await xrp_contract.send_xrp(destination_address)
         
         # Verify transaction
         if xrp_contract.verify_transaction(response.result['hash']):
             # Generate snarkjs call after successful XRP transfer
-            return await generatecall()
+            result, status_code = execute_generate_call()
+            return jsonify(result), status_code
         else:
             return jsonify({
                 "success": False,
