@@ -73,6 +73,7 @@ async def deploy_contract():
     try:
         data = request.get_json()
         destination_address = data.get('destination_address')
+        amount = data.get('amount', 10)  # Default amount is 10 XRP if not specified
         
         if not destination_address:
             return jsonify({
@@ -80,14 +81,16 @@ async def deploy_contract():
                 "message": "Destination address is required"
             }), 400
 
-        # Send XRP using the source wallet
-        response = await xrp_contract.send_xrp(destination_address)
+        # Send XRP from our wallet to the user's destination address
+        response = await xrp_contract.send_xrp(destination_address, amount)
         
         # Verify transaction
         if xrp_contract.verify_transaction(response.result['hash']):
-            # Generate snarkjs call after successful XRP transfer
-            result, status_code = execute_generate_call()
-            return jsonify(result), status_code
+            return jsonify({
+                "success": True,
+                "message": "XRP transfer successful",
+                "transaction_hash": response.result['hash']
+            }), 200
         else:
             return jsonify({
                 "success": False,
