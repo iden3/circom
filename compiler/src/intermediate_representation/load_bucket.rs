@@ -324,14 +324,14 @@ impl WriteC for LoadBucket {
         prologue.append(&mut src_prologue);
         let access = match &self.address_type {
             AddressType::Variable => {
-                if producer.get_size_32_bit() > 2 {
+                if producer.prime_str != "goldilocks" {
                     format!("&{}", lvar(src_index))
                 } else {
                     format!("{}", lvar(src_index))
                 }                    
             }
             AddressType::Signal => {
-                if producer.get_size_32_bit() > 2 {
+                if producer.prime_str != "goldilocks" {
                     format!("&{}", signal_values(src_index))
                 } else {
                     format!("{}", signal_values(src_index))
@@ -439,7 +439,7 @@ impl WriteC for LoadBucket {
                     "{}->componentMemory[{}[{}]].signalStart",
                     CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref
                 );
-		if producer.get_size_32_bit() > 2 {   
+		if producer.prime_str != "goldilocks" {   
                     format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)
                 } else {
                     format!("{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)

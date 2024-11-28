@@ -492,10 +492,10 @@ pub fn collect_function_headers(producer: &CProducer, functions: Vec<String>) ->
     for function in functions {
         let params = vec![
             declare_circom_calc_wit(),
-            if producer.get_size_32_bit() > 2 { declare_lvar_pointer()
+            if producer.prime_str != "goldilocks" { declare_lvar_pointer()
             } else { declare_64bit_lvar_array() },
             declare_component_father(),
-            if producer.get_size_32_bit() > 2 { declare_dest_pointer()
+            if producer.prime_str != "goldilocks" { declare_dest_pointer()
             } else { declare_64bit_dest_reference() },
             declare_dest_size(),
         ];
@@ -773,7 +773,7 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
                                                                                         //dfile.write_all(&sl.to_be_bytes())?;
     dat_file.write_all(&s)?;
     //dat_file.flush()?;
-    if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits
+    if producer.prime_str != "goldilocks" { // if field number is not goldilocks
         let s = generate_dat_constant_list(producer, producer.get_field_constant_list()); // list of bytes Fr
         dat_file.write_all(&s)?;
     }
@@ -885,7 +885,7 @@ pub fn generate_function_release_memory_circuit() -> Vec<String>{
 pub fn generate_main_cpp_file(c_folder: &PathBuf, producer: &CProducer) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut code = "".to_string();
-    if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits    if producer.get_size_32_bit() > 2 { // if field number need more than 64 bits
+    if producer.prime_str != "goldilocks" { // if field number is not goldilocks   
         let file = include_str!("common/main.cpp");
         for line in file.lines() {
             code = format!("{}{}\n", code, line);
@@ -920,7 +920,7 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> std
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = if producer.get_size_32_bit() > 2 { include_str!("common/circom.hpp")
+    let file = if producer.prime_str != "goldilocks" { include_str!("common/circom.hpp")
     } else { include_str!("common64/circom.hpp")};
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
@@ -966,7 +966,7 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> st
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = if producer.get_size_32_bit() > 2 { include_str!("common/calcwit.hpp")
+    let file = if producer.prime_str != "goldilocks" { include_str!("common/calcwit.hpp")
     } else { include_str!("common64/calcwit.hpp")};
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
@@ -1014,7 +1014,7 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf, producer: &CProducer) -> st
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = if producer.get_size_32_bit() > 2 { include_str!("common/calcwit.cpp")
+    let file = if producer.prime_str != "goldilocks" { include_str!("common/calcwit.cpp")
     } else { include_str!("common64/calcwit.cpp")};
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
@@ -1060,7 +1060,7 @@ pub fn generate_make_file(
     producer: &CProducer,
 ) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let makefile_template: &str = if producer.get_size_32_bit() > 2 { include_str!("common/makefile")
+    let makefile_template: &str = if producer.prime_str != "goldilocks" { include_str!("common/makefile")
     } else { include_str!("common64/makefile")};
     let template = handlebars::Handlebars::new();
     let code = template

@@ -79,7 +79,7 @@ impl WriteC for ValueBucket {
         match self.parse_as {
             ValueType::U32 => (vec![], index),
             ValueType::BigInt => {
-                let access = if producer.get_size_32_bit() > 2 {
+                let access = if producer.prime_str != "goldilocks" {
                     format!("&{}", circuit_constants(index))
                 } else {
                     format!("{}ull", producer.get_field_constant_list()[self.value])

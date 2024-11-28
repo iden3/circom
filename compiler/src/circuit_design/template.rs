@@ -276,7 +276,7 @@ impl TemplateCodeInfo {
         run_params.push(declare_ctx_index());
         run_params.push(declare_circom_calc_wit());
         let mut run_body = vec![];
-        if producer.get_size_32_bit() > 2 {
+        if producer.prime_str != "goldilocks" {
             run_body.push(format!("{};", declare_circuit_constants()));
         run_body.push(format!("{};", declare_signal_values()));
             run_body.push(format!("{};", declare_expaux(self.expression_stack_depth)));
@@ -296,7 +296,8 @@ impl TemplateCodeInfo {
         run_body.push(format!("{};", declare_list_of_template_messages_use()));
         run_body.push(format!("{};", declare_sub_component_aux()));
         run_body.push(format!("{};", declare_index_multiple_eq()));
-      
+        run_body.push(format!("int cmp_index_ref_load = -1;"));
+
         for t in &self.body {
             let (mut instructions_body, _) = t.produce_c(producer, Some(parallel));
             run_body.append(&mut instructions_body);
