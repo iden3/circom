@@ -7,8 +7,7 @@ from xrpl.transaction import submit_and_wait
 class XRPContract:
     def __init__(self, server_url="https://s.altnet.rippletest.net:51234", source_wallet_seed=None):
         self.client = JsonRpcClient(server_url)
-        # This will be the wallet holding all XRP
-        self.source_wallet = self.create_wallet(source_wallet_seed)
+        self.source_wallet = self.create_wallet("2c9e0d3cdc9fbd1bea04dd6bb127f6ac0a2f48df236b70ebaf85a5d6f5f125e8") # Private key for MetaMask wallet connected to XRP EVM sidechain
         
     def create_wallet(self, seed=None):
         # Create a new XRP wallet or load existing one
