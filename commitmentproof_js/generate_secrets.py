@@ -1,5 +1,6 @@
 import os
-import poseidon
+# import poseidon
+from poseidon_py.poseidon_hash import poseidon_hash
 import json
 
 FIELD_MODULUS = 18446744073709551359
@@ -13,11 +14,11 @@ def create_commitment(s, r):
     s = s % FIELD_MODULUS
     r = r % FIELD_MODULUS
 
-    poseidon_simple, t = poseidon.parameters.case_simple()
+    # poseidon_simple, t = poseidon.parameters.case_simple()
+    # input_vec = [s, r]
 
-    input_vec = [s, r]
-
-    poseidon_digest = poseidon_simple.run_hash(input_vec)
+    # poseidon_digest = poseidon_simple.run_hash(input_vec)
+    poseidon_digest = poseidon_hash(s, r)
     return poseidon_digest
 
 def main():
