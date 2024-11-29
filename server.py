@@ -1,12 +1,9 @@
 from flask import Flask, jsonify, request
 import subprocess
 import os
+import re
 import json
 from xrp_contract import XRPContract
-import asyncio
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = Flask(__name__)
 # Initialize XRP contract with source wallet seed from environment variable
@@ -39,6 +36,14 @@ def execute_generate_call():
                 "error": process.stderr
             }, 500
 
+        # Regular expression to match the address
+        address_match = re.search(r'Contract deployed at address: (\w+)', process.stdout)
+
+        if address_match:
+            contract_address = address_match.group(1)
+        else:
+            contract_address = "Unknown"
+
         if os.path.exists(output_file_path):
             with open(output_file_path, 'r') as file:
                 output = file.read()
@@ -52,7 +57,8 @@ def execute_generate_call():
         return {
             "success": True,
             "message": "Script executed successfully.",
-            "output": output_json
+            "output": output_json,
+            "contract_address": contract_address
         }, 200
 
     except Exception as e:
