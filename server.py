@@ -10,7 +10,7 @@ load_dotenv()
 
 app = Flask(__name__)
 # Initialize XRP contract with source wallet seed from environment variable
-xrp_contract = XRPContract(source_wallet_seed=os.getenv('XRP_CONTRACT_SOURCE_WALLET_SEED'))
+xrp_contract = XRPContract(metamask_private_key=os.getenv('METAMASK_PRIVATE_KEY'))
 
 def execute_generate_call():
     """Helper function to execute the generate call script"""
