@@ -68,6 +68,32 @@ def generatecall():
     result, status_code = execute_generate_call()
     return jsonify(result), status_code
 
+@app.route('/get_deposit_address', methods=['GET'])
+def get_deposit_address():
+    """Get the address to deposit XRP"""
+    try:
+        if xrp_contract.eth_account:
+            deposit_address = xrp_contract.eth_account.address
+        elif xrp_contract.source_wallet:
+            deposit_address = xrp_contract.source_wallet.classic_address
+        else:
+            return jsonify({
+                "success": False,
+                "message": "No wallet initialized"
+            }), 500
+            
+        return jsonify({
+            "success": True,
+            "deposit_address": deposit_address,
+            "message": "Send XRP to this address to make a deposit"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": "An exception occurred.",
+            "error": str(e)
+        }), 500
+
 @app.route('/deploy_contract', methods=['POST'])
 async def deploy_contract():
     try:
