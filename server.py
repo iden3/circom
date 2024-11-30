@@ -7,7 +7,7 @@ from xrp_contract import XRPContract
 
 app = Flask(__name__)
 # Initialize XRP contract with source wallet seed from environment variable
-xrp_contract = XRPContract(source_wallet_seed=os.getenv('XRP_CONTRACT_SOURCE_WALLET_SEED'))
+xrp_contract = XRPContract(metamask_private_key=os.getenv('METAMASK_PRIVATE_KEY'))
 
 def execute_generate_call():
     """Helper function to execute the generate call script"""
@@ -73,6 +73,32 @@ def generatecall():
     # Endpoint to generate call
     result, status_code = execute_generate_call()
     return jsonify(result), status_code
+
+@app.route('/get_deposit_address', methods=['GET'])
+def get_deposit_address():
+    """Get the address to deposit XRP"""
+    try:
+        if xrp_contract.eth_account:
+            deposit_address = xrp_contract.eth_account.address
+        elif xrp_contract.source_wallet:
+            deposit_address = xrp_contract.source_wallet.classic_address
+        else:
+            return jsonify({
+                "success": False,
+                "message": "No wallet initialized"
+            }), 500
+            
+        return jsonify({
+            "success": True,
+            "deposit_address": deposit_address,
+            "message": "Send XRP to this address to make a deposit"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": "An exception occurred.",
+            "error": str(e)
+        }), 500
 
 @app.route('/deploy_contract', methods=['POST'])
 async def deploy_contract():
