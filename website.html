@@ -121,7 +121,7 @@
                     <label for="recipient" class="form-label">Recipient Address</label>
                     <input type="text" class="form-control" id="recipient" placeholder="Enter recipient address">
                 </div>
-                <button onclick="withdrawWithApiCall()" class="btn btn-primary" id="withdrawButton" disabled>
+                <button onclick="withdrawWithApiCall(event)" class="btn btn-primary" id="withdrawButton">
                     Withdraw
                     <span class="spinner-border spinner-border-sm loading" id="withdrawSpinner"></span>
                 </button>
@@ -324,7 +324,7 @@
             depositSpinner.style.display = 'inline-block';
 
             try {
-                const response = await axios.post('http://127.0.0.1:5000/deposit', {
+                const response = await axios.post('http://127.0.0.1:5002/deposit', {
                     amount: amount,
                     currency: 'XRP'
                 });
@@ -344,7 +344,46 @@
 
         }
 
-        async function withdrawWithApiCall() {
+        // async function withdrawWithApiCall() {
+        //     const withdrawSpinner = document.getElementById('withdrawSpinner');
+        //     const withdrawButton = document.getElementById('withdrawButton');
+        //     const proofInput = document.getElementById('proof');
+        //     const recipientInput = document.getElementById('recipient');
+
+        //     const proof = proofInput.value.trim();
+        //     const recipient = recipientInput.value.trim();
+
+        //     console.log('Proof:', proof);
+        //     console.log('Recipient:', recipient);
+
+        //     if (!proof || !recipient) {
+        //         alert("Please provide both the SNARK proof and recipient address.");
+        //         return;
+        //     }
+
+        //     withdrawButton.disabled = false;
+        //     withdrawSpinner.style.display = 'inline-block';
+
+        //     try {
+        //         const response = await axios.post('http://127.0.0.1:5002/withdraw', {
+        //             proof: proof,
+        //             recipient: recipient
+        //         });
+
+        //         console.log('Withdraw API response:', response.data);
+        //         alert('Withdraw successful: ' + JSON.stringify(response.data));
+        //     } catch (error) {
+        //         console.error('Error during withdraw API call:', error);
+        //         alert('Error: ' + error.message);
+        //     } finally {
+        //         withdrawSpinner.style.display = 'none';
+        //         withdrawButton.disabled = false;
+        //     }
+        // }
+
+        async function withdrawWithApiCall(event) {
+            event.preventDefault(); // 阻止默认提交行为（如果绑定在表单上）
+
             const withdrawSpinner = document.getElementById('withdrawSpinner');
             const withdrawButton = document.getElementById('withdrawButton');
             const proofInput = document.getElementById('proof');
@@ -353,30 +392,40 @@
             const proof = proofInput.value.trim();
             const recipient = recipientInput.value.trim();
 
+            console.log('Proof:', proof);
+            console.log('Recipient:', recipient);
+
+            // 验证用户输入
             if (!proof || !recipient) {
                 alert("Please provide both the SNARK proof and recipient address.");
                 return;
             }
 
+            // 禁用按钮并显示加载动画
             withdrawButton.disabled = true;
             withdrawSpinner.style.display = 'inline-block';
 
             try {
-                const response = await axios.post('http://127.0.0.1:5000/withdraw', {
+                // 发起 POST 请求到后端 API
+                const response = await axios.post('http://127.0.0.1:5002/withdraw', {
                     proof: proof,
                     recipient: recipient
                 });
 
+                // 打印并展示成功信息
                 console.log('Withdraw API response:', response.data);
                 alert('Withdraw successful: ' + JSON.stringify(response.data));
             } catch (error) {
+                // 打印并展示错误信息
                 console.error('Error during withdraw API call:', error);
                 alert('Error: ' + error.message);
             } finally {
+                // 恢复按钮状态并隐藏加载动画
                 withdrawSpinner.style.display = 'none';
                 withdrawButton.disabled = false;
             }
         }
+
 
         // Initialize on page load
         init();

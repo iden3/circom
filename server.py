@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request,send_file
 import subprocess
 import os
 import re
@@ -188,9 +188,14 @@ async def deposit():
                     "details": result.get("message")
                 }), 500
 
-            proof = result.get("output", {}).get("proof", "N/A")
-            public_signals = result.get("output", {}).get("public_signals", "N/A")
+            #proof = result.get("output", {}).get("proof", "N/A")
+            #public_signals = result.get("output", {}).get("public_signals", "N/A")
             
+            
+            proof = result.get("output", {})
+            public_signals = result.get("output", {})
+            
+
             print(f'proof: {proof}')
             print(f'public_signals: {public_signals}')
 
@@ -213,43 +218,215 @@ async def deposit():
 
 
 
+# @app.route('/withdraw', methods=['POST'])
+# async def withdraw():
+#     """
+#     Endpoint to handle withdrawal requests.
+#     Input:
+#         - proof: The SNARK proof for verification.
+#         - recipient: The recipient's XRP address.
+#     Output:
+#         - success: Whether the withdrawal was successful.
+#         - message: A status message.
+#     """
+#     try:
+#         # Parse the input data
+#         data = request.get_json()
+#         print(data)
+#         proof = data.get('proof')
+#         recipient = data.get('recipient')
+
+#         print(f'proof: {proof}')
+#         print(f'recipient: {recipient}')
+
+#         # Validate inputs
+#         if not proof:
+#             return jsonify({
+#                 "success": False,
+#                 "message": "Proof is required"
+#             }), 400
+
+#         if not recipient:
+#             return jsonify({
+#                 "success": False,
+#                 "message": "Recipient address is required"
+#             }), 400
+
+#         # Define the amount to transfer
+#         amount = 10  # Default amount for withdrawal
+
+#         # Perform the XRP transfer
+#         response = await xrp_contract.send_xrp(recipient, amount)
+
+#         print(f'response: {response}')
+
+#         # Verify transaction success
+#         if response and xrp_contract.verify_transaction(response.result['hash']):
+#             return jsonify({
+#                 "success": True,
+#                 "message": "Withdrawal successful",
+#                 "transaction_hash": response.result['hash']
+#             }), 200
+#         else:
+#             return jsonify({
+#                 "success": False,
+#                 "message": "Withdrawal failed. Transaction could not be verified."
+#             }), 500
+
+#     except Exception as e:
+#         return jsonify({
+#             "success": False,
+#             "message": "An exception occurred.",
+#             "error": str(e)
+#         }), 500
+
+
+# @app.route('/withdraw2', methods=['GET', 'POST'])
+# async def withdraw2():
+#     """
+#     Endpoint to handle withdrawal requests.
+#     """
+#     try:
+#         # Parse the input data
+#         data = request.get_json()
+#         proof = data.get('proof')
+#         recipient = data.get('recipient')
+
+#         print(f"Received data: {data}", flush=True)
+
+#         # Validate inputs
+#         if not proof:
+#             return jsonify({"success": False, "message": "Proof is required"}), 400
+#         if not recipient:
+#             return jsonify({"success": False, "message": "Recipient address is required"}), 400
+
+#         amount = 10  # Default withdrawal amount
+
+#         # 异步调用 xrp_contract.send_xrp
+#         response = await xrp_contract.send_xrp(recipient, amount)
+
+#         # 验证交易
+#         if response and xrp_contract.verify_transaction(response.result['hash']):
+#             return jsonify({
+#                 "success": True,
+#                 "message": "Withdrawal successful",
+#                 "transaction_hash": response.result['hash']
+#             }), 200
+#         else:
+#             return jsonify({
+#                 "success": False,
+#                 "message": "Withdrawal failed. Transaction could not be verified."
+#             }), 500
+
+#     except Exception as e:
+#         print(f"Error: {str(e)}", flush=True)
+#         return jsonify({
+#             "success": False,
+#             "message": "An exception occurred.",
+#             "error": str(e)
+#         }), 500
+
+# @app.route('/withdraw3', methods=['GET', 'POST'])
+# def withdraw3():
+#     """
+#     Endpoint to handle withdrawal requests.
+#     """
+#     try:
+#         # 获取输入数据
+#         data = request.get_json()
+#         proof = data.get('proof')
+#         recipient = data.get('recipient')
+
+#         print(f"Received data: {data}", flush=True)
+
+#         # 验证输入
+#         if not proof:
+#             return jsonify({"success": False, "message": "Proof is required"}), 400
+#         if not recipient:
+#             return jsonify({"success": False, "message": "Recipient address is required"}), 400
+
+#         amount = 10  # 默认提现金额
+
+#         # 使用队列和线程处理异步任务
+#         result_queue = queue.Queue()
+
+#         def background_task():
+#             try:
+#                 # 异步调用 send_xrp
+#                 loop = asyncio.new_event_loop()
+#                 asyncio.set_event_loop(loop)
+#                 response = loop.run_until_complete(xrp_contract.send_xrp(recipient, amount))
+
+#                 # loop.close()
+
+#                 # loop = asyncio.get_event_loop()
+
+#                 # 提交协程到事件循环中运行
+#                 # future = asyncio.run_coroutine_threadsafe(xrp_contract.send_xrp(recipient, amount), loop)
+#                 # response = future.result()  # 获取协程返回值
+
+#                 if response and xrp_contract.verify_transaction(response.result['hash']):
+#                     result_queue.put({
+#                         "success": True,
+#                         "message": "Withdrawal successful",
+#                         "transaction_hash": response.result['hash']
+#                     })
+#                 else:
+#                     result_queue.put({
+#                         "success": False,
+#                         "message": "Withdrawal failed. Transaction could not be verified."
+#                     })
+#             except Exception as e:
+#                 result_queue.put({
+#                     "success": False,
+#                     "message": f"An error occurred: {str(e)}"
+#                 })
+
+#         # 启动后台任务
+#         thread = threading.Thread(target=background_task)
+#         thread.start()
+#         thread.join()
+
+#         # 获取队列中的结果
+#         try:
+#             result = result_queue.get_nowait()
+#             print(f"Result: {result}", flush=True)
+#         except queue.Empty:
+#             result = {"success": False, "message": "Background task failed."}
+
+#         return jsonify(result), (200 if result.get("success") else 500)
+
+#     except Exception as e:
+#         print(f"Error: {str(e)}", flush=True)
+#         return jsonify({
+#             "success": False,
+#             "message": "An exception occurred.",
+#             "error": str(e)
+#         }), 500
+
 @app.route('/withdraw', methods=['POST'])
 async def withdraw():
     """
     Endpoint to handle withdrawal requests.
-    Input:
-        - proof: The SNARK proof for verification.
-        - recipient: The recipient's XRP address.
-    Output:
-        - success: Whether the withdrawal was successful.
-        - message: A status message.
     """
     try:
-        # Parse the input data
         data = request.get_json()
         proof = data.get('proof')
         recipient = data.get('recipient')
 
-        # Validate inputs
+        print(f"Received data: {data}", flush=True)
+
         if not proof:
-            return jsonify({
-                "success": False,
-                "message": "Proof is required"
-            }), 400
-
+            return jsonify({"success": False, "message": "Proof is required"}), 400
         if not recipient:
-            return jsonify({
-                "success": False,
-                "message": "Recipient address is required"
-            }), 400
+            return jsonify({"success": False, "message": "Recipient address is required"}), 400
 
-        # Define the amount to transfer
-        amount = 10  # Default amount for withdrawal
+        amount = 10
 
-        # Perform the XRP transfer
+        # 异步调用 submit_and_wait
         response = await xrp_contract.send_xrp(recipient, amount)
+        print(f"Response: {response}", flush=True)
 
-        # Verify transaction success
         if response and xrp_contract.verify_transaction(response.result['hash']):
             return jsonify({
                 "success": True,
@@ -263,6 +440,7 @@ async def withdraw():
             }), 500
 
     except Exception as e:
+        print(f"Error: {str(e)}", flush=True)
         return jsonify({
             "success": False,
             "message": "An exception occurred.",
@@ -270,6 +448,13 @@ async def withdraw():
         }), 500
 
 
+@app.route('/', methods=['GET'])
+def index():
+    return send_file('website.html')
+
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5002)
+    # print(app.url_map)
+
+    # app.run(debug=True, host='0.0.0.0', port=5002)
