@@ -1,4 +1,3 @@
-=
 <!DOCTYPE html>
 <html lang="en">
 
@@ -74,7 +73,9 @@
             <div id="accountInfo" class="small text-muted"></div>
             <div id="networkInfo" class="small text-muted"></div>
             <div class="mt-2">
-                <button id="connectButton" class="btn btn-success btn-sm">Connect Wallet</button>
+                <button id="connectButton" class="btn btn-success btn-sm" onclick="connectWallet()">Connect
+                    Wallet</button>
+
             </div>
         </div>
 
@@ -101,7 +102,7 @@
                     <div class="form-text">Minimum deposit: 10 XRP</div>
                 </div>
 
-                <button onclick="depositWithApiCall()" class="btn btn-primary" id="depositButton" disabled>
+                <button onclick="depositWithApiCall(event)" class="btn btn-primary" id="depositButton" disabled>
                     Deposit
                     <span class="spinner-border spinner-border-sm loading" id="depositSpinner"></span>
                 </button>
@@ -158,6 +159,11 @@
 
         let web3;
         let contract;
+        let currentWalletState = {
+            connected: false,
+            account: '',
+            network: ''
+        };
 
         async function init() {
             try {
@@ -168,33 +174,44 @@
 
                 web3 = new Web3(provider);
 
-                // Add account change listener
-                window.ethereum.on('accountsChanged', handleAccountsChanged);
-
                 const accounts = await web3.eth.getAccounts();
-                if (accounts && accounts.length > 0) {
-                    await connectWallet();
+                if (accounts.length > 0) {
+                    const networkId = await web3.eth.net.getId();
+                    const networkName = getNetworkName(networkId);
+                    updateWalletStatus(true, accounts[0], networkName);
                 } else {
                     updateWalletStatus(false);
                 }
+
+                // 注册事件监听
+                provider.on('accountsChanged', handleAccountsChanged);
+                provider.on('chainChanged', () => {
+                    window.location.reload(); // 切换网络后重新加载页面
+                });
+
             } catch (error) {
+                console.error('Initialization failed:', error);
                 updateWalletStatus(false);
                 handleConnectionError(error);
             }
         }
 
-        // Handle account changes from MetaMask
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('connectButton').addEventListener('click', connectWallet);
+        });
+
         async function handleAccountsChanged(accounts) {
             if (accounts.length === 0) {
-                // User disconnected
                 updateWalletStatus(false);
             } else {
-                // Account changed, update connection status
                 const networkId = await web3.eth.net.getId();
                 const networkName = getNetworkName(networkId);
                 updateWalletStatus(true, accounts[0], networkName);
             }
         }
+
+
 
         // Add provider detection function
         function detectProvider() {
@@ -209,6 +226,7 @@
                 return provider;
             }
 
+            alert("MetaMask is not detected. Please install MetaMask: https://metamask.io/download/");
             return null;
         }
 
@@ -276,20 +294,22 @@
             }
         }
 
+
         function getNetworkName(networkId) {
-            switch (networkId) {
-                case 1:
-                    return "Mainnet";
-                case 3:
-                    return "Ropsten";
-                case 42:
-                    return "Kovan";
-                default:
-                    return "Unknown Network";
-            }
+            const networks = {
+                1: 'Ethereum Mainnet',
+                3: 'Ropsten Testnet',
+                4: 'Rinkeby Testnet',
+                5: 'Goerli Testnet',
+                42: 'Kovan Testnet'
+            };
+
+            return networks[networkId] || 'Unknown Network';
         }
 
-        async function depositWithApiCall() {
+
+        async function depositWithApiCall(event) {
+            event.preventDefault();
             const depositSpinner = document.getElementById('depositSpinner');
             const depositButton = document.getElementById('depositButton');
             const amountInput = document.getElementById('amount');
