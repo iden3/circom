@@ -2,6 +2,9 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { ethers } from "ethers";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // Get the file name from command-line arguments
 const args = process.argv.slice(2);
@@ -16,7 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables
-const PRIVATE_KEY = "e582e5988d98eac0d5cb00762619e53fd4f9df96c03e4325234fc29bd357137a";
+const PRIVATE_KEY = process.env.METAMASK_PRIVATE_KEY;
 const RPC_URL = "https://rpc-evm-sidechain.xrpl.org/";
 
 // Load the compiled contract JSON

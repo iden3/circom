@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "dotenv": "^16.4.5",
     "poseidon-hash": "^1.0.1",
     "snarkjs": "^0.7.5",
     "xrpl": "^4.0.0"
