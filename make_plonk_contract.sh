@@ -56,4 +56,16 @@ snarkjs zkey export solidityverifier $commitmentproof_zkey $verifier_sol
 echo "Generating output of generatecall ..."
 snarkjs generatecall $public_json > generatecall_output.txt
 
-echo "Process completed. The verifier Solidity contract is saved as verifier_${UUID}.sol"
+echo "The verifier Solidity contract is saved as verifier_${UUID}.sol"
+
+echo "Fixing parameter syntax error in contract..."
+python3 fix_sol_files.py verifier_${UUID}.sol
+
+cd ..
+cp -f commitmentproof_js/verifier_${UUID}.sol contracts/verifier_${UUID}.sol
+
+echo "Compiling contract..."
+npx hardhat compile
+
+echo "Deploying contract..."
+node deploy.js verifier_${UUID}.sol
