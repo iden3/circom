@@ -168,51 +168,20 @@
 
                 web3 = new Web3(provider);
 
-                // 添加事件监听器
-                window.ethereum.on('accountsChanged', (accounts) => {
-                    console.log('Accounts changed:', accounts);
-                    if (accounts.length === 0) {
-                        updateWalletStatus(false); // 没有账户时更新状态为断开连接
-                    } else {
-                        const account = accounts[0];
-                        const networkId = await web3.eth.net.getId();
-                        const networkName = getNetworkName(networkId);
-                        updateWalletStatus(true, account, networkName);
-                    }
-                });
+                // Add account change listener
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
 
-                window.ethereum.on('disconnect', (error) => {
-                    console.log('Disconnected:', error);
-                    updateWalletStatus(false); // 断开连接时更新状态
-                });
-
-                window.ethereum.on('chainChanged', async (chainId) => {
-                    console.log('Chain changed:', chainId);
-                    const networkId = await web3.eth.net.getId();
-                    const networkName = getNetworkName(networkId);
-                    const accounts = await web3.eth.getAccounts();
-                    if (accounts.length > 0) {
-                        updateWalletStatus(true, accounts[0], networkName);
-                    } else {
-                        updateWalletStatus(false);
-                    }
-                });
-
-                // 检查现有账户
                 const accounts = await web3.eth.getAccounts();
                 if (accounts && accounts.length > 0) {
-                    const networkId = await web3.eth.net.getId();
-                    const networkName = getNetworkName(networkId);
-                    updateWalletStatus(true, accounts[0], networkName);
+                    await connectWallet();
                 } else {
                     updateWalletStatus(false);
                 }
             } catch (error) {
-                console.error('Initialization failed:', error);
                 updateWalletStatus(false);
+                handleConnectionError(error);
             }
         }
-
 
         // Handle account changes from MetaMask
         async function handleAccountsChanged(accounts) {
@@ -226,51 +195,6 @@
                 updateWalletStatus(true, accounts[0], networkName);
             }
         }
-
-        async function reconnectWallet() {
-            try {
-                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-                if (accounts.length > 0) {
-                    const networkId = await web3.eth.net.getId();
-                    const networkName = getNetworkName(networkId);
-                    updateWalletStatus(true, accounts[0], networkName);
-                } else {
-                    updateWalletStatus(false);
-                }
-            } catch (error) {
-                console.error('Reconnection failed:', error);
-                updateWalletStatus(false);
-            }
-        }
-
-        function updateWalletStatus(connected, account = '', network = '') {
-            const statusIndicator = document.getElementById('connectionStatus');
-            const walletStatus = document.getElementById('walletStatus');
-            const accountInfo = document.getElementById('accountInfo');
-            const networkInfo = document.getElementById('networkInfo');
-            const depositButton = document.getElementById('depositButton');
-            const connectButton = document.getElementById('connectButton');
-
-            if (connected) {
-                statusIndicator.classList.remove('status-disconnected');
-                statusIndicator.classList.add('status-connected');
-                walletStatus.textContent = 'Wallet Status: Connected';
-                accountInfo.textContent = `Account: ${account}`;
-                networkInfo.textContent = `Network: ${network}`;
-                depositButton.disabled = false;
-                connectButton.style.display = 'none';
-            } else {
-                statusIndicator.classList.remove('status-connected');
-                statusIndicator.classList.add('status-disconnected');
-                walletStatus.textContent = 'Wallet Status: Not Connected';
-                accountInfo.textContent = '';
-                networkInfo.textContent = '';
-                depositButton.disabled = true;
-                connectButton.style.display = 'inline-block';
-            }
-        }
-
-
 
         // Add provider detection function
         function detectProvider() {
@@ -379,8 +303,6 @@
             depositButton.disabled = true;
             depositSpinner.style.display = 'inline-block';
 
-            console.log('Deposit amount:', amount);
-
             try {
                 const response = await axios.post('http://127.0.0.1:5000/deposit', {
                     amount: amount,
@@ -390,12 +312,8 @@
                 console.log('API response:', response.data);
                 alert('Deposit successful: ' + JSON.stringify(response.data));
 
-                console.log('Full API Response:', response.data);
-                console.log('Response Output:', response.data.output);
-
-                console.log('Generated SNARK proof:', response.data.output);
-                document.getElementById('proof').value = response.data.output || "No proof generated";
-
+                console.log('Generated SNARK proof:', response.data.snark_proof);
+                document.getElementById('proof').value = response.data.snark_proof || "No proof generated";
             } catch (error) {
                 console.error('Error during API call:', error);
                 alert('Error: ' + error.message);
