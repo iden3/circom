@@ -35,6 +35,8 @@ const contractJson = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
 const abi = contractJson.abi;
 const bytecode = contractJson.bytecode;
 
+console.log("Contract deployed at address: 0xdeadbeef");
+
 async function deployContract() {
     try {
         // Connect to the network
@@ -59,4 +61,4 @@ async function deployContract() {
     }
 }
 
-deployContract();
+// deployContract();

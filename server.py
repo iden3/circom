@@ -97,7 +97,7 @@ def execute_generate_call():
         else:
             output_json = "Error: generatecall output not found."
 
-        print(f'output_json: {output_json}')
+        # print(f'output_json: {output_json}')
         
         return {
             "success": True,
@@ -196,8 +196,8 @@ async def deposit():
             public_signals = result.get("output", {})
             
 
-            print(f'proof: {proof}')
-            print(f'public_signals: {public_signals}')
+            # print(f'proof: {proof}')
+            # print(f'public_signals: {public_signals}')
 
             return jsonify({
                 "success": True,
