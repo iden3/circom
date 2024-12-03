@@ -121,7 +121,7 @@ impl Default for CProducer {
 	        num_of_bus_instances: 0,
 //	        size_of_bus_fields: 0,
 	    busid_field_info: Vec::new(),
-            no_asm: false,
+            no_asm: true,
         }
     }
 }
