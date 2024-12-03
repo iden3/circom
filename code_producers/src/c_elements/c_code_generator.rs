@@ -920,7 +920,8 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> std
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = if producer.prime_str != "goldilocks" { include_str!("common/circom.hpp")
+    let file = if producer.prime_str != "goldilocks" {
+        include_str!("common/circom.hpp")
     } else { include_str!("common64/circom.hpp")};
     for line in file.lines() {
         code = format!("{}{}\n", code, line);
@@ -930,7 +931,7 @@ pub fn generate_circom_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> std
     Ok(())
 }
 
-pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String, producer: &CProducer) -> std::io::Result<()> {
     use std::io::BufWriter;
     let mut file_path = c_folder.clone();
     file_path.push("fr");
@@ -938,23 +939,32 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
     let file_name = file_path.to_str().unwrap();
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
-    let file = match prime.as_ref(){
-        "bn128" => include_str!("bn128/fr.hpp"),
-        "bls12381" => include_str!("bls12381/fr.hpp"),
-        //"goldilocks" => include_str!("goldilocks/fr.hpp"),
-        "goldilocks" => include_str!("common64/fr.hpp"),
-        "grumpkin" => include_str!("grumpkin/fr.hpp"),
-        "pallas" => include_str!("pallas/fr.hpp"),
-        "vesta" => include_str!("vesta/fr.hpp"),
-        "secq256r1" => include_str!("secq256r1/fr.hpp"),
-        "bls12-377" => include_str!("bls12-377/fr.hpp"),
-        _ => unreachable!(),
-    };
-    for line in file.lines() {
-        code = format!("{}{}\n", code, line);
+    if producer.prime_str != "goldilocks" && producer.no_asm {
+        let file = include_str!("generic/fr.hpp");
+        for line in file.lines() {
+            code = format!("{}{}\n", code, line);
+        }
+        c_file.write_all(code.as_bytes())?;
+        c_file.flush()?;
+    } else {
+        let file = match prime.as_ref(){
+            "bn128" => include_str!("bn128/fr.hpp"),
+            "bls12381" => include_str!("bls12381/fr.hpp"),
+            //"goldilocks" => include_str!("goldilocks/fr.hpp"),
+            "goldilocks" => include_str!("goldilocks/fr.hpp"),
+            "grumpkin" => include_str!("grumpkin/fr.hpp"),
+            "pallas" => include_str!("pallas/fr.hpp"),
+            "vesta" => include_str!("vesta/fr.hpp"),
+            "secq256r1" => include_str!("secq256r1/fr.hpp"),
+            "bls12-377" => include_str!("bls12-377/fr.hpp"),
+            _ => unreachable!(),
+        };
+        for line in file.lines() {
+            code = format!("{}{}\n", code, line);
+        }
+        c_file.write_all(code.as_bytes())?;
+        c_file.flush()?;
     }
-    c_file.write_all(code.as_bytes())?;
-    c_file.flush()?;
     Ok(())
 }
 
@@ -976,7 +986,7 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> st
     Ok(())
 }
 
-pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
+pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String,  producer: &CProducer) -> std::io::Result<()> {
     if prime != "goldilocks" {
         use std::io::BufWriter;
         let mut file_path = c_folder.clone();
@@ -985,23 +995,31 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String) -> std::io::Resu
         let file_name = file_path.to_str().unwrap();
         let mut c_file = BufWriter::new(File::create(file_name).unwrap());
         let mut code = "".to_string();
-        let file = match prime.as_ref(){
-            "bn128" => include_str!("bn128/fr.cpp"),
-            "bls12381" => include_str!("bls12381/fr.cpp"),
-            //"goldilocks" => include_str!("goldilocks/fr.cpp"),
-            "grumpkin" => include_str!("grumpkin/fr.cpp"),
-            "pallas" => include_str!("pallas/fr.cpp"),
-            "vesta" => include_str!("vesta/fr.cpp"),
-            "secq256r1" => include_str!("secq256r1/fr.cpp"),
-            "bls12-377" => include_str!("bls12-377/fr.cpp"),
-            
-            _ => unreachable!(),
-        };
-        for line in file.lines() {
-            code = format!("{}{}\n", code, line);
+        if producer.no_asm {
+            let file = include_str!("generic/fr.cpp");
+            for line in file.lines() {
+                code = format!("{}{}\n", code, line);
+            }
+            c_file.write_all(code.as_bytes())?;
+            c_file.flush()?;
+        } else {
+            let file = match prime.as_ref(){
+                "bn128" => include_str!("bn128/fr.cpp"),
+                "bls12381" => include_str!("bls12381/fr.cpp"),
+                //"goldilocks" => include_str!("goldilocks/fr.cpp"),
+                "grumpkin" => include_str!("grumpkin/fr.cpp"),
+                "pallas" => include_str!("pallas/fr.cpp"),
+                "vesta" => include_str!("vesta/fr.cpp"),
+                "secq256r1" => include_str!("secq256r1/fr.cpp"),
+                "bls12-377" => include_str!("bls12-377/fr.cpp"),
+                _ => unreachable!(),
+            };
+            for line in file.lines() {
+                code = format!("{}{}\n", code, line);
+            }
+            c_file.write_all(code.as_bytes())?;
+            c_file.flush()?;
         }
-        c_file.write_all(code.as_bytes())?;
-        c_file.flush()?;
     }
     Ok(())
 }
@@ -1024,8 +1042,8 @@ pub fn generate_calcwit_cpp_file(c_folder: &PathBuf, producer: &CProducer) -> st
     Ok(())
 }
 
-pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String) -> std::io::Result<()> {
-    if prime != "goldilocks" {
+pub fn generate_fr_asm_file(c_folder: &PathBuf, prime: &String, producer: &CProducer) -> std::io::Result<()> {
+    if prime != "goldilocks" && !producer.no_asm {
         use std::io::BufWriter;
         let mut file_path = c_folder.clone();
         file_path.push("fr");
@@ -1060,8 +1078,11 @@ pub fn generate_make_file(
     producer: &CProducer,
 ) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let makefile_template: &str = if producer.prime_str != "goldilocks" { include_str!("common/makefile")
-    } else { include_str!("common64/makefile")};
+    let makefile_template: &str = if producer.prime_str != "goldilocks" && !producer.no_asm { include_str!("common/makefile")
+    } else {
+        if producer.no_asm {include_str!("generic/makefile")
+        } else {include_str!("common64/makefile")}
+    };
     let template = handlebars::Handlebars::new();
     let code = template
         .render_template(
