@@ -18,6 +18,7 @@ pub struct Input {
     pub c_flag: bool,
     pub wasm_flag: bool,
     pub wat_flag: bool,
+    pub no_asm_flag: bool,
     pub r1cs_flag: bool,
     pub sym_flag: bool,
     pub json_constraint_flag: bool,
@@ -27,7 +28,7 @@ pub struct Input {
     pub fast_flag: bool,
     pub reduced_simplification_flag: bool,
     pub parallel_simplification_flag: bool,
-    pub constraint_assert_dissabled_flag: bool,
+    pub constraint_assert_disabled_flag: bool,
     pub flag_old_heuristics: bool,
     pub inspect_constraints_flag: bool,
     pub no_rounds: usize,
@@ -92,6 +93,7 @@ impl Input {
             wat_flag:input_processing::get_wat(&matches),
             wasm_flag: input_processing::get_wasm(&matches),
             c_flag: c_flag,
+            no_asm_flag:input_processing::get_no_asm(&matches),
             r1cs_flag: input_processing::get_r1cs(&matches),
             sym_flag: input_processing::get_sym(&matches),
             main_inputs_flag: input_processing::get_main_inputs_log(&matches),
@@ -102,7 +104,7 @@ impl Input {
             fast_flag: o_style == SimplificationStyle::O0,
             reduced_simplification_flag: o_style == SimplificationStyle::O1,
             parallel_simplification_flag: input_processing::get_parallel_simplification(&matches),
-            constraint_assert_dissabled_flag: input_processing::get_constraint_assert_dissabled(&matches),
+            constraint_assert_disabled_flag: input_processing::get_constraint_assert_disabled(&matches),
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
             flag_old_heuristics: input_processing::get_flag_old_heuristics(&matches),
             flag_verbose: input_processing::get_flag_verbose(&matches), 
@@ -178,6 +180,9 @@ impl Input {
     pub fn c_flag(&self) -> bool {
         self.c_flag
     }
+    pub fn no_asm_flag(&self) -> bool {
+        self.no_asm_flag
+    }
     pub fn unsimplified_flag(&self) -> bool {
         self.fast_flag
     }
@@ -211,8 +216,8 @@ impl Input {
     pub fn parallel_simplification_flag(&self) -> bool {
         self.parallel_simplification_flag
     }
-    pub fn constraint_assert_dissabled_flag(&self) -> bool {
-        self.constraint_assert_dissabled_flag
+    pub fn constraint_assert_disabled_flag(&self) -> bool {
+        self.constraint_assert_disabled_flag
     }
     pub fn flag_old_heuristics(&self) -> bool {
         self.flag_old_heuristics
@@ -297,6 +302,10 @@ mod input_processing {
         matches.is_present("print_wat")
     }
 
+    pub fn get_no_asm(matches: &ArgMatches) -> bool {
+        matches.is_present("no_asm")
+    }
+
     pub fn get_c(matches: &ArgMatches) -> bool {
         matches.is_present("print_c")
     }
@@ -309,8 +318,8 @@ mod input_processing {
         matches.is_present("parallel_simplification")
     }
 
-    pub fn get_constraint_assert_dissabled(matches: &ArgMatches) -> bool {
-        matches.is_present("constraint_assert_dissabled")
+    pub fn get_constraint_assert_disabled(matches: &ArgMatches) -> bool {
+        matches.is_present("constraint_assert_disabled")
     }
 
     pub fn get_ir(matches: &ArgMatches) -> bool {
@@ -461,6 +470,14 @@ mod input_processing {
                     .takes_value(false)
                     .display_order(120)
                     .help("Compiles the circuit to wat"),
+            )
+            .arg(
+                Arg::with_name("no_asm")
+                    .long("no_asm")
+                    .takes_value(false)
+                    .hidden(true)
+                    .display_order(990)
+                    .help("Does not use asm files for witness generation in C, uses new version"),
             )
             .arg(
                 Arg::with_name("link_libraries")

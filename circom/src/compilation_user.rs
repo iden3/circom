@@ -21,8 +21,9 @@ pub struct CompilerConfig {
     pub c_flag: bool,
     pub debug_output: bool,
     pub produce_input_log: bool,
-    pub constraint_assert_dissabled_flag: bool,
+    pub constraint_assert_disabled_flag: bool,
     pub vcp: VCP,
+    pub no_asm_flag: bool,
 }
 
 pub fn compile(config: CompilerConfig) -> Result<(), ()> {
@@ -35,7 +36,9 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 debug_output: config.debug_output, 
                 produce_input_log: config.produce_input_log, 
                 wat_flag: config.wat_flag,
-                constraint_assert_dissabled_flag: config.constraint_assert_dissabled_flag,
+
+                constraint_assert_disabled_flag: config.constraint_assert_disabled_flag,
+                no_asm_flag: config.no_asm_flag,
             },
             VERSION
         )?;
