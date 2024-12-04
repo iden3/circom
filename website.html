@@ -159,6 +159,9 @@
             network: ''
         };
 
+        let contract_address;
+        let contract_abi;
+
         async function init() {
             try {
                 const provider = detectProvider();
@@ -315,6 +318,9 @@
                     amount: amount,
                     currency: 'XRP'
                 });
+
+                contract_address = response['data']['contract_address'];
+                contract_abi = JSON.parse(response['data']['contract_abi']);
 
                 document.getElementById('proof').value = response.data.snark_proof || "No proof generated";
             } catch (error) {

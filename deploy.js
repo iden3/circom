@@ -54,9 +54,15 @@ async function deployContract() {
         await contract.deploymentTransaction().wait();
 
         console.log(`Contract deployed at address: ${contract.target}`);
+        console.log(`Contract ABI: ${JSON.stringify(abi, null, 2)}`);
     } catch (error) {
         console.error("Error deploying the contract:", error);
     }
 }
 
+// Comment for testing (bridge issue)
 deployContract();
+
+// Uncomment for testing (bridge issue)
+// console.log("Contract deployed at address: 0xdeadbeef");
+// console.log(`Contract ABI: ${JSON.stringify(abi, null, 2)}`);
