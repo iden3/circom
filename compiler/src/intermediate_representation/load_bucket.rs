@@ -338,6 +338,8 @@ impl WriteC for LoadBucket {
                 }
             }
             AddressType::SubcmpSignal { uniform_parallel_value, is_output, .. } => {
+            // we store the value of the cmp index
+            prologue.push(format!("cmp_index_ref_load = {};",cmp_index_ref.clone()));
 
             // we store the value of the cmp index
             prologue.push(format!("cmp_index_ref_load = {};",cmp_index_ref.clone()));
