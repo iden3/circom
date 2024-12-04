@@ -1080,8 +1080,8 @@ pub fn generate_make_file(
     use std::io::BufWriter;
     let makefile_template: &str = if producer.prime_str != "goldilocks" && !producer.no_asm { include_str!("common/makefile")
     } else {
-        if producer.no_asm {include_str!("generic/makefile")
-        } else {include_str!("common64/makefile")}
+        if producer.prime_str == "goldilocks" {include_str!("common64/makefile")
+        } else {include_str!("generic/makefile")}
     };
     let template = handlebars::Handlebars::new();
     let code = template
