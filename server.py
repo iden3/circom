@@ -70,9 +70,16 @@ def execute_generate_call():
                 "error": process.stderr
             }, 500
 
-        # Regular expression to match the address
-        address_match = re.search(r'Contract deployed at address: (\w+)', process.stdout)
+        contract_deployment_error_match = re.search(r'Error deploying the contract: Error: ([^\(]+)', process.stderr)
 
+        if contract_deployment_error_match:
+            return {
+                "success": False,
+                "message": "Contract deployment failed.",
+                "error": contract_deployment_error_match.group(1)
+            }, 500
+
+        address_match = re.search(r'Contract deployed at address: (\w+)', process.stdout)
         if address_match:
             contract_address = address_match.group(1)
         else:
