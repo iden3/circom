@@ -10,7 +10,9 @@ use std::io::Write;
 pub struct CompilationFlags {
     pub main_inputs_log: bool,
     pub wat_flag:bool,
-    pub constraint_assert_dissabled_flag: bool
+
+    pub no_asm_flag: bool,
+    pub constraint_assert_disabled_flag: bool
 }
 
 pub struct Circuit {
