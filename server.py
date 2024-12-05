@@ -210,6 +210,8 @@ async def deposit():
             proof = result.get("output", {})
             public_signals = result.get("output", {})
 
+            print("public_signals:", public_signals)
+
             contract_address = result.get("contract_address", {})
             contract_abi = result.get("contract_abi", {})
 
