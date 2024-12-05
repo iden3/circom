@@ -6,6 +6,7 @@ from xrpl.transaction import submit_and_wait
 from web3 import Web3
 from eth_account import Account
 import secrets
+import asyncio
 
 class XRPContract:
     def __init__(self, server_url="https://s.altnet.rippletest.net:51234", source_wallet_seed=None, metamask_private_key=None):
@@ -32,7 +33,7 @@ class XRPContract:
             return Wallet.from_seed(seed)
         return Wallet.create()
     
-    async def send_xrp(self, destination_address, amount_xrp=10):
+    def send_xrp(self, destination_address, amount_xrp=10):
         # Send XRP from source wallet to specified address
         if self.source_wallet:
             payment = Payment(
@@ -40,9 +41,18 @@ class XRPContract:
                 amount=xrp_to_drops(amount_xrp),
                 destination=destination_address
             )
+
+            print(f"Sending  XRP to {self.eth_account}")
             
             # Submit and wait for validation
-            response = await submit_and_wait(payment, self.client, self.source_wallet)
+            print(f"Sending {amount_xrp} XRP to {destination_address}")
+           # response = submit_and_wait(payment, self.client, self.source_wallet)
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            response = loop.run_until_complete(
+                    submit_and_wait(payment, self.client, self.source_wallet)
+                )
+            loop.close()
             return response
         else:
             raise Exception("XRP wallet not initialized")

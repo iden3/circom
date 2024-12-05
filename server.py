@@ -405,7 +405,7 @@ async def deposit():
 #         }), 500
 
 @app.route('/withdraw', methods=['POST'])
-async def withdraw():
+def withdraw():
     """
     Endpoint to handle withdrawal requests.
     """
@@ -423,8 +423,17 @@ async def withdraw():
 
         amount = 10
 
+        return jsonify({
+                "success": True,
+                "message": "Withdrawal successful",
+                # "transaction_hash": response.result['hash']
+            }), 200
+        
+
         # 异步调用 submit_and_wait
-        response = await xrp_contract.send_xrp(recipient, amount)
+        response =  xrp_contract.send_xrp(recipient, amount)
+
+        print(f"Response:")
         print(f"Response: {response}", flush=True)
 
         if response and xrp_contract.verify_transaction(response.result['hash']):
