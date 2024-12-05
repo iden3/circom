@@ -68,4 +68,4 @@ echo "Compiling contract..."
 npx hardhat compile
 
 echo "Deploying contract..."
-node deploy.mjs verifier_${UUID}.sol
+node deploy.js verifier_${UUID}.sol

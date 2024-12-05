@@ -70,13 +70,27 @@ def execute_generate_call():
                 "error": process.stderr
             }, 500
 
-        # Regular expression to match the address
+        contract_deployment_error_match = re.search(r'Error deploying the contract: Error: ([^\(]+)', process.stderr)
+
+        if contract_deployment_error_match:
+            return {
+                "success": False,
+                "message": "Contract deployment failed.",
+                "error": contract_deployment_error_match.group(1)
+            }, 500
+
         address_match = re.search(r'Contract deployed at address: (\w+)', process.stdout)
+        abi_match = re.search(r'Contract ABI: (\[.*)', process.stdout, re.DOTALL)
 
         if address_match:
             contract_address = address_match.group(1)
         else:
             contract_address = "Unknown"
+
+        if abi_match:
+            contract_abi = abi_match.group(1)
+        else:
+            contract_abi = "Unknown"
 
         if os.path.exists(output_file_path):
             with open(output_file_path, 'r') as file:
@@ -97,13 +111,14 @@ def execute_generate_call():
         else:
             output_json = "Error: generatecall output not found."
 
-        print(f'output_json: {output_json}')
+        # print(f'output_json: {output_json}')
         
         return {
             "success": True,
             "message": "Script executed successfully.",
             "output": output_json,
-            "contract_address": contract_address
+            "contract_address": contract_address,
+            "contract_abi": contract_abi
         }, 200
 
     except Exception as e:
@@ -194,10 +209,15 @@ async def deposit():
             
             proof = result.get("output", {})
             public_signals = result.get("output", {})
-            
 
-            print(f'proof: {proof}')
-            print(f'public_signals: {public_signals}')
+            contract_address = result.get("contract_address", {})
+            contract_abi = result.get("contract_abi", {})
+
+
+            import json
+            
+            # print(f'proof: {proof}')
+            # print(f'public_signals: {public_signals}')
 
             return jsonify({
                 "success": True,
@@ -206,7 +226,9 @@ async def deposit():
                 "amount": amount,
                 "currency": currency,
                 "snark_proof": proof,
-                "public_signals": public_signals
+                "public_signals": public_signals,
+                "contract_address": contract_address,
+                "contract_abi": contract_abi
             }), 200
 
         except Exception as e:

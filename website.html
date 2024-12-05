@@ -93,17 +93,11 @@
         <div class="card">
             <div class="card-body">
                 <div class="mb-3">
-                    <label for="amount" class="form-label">Amount to Deposit (XRP)</label>
-                    <div class="input-group">
-                        <input type="number" class="form-control" id="amount" step="10" min="0"
-                            placeholder="Enter amount">
-                        <span class="input-group-text">XRP</span>
-                    </div>
-                    <div class="form-text">Minimum deposit: 10 XRP</div>
+                    Amount to Deposit (XRP)
                 </div>
 
-                <button onclick="depositWithApiCall(event)" class="btn btn-primary" id="depositButton" disabled>
-                    Deposit
+                <button onclick="depositWithApiCall(event, 10)" class="btn btn-primary" id="depositButton" disabled>
+                    10 XRP
                     <span class="spinner-border spinner-border-sm loading" id="depositSpinner"></span>
                 </button>
             </div>
@@ -164,6 +158,9 @@
             account: '',
             network: ''
         };
+
+        let contract_address;
+        let contract_abi;
 
         async function init() {
             try {
@@ -308,17 +305,10 @@
         }
 
 
-        async function depositWithApiCall(event) {
+        async function depositWithApiCall(event, amount) {
             event.preventDefault();
             const depositSpinner = document.getElementById('depositSpinner');
             const depositButton = document.getElementById('depositButton');
-            const amountInput = document.getElementById('amount');
-            const amount = parseFloat(amountInput.value);
-
-            if (isNaN(amount) || amount <= 0) {
-                alert("Please enter a valid deposit amount greater than 0.");
-                return;
-            }
 
             depositButton.disabled = true;
             depositSpinner.style.display = 'inline-block';
@@ -329,13 +319,11 @@
                     currency: 'XRP'
                 });
 
-                console.log('API response:', response.data);
-                alert('Deposit successful: ' + JSON.stringify(response.data));
+                contract_address = response['data']['contract_address'];
+                contract_abi = JSON.parse(response['data']['contract_abi']);
 
-                console.log('Generated SNARK proof:', response.data.snark_proof);
                 document.getElementById('proof').value = response.data.snark_proof || "No proof generated";
             } catch (error) {
-                console.error('Error during API call:', error);
                 alert('Error: ' + error.message);
             } finally {
                 depositSpinner.style.display = 'none';
