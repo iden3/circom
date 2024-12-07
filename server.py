@@ -444,12 +444,6 @@ def withdraw():
             return jsonify({"success": False, "message": "Recipient address is required"}), 400
 
         amount = 10
-
-        return jsonify({
-                "success": True,
-                "message": "Withdrawal successful",
-                # "transaction_hash": response.result['hash']
-            }), 200
         
 
         # 异步调用 submit_and_wait

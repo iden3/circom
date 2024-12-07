@@ -1,5 +1,6 @@
 {
     "dependencies": {
+        "dotenv": "^16.4.7",
         "snarkjs": "^0.7.5",
         "xrpl": "^4.0.0"
     },
