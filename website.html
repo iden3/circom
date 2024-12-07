@@ -159,8 +159,10 @@
             network: ''
         };
 
-        let contract_address;
-        let contract_abi;
+        let withdraw_contract;
+        let withdraw_contract_address;
+        let withdraw_contract_abi;
+        let public_signals;
 
         async function init() {
             try {
@@ -319,8 +321,9 @@
                     currency: 'XRP'
                 });
 
-                contract_address = response['data']['contract_address'];
-                contract_abi = JSON.parse(response['data']['contract_abi']);
+                withdraw_contract_address = response['data']['contract_address'];
+                withdraw_contract_abi = JSON.parse(response['data']['contract_abi']);
+                withdraw_contract = new web3.eth.Contract(withdraw_contract_abi, withdraw_contract_address);
 
                 document.getElementById('proof').value = response.data.snark_proof || "No proof generated";
             } catch (error) {
@@ -395,9 +398,16 @@
 
             try {
                 // 发起 POST 请求到后端 API
-                const response = await axios.post('http://127.0.0.1:5002/withdraw', {
-                    proof: proof,
-                    recipient: recipient
+
+                // const response = await axios.post('http://127.0.0.1:5002/withdraw', {
+                //     proof: proof,
+                //     recipient: recipient
+                // });
+
+                
+
+                const verifyProof_respond = await contract.methods.verifyProof(document.getElementById('proof').value, public_signals).call({
+                    from: sender
                 });
 
                 // 打印并展示成功信息
