@@ -162,7 +162,10 @@
         let withdraw_contract;
         let withdraw_contract_address;
         let withdraw_contract_abi;
-        let public_signals;
+        let proof_raw;
+        let public_signals_raw;
+        let proof_param;
+        let public_signals_param;
 
         async function init() {
             try {
@@ -325,11 +328,13 @@
                 withdraw_contract_abi = JSON.parse(response['data']['contract_abi']);
                 withdraw_contract = new web3.eth.Contract(withdraw_contract_abi, withdraw_contract_address);
 
-                document.getElementById('proof').value = response.data.snark_proof || "No proof generated";
+                document.getElementById('proof').value = response.data.snark_proof.replace(" ", "") || "No proof generated";
 
-                console.log('response.data.public_signals', response.data.public_signals);
-                const verifyProof_respond = await contract.methods.verifyProof(response.data.snark_proof, response.data.public_signals).call({
-                    from: sender
+                proof_param = response.data.snark_proof.replaceAll("\"", "").replaceAll(" ", "").split(",");
+                public_signals_param = [response.data.public_signals.replaceAll("\"", "").replaceAll("]", "")];
+
+                const verifyProof_respond = await withdraw_contract.methods.verifyProof(proof_param, public_signals_param).call({
+                    from: await web3.eth.getAccounts()[0]
                 });
 
                 console.log('verifyProof_respond:', verifyProof_respond);
