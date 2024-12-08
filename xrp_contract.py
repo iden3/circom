@@ -2,7 +2,11 @@ from xrpl.clients import JsonRpcClient
 from xrpl.models.transactions import Payment
 from xrpl.wallet import Wallet
 from xrpl.utils import xrp_to_drops
-from xrpl.transaction import submit_and_wait
+
+# from xrpl.transaction import submit_and_wait
+from xrpl.asyncio.transaction import submit_and_wait
+# from xrpl.asyncio.transaction.reliable_submission import submit_and_wait
+
 from web3 import Web3
 from eth_account import Account
 import secrets
@@ -33,7 +37,7 @@ class XRPContract:
             return Wallet.from_seed(seed)
         return Wallet.create()
     
-    def send_xrp(self, destination_address, amount_xrp=10):
+    async def send_xrp(self, destination_address, amount_xrp=10):
         # Send XRP from source wallet to specified address
         if self.source_wallet:
             payment = Payment(
@@ -46,13 +50,8 @@ class XRPContract:
             
             # Submit and wait for validation
             print(f"Sending {amount_xrp} XRP to {destination_address}")
-           # response = submit_and_wait(payment, self.client, self.source_wallet)
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            response = loop.run_until_complete(
-                    submit_and_wait(payment, self.client, self.source_wallet)
-                )
-            loop.close()
+            
+            response = await submit_and_wait(payment, self.client, self.source_wallet)
             return response
         else:
             raise Exception("XRP wallet not initialized")

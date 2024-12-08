@@ -22,7 +22,8 @@ CORS(app, resources={r"/*": {
 }})
 
 # Initialize XRP contract with source wallet seed from environment variable
-xrp_contract = XRPContract(metamask_private_key=os.getenv('METAMASK_PRIVATE_KEY'))
+# xrp_contract = XRPContract(metamask_private_key=os.getenv('METAMASK_PRIVATE_KEY'))
+xrp_contract = XRPContract()
 
     
 
