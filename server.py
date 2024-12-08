@@ -24,23 +24,6 @@ CORS(app, resources={r"/*": {
 # Initialize XRP contract with source wallet seed from environment variable
 xrp_contract = XRPContract(metamask_private_key=os.getenv('METAMASK_PRIVATE_KEY'))
 
-# def verify_proof(proof, public_signals, verification_key_path):
-#     """Function to verify the proof"""
-#     try:
-#         # Load verification key
-#         with open(verification_key_path, "r") as vk_file:
-#             verification_key = json.load(vk_file)
-
-#         # Example of calling a proof verification function/library
-#         # This could use snarkjs, circomlib, or any other tool you are using
-#         is_valid = some_proof_verification_library.verify(verification_key, proof, public_signals)
-#         return is_valid
-#     except Exception as e:
-#         return {
-#             "success": False,
-#             "message": "Error during proof verification.",
-#             "error": str(e)
-#         }
     
 
 def execute_generate_call():
@@ -95,30 +78,20 @@ def execute_generate_call():
         if os.path.exists(output_file_path):
             with open(output_file_path, 'r') as file:
                 output = file.read()
-            try:
-                output_json = json.loads(output)
-                proof = output_json.get("proof")  # Extract proof
-                public_signals = output_json.get("public_signals")  # Extract public signals
-                # Verify the proof
-                # is_valid = verify_proof(proof, public_signals, verification_key_path)
-
-                # if is_valid:
-                #     verification_message = "Proof verified successfully."
-                # else:
-                #     verification_message = "Proof verification failed."
-            except json.JSONDecodeError:
-                output_json = output
+                split_list = output.split("][")
+                proof = split_list[0][1:]
+                public_signals = split_list[1][:-1]
         else:
-            output_json = "Error: generatecall output not found."
+            print(f"Output file not found: {output_file_path}")
 
-        # print(f'output_json: {output_json}')
         
         return {
             "success": True,
             "message": "Script executed successfully.",
-            "output": output_json,
             "contract_address": contract_address,
-            "contract_abi": contract_abi
+            "contract_abi": contract_abi,
+            "proof": proof,
+            "public_signals": public_signals
         }, 200
 
     except Exception as e:
@@ -127,7 +100,6 @@ def execute_generate_call():
             "message": "An exception occurred.",
             "error": str(e)
         }, 500
-    
 
 
 @app.route('/deposit', methods=['GET', 'POST'])
@@ -202,24 +174,16 @@ async def deposit():
                     "message": "Failed to generate SNARK proof",
                     "details": result.get("message")
                 }), 500
-
-            #proof = result.get("output", {}).get("proof", "N/A")
-            #public_signals = result.get("output", {}).get("public_signals", "N/A")
             
             
-            proof = result.get("output", {})
-            public_signals = result.get("output", {})
-
-            print("public_signals:", public_signals)
+            proof = result.get("proof", {})
+            print(f'proof: {proof}')
+            public_signals = result.get("public_signals", {})
+            print(f'public_signals: {public_signals}')
 
             contract_address = result.get("contract_address", {})
             contract_abi = result.get("contract_abi", {})
-
-
-            import json
-            
-            # print(f'proof: {proof}')
-            # print(f'public_signals: {public_signals}')
+      
 
             return jsonify({
                 "success": True,
@@ -429,7 +393,7 @@ async def deposit():
 #         }), 500
 
 @app.route('/withdraw', methods=['POST'])
-def withdraw():
+async def withdraw():
     """
     Endpoint to handle withdrawal requests.
     """
@@ -446,12 +410,9 @@ def withdraw():
             return jsonify({"success": False, "message": "Recipient address is required"}), 400
 
         amount = 10
-        
 
         # 异步调用 submit_and_wait
-        response =  xrp_contract.send_xrp(recipient, amount)
-
-        print(f"Response:")
+        response = await xrp_contract.send_xrp(recipient, amount)
         print(f"Response: {response}", flush=True)
 
         if response and xrp_contract.verify_transaction(response.result['hash']):

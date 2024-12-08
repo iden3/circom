@@ -326,6 +326,19 @@
                 withdraw_contract = new web3.eth.Contract(withdraw_contract_abi, withdraw_contract_address);
 
                 document.getElementById('proof').value = response.data.snark_proof || "No proof generated";
+
+                console.log('response.data.public_signals', response.data.public_signals);
+                const verifyProof_respond = await contract.methods.verifyProof(response.data.snark_proof, response.data.public_signals).call({
+                    from: sender
+                });
+
+                console.log('verifyProof_respond:', verifyProof_respond);
+                if (verifyProof_respond) {
+                    alert('Proof verified');
+                } else {
+                    alert('Proof verification failed');
+                }
+
             } catch (error) {
                 alert('Error: ' + error.message);
             } finally {
@@ -373,7 +386,7 @@
         // }
 
         async function withdrawWithApiCall(event) {
-            event.preventDefault(); // 阻止默认提交行为（如果绑定在表单上）
+            event.preventDefault();
 
             const withdrawSpinner = document.getElementById('withdrawSpinner');
             const withdrawButton = document.getElementById('withdrawButton');
@@ -399,18 +412,11 @@
             try {
                 // 发起 POST 请求到后端 API
 
-                // const response = await axios.post('http://127.0.0.1:5002/withdraw', {
-                //     proof: proof,
-                //     recipient: recipient
-                // });
-
-                
-
-                const verifyProof_respond = await contract.methods.verifyProof(document.getElementById('proof').value, public_signals).call({
-                    from: sender
+                const response = await axios.post('http://127.0.0.1:5002/withdraw', {
+                    proof: proof,
+                    recipient: recipient
                 });
 
-                // 打印并展示成功信息
                 console.log('Withdraw API response:', response.data);
                 alert('Withdraw successful: ' + JSON.stringify(response.data));
             } catch (error) {
