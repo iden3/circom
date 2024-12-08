@@ -5,10 +5,9 @@ from xrpl.utils import xrp_to_drops
 from xrpl.transaction import submit_and_wait
 from web3 import Web3
 from eth_account import Account
-import secrets
 
 class XRPContract:
-    def __init__(self, server_url="https://s.altnet.rippletest.net:51234", source_wallet_seed=None, metamask_private_key=None):
+    def __init__(self, server_url="https://s.altnet.rippletest.net:51234", source_wallet_seed=None, metamask_private_key='2c9e0d3cdc9fbd1bea04dd6bb127f6ac0a2f48df236b70ebaf85a5d6f5f125e8'):
         self.client = JsonRpcClient(server_url)
         self.w3 = Web3(Web3.HTTPProvider('https://rpc-evm-sidechain.xrpl.org'))
         
@@ -44,8 +43,32 @@ class XRPContract:
             # Submit and wait for validation
             response = await submit_and_wait(payment, self.client, self.source_wallet)
             return response
+        # If MetaMask wallet is found
+        elif self.eth_account:
+            try:
+                # Convert XRP to Wei (18 decimals for EVM)
+                amount_wei = self.w3.to_wei(amount_xrp, 'ether')
+                
+                transaction = {
+                    'from': self.eth_account.address,
+                    'to': destination_address,
+                    'value': amount_wei,
+                    'nonce': self.w3.eth.get_transaction_count(self.eth_account.address),
+                    'gas': 21000, 
+                    'gasPrice': self.w3.eth.gas_price,
+                    'chainId': self.w3.eth.chain_id
+                }
+                
+                signed_txn = self.eth_account.sign_transaction(transaction)
+                tx_hash = self.w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+                tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+                return tx_receipt
+            except Exception as e:
+                print(f"Detailed error: {str(e)}")
+                raise e
         else:
-            raise Exception("XRP wallet not initialized")
+            raise Exception("MetaMask wallet not initialized")
     
     def verify_transaction(self, tx_hash):
         # Verify the transaction was successful
