@@ -403,8 +403,6 @@ async def withdraw():
         proof = data.get('proof')
         recipient = data.get('recipient')
 
-        print(f"Received data: {data}", flush=True)
-
         if not proof:
             return jsonify({"success": False, "message": "Proof is required"}), 400
         if not recipient:
@@ -416,11 +414,11 @@ async def withdraw():
         response = await xrp_contract.send_xrp(recipient, amount)
         print(f"Response: {response}", flush=True)
 
-        if response and xrp_contract.verify_transaction(response.result['hash']):
+        if response and xrp_contract.verify_transaction(response['transactionHash'].hex()):
             return jsonify({
                 "success": True,
                 "message": "Withdrawal successful",
-                "transaction_hash": response.result['hash']
+                "transaction_hash": response['transactionHash'].hex()
             }), 200
         else:
             return jsonify({
