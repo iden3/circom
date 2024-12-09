@@ -3,14 +3,31 @@ from xrpl.models.transactions import Payment
 from xrpl.wallet import Wallet
 from xrpl.utils import xrp_to_drops
 from xrpl.transaction import submit_and_wait
+
 from web3 import Web3
 from eth_account import Account
+from dotenv import load_dotenv
+import os
 
 class XRPContract:
-    def __init__(self, server_url="https://s.altnet.rippletest.net:51234", source_wallet_seed=None, metamask_private_key='2c9e0d3cdc9fbd1bea04dd6bb127f6ac0a2f48df236b70ebaf85a5d6f5f125e8'):
+    def __init__(self, server_url="https://s.altnet.rippletest.net:51234", source_wallet_seed=None, metamask_private_key=None):
+        # Variables:
+        # 
+        # client - XRPL RPC Client
+        # w3 - XRPL EVM Sidechain
+        # slush_pool - Wallet used to store deposited XRP
+        # source_wallet - User's wallet
+        # eth_account - User's wallet (MetaMask)
+
         self.client = JsonRpcClient(server_url)
         self.w3 = Web3(Web3.HTTPProvider('https://rpc-evm-sidechain.xrpl.org'))
-        
+
+        slush_fund_private_key = os.getenv('SLUSH_FUND_PRIVATE_KEY')
+        if not slush_fund_private_key.startswith('0x'):
+            slush_fund_private_key = '0x' + slush_fund_private_key        
+        self.slush_pool = Account.from_key(slush_fund_private_key)
+        print(f"MetaMask slush pool wallet imported successfully. Address: {self.slush_pool.address}")
+
         if metamask_private_key:
             if not metamask_private_key.startswith('0x'):
                 metamask_private_key = '0x' + metamask_private_key
@@ -31,29 +48,52 @@ class XRPContract:
             return Wallet.from_seed(seed)
         return Wallet.create()
     
-    async def send_xrp(self, destination_address, amount_xrp=10):
-        # Send XRP from source wallet to specified address
+    async def send_xrp(self, action="deposit", destination_address=None, amount_xrp=10):
+        # Send XRP to specified address
+        if action != "deposit" and action != "withdraw":
+            raise Exception(f"parameter action must be \"deposit\" or \"withdraw\", not {action}")
+
         if self.source_wallet:
-            payment = Payment(
-                account=self.source_wallet.classic_address,
-                amount=xrp_to_drops(amount_xrp),
-                destination=destination_address
-            )
+            if action == "deposit":
+                sender = self.source_wallet.classic_address
+                receiver = self.slush_pool.address
+            else:
+                sender = self.slush_pool.address
+                receiver = destination_address
             
-            # Submit and wait for validation
-            response = await submit_and_wait(payment, self.client, self.source_wallet)
-            return response
+            try:
+                payment = Payment(
+                    account=sender,
+                    amount=xrp_to_drops(amount_xrp),
+                    destination=receiver
+                )
+
+                response = await submit_and_wait(payment, self.client, self.source_wallet)
+                return response
+            except Exception as e:
+                print(f"Source Wallet Error: {str(e)}")
+                raise e
+        
         # If MetaMask wallet is found
         elif self.eth_account:
+            if action == "deposit":
+                sender = self.eth_account.address
+                receiver = self.slush_pool.address
+            else:
+                sender = self.slush_pool.address
+                receiver = destination_address
+            
+            print(sender)
+            print(receiver)
+            print(amount_xrp)
             try:
                 # Convert XRP to Wei (18 decimals for EVM)
-                amount_wei = self.w3.to_wei(amount_xrp, 'ether')
-                
+                amount_wei = self.w3.to_wei(amount_xrp, 'ether')                
                 transaction = {
-                    'from': self.eth_account.address,
-                    'to': destination_address,
+                    'from': sender,
+                    'to': receiver,
                     'value': amount_wei,
-                    'nonce': self.w3.eth.get_transaction_count(self.eth_account.address),
+                    'nonce': self.w3.eth.get_transaction_count(sender),
                     'gas': 21000, 
                     'gasPrice': self.w3.eth.gas_price,
                     'chainId': self.w3.eth.chain_id
@@ -62,14 +102,13 @@ class XRPContract:
                 signed_txn = self.eth_account.sign_transaction(transaction)
                 tx_hash = self.w3.eth.send_raw_transaction(signed_txn.raw_transaction)
                 tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
-
                 return tx_receipt
             except Exception as e:
-                print(f"Detailed error: {str(e)}")
+                print(f"MetaMask Wallet Error: {str(e)}")
                 raise e
         else:
-            raise Exception("MetaMask wallet not initialized")
-    
+            raise Exception("Issue initializing wallets")
+
     def verify_transaction(self, tx_hash):
         # Verify the transaction was successful
         try:
