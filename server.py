@@ -9,6 +9,7 @@ import re
 import json
 from dotenv import load_dotenv
 from xrp_contract import XRPContract
+from eth_account import Account
 
 load_dotenv('./.env')
 
@@ -21,7 +22,15 @@ CORS(app, resources={r"/*": {
 }})
 
 # Initialize XRP contract with source wallet seed from environment variable
-xrp_contract = XRPContract(metamask_private_key=os.getenv('METAMASK_PRIVATE_KEY'))
+wallet_private_key = os.getenv('METAMASK_PRIVATE_KEY')
+slush_fund_private_key = os.getenv('SLUSH_FUND_PRIVATE_KEY')
+
+deposit_xrp_contract = XRPContract(metamask_private_key=wallet_private_key)
+withdraw_xrp_contract = XRPContract(metamask_private_key=slush_fund_private_key)
+
+if not slush_fund_private_key.startswith('0x'):
+    slush_fund_private_key = '0x' + slush_fund_private_key        
+slush_pool = Account.from_key(slush_fund_private_key)
 
 # Initialize dictionary to exchange proofs for contract details
 contracts = {}
@@ -131,9 +140,9 @@ async def deposit():
                     "message": "Unsupported currency. Only XRP is allowed."
                 }), 400
 
-            # Step 1: Get deposit address
-            if xrp_contract.slush_pool:
-                deposit_address = xrp_contract.slush_pool.address
+            # Step 1: Get address of recipient
+            if slush_pool:
+                recipient = slush_pool.address
             else:
                 print("Slush pool wallet not initialized")
                 return jsonify({
@@ -187,7 +196,7 @@ async def deposit():
                     return jsonify({
                         "success": False,
                         "message": "Deposit failed. Smart contract function verifyProof returned false."
-                    }), 500  
+                    }), 400  
             except Exception as e:
                 return jsonify({
                     "success": False,
@@ -197,13 +206,13 @@ async def deposit():
             print("Verified proof")
 
             # Step 4: Deposit XRP to Slush Pool
-            response = await xrp_contract.send_xrp(action="deposit", amount_xrp=amount)
-            if not response or not xrp_contract.verify_transaction(response['transactionHash'].hex()):
+            response = await deposit_xrp_contract.send_xrp(destination_address=recipient, amount_xrp=amount)
+            if not response or not deposit_xrp_contract.verify_transaction(response['transactionHash'].hex()):
                 return jsonify({
                     "success": False,
                     "message": "Deposit failed. Transaction failed or could not be verified."
-                }), 500
-            print(f"Deposited {amount} {currency} to {deposit_address}")
+                }), 400
+            print(f"Deposited {amount} {currency} to {recipient}")
 
             # Step 5: Save data to server
             proof_key = proof.replace(" ", "")
@@ -220,7 +229,7 @@ async def deposit():
             return jsonify({
                 "success": True,
                 "message": "Deposit successful.",
-                "deposit_address": deposit_address,
+                "recipient": recipient,
                 "amount": amount,
                 "currency": currency,
                 "snark_proof": proof,
@@ -252,11 +261,10 @@ async def withdraw():
         
         # Step 1: Verify proof
         if proof not in contracts:
-            print("fail")
             return jsonify({
                 "success": False,
                 "message": "Withdrawal failed. No contract associated with provided proof."
-            }), 500
+            }), 400
 
         contract_info = contracts[proof]
         amount = contract_info["amount"]
@@ -275,7 +283,7 @@ async def withdraw():
                 return jsonify({
                     "success": False,
                     "message": "Withdrawal failed. Smart contract function verifyProof returned false."
-                }), 500  
+                }), 400  
         except Exception as e:
             return jsonify({
                 "success": False,
@@ -285,12 +293,12 @@ async def withdraw():
         print("Verified proof")
 
         # Step 2: Withdraw XRP to Slush Pool
-        response = await xrp_contract.send_xrp(action="withdraw", destination_address=recipient, amount_xrp=amount)
-        if not response or not xrp_contract.verify_transaction(response['transactionHash'].hex()):
+        response = await withdraw_xrp_contract.send_xrp(destination_address=recipient, amount_xrp=amount)
+        if not response or not withdraw_xrp_contract.verify_transaction(response['transactionHash'].hex()):
             return jsonify({
                 "success": False,
                 "message": "Withdrawal failed. Transaction failed or could not be verified."
-            }), 500
+            }), 400
         print(f"Withdrew {amount} XRP from the slush pool to {recipient}")
 
         # Step 3: Remove data from server
@@ -319,6 +327,3 @@ def index():
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5002)
-    # print(app.url_map)
-
-    # app.run(debug=True, host='0.0.0.0', port=5002)

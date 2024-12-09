@@ -329,15 +329,12 @@
                 proofOutput.textContent = "Proof (COPY THIS):\n" + response.data.snark_proof.replace(" ", "") || "No proof generated";
                 proofOutput.style.display = 'inline-block';
                 console.log('Deposit API response:', response.data);
-                alert('Deposit successful: ' + JSON.stringify(response.data));
             } catch (error) {
                 console.error('Error during deposit API call:', error);
-                alert('Error: ' + error.message);
             } finally {
                 depositSpinner.style.display = 'none';
                 depositButton.disabled = false;
             }
-
         }
 
         async function withdrawWithApiCall(event) {
@@ -364,10 +361,8 @@
                     recipient: recipient
                 });
                 console.log('Withdraw API response:', response.data);
-                alert('Withdraw successful: ' + JSON.stringify(response.data));
             } catch (error) {
                 console.error('Error during withdraw API call:', error);
-                alert('Error: ' + error.message);
             } finally {
                 withdrawSpinner.style.display = 'none';
                 withdrawButton.disabled = false;
