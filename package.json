@@ -1,11 +1,12 @@
 {
-    "dependencies": {
-        "dotenv": "^16.4.7",
-        "snarkjs": "^0.7.5",
-        "xrpl": "^4.0.0"
-    },
-    "devDependencies": {
-        "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-        "hardhat": "^2.22.16"
-    }
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "poseidon-hash": "^1.0.1",
+    "snarkjs": "^0.7.5",
+    "xrpl": "^4.0.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.16"
+  }
 }
