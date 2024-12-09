@@ -19,7 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables
-const PRIVATE_KEY = process.env.METAMASK_PRIVATE_KEY;
+const PRIVATE_KEY = process.env.SLUSH_FUND_PRIVATE_KEY;
 const RPC_URL = "https://rpc-evm-sidechain.xrpl.org/";
 
 // Load the compiled contract JSON

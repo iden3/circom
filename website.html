@@ -123,6 +123,9 @@
                     <span class="spinner-border spinner-border-sm loading" id="withdrawSpinner"></span>
                 </button>
             </div>
+            <div class="info-box" id="withdrawOutput">
+                Withdrawal Successful
+            </div>
         </div>
 
         <!-- Transaction Status -->
@@ -271,10 +274,13 @@
             const networkInfo = document.getElementById('networkInfo');
             const depositButton = document.getElementById('depositButton');
             const proofOutput = document.getElementById('proofOutput');
+            const withdrawOutput = document.getElementById('withdrawOutput');
             const connectButton = document.getElementById('connectButton');
 
             proofOutput.textContent = ''
             proofOutput.style.display = 'none';
+            withdrawOutput.textContent = ''
+            withdrawOutput.style.display = 'none';
 
             if (connected) {
                 statusIndicator.classList.remove('status-disconnected');
@@ -285,6 +291,8 @@
                 depositButton.disabled = false;
                 connectButton.style.display = 'none';
                 document.getElementById('recipient').value = account;
+                currentWalletState["connected"] = true;
+                currentWalletState["account"] = account;
             } else {
                 statusIndicator.classList.remove('status-connected');
                 statusIndicator.classList.add('status-disconnected');
@@ -294,6 +302,8 @@
                 depositButton.disabled = true;
                 connectButton.style.display = 'inline-block';
                 document.getElementById('recipient').value = "";
+                currentWalletState["connected"] = false;
+                currentWalletState["account"] = '';
             }
         }
 
@@ -323,12 +333,44 @@
 
             try {
                 const response = await axios.post('http://127.0.0.1:5002/deposit', {
+                    sender: currentWalletState["account"],
                     amount: amount,
                     currency: 'XRP'
                 });
-                proofOutput.textContent = "Proof (COPY THIS):\n" + response.data.snark_proof.replace(" ", "") || "No proof generated";
+                console.log("response:", response)
+                console.log("response.data.transaction:", response.data.transaction)
+
+                if (!window.ethereum) {
+                    alert("MetaMask is not detected. Please install MetaMask: https://metamask.io/download/");
+                    return;
+                }
+                const provider = window.ethereum;
+
+                try {
+                    const txHash = await provider.request({
+                        method: 'eth_sendTransaction',
+                        params: [response.data.transaction],
+                    });
+                    console.log(`Transaction sent successfully! Hash: ${txHash}`);
+                } catch (error) {
+                    if (error.code === 4001) {
+                        try {
+                        const cancel_response = await axios.post('http://127.0.0.1:5002/remove_withdrawal_request', {
+                            proof_key: response.data.proof_key
+                        });
+                        console.log("cancel_response:", cancel_response);
+                        }
+                        catch (error) {
+                            console.error("Error sending transaction:", error);
+                        }
+                    }
+                    else {
+                        console.error("Error sending transaction:", error);
+                    }
+                }
+
+                proofOutput.textContent = "Proof (COPY THIS):\n" + response.data.proof_key.replace(" ", "") || "No proof generated";
                 proofOutput.style.display = 'inline-block';
-                console.log('Deposit API response:', response.data);
             } catch (error) {
                 console.error('Error during deposit API call:', error);
             } finally {
@@ -341,6 +383,9 @@
             event.preventDefault();
             const withdrawSpinner = document.getElementById('withdrawSpinner');
             const withdrawButton = document.getElementById('withdrawButton');
+
+            const withdrawOutput = document.getElementById('withdrawOutput');
+            withdrawOutput.style.display = 'none';
 
             const proofInput = document.getElementById('proofInput');
             const recipientInput = document.getElementById('recipient');
@@ -357,9 +402,12 @@
 
             try {
                 const response = await axios.post('http://127.0.0.1:5002/withdraw', {
+                    sender: currentWalletState["account"],
                     proof: proof,
                     recipient: recipient
                 });
+                withdrawOutput.textContent = "Withdrawal Successful";
+                withdrawOutput.style.display = 'inline-block';
                 console.log('Withdraw API response:', response.data);
             } catch (error) {
                 console.error('Error during withdraw API call:', error);
