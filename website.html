@@ -101,14 +101,17 @@
                     <span class="spinner-border spinner-border-sm loading" id="depositSpinner"></span>
                 </button>
             </div>
+            <div class="info-box" id="proofOutput">
+                Proof (COPY THIS): abcdef
+            </div>
         </div>
 
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Withdraw XRP</h5>
                 <div class="mb-3">
-                    <label for="proof" class="form-label">SNARK Proof</label>
-                    <textarea class="form-control" id="proof" rows="4"
+                    <label for="proofInput" class="form-label">SNARK Proof</label>
+                    <textarea class="form-control" id="proofInput" rows="4"
                         placeholder="Enter snarkjs generatecall output"></textarea>
                 </div>
                 <div class="mb-3">
@@ -158,11 +161,6 @@
             account: '',
             network: ''
         };
-
-        let withdraw_contract;
-        let withdraw_contract_address;
-        let withdraw_contract_abi;
-        let public_signals;
 
         async function init() {
             try {
@@ -272,7 +270,11 @@
             const accountInfo = document.getElementById('accountInfo');
             const networkInfo = document.getElementById('networkInfo');
             const depositButton = document.getElementById('depositButton');
+            const proofOutput = document.getElementById('proofOutput');
             const connectButton = document.getElementById('connectButton');
+
+            proofOutput.textContent = ''
+            proofOutput.style.display = 'none';
 
             if (connected) {
                 statusIndicator.classList.remove('status-disconnected');
@@ -282,6 +284,7 @@
                 networkInfo.textContent = `Network: ${network}`;
                 depositButton.disabled = false;
                 connectButton.style.display = 'none';
+                document.getElementById('recipient').value = account;
             } else {
                 statusIndicator.classList.remove('status-connected');
                 statusIndicator.classList.add('status-disconnected');
@@ -290,6 +293,7 @@
                 networkInfo.textContent = '';
                 depositButton.disabled = true;
                 connectButton.style.display = 'inline-block';
+                document.getElementById('recipient').value = "";
             }
         }
 
@@ -311,121 +315,55 @@
             event.preventDefault();
             const depositSpinner = document.getElementById('depositSpinner');
             const depositButton = document.getElementById('depositButton');
-
             depositButton.disabled = true;
             depositSpinner.style.display = 'inline-block';
+
+            const proofOutput = document.getElementById('proofOutput');
+            proofOutput.style.display = 'none';
 
             try {
                 const response = await axios.post('http://127.0.0.1:5002/deposit', {
                     amount: amount,
                     currency: 'XRP'
                 });
-
-                withdraw_contract_address = response['data']['contract_address'];
-                withdraw_contract_abi = JSON.parse(response['data']['contract_abi']);
-                withdraw_contract = new web3.eth.Contract(withdraw_contract_abi, withdraw_contract_address);
-
-                document.getElementById('proof').value = response.data.snark_proof || "No proof generated";
-
-                console.log('response.data.public_signals', response.data.public_signals);
-                const verifyProof_respond = await contract.methods.verifyProof(response.data.snark_proof, response.data.public_signals).call({
-                    from: sender
-                });
-
-                console.log('verifyProof_respond:', verifyProof_respond);
-
-                if (verifyProof_respond) {
-                    alert('Proof verified');
-                } else {
-                    alert('Proof verification failed');
-                }
-
+                proofOutput.textContent = "Proof (COPY THIS):\n" + response.data.snark_proof.replace(" ", "") || "No proof generated";
+                proofOutput.style.display = 'inline-block';
+                console.log('Deposit API response:', response.data);
             } catch (error) {
-                alert('Error: ' + error.message);
+                console.error('Error during deposit API call:', error);
             } finally {
                 depositSpinner.style.display = 'none';
                 depositButton.disabled = false;
             }
-
         }
-
-        // async function withdrawWithApiCall() {
-        //     const withdrawSpinner = document.getElementById('withdrawSpinner');
-        //     const withdrawButton = document.getElementById('withdrawButton');
-        //     const proofInput = document.getElementById('proof');
-        //     const recipientInput = document.getElementById('recipient');
-
-        //     const proof = proofInput.value.trim();
-        //     const recipient = recipientInput.value.trim();
-
-        //     console.log('Proof:', proof);
-        //     console.log('Recipient:', recipient);
-
-        //     if (!proof || !recipient) {
-        //         alert("Please provide both the SNARK proof and recipient address.");
-        //         return;
-        //     }
-
-        //     withdrawButton.disabled = false;
-        //     withdrawSpinner.style.display = 'inline-block';
-
-        //     try {
-        //         const response = await axios.post('http://127.0.0.1:5002/withdraw', {
-        //             proof: proof,
-        //             recipient: recipient
-        //         });
-
-        //         console.log('Withdraw API response:', response.data);
-        //         alert('Withdraw successful: ' + JSON.stringify(response.data));
-        //     } catch (error) {
-        //         console.error('Error during withdraw API call:', error);
-        //         alert('Error: ' + error.message);
-        //     } finally {
-        //         withdrawSpinner.style.display = 'none';
-        //         withdrawButton.disabled = false;
-        //     }
-        // }
 
         async function withdrawWithApiCall(event) {
             event.preventDefault();
-
             const withdrawSpinner = document.getElementById('withdrawSpinner');
             const withdrawButton = document.getElementById('withdrawButton');
-            const proofInput = document.getElementById('proof');
-            const recipientInput = document.getElementById('recipient');
 
+            const proofInput = document.getElementById('proofInput');
+            const recipientInput = document.getElementById('recipient');
             const proof = proofInput.value.trim();
             const recipient = recipientInput.value.trim();
 
-            console.log('Proof:', proof);
-            console.log('Recipient:', recipient);
-
-            // 验证用户输入
             if (!proof || !recipient) {
                 alert("Please provide both the SNARK proof and recipient address.");
                 return;
             }
 
-            // 禁用按钮并显示加载动画
             withdrawButton.disabled = true;
             withdrawSpinner.style.display = 'inline-block';
 
             try {
-                // 发起 POST 请求到后端 API
-
                 const response = await axios.post('http://127.0.0.1:5002/withdraw', {
                     proof: proof,
                     recipient: recipient
                 });
-
                 console.log('Withdraw API response:', response.data);
-                alert('Withdraw successful: ' + JSON.stringify(response.data));
             } catch (error) {
-                // 打印并展示错误信息
                 console.error('Error during withdraw API call:', error);
-                alert('Error: ' + error.message);
             } finally {
-                // 恢复按钮状态并隐藏加载动画
                 withdrawSpinner.style.display = 'none';
                 withdrawButton.disabled = false;
             }
