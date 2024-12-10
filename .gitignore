@@ -31,3 +31,5 @@ ignition/deployments/chain-31337
 
 venv/
 __pycache__/xrp_contract.cpython-312.pyc
+
+commitmentproof_js/
