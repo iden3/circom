@@ -100,9 +100,16 @@
                     10 XRP
                     <span class="spinner-border spinner-border-sm loading" id="depositSpinner"></span>
                 </button>
+
+                <button onclick="deposit_mixer(event, 10)" class="btn btn-primary" id="mixerDepositButton">
+                    10 XRP Through Mixer
+                    <span class="spinner-border spinner-border-sm loading" id="depositSpinner2"></span>
+                </button>
+
+
             </div>
             <div class="info-box" id="proofOutput">
-                Proof (COPY THIS): abcdef
+                Proof (COPY THIS): Proof not Returned
             </div>
         </div>
 
@@ -122,6 +129,11 @@
                     Withdraw
                     <span class="spinner-border spinner-border-sm loading" id="withdrawSpinner"></span>
                 </button>
+
+                <button onclick="withdraw_mixer(event)" class="btn btn-primary" id="withdrawButtonMixer">
+                    Withdraw Through Mixer
+                    <span class="spinner-border spinner-border-sm loading" id="withdrawSpinner2"></span>
+                </button>
             </div>
             <div class="info-box" id="withdrawOutput">
                 Withdrawal Successful
@@ -133,7 +145,7 @@
     </div>
 
     <script>
-        const contractAddress = "0x53a7aae10d95cd4e9da9aec86e96a35895c039e2"; // Replace with actual contract address
+        const contractAddress = "0xfe2e8713bc9d75465c6fc384cdf63f9e96e55db3"; // Replace with actual contract address
         const abi = [
             {
                 "inputs": [],
@@ -143,16 +155,16 @@
                 "type": "function"
             },
             {
-                "inputs": [],
-                "name": "getBalance",
-                "outputs": [
+                "inputs": [
                     {
-                        "internalType": "uint256",
-                        "name": "",
-                        "type": "uint256"
+                        "internalType": "address payable",
+                        "name": "to",
+                        "type": "address"
                     }
                 ],
-                "stateMutability": "view",
+                "name": "withdraw",
+                "outputs": [],
+                "stateMutability": "nonpayable",
                 "type": "function"
             }
         ];
@@ -173,12 +185,11 @@
                 }
 
                 web3 = new Web3(provider);
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
 
                 const accounts = await web3.eth.getAccounts();
-                if (accounts.length > 0) {
-                    const networkId = await web3.eth.net.getId();
-                    const networkName = getNetworkName(networkId);
-                    updateWalletStatus(true, accounts[0], networkName);
+                if (accounts && accounts.length > 0) {
+                    await connectWallet();
                 } else {
                     updateWalletStatus(false);
                 }
@@ -321,6 +332,127 @@
         }
 
 
+        async function deposit_mixer(event, amount) {
+            console.log('Contract status:', contract);
+            console.log('Web3 status:', web3);
+
+
+            const depositButton = document.getElementById('mixerDepositButton');
+            const depositSpinner = document.getElementById('depositSpinner2');
+            const txStatus = document.getElementById('txStatus');
+            const proofOutput = document.getElementById('proofOutput');
+            proofOutput.style.display = 'none';
+
+            depositButton.disabled = true;
+            depositSpinner.style.display = 'inline-block';
+            txStatus.style.display = 'none';
+
+            // Convert amount to Wei (XRP EVM's smallest unit)
+            const value = web3.utils.toWei(amount.toString(), "ether");
+            const accounts = await web3.eth.getAccounts();
+            const sender = accounts[0];
+
+            try {
+                const response = await axios.post('http://127.0.0.1:5002/mixer_generate_proof', {
+                    sender: sender,
+                });
+                console.log("response from mix-depositer", response)
+                console.log("response.data.success:", response.data.success)
+
+                proof = response.data.proof;
+                console.log("proof:", proof)
+                proofOutput.textContent = "Proof (COPY THIS):\n" + response.data.proof.replace(" ", "") || "No proof generated";
+                proofOutput.style.display = 'inline-block';
+                try {
+                    await contract.methods.deposit().send({
+                        from: sender,
+                        value: value
+                    });
+                    txStatus.className = 'alert alert-success mt-3';
+                    txStatus.textContent = 'Transaction successful!';
+                    console.log('Transaction successful!');
+                    alert("Deposit Successful");
+                } catch (error) {
+                    console.error('Error during deposit API call:', error);
+                    txStatus.className = 'alert alert-danger mt-3';
+                    txStatus.textContent = `Transaction failed: ${error.message}`;
+                } finally {
+                    depositButton.disabled = false;
+                    depositSpinner.style.display = 'none';
+                    txStatus.style.display = 'block';
+                }
+            }
+            catch (error) {
+                console.error('Error during deposit API call:', error);
+            } finally {
+                depositSpinner.style.display = 'none';
+                depositButton.disabled = false;
+            }
+        }
+
+        async function withdraw_mixer(event) {
+            event.preventDefault();
+            const accounts = await web3.eth.getAccounts();
+            const sender = accounts[0];
+
+            const withdrawButton = document.getElementById('withdrawButtonMixer');
+            const withdrawSpinner = document.getElementById('withdrawSpinner2');
+            const txStatus = document.getElementById('txStatus');
+            const withdrawAddress = document.getElementById('recipient').value;
+            const withdrawOutput = document.getElementById('withdrawOutput');
+            withdrawOutput.style.display = 'none';
+
+
+            if (!web3.utils.isAddress(withdrawAddress)) {
+                alert("Please enter a valid withdrawal address");
+                return;
+            }
+
+            try {
+                const proofInput = document.getElementById('proofInput');
+                const proof = proofInput.value.trim();
+                console.log("proof in WITHDRAW", proof);
+                const response = await axios.post('http://127.0.0.1:5002/mixer_verify_proof', {
+                    sender: sender,
+                    proof: proof,
+                });
+                console.log("response from mixer_verify_proof fucntion", response)
+                console.log("response.data.sucess:", response.data.success)
+                if (response.data.success) {
+                    try {
+                        const accounts = await web3.eth.getAccounts();
+                        await contract.methods.withdraw(withdrawAddress).send({
+                            from: accounts[0]
+                        });
+
+                        txStatus.className = 'alert alert-success mt-3';
+                        txStatus.textContent = 'Withdrawal successful!';
+                        withdrawOutput.textContent = "Withdrawal Successful";
+                        withdrawOutput.style.display = 'inline-block';
+                        console.log('Withdraw API response:', response.data);
+                        alert("Withdrawal Successful");
+                    } catch (error) {
+                        console.error('Error during withdraw API call:', error);
+                        txStatus.className = 'alert alert-danger mt-3';
+                        txStatus.textContent = `Withdrawal failed: ${error.message}`;
+                    } finally {
+                        withdrawButton.disabled = false;
+                        withdrawSpinner.style.display = 'none';
+                        txStatus.style.display = 'block';
+                    }
+                }
+            }
+            catch (error) {
+                console.error('Error during deposit API call:', error);
+            } finally {
+                withdrawSpinner2.style.display = 'none';
+                withdrawButtonMixer.disabled = false;
+            }
+
+
+        }
+
+
         async function depositWithApiCall(event, amount) {
             event.preventDefault();
             const depositSpinner = document.getElementById('depositSpinner');
@@ -355,10 +487,10 @@
                 } catch (error) {
                     if (error.code === 4001) {
                         try {
-                        const cancel_response = await axios.post('http://127.0.0.1:5002/remove_withdrawal_request', {
-                            proof_key: response.data.proof_key
-                        });
-                        console.log("cancel_response:", cancel_response);
+                            const cancel_response = await axios.post('http://127.0.0.1:5002/remove_withdrawal_request', {
+                                proof_key: response.data.proof_key
+                            });
+                            console.log("cancel_response:", cancel_response);
                         }
                         catch (error) {
                             console.error("Error sending transaction:", error);
@@ -368,7 +500,6 @@
                         console.error("Error sending transaction:", error);
                     }
                 }
-
                 proofOutput.textContent = "Proof (COPY THIS):\n" + response.data.proof_key.replace(" ", "") || "No proof generated";
                 proofOutput.style.display = 'inline-block';
             } catch (error) {
@@ -406,9 +537,31 @@
                     proof: proof,
                     recipient: recipient
                 });
-                withdrawOutput.textContent = "Withdrawal Successful";
-                withdrawOutput.style.display = 'inline-block';
-                console.log('Withdraw API response:', response.data);
+                if (!response.data.success) {
+                    throw new Error("Withdrawal failed: " + response.data.error);
+                }
+                else {
+                    try {
+                        const accounts = await web3.eth.getAccounts();
+                        await contract.methods.withdraw(withdrawAddress).send({
+                            from: accounts[0]
+                        });
+
+                        txStatus.className = 'alert alert-success mt-3';
+                        txStatus.textContent = 'Withdrawal successful!';
+                        withdrawOutput.textContent = "Withdrawal Successful";
+                        withdrawOutput.style.display = 'inline-block';
+                        console.log('Withdraw API response:', response.data);
+                    } catch (error) {
+                        txStatus.className = 'alert alert-danger mt-3';
+                        txStatus.textContent = `Withdrawal failed: ${error.message}`;
+                    } finally {
+                        withdrawButton.disabled = false;
+                        withdrawSpinner.style.display = 'none';
+                        txStatus.style.display = 'block';
+                    }
+                }
+
             } catch (error) {
                 console.error('Error during withdraw API call:', error);
             } finally {

@@ -110,6 +110,106 @@ def execute_generate_call():
         }, 500
 
 
+@app.route('/mixer_generate_proof', methods=['POST'])
+async def mixer_generate_proof():
+    data = request.get_json()
+    sender = data.get('sender')
+    result_queue = queue.Queue()
+
+    def background_task():
+        try:
+            result, status_code = execute_generate_call()
+            result_queue.put((result, status_code))
+        except Exception as e:
+            result_queue.put(({"success": False, "message": str(e)}, 500))
+    
+    thread = threading.Thread(target=background_task)
+    thread.start()
+    thread.join()
+
+    try:
+        result, status_code = result_queue.get_nowait()
+    except queue.Empty:
+        result, status_code = {"success": False, "message": "Background task failed"}, 500
+        
+    if not isinstance(result, dict) or not isinstance(status_code, int):
+        raise ValueError("Invalid response from execute_generate_call()")
+
+    if not result.get("success"):
+        return jsonify({
+            "success": False,
+            "message": "Deposit failed. Could not generate SNARK proof",
+            "details": result.get("message")
+        }), 500
+
+    proof = result.get("proof", {})
+    public_signals = result.get("public_signals", {})
+    contract_address = result.get("contract_address", {})
+    contract_abi = result.get("contract_abi", {})
+
+    proof_key = proof.replace(" ", "")
+    contracts[proof_key] = {
+        "contract_address": contract_address,
+        "contract_abi": contract_abi,
+        "public_signals": public_signals
+    }
+
+    return jsonify({
+        "success": True,
+        "message": "Created proof successfully.",
+        "proof": proof,
+        "public_signals": public_signals,
+        "contract_address": contract_address,
+        "contract_abi": contract_abi
+    }), 200
+
+
+@app.route('/mixer_verify_proof', methods=['POST'])
+def mixer_verify_proof():
+    data = request.get_json()
+    sender = data.get('sender')
+    proof = data.get('proof')
+    # print(f'contracts: {contracts}')
+    contract_info = contracts[proof]
+    contract_address = contract_info["contract_address"]
+    contract_abi = contract_info["contract_abi"]
+    public_signals = contract_info["public_signals"]
+
+    # print(f"[{sender}]: Deployed proof validation smart contract at {contract_address}")
+
+    # Verify proof
+    proof_contract = w3.eth.contract(address=contract_address, abi=json.loads(contract_abi))
+    proof_param = [int(elem, 16) for elem in proof.replace("\"", "").replace(" ", "").split(",")]
+    public_signals_param = [int(public_signals.replace("\"", "").replace("]", ""), 16)]
+    # print('---------------------------verifiy proof---------------------------')
+    # print(f"proof: {proof}")
+    # print(f"contract_address: {contract_address}")
+    # print(f"contract_abi: {contract_abi}")
+    # print(f"proof_param: {proof_param}")
+    # print(f"public_signals_param: {public_signals_param}")
+    # print(f"send: {send}")
+    try:
+        result = proof_contract.functions.verifyProof(proof_param, public_signals_param).call({'from': sender})
+        print(f'result of verification on server.py: {result}')
+        if result == False:
+            return jsonify({
+                "success": False,
+                "message": "Deposit failed. Smart contract function verifyProof returned false."
+            }), 400  
+        else:
+            print(f"[{sender}]: Verified proof")
+            return jsonify({
+                "success": True,
+                "message": "Proof verified successfully."
+            }), 200  
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": "Deposit failed. Smart contract function verifyProof had an error.",
+            "error": str(e)
+        }), 500            
+    
+
 @app.route('/deposit', methods=['POST'])
 async def deposit():
     """
