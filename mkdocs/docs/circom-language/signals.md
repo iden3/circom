@@ -11,7 +11,7 @@ signal inter;
 This small example declares an input signal with identifier `in`, an N-dimension array of output signals with identifier `out` and an intermediate signal with identifier `inter`.
 
 ## Types of Signal Assignments
-Signals can only be assigned using the operations `<--` or `<==` (with the signal to be assigned occurring on the left-hand side operation) and `-->` or `==>` (with the signal to be assigned occurring on the right hand side). All these operations are translated into an assigment in the witness generation code produced by the compiler. However, the key difference between the 'double arrow' assigments `<==` and `==>` and the 'single arrow' assigments `<--` and `-->` is that only the former adds a constraint to the R1CS system stating that the signal is equal to the assigned expression. Hence, using `<--` and `-->` is considered dangerous and strongly discouraged for non expert circom programmers, as it is the most common source of programming buggy ZK-protocols using circom.
+Signals can only be assigned using the operations `<--` or `<==` (with the signal to be assigned occurring on the left-hand side operation) and `-->` or `==>` (with the signal to be assigned occurring on the right-hand side). All these operations are translated into an assigment in the witness generation code produced by the compiler. However, the key difference between the 'double arrow' assigments `<==` and `==>` and the 'single arrow' assigments `<--` and `-->` is that only the former adds a constraint to the R1CS system stating that the signal is equal to the assigned expression. Hence, using `<--` and `-->` is considered dangerous and strongly discouraged for non expert circom programmers, as it is the most common source of programming buggy ZK-protocols using circom.
 
 The safe options for assignments are `<==` and `==>`, since the assigned value is the only solution to the constraint system. Using `<--` and `-->` should be avoided, and only used when the assigned expression cannot be included in an arithmetic constraint in R1CS, like in the following example.
 
@@ -127,7 +127,7 @@ component main = B();
 
 This example produces a compilation error since value of signal `outA` depends on the value of signal `in`, even though, such a value is the constant 3.
 
-Signals can only be assigned using the operations `<--` or `<==` (see [Basic operators](../basic-operators)) with the signal on the left-hand side and `-->` or `==>` (see [Basic operators](../basic-operators)) with the signal on the right hand side. The safe options are `<==` and `==>`, since they assign values and also generate constraints at the same time. Using `<--` and `-->` is, in general, dangerous and should only be used when the assigned expression cannot be included in a constraint, like in the following example.
+Signals can only be assigned using the operations `<--` or `<==` (see [Basic operators](../basic-operators)) with the signal on the left-hand side and `-->` or `==>` (see [Basic operators](../basic-operators)) with the signal on the right-hand side. The safe options are `<==` and `==>`, since they assign values and also generate constraints at the same time. Using `<--` and `-->` is, in general, dangerous and should only be used when the assigned expression cannot be included in a constraint, like in the following example.
 
 ```text
 out[k] <-- (in >> k) & 1;
