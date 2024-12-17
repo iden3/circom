@@ -33,9 +33,12 @@ pub type FieldMap = Vec<Vec<FieldData>>;
 pub type InputList = Vec<InputInfo>;
 pub type TemplateList = Vec<String>;
 pub struct InfoParallel{
+    pub template_name: String,
     pub name: String,
     pub is_parallel: bool,
     pub is_not_parallel: bool,
+    pub is_extern_c: bool,
+    pub n_io_signals: usize
 }
 pub type TemplateListParallel = Vec<InfoParallel>;
 pub type SignalList = Vec<usize>;

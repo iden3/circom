@@ -34,9 +34,10 @@ pub fn build_declaration(
     xtype: VariableType,
     name: String,
     dimensions: Vec<Expression>,
+    is_anonymous: bool,
 ) -> Statement {
     let is_constant = true;
-    Declaration { meta, xtype, name, dimensions, is_constant }
+    Declaration { meta, xtype, name, dimensions, is_constant, is_anonymous }
 }
 
 pub fn build_substitution(

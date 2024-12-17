@@ -88,7 +88,7 @@ fn build_template_instances(
             message_id: tmp_id,
             params: Vec::new(),
             header: header.clone(),
-            wires: template.wires,
+            wires: template.wires.clone(),
             constants: instance_values,
             files: &c_info.file_library,
             triggers: template.triggers,
@@ -114,6 +114,8 @@ fn build_template_instances(
             number_of_outputs: template.number_of_outputs,
             number_of_intermediates: template.number_of_intermediates,
             has_parallel_sub_cmp: template.has_parallel_sub_cmp,
+            is_extern_c: template.is_extern_c,
+            wires: template.wires,
             ..TemplateCodeInfo::default()
         };
         let code = template.code;
@@ -429,9 +431,12 @@ fn build_template_list_parallel(vcp: &VCP) -> TemplateListParallel {
     let mut tmp_list = TemplateListParallel::new();
     for instance in &vcp.templates {
         tmp_list.push(InfoParallel{
+            template_name: instance.template_name.clone(),
             name: instance.template_header.clone(), 
             is_parallel: instance.is_parallel || instance.is_parallel_component,
             is_not_parallel: !instance.is_parallel && instance.is_not_parallel_component,
+            is_extern_c: instance.is_extern_c,
+            n_io_signals: instance.number_of_io_signal_names
         });
     }
     tmp_list

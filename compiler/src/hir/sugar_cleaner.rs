@@ -454,6 +454,7 @@ fn rmv_sugar(fresh_variable: &str, expr: Expression, buffer: &mut Vec<Statement>
         xtype: VariableType::Var,
         name: fresh_variable.to_string(),
         dimensions: vec![],
+        is_anonymous: false
     };
     let initialization = Substitution {
         meta: initialization_meta,
@@ -562,6 +563,7 @@ fn split_return(stmt: Statement, id: usize) -> ReturnSplit {
             name: id.to_string(),
             dimensions: expr_lengths,
             is_constant: false,
+            is_anonymous: false,
         };
         let substitution = Substitution {
             meta: substitution_meta,

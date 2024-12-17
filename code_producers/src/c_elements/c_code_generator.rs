@@ -389,13 +389,18 @@ pub fn build_call(header: String, arguments: Vec<String>) -> String {
 }
 
 pub fn set_list(elems: Vec<usize>) -> String {
-    let mut set_string = "{".to_string();
-    for elem in elems {
-        set_string = format!("{}{},", set_string, elem);
+    if elems.len() == 0{
+        "{}".to_string()
+    } else{
+        let mut set_string = "{".to_string();
+        for elem in elems {
+            set_string = format!("{}{},", set_string, elem);
+        }
+        set_string.pop();
+        set_string .push('}');
+        set_string
     }
-    set_string.pop();
-    set_string .push('}');
-    set_string
+    
 }
 
 pub fn set_list_tuple(elems: Vec<(usize, usize)>) -> String {
@@ -482,6 +487,17 @@ pub fn collect_template_headers(instances: &TemplateListParallel) -> Vec<String>
             let create_header = format!("void {}_create({});", instance.name, params_create);
             template_headers.push(create_header);
             template_headers.push(run_header);
+        }
+        if instance.is_extern_c{
+            /* 
+            let mut params_io = Vec::new();
+            for i in 0..instance.n_io_signals{
+                params_io.push("FrElement* io_{}", i);
+            }
+            let run_header = format!("void {}({});", instance.template_name, argument_list(params_io));
+
+            template_headers.push(run_header);
+            */
         }
     }
     template_headers
