@@ -147,6 +147,7 @@ pub enum Definition {
         body: Statement,
         parallel: bool,
         is_custom_gate: bool,
+        is_extern_c: bool
     },
     Function {
         meta: Meta,
@@ -171,8 +172,9 @@ pub fn build_template(
     body: Statement,
     parallel: bool,
     is_custom_gate: bool,
+    is_extern_c: bool
 ) -> Definition {
-    Definition::Template { meta, name, args, arg_location, body, parallel, is_custom_gate }
+    Definition::Template { meta, name, args, arg_location, body, parallel, is_custom_gate, is_extern_c }
 }
 
 pub fn build_function(
@@ -223,6 +225,7 @@ pub enum Statement {
         name: String,
         dimensions: Vec<Expression>,
         is_constant: bool,
+        is_anonymous: bool
     },
     Substitution {
         meta: Meta,

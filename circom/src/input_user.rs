@@ -484,7 +484,7 @@ mod input_processing {
                 Arg::with_name("no_asm")
                     .long("no_asm")
                     .takes_value(false)
-                    .hidden(true)
+                    .hidden(false)
                     .display_order(990)
                     .help("Does not use asm files for witness generation in C, uses new version"),
             )

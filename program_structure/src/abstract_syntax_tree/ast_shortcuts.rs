@@ -66,9 +66,8 @@ pub fn split_declaration_into_single_nodes(
         let name = symbol.name.clone();
         let dimensions = symbol.is_array;
         let possible_init = symbol.init;
-        let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone());
+        let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone(), false);
         initializations.push(single_declaration);
-        
         // For the variables, we need to initialize them to 0 in case:
         //     - They are not initialized to other value
         //     - They are arrays (and maybe not all positions are initialized)
@@ -112,7 +111,7 @@ pub fn split_declaration_into_single_nodes_and_multisubstitution(
         let name = symbol.name.clone();
         let dimensions = symbol.is_array;
         debug_assert!(symbol.init.is_none());
-        let single_declaration = build_declaration(with_meta.clone(), has_type, name.clone(), dimensions.clone());
+        let single_declaration = build_declaration(with_meta.clone(), has_type, name.clone(), dimensions.clone(), false);
         initializations.push(single_declaration);
         
         if xtype == Var && (init.is_none() || dimensions.len() > 0) &&!flag_no_init {
@@ -160,7 +159,7 @@ pub fn split_bus_declaration_into_single_nodes(
         let name = symbol.name.clone();
         let dimensions = symbol.is_array;
         let possible_init = symbol.init;
-        let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone());
+        let single_declaration = build_declaration(with_meta, has_type, name, dimensions.clone(), false);
         
         let mut value = bustype.clone();
         for dim_expr in dimensions.iter().rev(){
@@ -197,7 +196,7 @@ pub fn split_bus_declaration_into_single_nodes_and_multisubstitution(
         let name = symbol.name.clone();
         let dimensions = symbol.is_array;
         debug_assert!(symbol.init.is_none());
-        let single_declaration = build_declaration(with_meta.clone(), has_type, name.clone(), dimensions.clone());
+        let single_declaration = build_declaration(with_meta.clone(), has_type, name.clone(), dimensions.clone(), false);
         let bus_declaration = build_substitution(meta.clone(), symbol.name.clone(), vec![], AssignVar, bustype.clone());
         initializations.push(single_declaration);
         initializations.push(bus_declaration);

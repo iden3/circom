@@ -147,6 +147,7 @@ pub struct BusInstance{
 pub struct Component {
     pub name: String,
     pub lengths: Vec<Length>,
+    pub is_anonymous: bool,
 }
 
 impl Component {
@@ -195,6 +196,7 @@ pub struct TemplateInstance {
     pub number_of_inputs: usize,
     pub number_of_outputs: usize,
     pub number_of_intermediates: usize,
+    pub number_of_io_signal_names: usize,
     pub wires: Vec<Wire>,
     pub signals_to_tags: HashMap<Vec<String>, BigInt>,
     pub components: Vec<Component>,
@@ -202,6 +204,7 @@ pub struct TemplateInstance {
     pub triggers: Vec<Trigger>,
     pub clusters: Vec<TriggerCluster>,
     pub code: Code,
+    pub is_extern_c: bool,
 }
 
 pub struct TemplateConfig {
@@ -217,6 +220,7 @@ pub struct TemplateConfig {
     pub components: Vec<Component>,
     pub arguments: Vec<Argument>,
     pub signals_to_tags: HashMap<Vec<String>, BigInt>,
+    pub is_extern_c: bool,
 }
 impl TemplateInstance {
     pub fn new(config: TemplateConfig) -> TemplateInstance {
@@ -233,26 +237,29 @@ impl TemplateInstance {
             number_of_inputs: 0,
             number_of_outputs: 0,
             number_of_intermediates: 0,
+            number_of_io_signal_names: 0,
             number_of_components: config.number_of_components,
             wires: Vec::new(),
             components: config.components,
             triggers: config.triggers,
             clusters: config.clusters,
             signals_to_tags: config.signals_to_tags,
+            is_extern_c: config.is_extern_c
         }
     }
 
     pub fn add_signal(&mut self, wire: Wire) {
-        use SignalType::*;
         let new_signals = wire.size();
         match wire.xtype() {
-            Input => {
+            SignalType::Input => {
                 self.number_of_inputs += new_signals;
+                self.number_of_io_signal_names += 1;
             }
-            Output => {
+            SignalType::Output => {
                 self.number_of_outputs += new_signals;
+                self.number_of_io_signal_names += 1;
             }
-            Intermediate => {
+            SignalType::Intermediate => {
                 self.number_of_intermediates += new_signals;
             }
         }

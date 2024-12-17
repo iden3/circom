@@ -2,6 +2,8 @@ use crate::intermediate_representation::InstructionList;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
+use crate::hir::very_concrete_program::Wire;
+use program_structure::ast::SignalType;
 
 type TemplateID = usize;
 pub type TemplateCode = Box<TemplateCodeInfo>;
@@ -18,11 +20,13 @@ pub struct TemplateCodeInfo {
     pub number_of_inputs: usize,
     pub number_of_outputs: usize, 
     pub number_of_intermediates: usize, // Not used now
+    pub wires: Vec<Wire>,
     pub body: InstructionList,
     pub var_stack_depth: usize,
     pub expression_stack_depth: usize,
     pub signal_stack_depth: usize, // Not used now
     pub number_of_components: usize,
+    pub is_extern_c: bool
 }
 impl ToString for TemplateCodeInfo {
     fn to_string(&self) -> String {
@@ -298,10 +302,89 @@ impl TemplateCodeInfo {
         run_body.push(format!("{};", declare_index_multiple_eq()));
         run_body.push(format!("int cmp_index_ref_load = -1;"));
 
-        for t in &self.body {
+
+
+        // TODO: in case it is a extern_c change this for the call to the function implementing
+        // the template
+        if self.is_extern_c{
+            // call of the external C -> arguments: name of inputs/outputs with their sizes
+            // name of the function -> name of the template
+            // send the parameters of the template? -> variables used in loops?
+            run_body.push("{".to_string());
+            // build the info of the inputs/outputs
+            let mut outputs_info: Vec<(usize, String, Vec<usize>)> = Vec::new();
+            let mut inputs_info: Vec<(usize, String, Vec<usize>)> = Vec::new();
+
+            let mut index = 0;
+            for wire in &self.wires{
+                match wire.xtype() {
+                    SignalType::Intermediate =>{
+                        index += wire.size();
+                    }
+                    SignalType::Output=>{
+                        outputs_info.push(
+                            (
+                                index,
+                                wire.name().clone(),
+                                wire.lengths().clone()
+                            )
+                        );
+                        index += wire.size();
+                    }
+                    SignalType::Input=>{
+                        inputs_info.push(
+                            (
+                                index,
+                                wire.name().clone(),
+                                wire.lengths().clone()
+                            )
+                        );
+                        index += wire.size();
+                    }
+                }
+            }
+            // Generate the arguments of the call
+            let mut arguments = Vec::new();
+            for (position, name , size) in outputs_info{
+                
+                run_body.push(format!("int size_{}[{}] = {};",
+                    name, size.len(), set_list(size)
+                ));
+                arguments.push(
+                    format!("&signalValues[{} + {}]",
+                        my_signal_start(),
+                        position
+                    )
+                );
+                arguments.push(
+                    format!("size_{}", name)
+                );
+            }
+            for (position, name , size) in inputs_info{
+                run_body.push(format!("int size_{}[{}] = {};",
+                    name, size.len(), set_list(size)
+                ));
+                arguments.push(
+                    format!("&signalValues[{} + {}]",
+                        my_signal_start(),
+                        position
+                    )
+                );
+                arguments.push(
+                    format!("size_{}", name)
+                );
+            }
+
+            run_body.push(format!("{};",build_call(self.name.clone(), arguments)));
+            run_body.push("}".to_string());
+
+        } else{
+            for t in &self.body {
             let (mut instructions_body, _) = t.produce_c(producer, Some(parallel));
             run_body.append(&mut instructions_body);
         }
+        }
+
 	// parallelism (join at the end of the function)
 	if self.number_of_components > 0 && self.has_parallel_sub_cmp {
             run_body.push(format!("{{"));

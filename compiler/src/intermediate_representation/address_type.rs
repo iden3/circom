@@ -33,7 +33,14 @@ impl ToString for InputInformation {
 pub enum AddressType {
     Variable,
     Signal,
-    SubcmpSignal { cmp_address: InstructionPointer, uniform_parallel_value: Option<bool>, is_output: bool, input_information: InputInformation },
+    SubcmpSignal { 
+        cmp_address: InstructionPointer, 
+        uniform_parallel_value: Option<bool>, 
+        is_output: bool, 
+        input_information: InputInformation,
+        is_anonymous: bool,
+        cmp_name: String,
+    },
 }
 
 impl ToString for AddressType {
