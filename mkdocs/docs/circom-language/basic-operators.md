@@ -146,7 +146,7 @@ template IsZero() {
 component main {public [in]}= IsZero();
 ```
 
-This template checks if the input signal `in` is `0`. In case it is, the value of output signal`out` is `1`. `0`, otherwise. Note here that we use the intermediate signal `inv` to compute the inverse of the value of `in` or `0` if it does not exist. If `in`is 0, then `in*inv` is 0, and the value of `out` is `1`. Otherwise, `in*inv` is always `1`, then `out` is `0`.
+This template checks if the input signal `in` is `0`. In case it is, the value of output signal`out` is `1`. `0`, otherwise. Note here that we use the intermediate signal `inv` to compute the inverse of the value of `in` or `0` if it does not exist. If `in` is 0, then `in*inv` is 0, and the value of `out` is `1`. Otherwise, `in*inv` is always `1`, then `out` is `0`.
 
 ```text
 pragma circom 2.0.0;

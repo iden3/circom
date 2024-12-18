@@ -550,7 +550,7 @@ impl WriteC for CallBucket {
 			    map_prologue.push(format!("{{"));
 			    map_prologue.push(format!("uint map_accesses_aux[{}];",indexes.len().to_string()));	
 			    map_prologue.push(format!("{{"));
-			    //cur_def contains a pointer to the definion of the next acces.
+			    //cur_def contains a pointer to the definition of the next access.
 			    //The first time it is taken from template_ins_2_io_info
 			    map_prologue.push(format!("IOFieldDef *cur_def = &({}->{}[{}].defs[{}]);",
 						      circom_calc_wit(), template_ins_2_io_info(),
@@ -574,7 +574,7 @@ impl WriteC for CallBucket {
 					let (mut index_code, index_exp) = index_list[i].produce_c(producer, parallel);
 					map_prologue.append(&mut index_code);
 					map_prologue.push(format!("map_index_aux[{}]={};",i.to_string(),index_exp));
-					// multiply the offset inthe array by the size of the elements
+					// multiply the offset in the array by the size of the elements
 					map_index = format!("({})*cur_def->lengths[{}]+map_index_aux[{}]",
 							    map_index,(i-1).to_string(),i.to_string());
 				    }
