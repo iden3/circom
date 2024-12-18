@@ -1,6 +1,6 @@
 ---
 description: >-
-  This tutorial guide you through the process of writing your first program
+  This tutorial guides you through the process of writing your first program
   using the main features of circom: signals, variables, templates, components,
   and arrays.
 ---
@@ -30,6 +30,6 @@ template Multiplier2 () {
 
 First, the `pragma` instruction is used to specify the compiler version. This is to ensure that the circuit is compatible with the compiler version indicated after the `pragma` instruction. Otherwise, the compiler will throw a warning. 
 
-Then, we use the reserved keyword `template` to define the shape of a new circuit, called `Multiplier2`.  Now, we have to define its [signals](../../circom-language/signals). Signals can be named with an identifier, e.g.,  `a, b, c.`  In this circuit, we have two input signals`a, b` and an output signal `c`.  Finally, we use `<==` to set that the value of `c` is the result of multiplying the values of `a` and `b`.  Equivalently, we could have also used the operator `==>`, e.g., `a * b ==> c`.
+Then, we use the reserved keyword `template` to define the shape of a new circuit, called `Multiplier2`.  Now, we have to define its [signals](../../circom-language/signals). Signals can be named with an identifier, e.g.,  `a, b, c.`  In this circuit, we have two input signals `a, b` and an output signal `c`.  Finally, we use `<==` to set that the value of `c` is the result of multiplying the values of `a` and `b`.  Equivalently, we could have also used the operator `==>`, e.g., `a * b ==> c`.
 
 Let us notice that in each template, we first declare its signals, and after that, the associated constraints.

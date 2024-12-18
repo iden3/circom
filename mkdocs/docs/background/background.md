@@ -109,5 +109,5 @@ An assignment of the signals is called a **witness**. For example, `{a = 2, b = 
 
 ## Summary <a id="summary"></a>
 
-​**In summary, zk-SNARK proofs are an specific type of zero-knowledge proofs that allow you to prove that you know a set of signals (witness) that match all the constraints of a circuit without revealing any of the signals except the public inputs and the outputs.**
+​**In summary, zk-SNARK proofs are a specific type of zero-knowledge proofs that allow you to prove that you know a set of signals (witness) that match all the constraints of a circuit without revealing any of the signals except the public inputs and the outputs.**
 
