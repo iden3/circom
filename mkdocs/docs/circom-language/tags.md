@@ -29,11 +29,11 @@ template A(){
     ...
 }
 ```
-The input array `in` is declared with the tag `binary`. This tag means that each signal in the array is always expected to be `0`or `1`, in order to compute the corresponding number correctly. 
+The input array `in` is declared with the tag `binary`. This tag means that each signal in the array is always expected to be `0` or `1`, in order to compute the corresponding number correctly. 
 
 Then, whenever the previous template is instantiated, the compiler checks if the array  `a` assigned to the input array has the tag binary, since `in` has the tag `binary` in its declaration. If it does not, an error is reported. Notice that the compiler also checks if both arrays have the same size. 
 
-It is important to highlight that the compiler does never make any check about the validity of the tags. It is the programmer's responsibility to include the constraints and executable code to guarantee that the intended meaning of each signal is always true.
+It is important to highlight that the compiler never does make any check about the validity of the tags. It is the programmer's responsibility to include the constraints and executable code to guarantee that the intended meaning of each signal is always true.
 
 When doing a substitution from a tagged signal to another signal, the tags are always inherited by it (even if it is not declared with it). For instance,
 
