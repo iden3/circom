@@ -22,7 +22,7 @@ where the linear expression is represented by a dictionary with the signal numbe
 ```
 { "sig_num_l1": "coef_1", ... , "sig_num_lm": "coef_m"}`
 ```
-If you also include the ```--sym``` flag, in the generated [sym file](sym.md) you can see the qualified name in the circom program associted to each signal number, with the signal number 0 always expressing the constant 1. This way we can express any constant by having it as coeficient of the signal 0.
+If you also include the ```--sym``` flag, in the generated [sym file](sym.md) you can see the qualified name in the circom program associated to each signal number, with the signal number 0 always expressing the constant 1. This way we can express any constant by having it as coeficient of the signal 0.
 
 Let us consider the following simple circuit in 'basic.circom':
 
@@ -60,7 +60,7 @@ a file 'basic_contraints.json' is generated and it contains two constraints:
 }
 ```
 
- As we can see, only constant and renaming (equalities between signals) simplifications have been aplied
+ As we can see, only constant and renaming (equalities between signals) simplifications have been applied
 (since the --O1 simplification is the default).
 
 Instead, if we run
@@ -81,7 +81,7 @@ to indicate that we do not want to apply any simplification the generated file '
 ]
 }
 ```
-Finaly, if we run 
+Finally, if we run 
 
 ```text
 circom basic.circom --json --wasm --O2
