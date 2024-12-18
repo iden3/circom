@@ -60,7 +60,7 @@ a file 'basic_contraints.json' is generated and it contains two constraints:
 }
 ```
 
- As we can see, only constant and renaming (equalities between signals) simplifications have been aplied
+ As we can see, only constant and renaming (equalities between signals) simplifications have been applied
 (since the --O1 simplification is the default).
 
 Instead, if we run
@@ -81,7 +81,7 @@ to indicate that we do not want to apply any simplification the generated file '
 ]
 }
 ```
-Finaly, if we run 
+Finally, if we run 
 
 ```text
 circom basic.circom --json --wasm --O2
