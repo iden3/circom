@@ -22,7 +22,8 @@ where the linear expression is represented by a dictionary with the signal numbe
 ```
 { "sig_num_l1": "coef_1", ... , "sig_num_lm": "coef_m"}`
 ```
-If you also include the ```--sym``` flag, in the generated [sym file](sym.md) you can see the qualified name in the circom program associated to each signal number, with the signal number 0 always expressing the constant 1. This way we can express any constant by having it as coeficient of the signal 0.
+
+If you also include the ```--sym``` flag, in the generated [sym file](sym.md) you can see the qualified name in the circom program associated to each signal number, with the signal number 0 always expressing the constant 1. This way we can express any constant by having it as coefficient of the signal 0.
 
 Let us consider the following simple circuit in 'basic.circom':
 
