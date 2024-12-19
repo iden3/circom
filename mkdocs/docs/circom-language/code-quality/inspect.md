@@ -9,9 +9,9 @@ When using --inspect option, the compiler searches for signals that may be under
 1) The compiler throws a warning if a signal defined in a template does not appear in any constraint of such template for the given instantiation.
 
 ```
-template B(n) {
+template B() {
   signal input in;
-  signal input out;
+  signal output out;
   out <== in + 1;
 }
 
