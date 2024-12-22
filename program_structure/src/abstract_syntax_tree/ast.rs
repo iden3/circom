@@ -1,5 +1,6 @@
 use crate::{file_definition::{FileLocation, FileID}, error_definition::Report, error_code::{ReportCode}};
 use num_bigint::BigInt;
+use serde::{ser::{Serialize, SerializeStruct}, Serializer};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Clone)]
@@ -80,8 +81,17 @@ impl Meta {
         self.file_id = Option::Some(file_id);
     }
 }
+impl Serialize for Meta {
+    /// An empty serializer for the [Meta] type in order to keep the output small
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_struct("Meta", 0)?.end()
+    }
+}
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct AST {
     pub meta: Meta,
     pub compiler_version: Option<Version>,
@@ -137,7 +147,7 @@ impl AST {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum Definition {
     Template {
         meta: Meta,
@@ -195,7 +205,7 @@ pub fn build_bus(
     Definition::Bus { meta, name, args, arg_location, body }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum Statement {
     IfThenElse {
         meta: Meta,
@@ -271,7 +281,7 @@ pub enum SignalType {
 pub type TagList = Vec<String>;
 
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
 pub enum VariableType {
     Var,
     Signal(SignalType, TagList),
@@ -280,7 +290,7 @@ pub enum VariableType {
     Bus(String, SignalType, TagList),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum Expression {
     InfixOp {
         meta: Meta,
@@ -342,7 +352,7 @@ pub enum Expression {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum Access {
     ComponentAccess(String),
     ArrayAccess(Expression),
@@ -354,14 +364,14 @@ pub fn build_array_access(expr: Expression) -> Access {
     Access::ArrayAccess(expr)
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize)]
 pub enum AssignOp {
     AssignVar,
     AssignSignal,
     AssignConstraintSignal,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize)]
 pub enum ExpressionInfixOpcode {
     Mul,
     Div,
@@ -385,7 +395,7 @@ pub enum ExpressionInfixOpcode {
     BitXor,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize)]
 pub enum ExpressionPrefixOpcode {
     Sub,
     BoolNot,
@@ -394,7 +404,7 @@ pub enum ExpressionPrefixOpcode {
 
 // Knowledge buckets
 
-#[derive(Clone, PartialOrd, PartialEq, Ord, Eq)]
+#[derive(Clone, PartialOrd, PartialEq, Ord, Eq, Serialize)]
 pub enum TypeReduction {
     Variable,
     Component(Option<String>),
@@ -403,7 +413,7 @@ pub enum TypeReduction {
     Tag,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub enum LogArgument {
     LogStr(String),
     LogExp(Expression),
@@ -416,7 +426,7 @@ pub fn build_log_expression(expr: Expression) -> LogArgument {
 }
 
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize)]
 pub struct TypeKnowledge {
     reduces_to: Option<TypeReduction>,
 }
@@ -465,7 +475,7 @@ impl TypeKnowledge {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize)]
 pub struct MemoryKnowledge {
     concrete_dimensions: Option<Vec<usize>>,
     full_length: Option<usize>,

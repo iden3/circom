@@ -13,12 +13,14 @@ mod syntax_sugar_remover;
 
 use include_logic::{FileStack, IncludesGraph};
 use num_bigint::BigInt;
-use program_structure::ast::{produce_compiler_version_report, produce_report, produce_report_with_message, produce_version_warning_report, Expression};
+use program_structure::ast::{produce_compiler_version_report, produce_report, produce_report_with_message, produce_version_warning_report, AST, Expression};
 use program_structure::error_code::ReportCode;
 use program_structure::error_definition::ReportCollection;
 use program_structure::error_definition::Report;
 use program_structure::file_definition::{FileLibrary};
 use program_structure::program_archive::ProgramArchive;
+use std::fs::File;
+use std::io::Write;
 use std::path::{PathBuf, Path};
 use syntax_sugar_remover::{apply_syntactic_sugar};
 
@@ -57,6 +59,17 @@ pub fn find_file(
     (found, path, src, crr_str_file, reports)
 }
 
+fn write_json_file(path: &PathBuf, ast: &AST) -> () {
+    // Add the JSON extension to the file
+    let mut path = path.clone();
+    path.set_extension("json");
+    // Display the target path
+    println!("Writing to JSON file: {}", path.display());
+    let mut file = File::create(path).unwrap();
+    let json = serde_json::to_string_pretty(ast).unwrap();
+    file.write_all(json.as_bytes()).unwrap();
+}
+
 pub fn run_parser(
     file: String,
     version: &str,
@@ -74,13 +87,14 @@ pub fn run_parser(
     ext_link_libraries.append(&mut link_libraries2);
     while let Some(crr_file) = FileStack::take_next(&mut file_stack) {
         let (found, path, src, crr_str_file, reports) =
-            find_file(crr_file, ext_link_libraries.clone());
+            find_file(crr_file.clone(), ext_link_libraries.clone());
         if !found {
             return Result::Err((file_library.clone(), reports));
         }
         let file_id = file_library.add_file(path.clone(), src.clone());
         let program =
             parser_logic::parse_file(&src, file_id, field).map_err(|e| (file_library.clone(), e))?;
+        write_json_file(&crr_file, &program);
         if let Some(main) = program.main_component {
             main_components.push((file_id, main, program.custom_gates));
         }
