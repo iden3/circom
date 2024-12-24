@@ -32,7 +32,7 @@ pub struct CProducer {
     string_table: Vec<String>,
     //New for buses
     pub num_of_bus_instances: usize,  //total number of different bus instances
-    //pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances
+    //pub size_of_bus_fields: usize,  //total number of fields in all different bus intances
     pub busid_field_info: FieldMap, //for every busId (0..num-1) provides de offset, size, dimensions and busId of each field (0..n-1) in it
 }
 
