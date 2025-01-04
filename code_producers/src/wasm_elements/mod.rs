@@ -57,10 +57,10 @@ pub struct WASMProducer {
     create_loop_offset_tag: String,
     create_loop_counter_tag: String,
     merror_tag: String,
-    string_table:  Vec<String>,
+    string_table: Vec<String>,
     //New for buses
-    pub num_of_bus_instances: usize,  //total number of different bus instances
-//    pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances ???
+    pub num_of_bus_instances: usize, //total number of different bus instances
+    //    pub size_of_bus_fields: usize,  //total number of fields in all different bus instances ???
     pub busid_field_info: FieldMap, //for every busId (0..num-1) provides de offset, the dimensions and size of each field (0..n-1) in it
 }
 
@@ -82,22 +82,23 @@ impl Default for WASMProducer {
             number_of_main_outputs: 0, //2,
             number_of_main_inputs: 0,  // 4,
             main_input_list: [
-                InputInfo{
-                    name:"in1".to_string(), 
-                    size:1, 
-		    dimensions: Vec::new(),
-                    start: 1, 
-                    bus_id: None
+                InputInfo {
+                    name: "in1".to_string(),
+                    size: 1,
+                    dimensions: Vec::new(),
+                    start: 1,
+                    bus_id: None,
                 },
-                InputInfo{
-                    name:"in2".to_string(), 
-                    size:1, 
-		    dimensions: Vec::new(),
-                    start: 2, 
-                    bus_id: None
-                }
-            ].to_vec(),
-            signals_in_witness: 0,                                                      //20,
+                InputInfo {
+                    name: "in2".to_string(),
+                    size: 1,
+                    dimensions: Vec::new(),
+                    start: 2,
+                    bus_id: None,
+                },
+            ]
+            .to_vec(),
+            signals_in_witness: 0,                //20,
             witness_to_signal_list: [].to_vec(), //[0,1,2,3,4,5,6,12,16,19,24,27,33,42,46,50,51,65,78,79].to_vec(),
             message_list: [].to_vec(), //["Main".to_string(),"Hola Herme".to_string(),"Hola Albert".to_string()].to_vec(),
             total_number_of_signals: 0, //80,
@@ -138,13 +139,13 @@ impl Default for WASMProducer {
             create_loop_sub_cmp_tag: "$createloopsubcmp".to_string(),
             create_loop_offset_tag: "$createloopoffset".to_string(),
             create_loop_counter_tag: "$createloopcounter".to_string(),
-	        merror_tag: "$merror".to_string(),
+            merror_tag: "$merror".to_string(),
             string_table: Vec::new(),
-	    //New for buses
-	    num_of_bus_instances: 0,
-//	    size_of_bus_fields: 0,
-	    busid_field_info: Vec::new(), 
-       }
+            //New for buses
+            num_of_bus_instances: 0,
+            //	    size_of_bus_fields: 0,
+            busid_field_info: Vec::new(),
+        }
     }
 }
 
@@ -204,11 +205,11 @@ impl WASMProducer {
     pub fn get_main_input_list(&self) -> &InputList {
         &self.main_input_list
     }
-//HEAD
-//=======
+    //HEAD
+    //=======
     pub fn get_input_hash_map_entry_size(&self) -> usize {
-        std::cmp::max(usize::pow(2,(self.main_input_list.len() as f32).log2().ceil() as u32),256)
-//>>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
+        std::cmp::max(usize::pow(2, (self.main_input_list.len() as f32).log2().ceil() as u32), 256)
+        //>>>>>>> 9f3da35a8ac3107190f8c85c8cf3ea1a0f8780a4
     }
     pub fn get_number_of_witness(&self) -> usize {
         self.signals_in_witness
@@ -266,16 +267,16 @@ impl WASMProducer {
         let mut n = 0;
         for (_c, v) in &self.io_map {
             for s in v {
-                // we take always offset, and size and all lengths but last one if len !=0, 
+                // we take always offset, and size and all lengths but last one if len !=0,
                 if s.lengths.len() == 0 {
                     n += 1;
                 } else {
                     n += s.lengths.len() + 1;
                 }
-		// we take the bus_id if it has type bus
-		if let Some(_) = &s.bus_id {
-		    n += 1;
-		}
+                // we take the bus_id if it has type bus
+                if let Some(_) = &s.bus_id {
+                    n += 1;
+                }
             }
         }
         n * 4
@@ -284,7 +285,7 @@ impl WASMProducer {
     pub fn get_number_of_bus_instances(&self) -> usize {
         self.num_of_bus_instances
     }
-    
+
     pub fn get_number_of_bus_fields(&self) -> usize {
         let mut n = 0;
         for v in &self.busid_field_info {
@@ -296,19 +297,19 @@ impl WASMProducer {
     pub fn get_size_of_bus_info(&self) -> usize {
         let mut n = 0;
         for v in &self.busid_field_info {
-	    for s in v {
+            for s in v {
                 // since we take offset, busid (if it is) and all lengths but first one and size if not zero
                 if s.dimensions.len() == 0 {
                     n += 1;
                 } else {
                     n += s.dimensions.len() + 1;
                 }
-		if let Some(_) = &s.bus_id {
-		    n += 1;
-		}
+                if let Some(_) = &s.bus_id {
+                    n += 1;
+                }
             }
         }
-	n * 4
+        n * 4
     }
 
     pub fn get_busid_field_info(&self) -> &FieldMap {
@@ -331,7 +332,8 @@ impl WASMProducer {
         (4 * self.size_32_bit) + 8 + self.get_shared_rw_memory_start()
     }
     pub fn get_remaining_input_signal_counter(&self) -> usize {
-        self.get_input_signals_hashmap_start() + self.get_input_hash_map_entry_size()*16 // input_hash_map_entry_size*(8(h)+4(pos)+4(size))
+        self.get_input_signals_hashmap_start() + self.get_input_hash_map_entry_size() * 16
+        // input_hash_map_entry_size*(8(h)+4(pos)+4(size))
     }
     pub fn get_input_signal_set_map_start(&self) -> usize {
         self.get_remaining_input_signal_counter() + 4
@@ -379,7 +381,7 @@ impl WASMProducer {
         a + b
     }
     pub fn get_bus_instance_to_field_start(&self) -> usize {
-	self.get_io_signals_info_start() + self.get_io_signals_info_size()
+        self.get_io_signals_info_start() + self.get_io_signals_info_size()
     }
     pub fn get_field_to_info_start(&self) -> usize {
         let a = self.get_bus_instance_to_field_start();
@@ -407,7 +409,7 @@ impl WASMProducer {
     pub fn get_constant_numbers_start(&self) -> usize {
         self.get_string_list_start() + self.size_of_message_in_bytes * self.string_table.len()
     }
-    
+
     pub fn get_var_stack_memory_start(&self) -> usize {
         self.get_constant_numbers_start() + (self.size_32_bit + 2) * 4 * self.field_tracking.len()
     }
@@ -487,9 +489,9 @@ impl WASMProducer {
         &self.create_loop_counter_tag
     }
     pub fn get_merror_tag(&self) -> &str {
-	&self.merror_tag
+        &self.merror_tag
     }
-    pub fn needs_comments(&self) -> bool{
+    pub fn needs_comments(&self) -> bool {
         self.wat_flag
     }
 
