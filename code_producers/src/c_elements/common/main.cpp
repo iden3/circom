@@ -195,7 +195,7 @@ json::value_t check_type(std::string prefix, json in){
     json::value_t t = check_type(prefix, in[0]);
     for (uint i = 1; i < in.size(); i++) {
       if (t != check_type(prefix, in[i])) {
-	fprintf(stderr, "Types are not the same in the the key %s\n",prefix.c_str());
+	fprintf(stderr, "Types are not the same in the key %s\n",prefix.c_str());
 	assert(false);
       }
     }
