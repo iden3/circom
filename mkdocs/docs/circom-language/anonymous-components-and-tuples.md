@@ -72,7 +72,7 @@ component main = B(2);
 
 The value returned by the anonymous components depends on the number of template's output signals.
 
-1. __If the template does not define any output signal__ (for instance, if it only defines constraints based on the input signals),  we can use the anonymous component like if it was an statement 
+1. __If the template does not define any output signal__ (for instance, if it only defines constraints based on the input signals),  we can use the anonymous component like if it was a statement 
    `temp_name(arg1,...,argN)(inp1,...,inpM);`
 
 2. __If the template defines a single output signal__, we can use any of the well-known operators to collect the output signal. It is important to highlight that we can use with the anonymous components any of the operators `<==`, `==>` and `=`  with the usual semantics, but not `<--` and `-->`, since there is no way to add additional constraints including the signals of the anonymous components (which will end up in security issues in most of the cases). For instance,

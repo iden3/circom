@@ -228,7 +228,7 @@ fn block_invariant_check(stmts: &[Statement], environment: &mut Constants) -> Re
     reports
 }
 
-// Set of functions whose purpose is to determine if a expression is constant or not under some environment
+// Set of functions whose purpose is to determine if an expression is constant or not under some environment
 fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
     use Expression::*;
     match expr {
