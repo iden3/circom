@@ -15,7 +15,7 @@ The file contains a dictionary where the entries are the numbers of the simplifi
 where the linear expression is represented by a dictionary with the signal numbers as strings occurring in the linear expression (with non-zero coefficient) as entries and their coefficients (as string) as values:
 `{ "sig_num_l1": "coef_1", ... , "sig_num_lm": "coef_m"}`
 
-All signals occurring in the linear expression are signals that are not removed. Hence, if you also include the ```--sym``` flag, in the generated [sym file](sym.md) all these signals are associated to a position in the witness list. On the other hand, al signals sig_num_1 ... sig_num_n that appear as entries in the substitution dictionary are associated to -1.
+All signals occurring in the linear expression are signals that are not removed. Hence, if you also include the ```--sym``` flag, in the generated [sym file](sym.md) all these signals are associated to a position in the witness list. On the other hand, all signals sig_num_1 ... sig_num_n that appear as entries in the substitution dictionary are associated to -1.
 
 Let us consider the following simple circuit in 'simplify.circom':
 

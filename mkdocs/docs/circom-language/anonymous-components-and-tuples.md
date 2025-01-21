@@ -55,7 +55,7 @@ Let us clarify two points:
 1. `arg1`, ..., `argN` are template arguments. We can use them as usual. They can be arithmetic operations expressions or constants. The important thing is its value must be known at compilation time. 
 2. `input1`, ..., `inputM` are input signals. We can pass another signals, (just like in the example) constants or other anonymous components (in a compositional way), if and only if, __such components only have 1 output signal__.
 
-The order of the signals in the anonymous component matters: the ith input signal receives the value of the ith signal passed as parameter. Since circom 2.1.1, it is also allowed to indicate the name of the input signal corresponding to each parameter, followed by `<==` and then the expression in R1CS format). In that case, we can uses any order in giving the inputs provided all the subcomponent inputs are given. Note that either we use the notation with `<==` for all inputs or none. Let us see this new feature in the previous example:
+The order of the signals in the anonymous component matters: the ith input signal receives the value of the ith signal passed as parameter. Since circom 2.1.1, it is also allowed to indicate the name of the input signal corresponding to each parameter, followed by `<==` and then the expression in R1CS format). In that case, we can use any order in giving the inputs provided all the subcomponent inputs are given. Note that either we use the notation with `<==` for all inputs or none. Let us see this new feature in the previous example:
 
 ```text
 template A(n){
@@ -72,7 +72,7 @@ component main = B(2);
 
 The value returned by the anonymous components depends on the number of template's output signals.
 
-1. __If the template does not define any output signal__ (for instance, if it only defines constraints based on the input signals),  we can use the anonymous component like if it was an statement 
+1. __If the template does not define any output signal__ (for instance, if it only defines constraints based on the input signals),  we can use the anonymous component as if it was a statement 
    `temp_name(arg1,...,argN)(inp1,...,inpM);`
 
 2. __If the template defines a single output signal__, we can use any of the well-known operators to collect the output signal. It is important to highlight that we can use with the anonymous components any of the operators `<==`, `==>` and `=`  with the usual semantics, but not `<--` and `-->`, since there is no way to add additional constraints including the signals of the anonymous components (which will end up in security issues in most of the cases). For instance,
