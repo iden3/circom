@@ -12,7 +12,7 @@
 
 #include <cstdint>
 
-#define Fr_N64 4
+#define Fr_N64 {{fr_n64}}
 #define Fr_SHORT           0x00000000
 #define Fr_MONTGOMERY      0x40000000
 #define Fr_SHORTMONTGOMERY 0x40000000
@@ -30,8 +30,6 @@ typedef struct __attribute__((__packed__)) {
 typedef FrElement *PFrElement;
 
 extern FrElement Fr_q;
-extern FrElement Fr_R2;
-extern FrElement Fr_R3;
 
 void Fr_copy(PFrElement r, PFrElement a);
 void Fr_copyn(PFrElement r, PFrElement a, int n);
@@ -73,8 +71,8 @@ void Fr_toLongNormal(PFrElement r, PFrElement a);
 void Fr_toMontgomery(PFrElement r, PFrElement a);
 
 
-void Fr_fail();
-void Fr_longErr();
+//void Fr_fail();
+//void Fr_longErr();
 
 
 

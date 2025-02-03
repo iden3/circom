@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 ansi_term = "0.12.1"
 num-traits = "0.2.6"
-num-bigint-dig = "0.6.0"
+num-bigint-dig = "0.8.4"
 compiler = { path = "../compiler" }
 circom_algebra = { path = "../circom_algebra" }
 program_structure = { path = "../program_structure" }

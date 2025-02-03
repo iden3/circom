@@ -940,10 +940,18 @@ pub fn generate_fr_hpp_file(c_folder: &PathBuf, prime: &String, producer: &CProd
     let mut c_file = BufWriter::new(File::create(file_name).unwrap());
     let mut code = "".to_string();
     if producer.prime_str != "goldilocks" && producer.no_asm {
-        let file = include_str!("generic/fr.hpp");
-        for line in file.lines() {
-            code = format!("{}{}\n", code, line);
-        }
+        let p = producer.get_prime().parse::<BigInt>().unwrap();
+        let n64 = (p.bits() + 63) / 64;
+        let fr_hpp_template: &str = include_str!("generic/fr.hpp");
+        let template = handlebars::Handlebars::new();
+        code = template
+            .render_template(
+                fr_hpp_template,
+                &json!({
+                    "fr_n64": n64,
+                }),
+            )
+            .expect("must render");
         c_file.write_all(code.as_bytes())?;
         c_file.flush()?;
     } else {
@@ -986,6 +994,19 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> st
     Ok(())
 }
 
+fn get_vector_of_u64(bytes: &Vec<u8>) -> Vec<String> {
+    assert!(bytes.len()%8 == 0);
+    //println!("{:?}\n", bytes);
+    let mut v = vec![];
+    let n = bytes.len()/8;
+    for i in (0..n).rev() {
+        let mut buf = [0u8; 8];
+        buf.copy_from_slice(&bytes[i*8..i*8+8]);
+        v.push(format!("0x{:x}",u64::from_be_bytes(buf)));
+    }
+    v
+}
+
 pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String,  producer: &CProducer) -> std::io::Result<()> {
     if prime != "goldilocks" {
         use std::io::BufWriter;
@@ -996,10 +1017,51 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String,  producer: &CPro
         let mut c_file = BufWriter::new(File::create(file_name).unwrap());
         let mut code = "".to_string();
         if producer.no_asm {
-            let file = include_str!("generic/fr.cpp");
-            for line in file.lines() {
-                code = format!("{}{}\n", code, line);
-            }
+            use circom_algebra::num_traits::ToPrimitive;
+            //use circom_algebra::modular_arithmetic;
+            use circom_algebra::num_bigint::{ModInverse};
+            let p = producer.get_prime().parse::<BigInt>().unwrap();
+            let pbits = p.bits();
+            let half = p.clone() / BigInt::from(2);
+            let inv = p.clone().mod_inverse(&(BigInt::from(1) << 64)).unwrap();
+            let np = ((BigInt::from(1) << 64) - inv).to_u64().unwrap();
+            let n64 = (pbits + 63) / 64;
+            let nbits = n64*64;
+            let lbo_mask = ((BigInt::parse_bytes(b"10000000000000000", 16).unwrap()) >> (nbits - pbits)) - BigInt::from(1);
+            //let r = (BigInt::from(1) << nbits) % p.clone();
+            let r2 = (BigInt::from(1) << (nbits*2)) % p.clone();
+            let r3 = (BigInt::from(1) << (nbits*3)) % p.clone();
+            use handlebars::handlebars_helper;
+            let fr_cpp_template: &str = include_str!("generic/fr.cpp");
+            handlebars_helper!(inc: |x : u32| x + 1);
+            handlebars_helper!(dec: |x : u32| x - 1);
+            handlebars_helper!(elements: |v : Vec<String>| v.join(","));
+            let mut template = handlebars::Handlebars::new();
+            template.register_helper("inc", Box::new(inc));
+            template.register_helper("dec", Box::new(dec));
+            template.register_helper("elements", Box::new(elements));
+            //let fr_q_list = p.to_u64_digits().1;
+            //println!("{}",fr_q_list.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(","));
+ // cannotOptimize = (p >> ((n64-1)*64) ) > (((1<<64)-1) >> 1)-1
+           code = template
+                .render_template(
+                fr_cpp_template,
+                &json!({
+                    "cannotOptimize": (p.clone() >> ((n64 - 1)*64) ) > (((BigInt::from(1) << 64 ) - BigInt::from(1)) >> 1)-BigInt::from(1),
+                    "list0n64": (0..n64).collect::<Vec<usize>>(),
+                    "list0n64_1": (0..n64-1).collect::<Vec<usize>>(),
+                    "list1n64": (1..n64).collect::<Vec<usize>>(),
+                    "n64": n64,
+                    "qbits": pbits,
+                    "lboMask": format!("0x{:x}",lbo_mask),
+                    "fr_np": format!("0x{:x}",np),
+                    "fr_q_list":get_vector_of_u64(&p.to_bytes_be().1),
+                    "fr_r2_list": get_vector_of_u64(&r2.to_bytes_be().1),
+                    "fr_r3_list": get_vector_of_u64(&r3.to_bytes_be().1),
+                    "half_list": get_vector_of_u64(&half.to_bytes_be().1),
+                }),
+            )
+            .expect("must render");
             c_file.write_all(code.as_bytes())?;
             c_file.flush()?;
         } else {
