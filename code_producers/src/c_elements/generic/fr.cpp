@@ -2,18 +2,18 @@
 #include <cstdint>
 #include <cstring>
 
-FrElement Fr_q  = {0, 0x80000000, {0x43e1f593f0000001,0x2833e84879b97091,0xb85045b68181585d,0x30644e72e131a029}};
-FrElement Fr_R2 = {0, 0x80000000, {0x1bb8e645ae216da7,0x53fe3ab1e35c59e3,0x8c49833d53bb8085,0x0216d0b17f4e44a5}};
-FrElement Fr_R3 = {0, 0x80000000, {0x5e94d8e1b4bf0040,0x2a489cbe1cfbb6b8,0x893cc664a19fcfed,0x0cf8594b7fcc657c}};
+FrElement Fr_q  = {0, Fr_LONG, {{elements fr_q_list}} };
+FrElement Fr_R2 = {0, Fr_LONG, {{elements fr_r2_list}} };
+FrElement Fr_R3 = {0, Fr_LONG, {{elements fr_r3_list}} };
 
-static FrRawElement half = {0xa1f0fac9f8000000,0x9419f4243cdcb848,0xdc2822db40c0ac2e,0x183227397098d014};
+static FrRawElement half = { {{elements half_list}} };
 static FrRawElement zero = {0};
 
 
-static uint64_t     Fr_rawq[] = {0x43e1f593f0000001,0x2833e84879b97091,0xb85045b68181585d,0x30644e72e131a029, 0};
-static FrRawElement Fr_rawR2  = {0x1bb8e645ae216da7,0x53fe3ab1e35c59e3,0x8c49833d53bb8085,0x0216d0b17f4e44a5};
-static uint64_t     Fr_np     = 0xc2e1f593efffffff;
-static uint64_t     lboMask   = 0x3fffffffffffffff;
+static uint64_t     Fr_rawq[] = { {{elements fr_q_list}} };
+static FrRawElement Fr_rawR2  = { {{elements fr_r2_list}} };
+static uint64_t     Fr_np     = {{ fr_np }};
+static uint64_t     lboMask   = {{ lboMask }};
 
 
 void Fr_rawAdd(FrRawElement pRawResult, const FrRawElement pRawA, const FrRawElement pRawB)
@@ -111,43 +111,56 @@ void Fr_rawMMul(FrRawElement pRawResult, const FrRawElement pRawA, const FrRawEl
 {
     const mp_size_t  N = Fr_N64+1;
     const uint64_t  *mq = Fr_rawq;
+
+    {{#if cannotOptimize }}
+    uint64_t  c = 0;
+    {{/if}}
     uint64_t  np0;
-    uint64_t  product0[N] = {0};
-    uint64_t  product1[N] = {0};
-    uint64_t  product2[N] = {0};
-    uint64_t  product3[N] = {0};
-
+    {{#each list0n64}}
+    uint64_t  product{{@index}}[N] = {0};
+    {{/each}}
     product0[N-1] = mpn_mul_1(product0, pRawB, Fr_N64, pRawA[0]);
+    {{#if cannotOptimize }}
+    {{#each list0n64_1}}
+    np0 = Fr_np * product{{@index}}[0];
+    product{{(inc @index)}}[N-1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
 
-    np0 = Fr_np * product0[0];
-    product1[1] = mpn_addmul_1(product0, mq, N, np0);
+    product{{inc @index}}[N-1] += mpn_addmul_1(product{{inc @index}}, pRawB, Fr_N64, pRawA[{{inc @index}}]);
+    {{#if @last}}
+    c = mpn_add(product{{inc @index}}, product{{inc @index}}, N, product{{@index}}+1, N-1);
+    {{else}}
+    product{{inc (inc @index)}}[N-1] = mpn_add(product{{inc @index}}, product{{inc @index}}, N, product{{@index}}+1, N-1);
+    {{/if}}
+    {{/each}}
+    {{else}}
+    {{#each list0n64_1}}
+    np0 = Fr_np * product{{@index}}[0];
+    product{{inc @index}}[1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
 
-    product1[N-1] = mpn_addmul_1(product1, pRawB, Fr_N64, pRawA[1]);
-    mpn_add(product1, product1, N, product0+1, N-1);
+    product{{inc @index}}[N-1] = mpn_addmul_1(product{{inc @index}}, pRawB, Fr_N64, pRawA[{{inc @index}}]);
+    mpn_add(product{{inc @index}}, product{{inc @index}}, N, product{{@index}}+1, N-1);
 
-    np0 = Fr_np * product1[0];
-    product2[1] = mpn_addmul_1(product1, mq, N, np0);
+    {{/each}}
+    {{/if}}
+    np0 = Fr_np * product{{dec n64}}[0];
+    {{#if cannotOptimize }}
+    c += mpn_addmul_1(product{{dec n64}}, mq, N, np0);
 
-    product2[N-1] = mpn_addmul_1(product2, pRawB, Fr_N64, pRawA[2]);
-    mpn_add(product2, product2, N, product1+1, N-1);
+    mpn_copyi(pRawResult,  product{{dec n64}}+1, Fr_N64);
 
-    np0 = Fr_np * product2[0];
-    product3[1] = mpn_addmul_1(product2, mq, N, np0);
+    if (c || mpn_cmp(pRawResult, mq, Fr_N64) >= 0)
+    {{ else }}
+    mpn_addmul_1(product{{dec n64}}, mq, N, np0);
 
-    product3[N-1] = mpn_addmul_1(product3, pRawB, Fr_N64, pRawA[3]);
-    mpn_add(product3, product3, N, product2+1, N-1);
-
-    np0 = Fr_np * product3[0];
-    mpn_addmul_1(product3, mq, N, np0);
-
-    mpn_copyi(pRawResult,  product3+1, Fr_N64);
+    mpn_copyi(pRawResult,  product{{dec n64}}+1, Fr_N64);
 
     if (mpn_cmp(pRawResult, mq, Fr_N64) >= 0)
+      {{/if}}
     {
         mpn_sub_n(pRawResult, pRawResult, mq, Fr_N64);
     }
 }
-
+    
 void Fr_rawMSquare(FrRawElement pRawResult, const FrRawElement pRawA)
 {
     Fr_rawMMul(pRawResult, pRawA, pRawA);
@@ -157,32 +170,37 @@ void Fr_rawMMul1(FrRawElement pRawResult, const FrRawElement pRawA, uint64_t pRa
 {
     const mp_size_t  N = Fr_N64+1;
     const uint64_t  *mq = Fr_rawq;
+    {{#if cannotOptimize }}
+    uint64_t  c = 0;
+    {{/if}}
     uint64_t  np0;
-    uint64_t  product0[N] = {0};
-    uint64_t  product1[N] = {0};
-    uint64_t  product2[N] = {0};
-    uint64_t  product3[N] = {0};
-
+    {{#each list0n64}}
+    uint64_t  product{{@index}}[N] = {0};
+    {{/each}}
     product0[N-1] = mpn_mul_1(product0, pRawA, Fr_N64, pRawB);
+    {{#each list0n64_1}}
+    np0 = Fr_np * product{{@index}}[0];
+    {{#if cannotOptimize }}
+    product{{(inc @index)}}[N-1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
+    {{ else }}
+    product{{(inc @index)}}[1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
+    {{/if}}
+    mpn_add(product{{(inc @index)}}, product{{(inc @index)}}, N, product{{@index}}+1, N-1);
+    {{/each}}
+    np0 = Fr_np * product{{dec n64}}[0];
+    {{#if cannotOptimize }}
+    c = mpn_addmul_1(product{{dec n64}}, mq, N, np0);
 
-    np0 = Fr_np * product0[0];
-    product1[1] = mpn_addmul_1(product0, mq, N, np0);
-    mpn_add(product1, product1, N, product0+1, N-1);
+    mpn_copyi(pRawResult,  product{{dec n64}}+1, Fr_N64);
 
-    np0 = Fr_np * product1[0];
-    product2[1] = mpn_addmul_1(product1, mq, N, np0);
-    mpn_add(product2, product2, N, product1+1, N-1);
+    if (c || mpn_cmp(pRawResult, mq, Fr_N64) >= 0)
+    {{ else }}
+    mpn_addmul_1(product{{dec n64}}, mq, N, np0);
 
-    np0 = Fr_np * product2[0];
-    product3[1] = mpn_addmul_1(product2, mq, N, np0);
-    mpn_add(product3, product3, N, product2+1, N-1);
-
-    np0 = Fr_np * product3[0];
-    mpn_addmul_1(product3, mq, N, np0);
-
-    mpn_copyi(pRawResult,  product3+1, Fr_N64);
+    mpn_copyi(pRawResult,  product{{dec n64}}+1, Fr_N64);
 
     if (mpn_cmp(pRawResult, mq, Fr_N64) >= 0)
+    {{/if}}
     {
         mpn_sub_n(pRawResult, pRawResult, mq, Fr_N64);
     }
@@ -197,36 +215,43 @@ void Fr_rawFromMontgomery(FrRawElement pRawResult, const FrRawElement pRawA)
 {
     const mp_size_t  N = Fr_N64+1;
     const uint64_t  *mq = Fr_rawq;
+    {{#if cannotOptimize }}
+    uint64_t  c = 0;
+    {{/if}}
     uint64_t  np0;
     uint64_t  product0[N];
-    uint64_t  product1[N] = {0};
-    uint64_t  product2[N] = {0};
-    uint64_t  product3[N] = {0};
-
+    {{#each list1n64}}
+    uint64_t  product{{this}}[N] = {0};
+    {{/each}}
     mpn_copyi(product0, pRawA, Fr_N64); product0[N-1] = 0;
+    {{#each list0n64_1}}
+    np0 = Fr_np * product{{@index}}[0];
+    {{#if cannotOptimize }}
+    product{{(inc @index)}}[N-1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
+    {{ else }}
+    product{{(inc @index)}}[1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
+    {{/if}}
+    mpn_add(product{{(inc @index)}}, product{{(inc @index)}}, N, product{{@index}}+1, N-1);
+    {{/each}}     
+    np0 = Fr_np * product{{dec n64}}[0];
+    {{#if cannotOptimize }}
+    c = mpn_addmul_1(product{{dec n64}}, mq, N, np0);
 
-    np0 = Fr_np * product0[0];
-    product1[1] = mpn_addmul_1(product0, mq, N, np0);
-    mpn_add(product1, product1, N, product0+1, N-1);
+    mpn_copyi(pRawResult,  product{{dec n64}}+1, Fr_N64);
 
-    np0 = Fr_np * product1[0];
-    product2[1] = mpn_addmul_1(product1, mq, N, np0);
-    mpn_add(product2, product2, N, product1+1, N-1);
+    if (c || mpn_cmp(pRawResult, mq, Fr_N64) >= 0)
+    {{ else }}
+    mpn_addmul_1(product{{dec n64}}, mq, N, np0);
 
-    np0 = Fr_np * product2[0];
-    product3[1] = mpn_addmul_1(product2, mq, N, np0);
-    mpn_add(product3, product3, N, product2+1, N-1);
-
-    np0 = Fr_np * product3[0];
-    mpn_addmul_1(product3, mq, N, np0);
-
-    mpn_copyi(pRawResult,  product3+1, Fr_N64);
+    mpn_copyi(pRawResult,  product{{dec n64}}+1, Fr_N64);
 
     if (mpn_cmp(pRawResult, mq, Fr_N64) >= 0)
+    {{/if}}
     {
         mpn_sub_n(pRawResult, pRawResult, mq, Fr_N64);
     }
 }
+
 
 int Fr_rawIsZero(const FrRawElement rawA)
 {
@@ -250,16 +275,14 @@ void Fr_rawSwap(FrRawElement pRawResult, FrRawElement pRawA)
 void Fr_rawCopyS2L(FrRawElement pRawResult, int64_t val)
 {
     pRawResult[0] = val;
-
-    pRawResult[1] = 0;
-    pRawResult[2] = 0;
-    pRawResult[3] = 0;
+    {{#each list1n64}}
+    pRawResult[{{this}}] = 0;
+    {{/each}}
 
     if (val < 0) {
-
-        pRawResult[1] = -1;
-        pRawResult[2] = -1;
-        pRawResult[3] = -1;
+    {{#each list1n64}}
+    pRawResult[{{this}}] = -1;
+    {{/each}}
 
         mpn_add_n(pRawResult, pRawResult, Fr_rawq, Fr_N64);
     }
@@ -269,7 +292,7 @@ void Fr_rawAnd(FrRawElement pRawResult, FrRawElement pRawA, FrRawElement pRawB)
 {
     mpn_and_n(pRawResult, pRawA, pRawB, Fr_N64);
 
-    pRawResult[3] &= lboMask;
+    pRawResult[{{dec n64}}] &= lboMask;
 
     if (mpn_cmp(pRawResult, Fr_rawq, Fr_N64) >= 0)
     {
@@ -281,7 +304,7 @@ void Fr_rawOr(FrRawElement pRawResult, FrRawElement pRawA, FrRawElement pRawB)
 {
     mpn_ior_n(pRawResult, pRawA, pRawB, Fr_N64);
 
-    pRawResult[3] &= lboMask;
+    pRawResult[{{dec n64}}] &= lboMask;
 
     if (mpn_cmp(pRawResult, Fr_rawq, Fr_N64) >= 0)
     {
@@ -293,7 +316,7 @@ void Fr_rawXor(FrRawElement pRawResult, FrRawElement pRawA, FrRawElement pRawB)
 {
     mpn_xor_n(pRawResult, pRawA, pRawB, Fr_N64);
 
-    pRawResult[3] &= lboMask;
+    pRawResult[{{dec n64}}] &= lboMask;
 
     if (mpn_cmp(pRawResult, Fr_rawq, Fr_N64) >= 0)
     {
@@ -315,7 +338,7 @@ void Fr_rawShl(FrRawElement r, FrRawElement a, uint64_t b)
         mpn_lshift(r, r, Fr_N64, bit_shift);
     }
 
-    r[3] &= lboMask;
+    r[{{dec n64}}] &= lboMask;
 
     if (mpn_cmp(r, Fr_rawq, Fr_N64) >= 0)
     {
@@ -342,7 +365,7 @@ void Fr_rawNot(FrRawElement pRawResult, FrRawElement pRawA)
 {
     mpn_com(pRawResult, pRawA, Fr_N64);
 
-    pRawResult[3] &= lboMask;
+    pRawResult[{{dec n64}}] &= lboMask;
 
     if (mpn_cmp(pRawResult, Fr_rawq, Fr_N64) >= 0)
     {
@@ -1975,7 +1998,7 @@ static inline void rawShl(FrRawElement r, FrRawElement a, uint64_t b)
         return;
     }
 
-    if (b >= 254)
+    if (b >= {{qbits}})
     {
         Fr_rawZero(r);
         return;
@@ -1992,7 +2015,7 @@ static inline void rawShr(FrRawElement r, FrRawElement a, uint64_t b)
         return;
     }
 
-    if (b >= 254)
+    if (b >= {{qbits}})
     {
         Fr_rawZero(r);
         return;
@@ -2131,7 +2154,7 @@ static inline void do_shr(PFrElement r, PFrElement a, uint64_t b)
 
 static inline void Fr_shr_big_shift(PFrElement r, PFrElement a, PFrElement b)
 {
-    static FrRawElement max_shift = {254};
+    static FrRawElement max_shift = { {{qbits}} };
 
     FrRawElement shift;
 
@@ -2149,7 +2172,7 @@ static inline void Fr_shr_big_shift(PFrElement r, PFrElement a, PFrElement b)
 
 static inline void Fr_shr_long(PFrElement r, PFrElement a, PFrElement b)
 {
-    static FrRawElement max_shift = {254};
+    static FrRawElement max_shift = { {{qbits}} };
 
     if (Fr_rawCmp(b->longVal, max_shift) >= 0)
     {
@@ -2185,7 +2208,7 @@ void Fr_shr(PFrElement r, PFrElement a, PFrElement b)
         {
             b_shortVal = -b_shortVal;
 
-            if (b_shortVal >= 254)
+            if (b_shortVal >= {{qbits}})
             {
                 Fr_setzero(r);
             }
@@ -2194,7 +2217,7 @@ void Fr_shr(PFrElement r, PFrElement a, PFrElement b)
                 do_shl(r, a, b_shortVal);
             }
         }
-        else if (b_shortVal >= 254)
+        else if (b_shortVal >= {{qbits}})
         {
             Fr_setzero(r);
         }
@@ -2207,7 +2230,7 @@ void Fr_shr(PFrElement r, PFrElement a, PFrElement b)
 
 static inline void Fr_shl_big_shift(PFrElement r, PFrElement a, PFrElement b)
 {
-    static FrRawElement max_shift = {254};
+    static FrRawElement max_shift = { {{qbits}} };
 
     FrRawElement shift;
 
@@ -2225,7 +2248,7 @@ static inline void Fr_shl_big_shift(PFrElement r, PFrElement a, PFrElement b)
 
 static inline void Fr_shl_long(PFrElement r, PFrElement a, PFrElement b)
 {
-    static FrRawElement max_shift = {254};
+    static FrRawElement max_shift = { {{qbits}} };
 
     if (Fr_rawCmp(b->longVal, max_shift) >= 0)
     {
@@ -2261,7 +2284,7 @@ void Fr_shl(PFrElement r, PFrElement a, PFrElement b)
         {
             b_shortVal = -b_shortVal;
 
-            if (b_shortVal >= 254)
+            if (b_shortVal >= {{qbits}})
             {
                 Fr_setzero(r);
             }
@@ -2270,7 +2293,7 @@ void Fr_shl(PFrElement r, PFrElement a, PFrElement b)
                 do_shr(r, a, b_shortVal);
             }
         }
-        else if (b_shortVal >= 254)
+        else if (b_shortVal >= {{qbits}})
         {
             Fr_setzero(r);
         }
