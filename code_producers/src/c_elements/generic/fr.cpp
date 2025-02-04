@@ -2,15 +2,15 @@
 #include <cstdint>
 #include <cstring>
 
-FrElement Fr_q  = {0, Fr_LONG, {{elements fr_q_list}} };
-FrElement Fr_R2 = {0, Fr_LONG, {{elements fr_r2_list}} };
-FrElement Fr_R3 = {0, Fr_LONG, {{elements fr_r3_list}} };
+FrElement Fr_q  = {0, Fr_LONG, { {{elements fr_q_list}} } };
+FrElement Fr_R2 = {0, Fr_LONG, { {{elements fr_r2_list}} } };
+FrElement Fr_R3 = {0, Fr_LONG, { {{elements fr_r3_list}} } };
 
 static FrRawElement half = { {{elements half_list}} };
 static FrRawElement zero = {0};
 
 
-static uint64_t     Fr_rawq[] = { {{elements fr_q_list}} };
+static uint64_t     Fr_rawq[] = { {{elements fr_q_list}}, 0 };
 static FrRawElement Fr_rawR2  = { {{elements fr_r2_list}} };
 static uint64_t     Fr_np     = {{ fr_np }};
 static uint64_t     lboMask   = {{ lboMask }};
@@ -135,7 +135,8 @@ void Fr_rawMMul(FrRawElement pRawResult, const FrRawElement pRawA, const FrRawEl
     {{else}}
     {{#each list0n64_1}}
     np0 = Fr_np * product{{@index}}[0];
-    product{{inc @index}}[1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
+    //product{{inc @index}}[1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
+    product{{inc @index}}[N-1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
 
     product{{inc @index}}[N-1] = mpn_addmul_1(product{{inc @index}}, pRawB, Fr_N64, pRawA[{{inc @index}}]);
     mpn_add(product{{inc @index}}, product{{inc @index}}, N, product{{@index}}+1, N-1);
