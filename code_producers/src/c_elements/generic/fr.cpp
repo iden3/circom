@@ -124,6 +124,7 @@ void Fr_rawMMul(FrRawElement pRawResult, const FrRawElement pRawA, const FrRawEl
     {{#each list0n64_1}}
     np0 = Fr_np * product{{@index}}[0];
     product{{(inc @index)}}[N-1] = mpn_addmul_1(product{{@index}}, mq, N, np0);
+    //product{{(inc @index)}}[N-1] += mpn_addmul_1(product{{@index}}, mq, N, np0);
 
     product{{inc @index}}[N-1] += mpn_addmul_1(product{{inc @index}}, pRawB, Fr_N64, pRawA[{{inc @index}}]);
     {{#if @last}}
