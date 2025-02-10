@@ -994,12 +994,11 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> st
     Ok(())
 }
 
-fn get_vector_of_u64(bytes: &Vec<u8>) -> Vec<String> {
+fn get_vector_of_u64(bytes: &Vec<u8>, n64: usize ) -> Vec<String> {
     let mut bytes1 = vec![];
-    if bytes.len()%8 != 0 {
-        for _i in 0..8-bytes.len()%8 {
-            bytes1.push(0 as u8);
-        }
+    assert!(bytes.len() <= n64*8);
+    for _i in 0..n64*8-bytes.len() {
+        bytes1.push(0 as u8);
     }
     bytes1.append(&mut bytes.clone());
     // println!("{:?}\n", bytes1);
@@ -1061,10 +1060,10 @@ pub fn generate_fr_cpp_file(c_folder: &PathBuf, prime: &String,  producer: &CPro
                     "qbits": pbits,
                     "lboMask": format!("0x{:x}",lbo_mask),
                     "fr_np": format!("0x{:x}",np),
-                    "fr_q_list":get_vector_of_u64(&p.to_bytes_be().1),
-                    "fr_r2_list": get_vector_of_u64(&r2.to_bytes_be().1),
-                    "fr_r3_list": get_vector_of_u64(&r3.to_bytes_be().1),
-                    "half_list": get_vector_of_u64(&half.to_bytes_be().1),
+                    "fr_q_list":get_vector_of_u64(&p.to_bytes_be().1,n64),
+                    "fr_r2_list": get_vector_of_u64(&r2.to_bytes_be().1,n64),
+                    "fr_r3_list": get_vector_of_u64(&r3.to_bytes_be().1,n64),
+                    "half_list": get_vector_of_u64(&half.to_bytes_be().1,n64),
                 }),
             )
             .expect("must render");
