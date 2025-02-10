@@ -239,6 +239,26 @@ void qualify_input(std::string prefix, json &in, json &in1) {
   }
 }
 
+void loadBinary(Circom_CalcWit *ctx, std::string filename) {
+    int fd;
+    struct stat sb;
+
+    fd = open(filename.c_str(), O_RDONLY);
+    if (fd == -1) {
+        std::cout << ".dat file not found: " << filename << "\n";
+        throw std::system_error(errno, std::generic_category(), "open");
+    }
+    
+    if (fstat(fd, &sb) == -1) {          /* To obtain file size */
+        throw std::system_error(errno, std::generic_category(), "fstat");
+    }
+    assert(sb.st_size / sizeof(u64) == get_main_input_signal_no());
+    u8* bdata = (u8*)mmap(NULL, sb.st_size, PROT_READ , MAP_PRIVATE, fd, 0);
+    close(fd);
+    uint dsize = get_main_input_signal_no()*sizeof(u64);
+    memcpy((void *)(ctx->signalValues+get_main_input_signal_start()), (void *)bdata, dsize);
+}
+
 void loadJson(Circom_CalcWit *ctx, std::string filename) {
   std::ifstream inStream(filename);
   json jin;
@@ -324,11 +344,12 @@ void writeBinWitness(Circom_CalcWit *ctx, std::string wtnsFileName) {
     u64 idSection2length = (u64)n8*(u64)Nwtns;
     fwrite(&idSection2length, 8, 1, write_ptr);
 
-    u64 v;
+    u64 *v = new u64[Nwtns];
     for (int i=0;i<Nwtns;i++) {
-        ctx->getWitness(i, v);
-        fwrite(&v, 8, 1, write_ptr);
+        ctx->getWitness(i, v[i]);
     }
+    fwrite(v, 8, Nwtns, write_ptr);
+
     fclose(write_ptr);
 }
 
@@ -338,7 +359,7 @@ int main (int argc, char *argv[]) {
         std::cout << "Usage: " << cl << " <input.json> <output.wtns>\n";
   } else {
     std::string datfile = cl + ".dat";
-    std::string jsonfile(argv[1]);
+    std::string inputfile(argv[1]);
     std::string wtnsfile(argv[2]);
   
     // auto t_start = std::chrono::high_resolution_clock::now();
@@ -347,10 +368,15 @@ int main (int argc, char *argv[]) {
 
    Circom_CalcWit *ctx = new Circom_CalcWit(circuit);
   
-   loadJson(ctx, jsonfile);
-   if (ctx->getRemaingInputsToBeSet()!=0) {
-     std::cerr << "Not all inputs have been set. Only " << get_main_input_signal_no()-ctx->getRemaingInputsToBeSet() << " out of " << get_main_input_signal_no() << std::endl;
-     assert(false);
+    if (inputfile.substr(inputfile.find_last_of(".") + 1) == "json") { 
+      loadJson(ctx, inputfile);
+      if (ctx->getRemaingInputsToBeSet()!=0) {
+        std::cerr << "Not all inputs have been set. Only " << get_main_input_signal_no()-ctx->getRemaingInputsToBeSet() << " out of " << get_main_input_signal_no() << std::endl;
+        assert(false);
+      }
+    } else {
+      loadBinary(ctx, inputfile);
+      ctx->runCircuit();
    }
    /*
      for (uint i = 0; i<get_size_of_witness(); i++){

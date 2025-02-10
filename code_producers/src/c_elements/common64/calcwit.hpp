@@ -44,6 +44,7 @@ public:
   // Public functions
   void setInputSignal(u64 h, uint i, u64 &val);
   void tryRunCircuit();
+  void runCircuit();
   
   u64 getInputSignalSize(u64 h);
 
