@@ -74,6 +74,10 @@ void Circom_CalcWit::tryRunCircuit(){
   }
 }
 
+void Circom_CalcWit::runCircuit(){ 
+  run(this);
+}
+
 void Circom_CalcWit::setInputSignal(u64 h, uint i,  u64 & val){
   if (inputSignalAssignedCounter == 0) {
     fprintf(stderr, "No more signals to be assigned\n");

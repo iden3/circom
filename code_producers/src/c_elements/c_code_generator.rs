@@ -1170,6 +1170,25 @@ pub fn generate_make_file(
     Ok(())
 }
 
+pub fn generate_json2bin64(c_folder: &PathBuf, producer: &CProducer) -> std::io::Result<()> {
+    use std::io::BufWriter;
+    let mut file_path = c_folder.clone();
+    file_path.push("json2bin64");
+    file_path.set_extension("cpp");
+    let file_name = file_path.to_str().unwrap();
+    let mut c_file = BufWriter::new(File::create(file_name).unwrap());
+    let mut code = "".to_string();
+    assert!(producer.prime_str == "goldilocks");
+    let file = include_str!("common64/json2bin64.cpp");
+    for line in file.lines() {
+        code = format!("{}{}\n", code, line);
+    }
+    c_file.write_all(code.as_bytes())?;
+    c_file.flush()?;
+    Ok(())
+}
+
+
 pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()> {
     let full_name = name + ".cpp";
     let mut cfile = File::create(full_name)?;
