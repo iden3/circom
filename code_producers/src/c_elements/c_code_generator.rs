@@ -995,13 +995,19 @@ pub fn generate_calcwit_hpp_file(c_folder: &PathBuf, producer: &CProducer) -> st
 }
 
 fn get_vector_of_u64(bytes: &Vec<u8>) -> Vec<String> {
-    assert!(bytes.len()%8 == 0);
-    //println!("{:?}\n", bytes);
+    let mut bytes1 = vec![];
+    if bytes.len()%8 != 0 {
+        for _i in 0..8-bytes.len()%8 {
+            bytes1.push(0 as u8);
+        }
+    }
+    bytes1.append(&mut bytes.clone());
+    // println!("{:?}\n", bytes1);
     let mut v = vec![];
-    let n = bytes.len()/8;
+    let n = bytes1.len()/8;
     for i in (0..n).rev() {
         let mut buf = [0u8; 8];
-        buf.copy_from_slice(&bytes[i*8..i*8+8]);
+        buf.copy_from_slice(&bytes1[i*8..i*8+8]);
         v.push(format!("0x{:x}",u64::from_be_bytes(buf)));
     }
     v
