@@ -51,21 +51,35 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 config.c_file,
                 config.dat_file
             );
-            println!(
-                "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
-                Colour::Green.paint("Written successfully:"),
-            &config.c_folder,
-                "main.cpp".to_string(),
-                "circom.hpp".to_string(),
-                "calcwit.hpp".to_string(),
-                "calcwit.cpp".to_string(),
-                "fr.hpp".to_string(),
-                "fr.cpp".to_string(),
-                "fr.asm".to_string(),
-                "Makefile".to_string()
-            );
+            if config.no_asm_flag {                
+                println!(
+                    "{} {}/{}, {}, {}, {}, {}, {} and {}",
+                    Colour::Green.paint("Written successfully:"),
+                    &config.c_folder,
+                    "main.cpp".to_string(),
+                    "circom.hpp".to_string(),
+                    "calcwit.hpp".to_string(),
+                    "calcwit.cpp".to_string(),
+                    "fr.hpp".to_string(),
+                    "fr.cpp".to_string(),
+                    "Makefile".to_string()
+                );
+            } else {
+                println!(
+                    "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
+                    Colour::Green.paint("Written successfully:"),
+                    &config.c_folder,
+                    "main.cpp".to_string(),
+                    "circom.hpp".to_string(),
+                    "calcwit.hpp".to_string(),
+                    "calcwit.cpp".to_string(),
+                    "fr.hpp".to_string(),
+                    "fr.cpp".to_string(),
+                    "fr.asm".to_string(),
+                    "Makefile".to_string()
+                );
+            }
         }
-    
         match (config.wat_flag, config.wasm_flag) {
             (true, true) => {
                 compiler_interface::write_wasm(&circuit, &config.js_folder, &config.wasm_name, &config.wat_file)?;
