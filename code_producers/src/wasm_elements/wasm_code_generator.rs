@@ -220,15 +220,15 @@ pub fn default_memory_for_stack_kib() -> usize {
     10
 }
 
-pub fn exception_code_singal_not_found() -> usize {
+pub fn exception_code_signal_not_found() -> usize {
     1
 }
 
-pub fn exception_code_no_remaing_singals_to_set() -> usize {
+pub fn exception_code_no_remaing_signals_to_set() -> usize {
     2
 }
 
-pub fn exception_code_singals_already_set() -> usize {
+pub fn exception_code_signals_already_set() -> usize {
     3
 }
 
@@ -1097,7 +1097,7 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(get_local("$ns"));
     instructions.push(eqz32());
     instructions.push(add_if()); // if 1
-    instructions.push(set_constant(&exception_code_no_remaing_singals_to_set().to_string()));
+    instructions.push(set_constant(&exception_code_no_remaing_signals_to_set().to_string()));
     instructions.push(call("$exceptionHandler"));
     instructions.push(add_else()); // else if 1
     instructions.push(get_local("$hmsb"));
@@ -1111,7 +1111,7 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(tee_local("$mp"));
     instructions.push(eqz32());
     instructions.push(add_if()); // if 2
-    instructions.push(set_constant(&exception_code_singal_not_found().to_string()));
+    instructions.push(set_constant(&exception_code_signal_not_found().to_string()));
     instructions.push(call("$exceptionHandler"));
     instructions.push(add_else()); // else if 2
     instructions.push(get_local("$pos"));
@@ -1132,7 +1132,7 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(sub32());
     instructions.push(call("$checkIfInputSignalSet"));
     instructions.push(add_if()); // if 4
-    instructions.push(set_constant(&exception_code_singals_already_set().to_string()));
+    instructions.push(set_constant(&exception_code_signals_already_set().to_string()));
     instructions.push(call("$exceptionHandler"));
     instructions.push(add_else()); // else if 4
     instructions.push(get_local("$sip"));
