@@ -2074,6 +2074,17 @@ fn perform_assign(
             // case assigning a field of the bus
             if meta.get_type_knowledge().is_signal(){
 
+                // in case we are assigning a signal of the complete bus
+                // check not valid in input buses
+                if is_input_bus {
+                    treat_result_with_memory_error(
+                        Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentInput(symbol.to_string()))),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?
+                }
+
                 let mut value_left = treat_result_with_memory_error(
                     BusSlice::access_values_by_mut_reference(bus_slice, &accessing_information.array_access),
                     meta,
@@ -2204,6 +2215,16 @@ fn perform_assign(
         } else if FoldedValue::valid_bus_slice(&r_folded){
             let (name_bus, assigned_bus_slice) = r_folded.bus_slice.as_ref().unwrap();
             // case assigning a bus (complete or field)
+            
+            // check not valid in input buses
+            if is_input_bus {
+                treat_result_with_memory_error(
+                    Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentInput(symbol.to_string()))),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?
+            }
             if accessing_information.field_access.is_none(){
 
                 // Perform the tag propagation
