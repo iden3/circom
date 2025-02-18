@@ -1327,7 +1327,7 @@ fn execute_bus_declaration(
 }
 
 /*
-    In case the assigment could be a constraint generator the returned value is the constraint
+    In case the assignment could be a constraint generator the returned value is the constraint
     that will be created
 */
 enum ExecutedStructure<'a>{
@@ -1939,7 +1939,7 @@ fn perform_assign(
         }
 
         if FoldedValue::valid_bus_node_pointer(&r_folded){
-            // in this case we are performing an assigment of the type in the node_pointer
+            // in this case we are performing an assignment of the type in the node_pointer
             // to the bus in the left
             
             let bus_pointer = r_folded.bus_node_pointer.unwrap();
