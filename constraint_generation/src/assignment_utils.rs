@@ -200,7 +200,7 @@ pub fn perform_signal_assignment(
                         // TODO: return warning?
                         return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments(meta.as_ref().unwrap().clone())));
                     }
-                    AssignmentState::MightAssigned(cond_new, _) =>{
+                    AssignmentState::MightAssigned(cond_new, meta_new) =>{
                         // Possibilities:
 
                         // If they are subsets of each other
@@ -241,13 +241,13 @@ pub fn perform_signal_assignment(
                             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments(meta.as_ref().unwrap().clone())));
                         } else if eq_until_last{
                             if cond_new.len() == 1{ // case single level
-                                **signal_was_assigned = AssignmentState::Assigned(meta.clone());
+                                **signal_was_assigned = AssignmentState::Assigned(meta_new.clone());
                             } else{
                                 let new_cond = cond_new[0..min -1].to_vec();
-                                **signal_was_assigned = AssignmentState::MightAssigned(new_cond, meta.clone());
+                                **signal_was_assigned = AssignmentState::MightAssigned(new_cond, meta_new.clone());
                             }
                         } else if different_branches{
-                            **signal_was_assigned = AssignmentState::MightAssigned(cond_new.clone(), meta.clone());
+                            **signal_was_assigned = AssignmentState::MightAssigned(cond_new.clone(), meta_new.clone());
                         } else {
                             // TODO: return warning in this case?
                             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments(meta.as_ref().unwrap().clone())));

@@ -335,7 +335,15 @@ impl BusRepresentation {
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::DifferentBusInstances));
         }
 
-        self.has_assignment = true;
+        // only update if it is assigned for sure
+        match conditions_assignment{
+            AssignmentState::Assigned(_) =>{
+                self.has_assignment = true;
+
+            }
+            _ =>{}
+        }
+
         for (field_name, value)  in &mut self.fields{
             
             // perform the assignment
