@@ -143,6 +143,17 @@ bool check_valid_number(std::string & s, uint base){
   return is_valid;
 }
 
+u64 str2u64(const char *s, uint base) {
+  static mpz_t q;
+  mpz_init_set_ui(q,{{prime}});
+  mpz_t mr;
+  mpz_init_set_str(mr, s, base);
+  mpz_fdiv_r(mr, mr, q);
+  u64 v = mpz_get_ui(mr);
+  mpz_clear(mr);
+  return v;
+}
+
 void json2FrElements (json val, std::vector<u64> & vval){
   if (!val.is_array()) {
     u64 v;
@@ -180,7 +191,8 @@ void json2FrElements (json val, std::vector<u64> & vval){
         errStrStream << "Invalid JSON type\n";
 	      throw std::runtime_error(errStrStream.str() );
     }
-    vval.push_back(strtoull(s.c_str(), NULL, base));
+    vval.push_back(str2u64(s.c_str(), base));
+    // vval.push_back(strtoull(s.c_str(), NULL, base)); // use this instead if you are sure the input is in 64 bits
   } else {
     for (uint i = 0; i < val.size(); i++) {
       json2FrElements (val[i], vval);
@@ -380,9 +392,9 @@ int main (int argc, char *argv[]) {
    }
    /*
      for (uint i = 0; i<get_size_of_witness(); i++){
-     FrElement x;
-     ctx->getWitness(i, &x);
-     std::cout << i << ": " << Fr_element2str(&x) << std::endl;
+     u64 x;
+     ctx->getWitness(i, x);
+     std::cout << i << ": " << x << std::endl;
      }
    */
   
