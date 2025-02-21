@@ -443,9 +443,9 @@ impl WriteC for StoreBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let mut prologue = vec![];
-	let cmp_index_ref = "cmp_index_ref".to_string();
-    let src_index_ref = "aux_src_index".to_string();
-	let aux_dest_index = "aux_dest_index".to_string();
+	let mut cmp_index_ref = "".to_string();
+    let mut src_index_ref = "".to_string();
+	let mut aux_dest_index = "".to_string();
 
 	//prologue.push(format!("// store bucket. Line {}", self.line)); //.to_string()
 
@@ -453,12 +453,12 @@ impl WriteC for StoreBucket {
             let (mut cmp_prologue, cmp_index) = cmp_address.produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
 	        prologue.push(format!("{{"));
-	        prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
+	        cmp_index_ref = cmp_index.clone();
 	    }
         if self.src_address_type.is_some() {
             let (mut cmp_prologue, cmp_index) = self.src_address_type.as_ref().unwrap().produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
-	        prologue.push(format!("uint {} = {};",  src_index_ref, cmp_index));
+	        src_index_ref  = cmp_index.clone();
 	    }
         // We compute the possible sizes, case multiple sizes
         let expr_size = match &self.context.size{
@@ -601,8 +601,8 @@ impl WriteC for StoreBucket {
 	//keep dest_index in an auxiliar if parallel and out put
 	if let AddressType::Signal = &self.dest_address_type {
 	    if parallel.unwrap() && self.dest_is_output {
-                prologue.push(format!("{{")); //open block 1 when parallel and Signal 
-		prologue.push(format!("uint {} = {};",  aux_dest_index, dest_index.clone()));
+            prologue.push(format!("{{")); //open block 1 when parallel and Signal 
+		    aux_dest_index = dest_index.clone();
 	    }
 	}
         // store src in dest
