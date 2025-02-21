@@ -443,9 +443,9 @@ impl WriteC for StoreBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let mut prologue = vec![];
-	let mut cmp_index_ref = "".to_string();
-    let mut src_index_ref = "".to_string();
-	let mut aux_dest_index = "".to_string();
+        let cmp_index_ref = "cmp_index_ref".to_string();
+        let mut src_index_ref = "".to_string();
+	    let mut aux_dest_index = "".to_string();
 
 	//prologue.push(format!("// store bucket. Line {}", self.line)); //.to_string()
 
@@ -453,8 +453,7 @@ impl WriteC for StoreBucket {
             let (mut cmp_prologue, cmp_index) = cmp_address.produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
 	        prologue.push(format!("{{"));
-	        cmp_index_ref = cmp_index.clone();
-	    }
+	        prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));	    }
         if self.src_address_type.is_some() {
             let (mut cmp_prologue, cmp_index) = self.src_address_type.as_ref().unwrap().produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
