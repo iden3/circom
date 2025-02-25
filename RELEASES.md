@@ -1,4 +1,21 @@
 # Release notes
+## February 27, 2025 circom 2.2.2
+#### Extensions
+- Adding a new prime number: bls12-377.
+- Adding a r1cs reader.
+- Adding a new compilation flag --no_asm: If activated, it does not use asm files for witness generation in C.
+- Adding a new compilation flag no-init: If activated, it removes zero-initializations of variables.
+
+#### Improvements
+- Adding 64-bit arithmetization for Goldilocks, improving witness generation efficiency.
+- Generalization of generated C code for any prime.
+- Improving analysis of previously assigned variables: branch case no longer causes an error in assignments in different branches.
+- Improving the generated C++ code by removing unnecessary instructions.
+  
+###Fixed bugs
+- Fixing a panic in type analysis.
+
+
 ## November 12, 2024 circom 2.2.1
 #### Improvements: 
 - Improving the use and heritance of tags inside buses. Now the values are propagated correctly following the same rules as arrays.
@@ -8,7 +25,6 @@
 - Improving error messages.
 - Improving error recovery in parser.
 - Adding flag --constraint_assert_dissabled. When this flag is activated the compiler does not add asserts in the generated code (C++, WASM) for === constraint equalities
-
   
 #### Fixed bugs: 
 - Importing function printDebug removed from WASM (circom tests from circomlib working now).
