@@ -144,6 +144,14 @@ uint64_t Fr_shr(const uint64_t & a, const uint64_t & b);
 
 inline uint64_t Fr_shl(const uint64_t & a, const uint64_t & b) {
   if (b > Fr_half) return Fr_shr(a,Fr_prime-b);
+  if (b >= 64) return 0;
+  uint64_t s = a << b;
+  return s < Fr_prime ? s : s - Fr_prime;
+}
+
+/*
+inline uint64_t Fr_shl(const uint64_t & a, const uint64_t & b) {
+  if (b > Fr_half) return Fr_shr(a,Fr_prime-b);
   if (b == 0) return a;
   uint64_t u = a >> 64 - b;
   uint64_t s = a << b;
@@ -156,6 +164,7 @@ inline uint64_t Fr_shl(const uint64_t & a, const uint64_t & b) {
   // u1*2^32 + u0*2^32 + s - (u+u1) ; u+u1 is smaller than goldilocks since u1 < 2^31
   return Fr_sub(Fr_add(Fr_add(u1 << 32, u0 << 32),s),u+u1);
 }
+*/
 
 inline uint64_t Fr_shr(const uint64_t & a, const uint64_t & b) {
   if (b > Fr_half) return Fr_shl(a,Fr_prime-b);
@@ -243,6 +252,7 @@ inline uint64_t Fr_bxor(const uint64_t & a, const uint64_t & b) {
 }
 
 inline uint64_t Fr_neg(const uint64_t & a) {
+  if (a == 0) return a;
   return Fr_prime - a;
 }
 
