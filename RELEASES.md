@@ -1,15 +1,15 @@
 # Release notes
-## February 27, 2025 circom 2.2.2
+## March 11, 2025 circom 2.2.2
 #### Extensions
 - Adding a new prime number: bls12-377.
-- Adding a r1cs reader.
-- Adding a new compilation flag --no_asm: If activated, it does not use asm files for witness generation in C.
-- Adding a new compilation flag no-init: If activated, it removes zero-initializations of variables.
+- Adding an r1cs reader.
+- Adding a new compilation flag --no_asm: If activated, it does not use asm files for witness generation code in C++.
+- Adding a new compilation flag --no_init: If activated, it removes zero-initializations of circom variables (var).
 
 #### Improvements
-- Adding 64-bit arithmetization for Goldilocks, improving witness generation efficiency.
-- Generalization of generated C code for any prime.
-- Improving analysis of previously assigned variables: branch case no longer causes an error in assignments in different branches.
+- Adding a specific 64-bit arithmetization for Goldilocks in C++ (not using asm), which dramatically improves witness generation efficiency for this prime.
+- Generation of full C++ code for the arithmatization (for the prime in use) as an alternative to asm code. This is activated with the new --no_asm flag and provides C++ witness generation code which is independent from the architecture being used.
+- Improving the analysis of signal double assigment: branch case no longer causes an error in assignments in different branches.
 - Improving the generated C++ code by removing unnecessary instructions.
   
 ###Fixed bugs
