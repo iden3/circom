@@ -10,19 +10,21 @@ FLAGS:
         --wasm                                 Compiles the circuit to wasm
         --json                                 Outputs the constraints in json format
         --wat                                  Compiles the circuit to wat
-    -c, --c                                    Compiles the circuit to c
-        --no_asm                               Does not use asm files for witness generation in C, uses new
-                                               version
+    -c, --c                                    Compiles the circuit to C++
         --O0                                   No simplification is applied
         --O1                                   Only applies signal to signal and signal to constant simplification
         --O2                                   Full constraint simplification
         --verbose                              Shows logs during compilation
         --inspect                              Does an additional check over the constraints produced
+        --constraint_assert_dissabled          Does not add asserts in the witness generation code to check constraints
+                                               introduced with "==="
         --use_old_simplification_heuristics    Applies the old version of the heuristics when performing linear
                                                simplification
-        --no_init                              Removes initializations to 0 of variables
         --simplification_substitution          Outputs the substitution applied in the simplification phase in
                                                json format
+        --no_asm                               Does not use asm files in witness generation code in C++
+        --no_init                              Removes initializations to 0 of variables ("var") in the witness
+                                               generation code
     -h, --help                                 Prints help information
     -V, --version                              Prints version information
 
@@ -49,6 +51,9 @@ In the following, we explain these options.
     * When flag ```--no_asm``` is activated the generated C code does not use asm files, this is a new version that can be used in all architectures
 * Flag ```--wat``` compiles the circuit to wat.
 * Flag ```--json``` outputs the R1CS system in JSON format (see the detailed format [here](../circom-language/formats/constraints-json.md)).
+* Flag ```--constraint_assert_dissabled``` avoids the introduction of an assert statement in the wasm or C++ code generated whenever a constraint is introduced using ```===```.
+* Flag ```--no_asm``` (combined with the flag ```--c```) generates C++ code without using asm files. This makes the generated code compatible with any architecture.
+* Flag ```--no_init``` avoids the introduction of an initialization to 0 in the wasm and C++ code for every declared ```var``` in the circom program.
 * Option ```-o / --output <output>``` allows to indicate the path to the directory where the output will be written. By default the path is ```.```. 
 
 ##### Flags and options related to the constraint generation process
