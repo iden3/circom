@@ -46,15 +46,6 @@ Circom_Circuit* loadCircuit(std::string const &datFileName) {
     uint inisize = dsize;    
     dsize = get_size_of_witness()*sizeof(u64);
     memcpy((void *)(circuit->witness2SignalList), (void *)(bdata+inisize), dsize);
-
-    /* in 64 bit constants are not in a map
-    circuit->circuitConstants = new u64[get_size_of_constants()];
-    if (get_size_of_constants()>0) {
-      inisize += dsize;
-      dsize = get_size_of_constants()*sizeof(u64);
-      memcpy((void *)(circuit->circuitConstants), (void *)(bdata+inisize), dsize);
-    }
-    */
     
     std::map<u32,IOFieldDefPair> templateInsId2IOSignalInfo1;
     IOFieldDefPair* busInsId2FieldInfo1;
