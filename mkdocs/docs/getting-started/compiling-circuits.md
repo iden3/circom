@@ -45,7 +45,7 @@ circom --help
    OPTIONS:
        -o, --output <output>                    Path to the directory where the output will be written [default: .]
        -p, --prime <prime>                      To choose the prime number to use to generate the circuit. Receives the
-                                                name of the curve (bn128, bls12381, goldilocks, grumpkin, secq256r1, pallas, vesta) [default: bn128]
+                                                name of the curve (bn128, bls12377, bls12381, goldilocks, grumpkin, pallas, secq256r1, vesta) [default: bn128]
     -l <link_libraries>...                   Adds directory to library search path
            --O2round <simplification_rounds>    Maximum number of rounds of the simplification process
    

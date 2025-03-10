@@ -1,7 +1,7 @@
 # Release notes
 ## March 11, 2025 circom 2.2.2
 #### Extensions
-- Adding a new prime number: bls12-377.
+- Adding a new prime number: bls12377.
 - Adding an r1cs reader.
 - Adding a new compilation flag --no_asm: If activated, it does not use asm files for witness generation code in C++.
 - Adding a new compilation flag --no_init: If activated, it removes zero-initializations of circom variables (var).
