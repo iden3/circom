@@ -358,7 +358,7 @@ mod input_processing {
                       || prime_value == "pallas"
                       || prime_value == "vesta"
                       || prime_value == "secq256r1"
-                      || prime_value == "bls12-377"
+                      || prime_value == "bls12377"
                       {
                         Ok(String::from(matches.value_of("prime").unwrap()))
                     }
@@ -556,7 +556,7 @@ mod input_processing {
                     .takes_value(true)
                     .default_value("bn128")
                     .display_order(300)
-                    .help("To choose the prime number to use to generate the circuit. Receives the name of the curve (bn128, bls12381, goldilocks, grumpkin, pallas, vesta, secq256r1, bls12-377)"),
+                    .help("To choose the prime number to use to generate the circuit. Receives the name of the curve (bn128, bls12377, bls12381, goldilocks, grumpkin, pallas, secq256r1, vesta)"),
             )
             .get_matches()
     }
