@@ -485,7 +485,7 @@ mod input_processing {
                     .long("no_asm")
                     .takes_value(false)
                     .display_order(990)
-                    .help("Does not use asm files for witness generation in C, uses new version"),
+                    .help("Does not use asm files in witness generation code in C++"),
             )
             .arg(
                 Arg::with_name("link_libraries")
@@ -502,7 +502,7 @@ mod input_processing {
                     .short("c")
                     .takes_value(false)
                     .display_order(150)
-                    .help("Compiles the circuit to c"),
+                    .help("Compiles the circuit to C++"),
             )
             .arg(
                 Arg::with_name("parallel_simplification")
@@ -518,7 +518,7 @@ mod input_processing {
                     .takes_value(false)
                     .hidden(false)
                     .display_order(810)
-                    .help("Does not add asserts in the generated code for === constraint equalities"),
+                    .help("Does not add asserts in the witness generation code to check constraints introduced with \"===\""),
             )
             .arg(
                 Arg::with_name("main_inputs_log")
@@ -540,7 +540,7 @@ mod input_processing {
                     .long("no_init")
                     .takes_value(false)
                     .display_order(999)
-                    .help("Removes initializations to 0 of variables"),
+                    .help("Removes initializations to 0 of variables (\"var\") in the witness generation code"),
             )
             .arg(
                 Arg::with_name("flag_old_heuristics")
