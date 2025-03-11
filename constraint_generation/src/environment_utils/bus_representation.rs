@@ -4,6 +4,7 @@ use crate::execution_data::type_definitions::{NodePointer, AccessingInformationB
 use crate::execution_data::ExecutedProgram;
 use std::collections::{BTreeMap,HashMap};
 use crate::ast::Meta;
+use crate::environment_utils::slice_types::AssignmentState;
 
 use crate::assignment_utils::*;
 
@@ -53,15 +54,18 @@ impl BusRepresentation {
 
 
         // if input bus all signals are set initialize to true, else to false
-        if is_initialized{
-            component.has_assignment = true;
-        }
+        let assigned_state = if is_initialized {
+            AssignmentState::Assigned(None)
+        } else{
+            AssignmentState::NoAssigned
+        };
+        component.has_assignment = is_initialized; 
         // initialice the signals
         for info_field in node.fields() {
             let symbol = &info_field.name;
             let route = &info_field.length;
             if !info_field.is_bus{
-                let signal_slice = SignalSlice::new_with_route(&route, &is_initialized);
+                let signal_slice = SignalSlice::new_with_route(&route, &assigned_state);
                 let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
                 if signal_slice_size > 0{
                     component.unassigned_fields
@@ -180,6 +184,7 @@ impl BusRepresentation {
         remaining_access: &AccessingInformationBus,
         assigned_value: FoldedArgument,
         is_input: bool,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
             // TODO: move to auxiliar function to do not repeat effort
             // We update the has_assignment value if not tag and not empty
@@ -194,8 +199,16 @@ impl BusRepresentation {
                     total_size > 0
                 },
             };
+
+            // We only update AssignmentState if it has been assigned for sure
             if has_assignment{
-                self.has_assignment = true;
+                match conditions_assignment{
+                    AssignmentState::Assigned(_) =>{
+                        self.has_assignment = true;
+
+                    }
+                    _ =>{}
+                }
             }
 
             // check if we need to access to another bus or if it is the final access
@@ -220,7 +233,8 @@ impl BusRepresentation {
                                     remaining_access.field_access.as_ref().unwrap(), 
                                     &remaining_access.remaining_access.as_ref().unwrap(),
                                     assigned_value,
-                                    is_input
+                                    is_input,
+                                    conditions_assignment
                                 )?;
 
                                 // Update from unassigned if it is completely assigned
@@ -262,7 +276,7 @@ impl BusRepresentation {
                             },
                             _ => unreachable!()
                         };
-                        perform_signal_assignment(signal_slice, &remaining_access.array_access, route)?;
+                        perform_signal_assignment(signal_slice, &remaining_access.array_access, route, conditions_assignment)?;
                     },
                     FieldTypes::Bus(bus_slice) =>{
                         let assigned_bus_slice = match assigned_value{
@@ -271,7 +285,7 @@ impl BusRepresentation {
                             },
                             _ => unreachable!()
                         };
-                        perform_bus_assignment(bus_slice, &remaining_access.array_access, assigned_bus_slice, is_input)?;
+                        perform_bus_assignment(bus_slice, &remaining_access.array_access, assigned_bus_slice, is_input, conditions_assignment)?;
 
                     }
                 }
@@ -305,7 +319,12 @@ impl BusRepresentation {
         
     }
 
-    pub fn completely_assign_bus(&mut self, assigned_bus: &BusRepresentation, is_input: bool)-> Result<(), MemoryError>{
+    pub fn completely_assign_bus(
+        &mut self, 
+        assigned_bus: &BusRepresentation, 
+        is_input: bool,
+        conditions_assignment: &AssignmentState
+    )-> Result<(), MemoryError>{
         
         if self.has_assignment{
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignmentsBus));
@@ -316,7 +335,15 @@ impl BusRepresentation {
             return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::DifferentBusInstances));
         }
 
-        self.has_assignment = true;
+        // only update if it is assigned for sure
+        match conditions_assignment{
+            AssignmentState::Assigned(_) =>{
+                self.has_assignment = true;
+
+            }
+            _ =>{}
+        }
+
         for (field_name, value)  in &mut self.fields{
             
             // perform the assignment
@@ -328,36 +355,20 @@ impl BusRepresentation {
                         FieldTypes::Signal(_) => unreachable!(),
                     };
 
-                    let assignment_result = perform_bus_assignment(bus_slice, &[], bus_slice_assigned, is_input);
+                    let assignment_result = perform_bus_assignment(bus_slice, &[], bus_slice_assigned, is_input, &conditions_assignment);
 
                     if assignment_result.is_err(){
                         return Err(assignment_result.err().unwrap());
                     }
                 },
                 FieldTypes::Signal(signal_slice)=>{
-                    // check if not assigned yet
-                    // set to true
-                    // updated unassigned_fields
-
-                    let new_value_slice = &SignalSlice::new_with_route(signal_slice.route(), &true);
-           
-                    // : Not needed because we know that it has not been assigned?
-                    // let dim_slice: usize = SignalSlice::get_number_of_cells(signal_slice);
-                    // for i in 0..dim_slice{
-                    //     let signal_was_assigned = match SignalSlice::access_value_by_index(&signal_slice, i){
-                    //         Ok(v) => v,
-                    //         Err(_) => unreachable!()
-                    //     };
-                    //     if signal_was_assigned {
-                    //         return Result::Err(MemoryError::AssignmentError(TypeAssignmentError::MultipleAssignments));
-                    //     }
-                    // }
-
-                    SignalSlice::insert_values(
-                        signal_slice,
-                        &Vec::new(),
-                        &new_value_slice,
-                        true
+                    // we need to check assignments (case conditional assignments)
+                    let route = signal_slice.route_value();
+                    perform_signal_assignment(
+                        signal_slice, 
+                        &Vec::new(), 
+                        &route, 
+                        conditions_assignment
                     )?;
                 }
                 

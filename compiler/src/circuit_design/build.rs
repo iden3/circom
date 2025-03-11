@@ -208,6 +208,7 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
         "pallas" => 1948,
         "vesta" => 1948,
         "secq256r1" => 1948,
+        "bls12377" => 1948,
         _ => unreachable!()
     };
     //producer.fr_memory_size = 412 if goldilocks and 1948 for bn128 and bls12381
@@ -244,7 +245,7 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
     producer
 }
 
-fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CProducer {
+fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, no_asm_flag: bool, version: &str) -> CProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
     let prime = UsefulConstants::new(&vcp.prime).get_p().clone();
@@ -279,6 +280,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, version: &str) -> CPr
     producer.io_map = build_io_map(vcp, database);
     producer.template_instance_list = build_template_list_parallel(vcp);
     producer.field_tracking.clear();
+    producer.no_asm = no_asm_flag;
     
     (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
@@ -591,7 +593,7 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
     let template_database = TemplateDB::build(&vcp.templates);
     let mut circuit = Circuit::default();
     circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
-    circuit.c_producer = initialize_c_producer(&vcp, &template_database, version);
+    circuit.c_producer = initialize_c_producer(&vcp, &template_database, flag.no_asm_flag, version);
 
     let field_tracker = FieldTracker::new();
     let circuit_info = CircuitInfo {
@@ -602,9 +604,9 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
     };
 
     let (field_tracker, string_table) =
-        build_template_instances(&mut circuit, &circuit_info, vcp.templates, field_tracker, flag.constraint_assert_dissabled_flag);
+        build_template_instances(&mut circuit, &circuit_info, vcp.templates, field_tracker, flag.constraint_assert_disabled_flag);
     let (field_tracker, function_to_arena_size, table_string_to_usize) =
-        build_function_instances(&mut circuit, &circuit_info, vcp.functions, field_tracker,string_table, flag.constraint_assert_dissabled_flag);
+        build_function_instances(&mut circuit, &circuit_info, vcp.functions, field_tracker,string_table, flag.constraint_assert_disabled_flag);
 
     let table_usize_to_string = create_table_usize_to_string(table_string_to_usize);
     circuit.wasm_producer.set_string_table(table_usize_to_string.clone());

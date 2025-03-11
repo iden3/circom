@@ -104,8 +104,11 @@ impl WriteC for ReturnBucket {
         if self.with_size > 1 {
             let final_size = format!("std::min({},{})", self.with_size, FUNCTION_DESTINATION_SIZE);
 
-            let copy_arguments =
-                vec![FUNCTION_DESTINATION.to_string(), src, final_size];
+            let copy_arguments = if producer.prime_str != "goldilocks" {
+                vec![FUNCTION_DESTINATION.to_string(), src, final_size]
+            } else {
+                vec![format!("&{}",FUNCTION_DESTINATION), format!("&{}",src), final_size]
+            };
             instructions.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
         } else {
             let copy_arguments = vec![FUNCTION_DESTINATION.to_string(), src];

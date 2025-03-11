@@ -54,6 +54,7 @@ pub fn split_declaration_into_single_nodes(
     xtype: VariableType,
     symbols: Vec<Symbol>,
     op: AssignOp,
+    flag_no_init: bool
 ) -> Statement {
     use crate::ast_shortcuts::VariableType::Var;
 
@@ -71,8 +72,9 @@ pub fn split_declaration_into_single_nodes(
         // For the variables, we need to initialize them to 0 in case:
         //     - They are not initialized to other value
         //     - They are arrays (and maybe not all positions are initialized)
+        // in case flag no_init we do not perfom these changes
 
-        if xtype == Var && (possible_init.is_none() || dimensions.len() > 0){
+        if xtype == Var && (possible_init.is_none() || dimensions.len() > 0) && !flag_no_init{
             let mut value = Expression:: Number(meta.clone(), BigInt::from(0));
             for dim_expr in dimensions.iter().rev(){
                 value = build_uniform_array(meta.clone(), value, dim_expr.clone());
@@ -98,6 +100,7 @@ pub fn split_declaration_into_single_nodes_and_multisubstitution(
     xtype: VariableType,
     symbols: Vec<Symbol>,
     init: Option<TupleInit>,
+    flag_no_init: bool
 ) -> Statement {
     use crate::ast_shortcuts::VariableType::Var;
 
@@ -111,7 +114,8 @@ pub fn split_declaration_into_single_nodes_and_multisubstitution(
         debug_assert!(symbol.init.is_none());
         let single_declaration = build_declaration(with_meta.clone(), has_type, name.clone(), dimensions.clone());
         initializations.push(single_declaration);
-        if xtype == Var && init.is_none() {
+        
+        if xtype == Var && (init.is_none() || dimensions.len() > 0) &&!flag_no_init {
             let mut value = Expression:: Number(meta.clone(), BigInt::from(0));
             for dim_expr in dimensions.iter().rev(){
                 value = build_uniform_array(meta.clone(), value, dim_expr.clone());

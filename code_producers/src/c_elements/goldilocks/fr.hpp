@@ -1,164 +1,273 @@
 #ifndef __FR_H
 #define __FR_H
 
-#include <stdint.h>
-#include <string>
 #include <gmp.h>
-
-#ifdef __APPLE__
-#include <sys/types.h> // typedef unsigned int uint;
-#endif // __APPLE__
+#include <stdlib.h>
+#include <sstream>
+#include <string.h>
+#include <assert.h>
 
 #define Fr_N64 1
-#define Fr_SHORT 0x00000000
-#define Fr_LONG 0x80000000
-#define Fr_LONGMONTGOMERY 0xC0000000
-typedef uint64_t FrRawElement[Fr_N64];
-typedef struct __attribute__((__packed__)) {
-    int32_t shortVal;
-    uint32_t type;
-    FrRawElement longVal;
-} FrElement;
-typedef FrElement *PFrElement;
-extern FrElement Fr_q;
-extern FrElement Fr_R3;
-extern FrRawElement Fr_rawq;
-extern FrRawElement Fr_rawR3;
+#define Fr_prime 18446744069414584321ull // 2**64 - 2**32 + 1
+#define Fr_prime_str "18446744069414584321"
+#define Fr_half 9223372034707292160ull // 2**64 - 2**32 + 1
+// phi = 2**32, phi**2 - phi + 1
+// uint32_t ticks32_auto = (uint32_t) ticks64;
 
-extern "C" void Fr_copy(PFrElement r, PFrElement a);
-extern "C" void Fr_copyn(PFrElement r, PFrElement a, int n);
-extern "C" void Fr_add(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_sub(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_neg(PFrElement r, PFrElement a);
-extern "C" void Fr_mul(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_square(PFrElement r, PFrElement a);
-extern "C" void Fr_band(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_bor(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_bxor(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_bnot(PFrElement r, PFrElement a);
-extern "C" void Fr_shl(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_shr(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_eq(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_neq(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_lt(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_gt(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_leq(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_geq(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_land(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_lor(PFrElement r, PFrElement a, PFrElement b);
-extern "C" void Fr_lnot(PFrElement r, PFrElement a);
-extern "C" void Fr_toNormal(PFrElement r, PFrElement a);
-extern "C" void Fr_toLongNormal(PFrElement r, PFrElement a);
-extern "C" void Fr_toMontgomery(PFrElement r, PFrElement a);
+#define Fr_copy(r, a) r = a
 
-extern "C" int Fr_isTrue(PFrElement pE);
-extern "C" int Fr_toInt(PFrElement pE);
+inline void Fr_copyn(uint64_t r[], const uint64_t a[], int n){
+  for (int i = 0; i < n; i++) {
+    r[i] = a[i];
+  }
+}
 
-extern "C" void Fr_rawCopy(FrRawElement pRawResult, const FrRawElement pRawA);
-extern "C" void Fr_rawSwap(FrRawElement pRawResult, FrRawElement pRawA);
-extern "C" void Fr_rawAdd(FrRawElement pRawResult, const FrRawElement pRawA, const FrRawElement pRawB);
-extern "C" void Fr_rawSub(FrRawElement pRawResult, const FrRawElement pRawA, const FrRawElement pRawB);
-extern "C" void Fr_rawNeg(FrRawElement pRawResult, const FrRawElement pRawA);
-extern "C" void Fr_rawMMul(FrRawElement pRawResult, const FrRawElement pRawA, const FrRawElement pRawB);
-extern "C" void Fr_rawMSquare(FrRawElement pRawResult, const FrRawElement pRawA);
-extern "C" void Fr_rawMMul1(FrRawElement pRawResult, const FrRawElement pRawA, uint64_t pRawB);
-extern "C" void Fr_rawToMontgomery(FrRawElement pRawResult, const FrRawElement &pRawA);
-extern "C" void Fr_rawFromMontgomery(FrRawElement pRawResult, const FrRawElement &pRawA);
-extern "C" int Fr_rawIsEq(const FrRawElement pRawA, const FrRawElement pRawB);
-extern "C" int Fr_rawIsZero(const FrRawElement pRawB);
+inline int Fr_toInt(const uint64_t & a) {
+  if (a > Fr_half) return -((int)(Fr_prime - a));
+  return (int)a;
+}
 
-extern "C" void Fr_fail();
+inline uint64_t Fr_str2element(const char *s, uint base) {
+  return strtoull(s, NULL, base);
+}
 
+inline char *Fr_element2str(const uint64_t & a) {
+  std::stringstream ss;
+  ss << a;
+  std::string str = ss.str();
+  char * cstr = new char [str.length()+1];
+  strcpy (cstr, str.c_str());
+  return cstr;
+}
 
-// Pending functions to convert
+inline uint64_t Fr_add (const uint64_t & a, const uint64_t & b) {
+  if (a <= Fr_half) {
+    if (b > Fr_half) {
+      uint64_t bn = Fr_prime - b;
+      if (bn <= a) return a - bn; // is in [0..Fr_prime)
+    }
+    return a + b; // in the remaining cases a + b < Fr_prime
+  } else {
+    uint64_t an = Fr_prime - a; // an <= half
+    if (an > b) return a + b;   // b <= half and a + b < Fr_prime
+    return b - an; // is in [0..Fr_prime)  
+  }
+}
 
-void Fr_str2element(PFrElement pE, char const*s, uint base);
-char *Fr_element2str(PFrElement pE);
-void Fr_idiv(PFrElement r, PFrElement a, PFrElement b);
-void Fr_mod(PFrElement r, PFrElement a, PFrElement b);
-void Fr_inv(PFrElement r, PFrElement a);
-void Fr_div(PFrElement r, PFrElement a, PFrElement b);
-void Fr_pow(PFrElement r, PFrElement a, PFrElement b);
+inline uint64_t Fr_sub (const uint64_t & a, const uint64_t & b) {
+  return (b <= a)? a - b : Fr_prime - (b - a); 
+}
 
-class RawFr {
+//Assume prime is in (2**64, 2^64 - 2^33 + 1 )
+//For instance goldilocks 2^64 - 2^32 + 1
+//Multiplying 2 32 bits number is below 2^64 - 2^33 + 1, hence below prime
+inline uint64_t Fr_mul(const uint64_t & a, const uint64_t & b) {
+  uint64_t a0 = (uint32_t)a;
+  uint64_t a1 = a >> 32;
+  // a = a1*2^32 + a0
+  uint64_t b0 = (uint32_t)b;
+  uint64_t b1 = b >> 32;
+  // b = b1*2^32 + b0
+  uint64_t a0b0 = (a0 * b0); //by assumption below prime
+  uint64_t a0b1 = (a0 * b1); //by assumption below prime
+  uint64_t a1b0 = (a1 * b0); //by assumption below prime
+  uint64_t a1b1 = (a1 * b1); //by assumption below prime
+  // res = a1b1*2**64 + (a1b0 + a0b1)*2**32 + a0b0
+  // res = (a1b1 + a1b0 + a0b1)*2**32 + (a0b0-a1b1)
+  uint64_t res32 = Fr_add(Fr_add(a1b1,a1b0),a0b1);
+  uint64_t res0 = Fr_sub(a0b0,a1b1);
+  uint64_t res32_0 = (uint32_t)res32;
+  uint64_t res32_1 = res32 >> 32;
+  // res32*2**32 = res32_1*2**64 + res32_0*2**32
+  // res32*2**32 = (res32_1*2**32  + res32_0*2**32) - res32_1
+  uint64_t res32_1_aux = res32_1 << 32;
+  res32_0 <<= 32;
+  uint64_t aux = Fr_sub(Fr_add(res32_1_aux,res32_0),res32_1);
+  uint64_t res = Fr_add(aux,res0);
+  return res;
+}
 
-public:
-    const static int N64 = Fr_N64;
-    const static int MaxBits = 64;
+inline uint64_t Fr_inv(const uint64_t & a) {
+  uint32_t a0 = (uint32_t)a;
+  uint32_t a1 = (uint32_t)(a >> 32);
+  mpz_t ma;
+  mpz_init_set_ui(ma, a1);
+  mpz_mul_2exp(ma, ma, 32);
+  mpz_add_ui(ma, ma, a0);
+  mpz_t mr;
+  mpz_init(mr);
+  mpz_t mpz_prime;
+  mpz_init_set_str(mpz_prime, Fr_prime_str, 10);
+  mpz_invert(mr, ma, mpz_prime);
+  a0 = mpz_get_ui(mr);
+  mpz_tdiv_q_2exp(mr,mr,32);
+  a1 = mpz_get_ui(mr);
+  mpz_clear(ma);
+  mpz_clear(mr);
+  mpz_clear(mpz_prime);
+  uint64_t ra = (uint64_t)a1 << 32;
+  ra += (uint64_t)a0;
+  //std::cout << " inv " << a << " = " << ra << std::endl;
+  return ra;
+}
 
+inline uint64_t Fr_div(const uint64_t & a, const uint64_t & b) {
+  uint64_t ib = Fr_inv(b);
+  return Fr_mul(a,ib);
+}
 
-    struct Element {
-        FrRawElement v;
-    };
+inline uint64_t Fr_idiv(const uint64_t & a, const uint64_t & b) {
+  return a / b;
+}
 
-private:
-    Element fZero;
-    Element fOne;
-    Element fNegOne;
+inline uint64_t Fr_mod(const uint64_t & a, const uint64_t & b) {
+  return a % b;
+}
 
-public:
+inline uint64_t Fr_pow(const uint64_t & a, const uint64_t & b) {
+  uint64_t p = 1;
+  uint64_t ao = a;
+  uint64_t bo = b;
+  while (bo>0) {
+    if (bo%2 == 0)  {
+      ao = Fr_mul(ao,ao);
+      bo = bo / 2;
+    } else {
+      p = Fr_mul(p,ao);
+      bo = bo - 1;
+    }
+  }
+  return p;
+}
 
-    RawFr();
-    ~RawFr();
+uint64_t Fr_shr(const uint64_t & a, const uint64_t & b);
 
-    const Element &zero() { return fZero; };
-    const Element &one() { return fOne; };
-    const Element &negOne() { return fNegOne; };
-    Element set(int value);
-    void set(Element &r, int value);
+inline uint64_t Fr_shl(const uint64_t & a, const uint64_t & b) {
+  if (b > Fr_half) return Fr_shr(a,Fr_prime-b);
+  if (b >= 64) return 0;
+  uint64_t s = a << b;
+  return s < Fr_prime ? s : s - Fr_prime;
+}
 
-    void fromString(Element &r, const std::string &n, uint32_t radix = 10);
-    std::string toString(const Element &a, uint32_t radix = 10);
+/*
+inline uint64_t Fr_shl(const uint64_t & a, const uint64_t & b) {
+  if (b > Fr_half) return Fr_shr(a,Fr_prime-b);
+  if (b == 0) return a;
+  uint64_t u = a >> 64 - b;
+  uint64_t s = a << b;
+  uint64_t u0 = (uint32_t)u;
+  uint64_t u1 = u >> 32;
+  // u * (2^32 -1) + s
+  // u * 2^32 + s - u
+  // u1*2^64 + u0*2^32 + s - u
+  // u1*(2^32-1) + u0*2^32 + s - u
+  // u1*2^32 + u0*2^32 + s - (u+u1) ; u+u1 is smaller than goldilocks since u1 < 2^31
+  return Fr_sub(Fr_add(Fr_add(u1 << 32, u0 << 32),s),u+u1);
+}
+*/
 
-    void inline copy(Element &r, const Element &a) { Fr_rawCopy(r.v, a.v); };
-    void inline swap(Element &a, Element &b) { Fr_rawSwap(a.v, b.v); };
-    void inline add(Element &r, const Element &a, const Element &b) { Fr_rawAdd(r.v, a.v, b.v); };
-    void inline sub(Element &r, const Element &a, const Element &b) { Fr_rawSub(r.v, a.v, b.v); };
-    void inline mul(Element &r, const Element &a, const Element &b) { Fr_rawMMul(r.v, a.v, b.v); };
+inline uint64_t Fr_shr(const uint64_t & a, const uint64_t & b) {
+  if (b > Fr_half) return Fr_shl(a,Fr_prime-b);
+  else {
+    if (b >= 64) return 0;
+    else return a >> b;
+  }
+}
 
-    Element inline add(const Element &a, const Element &b) { Element r; Fr_rawAdd(r.v, a.v, b.v); return r;};
-    Element inline sub(const Element &a, const Element &b) { Element r; Fr_rawSub(r.v, a.v, b.v); return r;};
-    Element inline mul(const Element &a, const Element &b) { Element r; Fr_rawMMul(r.v, a.v, b.v); return r;};
+inline uint64_t Fr_leq(const uint64_t & a, const uint64_t & b) {
+  if (a <= Fr_half) {
+    if (b <= Fr_half) return a <= b;
+    else return 0;
+  } else {
+    if (b <= Fr_half) return 1;
+    else return a <= b;
+  }    
+}
 
-    Element inline neg(const Element &a) { Element r; Fr_rawNeg(r.v, a.v); return r; };
-    Element inline square(const Element &a) { Element r; Fr_rawMSquare(r.v, a.v); return r; };
+inline uint64_t Fr_geq(const uint64_t & a, const uint64_t & b) {
+  if (a <= Fr_half) {
+    if (b <= Fr_half) return a >= b;
+    else return 1;
+  } else {
+    if (b <= Fr_half) return 0;
+    else return a >= b;
+  }
+}
 
-    Element inline add(int a, const Element &b) { return add(set(a), b);};
-    Element inline sub(int a, const Element &b) { return sub(set(a), b);};
-    Element inline mul(int a, const Element &b) { return mul(set(a), b);};
+inline uint64_t Fr_lt(const uint64_t & a, const uint64_t & b) {
+  if (a <= Fr_half) {
+    if (b <= Fr_half) return a < b;
+    else return 0;
+  } else {
+    if (b <= Fr_half) return 1;
+    else return a < b;
+  }    
+}
 
-    Element inline add(const Element &a, int b) { return add(a, set(b));};
-    Element inline sub(const Element &a, int b) { return sub(a, set(b));};
-    Element inline mul(const Element &a, int b) { return mul(a, set(b));};
-    
-    void inline mul1(Element &r, const Element &a, uint64_t b) { Fr_rawMMul1(r.v, a.v, b); };
-    void inline neg(Element &r, const Element &a) { Fr_rawNeg(r.v, a.v); };
-    void inline square(Element &r, const Element &a) { Fr_rawMSquare(r.v, a.v); };
-    void inv(Element &r, const Element &a);
-    void div(Element &r, const Element &a, const Element &b);
-    void exp(Element &r, const Element &base, uint8_t* scalar, unsigned int scalarSize);
+inline uint64_t Fr_gt(const uint64_t & a, const uint64_t & b) {
+  if (a <= Fr_half) {
+    if (b <= Fr_half) return a > b;
+    else return 1;
+  } else {
+    if (b <= Fr_half) return 0;
+    else return a > b;
+  }
+}
 
-    void inline toMontgomery(Element &r, const Element &a) { Fr_rawToMontgomery(r.v, a.v); };
-    void inline fromMontgomery(Element &r, const Element &a) { Fr_rawFromMontgomery(r.v, a.v); };
-    int inline eq(const Element &a, const Element &b) { return Fr_rawIsEq(a.v, b.v); };
-    int inline isZero(const Element &a) { return Fr_rawIsZero(a.v); };
+inline uint64_t Fr_eq(const uint64_t & a, const uint64_t & b) {
+  return a == b;
+}
 
-    void toMpz(mpz_t r, const Element &a);
-    void fromMpz(Element &a, const mpz_t r);
+inline uint64_t Fr_eq(const uint64_t a[], const uint64_t b[], int n) {
+  for (int i = 0; i < n; i++) {
+    if (a[i] != b[i]) return 0;
+  }
+  return 1;
+}
 
-    int toRprBE(const Element &element, uint8_t *data, int bytes);
-    int fromRprBE(Element &element, const uint8_t *data, int bytes);
-    
-    int bytes ( void ) { return Fr_N64 * 8; };
-    
-    void fromUI(Element &r, unsigned long int v);
+inline uint64_t Fr_neq(const uint64_t & a, const uint64_t & b) {
+  return a != b;
+}
 
-    static RawFr field;
+inline uint64_t Fr_lor(const uint64_t & a, const uint64_t & b) {
+  return (a == 0) && (b ==0)? 0 : 1; 
+}
 
-};
+inline uint64_t Fr_land(const uint64_t & a, const uint64_t & b) {
+  return (a == 0) || (b ==0)? 0 : 1; 
+}
+
+inline uint64_t Fr_bor(const uint64_t & a, const uint64_t & b) {
+  uint64_t bor = a | b;
+  return bor < Fr_prime ? bor : bor - Fr_prime;
+}
+
+inline uint64_t Fr_band(const uint64_t & a, const uint64_t & b) {
+  return a & b;
+}
+
+inline uint64_t Fr_bxor(const uint64_t & a, const uint64_t & b) {
+  uint64_t bxor = a^b;
+  return bxor < Fr_prime ? bxor : bxor - Fr_prime;
+}
+
+inline uint64_t Fr_neg(const uint64_t & a) {
+  if (a == 0) return a;
+  return Fr_prime - a;
+}
+
+inline uint64_t Fr_lnot(const uint64_t & a) {
+  return a == 0? 1 : 0;
+}
+
+inline int Fr_isTrue(const uint64_t & a) {
+  return a == 0? 0 : 1;
+}
+
+ inline uint64_t Fr_bnot(const uint64_t & a) {
+  uint64_t bnot = ~a;
+  return bnot < Fr_prime ? bnot : bnot - Fr_prime; 
+}
 
 
 #endif // __FR_H
-
-
-
