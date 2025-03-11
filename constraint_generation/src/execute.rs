@@ -17,7 +17,7 @@ use super::environment_utils::{
     },
 };
 use program_structure::wire_data::WireType;
-use crate::assignment_utils::*;
+use crate::{assignment_utils::*, environment_utils::slice_types::AssignmentState};
 
 use crate::environment_utils::slice_types::BusTagInfo;
 use program_structure::constants::UsefulConstants;
@@ -43,6 +43,8 @@ enum BlockType {
 
 struct RuntimeInformation {
     pub block_type: BlockType,
+    pub conditions_state: Vec<(usize, bool)>,
+    pub unknown_counter: usize,
     pub analysis: Analysis,
     pub public_inputs: Vec<String>,
     pub constants: UsefulConstants,
@@ -66,6 +68,8 @@ impl RuntimeInformation {
             environment: ExecutionEnvironment::new(),
             exec_program: ExecutedProgram::new(prime),
             anonymous_components: AnonymousComponentsInfo::new(),
+            conditions_state: Vec::new(),
+            unknown_counter: 0,
         }
     }
 }
@@ -647,32 +651,40 @@ fn execute_statement(
             can_be_simplified = can_simplify;
             possible_return
         }
-        While { cond, stmt, .. } => loop {
-            let (returned, can_simplify, condition_result) = execute_conditional_statement(
-                cond,
-                stmt,
-                Option::None,
-                program_archive,
-                runtime,
-                actual_node,
-                flags
-            )?;
-            can_be_simplified &= can_simplify;
-            if returned.is_some() {
-                break returned;
-            } else if condition_result.is_none() {
-                let (returned, _, _) = execute_conditional_statement(
+        While { cond, stmt, .. } => {
+            // We update the conditions state of the execution
+            runtime.conditions_state.push((runtime.unknown_counter, true));
+            runtime.unknown_counter+=1;
+            loop {
+
+                let (returned, can_simplify, condition_result) = execute_conditional_statement(
                     cond,
                     stmt,
-                    None,
+                    Option::None,
                     program_archive,
                     runtime,
                     actual_node,
                     flags
                 )?;
-                break returned;
-            } else if !condition_result.unwrap() {
-                break returned;
+                can_be_simplified &= can_simplify;
+                if returned.is_some() {
+                    break returned;
+                } else if condition_result.is_none() {
+                    let (returned, _, _) = execute_conditional_statement(
+                        cond,
+                        stmt,
+                        None,
+                        program_archive,
+                        runtime,
+                        actual_node,
+                        flags
+                    )?;
+                    break returned;
+                } else if !condition_result.unwrap() {
+                    break returned;
+                }
+                // We remove the last conditions_state added
+                runtime.conditions_state.pop();
             }
         },
         Block { stmts, .. } => {
@@ -1366,6 +1378,11 @@ fn perform_assign(
     } else{
         create_symbol(symbol, &accessing_information.other_access.as_ref().unwrap())
     };
+    let conditions_assignment = if runtime.conditions_state.len() == 0{
+        AssignmentState::Assigned(Some(meta.clone()))
+    } else{
+        AssignmentState::MightAssigned(runtime.conditions_state.clone(), Some(meta.clone()))
+    };
     
     let possible_arithmetic_slices = if ExecutionEnvironment::has_variable(&runtime.environment, symbol)
     {
@@ -1530,12 +1547,16 @@ fn perform_assign(
         // Perform the tag propagation
         let r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
 
-        reference_to_tags.remaining_inserts -= MemorySlice::get_number_of_cells(&r_slice);
+        if reference_to_tags.remaining_inserts >= MemorySlice::get_number_of_cells(&r_slice){
+            reference_to_tags.remaining_inserts -= MemorySlice::get_number_of_cells(&r_slice);
+        } else{
+            reference_to_tags.remaining_inserts = 0;
+        }
         reference_to_tags.is_init = true;
         perform_tag_propagation(&mut reference_to_tags.tags, &mut reference_to_tags.definitions, &new_tags.tags, reference_to_tags.is_init);
 
         // Perform the signal assignment
-        let signal_assignment_response = perform_signal_assignment(reference_to_signal_content, &accessing_information.before_signal, &r_slice.route());
+        let signal_assignment_response = perform_signal_assignment(reference_to_signal_content, &accessing_information.before_signal, &r_slice.route(), &conditions_assignment);
         
         treat_result_with_memory_error_void(
             signal_assignment_response,
@@ -1707,15 +1728,17 @@ fn perform_assign(
                             &remaining_access.array_access,
                             &arithmetic_slice.route(),
                             &tags,
+                            &conditions_assignment
                             )
                     } else{
-                        let aux_slice = SignalSlice::new_with_route(arithmetic_slice.route(), &true);
+                        let aux_slice = SignalSlice::new_with_route(arithmetic_slice.route(), &conditions_assignment);
                         ComponentRepresentation::assign_value_to_bus_field(
                             component,
                             &signal_accessed,
                             &remaining_access,
                             FoldedResult::Signal(aux_slice),
                             &tags,
+                            &conditions_assignment
                         )
                     };
                     treat_result_with_memory_error_void(
@@ -1812,6 +1835,7 @@ fn perform_assign(
                             &remaining_access.array_access,
                             assigned_bus_slice,
                             &tags,
+                            &conditions_assignment
                         ) 
                     } else{
                         ComponentRepresentation::assign_value_to_bus_field(
@@ -1820,6 +1844,7 @@ fn perform_assign(
                             &remaining_access,
                             FoldedResult::Bus(assigned_bus_slice),
                             &tags,
+                            &conditions_assignment
                         )
                     };
                     treat_result_with_memory_error_void(
@@ -2049,6 +2074,17 @@ fn perform_assign(
             // case assigning a field of the bus
             if meta.get_type_knowledge().is_signal(){
 
+                // in case we are assigning a signal of the complete bus
+                // check not valid in input buses
+                if is_input_bus {
+                    treat_result_with_memory_error(
+                        Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentInput(symbol.to_string()))),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?
+                }
+
                 let mut value_left = treat_result_with_memory_error(
                     BusSlice::access_values_by_mut_reference(bus_slice, &accessing_information.array_access),
                     meta,
@@ -2071,7 +2107,8 @@ fn perform_assign(
                     accessing_information.field_access.as_ref().unwrap(),
                     accessing_information.remaining_access.as_ref().unwrap(),
                     FoldedArgument::Signal(&arithmetic_slice.route().to_vec()),
-                    false
+                    false,
+                    &conditions_assignment
                 );
                 treat_result_with_memory_error_void(
                     memory_response,
@@ -2178,6 +2215,16 @@ fn perform_assign(
         } else if FoldedValue::valid_bus_slice(&r_folded){
             let (name_bus, assigned_bus_slice) = r_folded.bus_slice.as_ref().unwrap();
             // case assigning a bus (complete or field)
+            
+            // check not valid in input buses
+            if is_input_bus {
+                treat_result_with_memory_error(
+                    Err(MemoryError::AssignmentError(TypeAssignmentError::AssignmentInput(symbol.to_string()))),
+                    meta,
+                    &mut runtime.runtime_errors,
+                    &runtime.call_trace,
+                )?
+            }
             if accessing_information.field_access.is_none(){
 
                 // Perform the tag propagation
@@ -2193,7 +2240,7 @@ fn perform_assign(
                 perform_tag_propagation_bus(tag_data, &new_tags, MemorySlice::get_number_of_cells(&bus_slice));
 
                 // We assign the original buses
-                let bus_assignment_response = perform_bus_assignment(bus_slice, &accessing_information.array_access, assigned_bus_slice, false);
+                let bus_assignment_response = perform_bus_assignment(bus_slice, &accessing_information.array_access, assigned_bus_slice, false, &conditions_assignment);
                 treat_result_with_memory_error_void(
                     bus_assignment_response,
                     meta,
@@ -2290,7 +2337,8 @@ fn perform_assign(
                     accessing_information.field_access.as_ref().unwrap(),
                     accessing_information.remaining_access.as_ref().unwrap(),
                     FoldedArgument::Bus(&bus_slice),
-                    false
+                    false,
+                    &conditions_assignment
                 );
                 treat_result_with_memory_error_void(
                     memory_response,
@@ -2404,13 +2452,24 @@ fn execute_conditional_statement(
         // that we assign in each one of the branches and assign later: if we assign in both 
         // of them a signal we return an error. If we assign in just one then we dont return error
         // (maybe a warning indicating that the variable may not get assigned in the if)
+        
+        
+        // We update the conditions state of the execution
+        runtime.conditions_state.push((runtime.unknown_counter, true));
+        runtime.unknown_counter+=1;
+
         let (mut ret_value, mut can_simplify) = execute_statement(true_case, program_archive, runtime, actual_node, flags)?;
         if let Option::Some(else_stmt) = false_case {
+            // Update the conditions state and set the last to false
+            let index = runtime.conditions_state.len()-1;
+            runtime.conditions_state[index].1 = false;
+            
             let (else_ret, can_simplify_else) = execute_statement(else_stmt, program_archive, runtime, actual_node, flags)?;
             can_simplify &= can_simplify_else;
-            
+
+
             // Choose the biggest return value possible
-            
+
             if ret_value.is_none() {
                 ret_value = else_ret;
             } else if ret_value.is_some() && else_ret.is_some(){
@@ -2432,6 +2491,8 @@ fn execute_conditional_statement(
 
             }
         }
+        // remove the last condition added
+        runtime.conditions_state.pop();
         runtime.block_type = previous_block_type;
         return Result::Ok((ret_value, can_simplify, Option::None));
     }
@@ -2706,7 +2767,15 @@ fn signal_to_arith(symbol: String, slice: SignalSlice) -> Result<AExpressionSlic
     let mut symbols = vec![];
     unfold_signals(symbol, 0, &route, &mut symbols);
     let mut index = 0;
-    while index < symbols.len() && values[index] {
+    while index < symbols.len(){
+        match values[index]{
+            AssignmentState::NoAssigned =>{
+                return Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedSignal));
+            }
+            _ => {
+
+            }
+        }
         expressions.push(AExpr::Signal { symbol: symbols[index].clone() });
         index += 1;
     }
@@ -2715,6 +2784,7 @@ fn signal_to_arith(symbol: String, slice: SignalSlice) -> Result<AExpressionSlic
     } else {
         Result::Err(MemoryError::InvalidAccess(TypeInvalidAccess::NoInitializedSignal))
     }
+    // TODO: in case inspect return warning in case might assigned?
 }
 
 fn unfold_signals(current: String, dim: usize, lengths: &[usize], result: &mut Vec<String>) {
@@ -3719,10 +3789,12 @@ fn treat_result_with_memory_error_void(
                                 format!("Exception caused by invalid assignment\n Bus contains fields that have been previously initialized"),
                                 RuntimeError)
                         },
-                        TypeAssignmentError::MultipleAssignments =>{
-                            Report::error(
+                        TypeAssignmentError::MultipleAssignments(meta) =>{
+                            let mut rep = Report::error(
                                 format!("Exception caused by invalid assignment\n Signal has been already assigned"),
-                                RuntimeError)
+                                RuntimeError);
+                            rep.add_secondary(meta.file_location(), meta.get_file_id(), Option::Some("This is the previous assignment to the variable".to_string()));
+                            rep
                         },
                         TypeAssignmentError::AssignmentInput(signal) => Report::error(
                             format!("Invalid assignment: input signals of a template already have a value when the template is executed and cannot be re-assigned. \n Problematic input signal: {}",
@@ -3851,10 +3923,12 @@ pub fn treat_result_with_memory_error<C>(
                                 format!("Exception caused by invalid assignment\n Bus contains fields that have been previously initialized"),
                                 RuntimeError)
                         },
-                        TypeAssignmentError::MultipleAssignments =>{
-                            Report::error(
+                        TypeAssignmentError::MultipleAssignments(meta) =>{
+                            let mut rep = Report::error(
                                 format!("Exception caused by invalid assignment\n Signal has been already assigned"),
-                                RuntimeError)
+                                RuntimeError);
+                            rep.add_secondary(meta.file_location(), meta.get_file_id(), Option::Some("This is the previous assignment to the variable".to_string()));
+                            rep
                         },
                         TypeAssignmentError::AssignmentInput(signal) => Report::error(
                             format!("Invalid assignment: input signals of a template already have a value when the template is executed and cannot be re-assigned. \n Problematic input signal: {}",

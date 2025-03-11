@@ -443,9 +443,9 @@ impl WriteC for StoreBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let mut prologue = vec![];
-	let cmp_index_ref = "cmp_index_ref".to_string();
-    let src_index_ref = "aux_src_index".to_string();
-	let aux_dest_index = "aux_dest_index".to_string();
+        let cmp_index_ref = "cmp_index_ref".to_string();
+        let mut src_index_ref = "".to_string();
+	    let mut aux_dest_index = "".to_string();
 
 	//prologue.push(format!("// store bucket. Line {}", self.line)); //.to_string()
 
@@ -453,12 +453,11 @@ impl WriteC for StoreBucket {
             let (mut cmp_prologue, cmp_index) = cmp_address.produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
 	        prologue.push(format!("{{"));
-	        prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));
-	    }
+	        prologue.push(format!("uint {} = {};",  cmp_index_ref, cmp_index));	    }
         if self.src_address_type.is_some() {
             let (mut cmp_prologue, cmp_index) = self.src_address_type.as_ref().unwrap().produce_c(producer, parallel);
             prologue.append(&mut cmp_prologue);
-	        prologue.push(format!("uint {} = {};",  src_index_ref, cmp_index));
+	        src_index_ref  = cmp_index.clone();
 	    }
         // We compute the possible sizes, case multiple sizes
         let expr_size = match &self.context.size{
@@ -573,30 +572,45 @@ impl WriteC for StoreBucket {
         // Build dest
         let dest = match &self.dest_address_type {
             AddressType::Variable => {
-                format!("&{}", lvar(dest_index.clone()))
+                if producer.prime_str != "goldilocks" {
+                    format!("&{}", lvar(dest_index.clone()))
+                } else {
+                    format!("{}", lvar(dest_index.clone()))
+                }
             }
             AddressType::Signal => {
-                format!("&{}", signal_values(dest_index.clone()))
+                if producer.prime_str != "goldilocks" {
+                    format!("&{}", signal_values(dest_index.clone()))
+                } else {
+                    format!("{}", signal_values(dest_index.clone()))
+                }
             }
             AddressType::SubcmpSignal { .. } => {
                 let sub_cmp_start = format!(
                     "{}->componentMemory[{}[{}]].signalStart",
                     CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref
                 );
-                format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, dest_index.clone())
+                if producer.prime_str != "goldilocks" {
+                    format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, dest_index.clone())
+                } else {
+                    format!("{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, dest_index.clone())
+                }
             }
         };
 	//keep dest_index in an auxiliar if parallel and out put
 	if let AddressType::Signal = &self.dest_address_type {
 	    if parallel.unwrap() && self.dest_is_output {
-        prologue.push(format!("{{"));
-		prologue.push(format!("uint {} = {};",  aux_dest_index, dest_index.clone()));
+            prologue.push(format!("{{")); //open block 1 when parallel and Signal 
+		    aux_dest_index = dest_index.clone();
 	    }
 	}
         // store src in dest
-	prologue.push(format!("{{"));
-	let aux_dest = "aux_dest".to_string();
-	prologue.push(format!("{} {} = {};", T_P_FR_ELEMENT, aux_dest, dest));
+        let mut aux_dest = "".to_string();
+        if producer.prime_str != "goldilocks" {
+	prologue.push(format!("{{")); // open block 2
+	    aux_dest = "aux_dest".to_string();
+	    prologue.push(format!("{} {} = {};", T_P_FR_ELEMENT, aux_dest, dest));
+        }
         // Load src
 	prologue.push(format!("// load src"));
     let (mut src_prologue, src) = self.src.produce_c(producer, parallel);
@@ -604,35 +618,45 @@ impl WriteC for StoreBucket {
 	prologue.push(format!("// end load src"));	
         std::mem::drop(src_prologue);
         if size != "1" && size != "0" {
-            let copy_arguments = vec![aux_dest, src, size.clone()];
+            let copy_arguments = if producer.prime_str != "goldilocks" {
+                 vec![aux_dest, src, size.clone()]
+            } else {
+                vec![format!("&{}",dest), format!("&{}",src), size.clone()]
+            };
             prologue.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
 	    if let AddressType::Signal = &self.dest_address_type {
-        if parallel.unwrap() && self.dest_is_output {
-		    prologue.push(format!("{{"));
-		    prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
+                if parallel.unwrap() && self.dest_is_output {
+		    prologue.push(format!("{{")); // open block 3
+		    prologue.push(format!("for (int i = 0; i < {}; i++) {{", size)); // open block 4
 		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].lock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}+i]=true;",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].cvs[{}+i].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("}}"));
-		    prologue.push(format!("}}"));
-		    prologue.push(format!("}}"));
+		    prologue.push(format!("}}")); // close block 4
+		    prologue.push(format!("}}")); // close block 3
+		    prologue.push(format!("}}")); // add a close for block 1 (as it's oppened)
 		}
 	    }
         } else {
-            let copy_arguments = vec![aux_dest, src];
-            prologue.push(format!("{};", build_call("Fr_copy".to_string(), copy_arguments)));
+            if producer.prime_str != "goldilocks" {
+                let copy_arguments = vec![aux_dest, src];
+                prologue.push(format!("{};", build_call("Fr_copy".to_string(), copy_arguments)));
+            } else {
+                prologue.push(format!("{} = {};", dest, src));
+            }
 	    if let AddressType::Signal = &self.dest_address_type {
 		if parallel.unwrap() && self.dest_is_output {
 		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}].lock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}]=true;",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("{}->componentMemory[{}].cvs[{}].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("}}"));
+		    prologue.push(format!("}}")); // add a close for block 1 (as it's opened
 		}
 	    }
         }
-	prologue.push(format!("}}"));
+        if producer.prime_str != "goldilocks" {
+	    prologue.push(format!("}}")); // add a close block 2 if opened // not that since all closing } are at the end it works
+        }
         match &self.dest_address_type {
             AddressType::SubcmpSignal{ uniform_parallel_value, input_information, .. } => {
                 // if subcomponent input check if run needed
