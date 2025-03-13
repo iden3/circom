@@ -6,7 +6,7 @@ We have standard constructions for defining the control flow of the program.
 
 **if ( boolean_condition ) block_of_code else block_of_code**
 
-The else part is optional. When omitted, it means “else do nothing”.
+The else part is optional. When omitted, it means "else do nothing".
 
 ```text
 var x = 0;

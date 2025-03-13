@@ -274,7 +274,7 @@
 
 #### Extensions
 -	A check that all inputs are set is added in the wasm/JS and C++ generated code.
--	Improvement of the “merge_code” implementation in code generators. 
+-	Improvement of the "merge_code" implementation in code generators. 
 
 ## Nov 9, 2021 circom 2.0.1
 
