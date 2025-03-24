@@ -193,7 +193,9 @@ void json2FrElements (json val, std::vector<u64> & vval){
 
 json::value_t check_type(std::string prefix, json in){
   if (not in.is_array()) {
-      return in.type();
+    if (in.is_number_integer() || in.is_number_unsigned() || in.is_string())
+      return json::value_t::number_integer;
+    else  return in.type();
     } else {
     if (in.size() == 0) return json::value_t::null;
     json::value_t t = check_type(prefix, in[0]);
