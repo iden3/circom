@@ -1,5 +1,5 @@
 site_name: Circom 2 Documentation
-site_url: https://iden3.github.io/circom/
+site_url: https://docs.circom.io/
 theme:
      name: material
      palette:
