@@ -84,14 +84,14 @@ pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, ReportCollectio
     }
 }
 
-pub fn parse_file(src: &str, file_id: FileID, field: &BigInt) -> Result<AST, ReportCollection> {
+pub fn parse_file(src: &str, file_id: FileID, field: &BigInt, flag_no_init: bool) -> Result<AST, ReportCollection> {
     use lalrpop_util::ParseError::*;
 
     let mut errors = Vec::new();
     let preprocess = preprocess(src, file_id)?;
 
     let ast = lang::ParseAstParser::new()
-        .parse(file_id, &mut errors, field, &preprocess)
+        .parse(file_id, &mut errors, field, flag_no_init, &preprocess)
         // TODO: is this always fatal?
         .map_err(|parse_error| match parse_error {
             InvalidToken { location } => 

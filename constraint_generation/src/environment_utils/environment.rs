@@ -12,6 +12,7 @@ use super::slice_types::{
     BusTagInfo,
     SignalTagInfo
 };
+use crate::environment_utils::slice_types::AssignmentState::*;
 use super::{ArithmeticExpression, CircomEnvironment, CircomEnvironmentError};
 use program_structure::memory_slice::MemoryError;
 use crate::execution_data::type_definitions::TagWire;
@@ -38,7 +39,7 @@ pub fn environment_shortcut_add_input(
     dimensions: &[SliceCapacity],
     tags: &TagInfo,
 ) {
-    let slice = SignalSlice::new_with_route(dimensions, &true);
+    let slice = SignalSlice::new_with_route(dimensions, &Assigned(None));
     let mut tags_defined = TagDefinitions::new();
     for (t, value) in tags{
         tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some()});
@@ -59,7 +60,7 @@ pub fn environment_shortcut_add_output(
     dimensions: &[SliceCapacity],
     tags: &TagInfo,
 ) {
-    let slice = SignalSlice::new_with_route(dimensions, &false);
+    let slice = SignalSlice::new_with_route(dimensions, &NoAssigned);
     let mut tags_defined = TagDefinitions::new();
     for (t, value) in tags{
         tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some()});
@@ -79,7 +80,7 @@ pub fn environment_shortcut_add_intermediate(
     dimensions: &[SliceCapacity],
     tags: &TagInfo,
 ) {
-    let slice = SignalSlice::new_with_route(dimensions, &false);
+    let slice = SignalSlice::new_with_route(dimensions, &NoAssigned);
     let mut tags_defined = TagDefinitions::new();
     for (t, value) in tags{
         tags_defined.insert(t.clone(), TagState{defined:true, value_defined: value.is_some()});

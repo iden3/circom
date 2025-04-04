@@ -4,7 +4,7 @@
 
 This statement introduces conditions to be checked. Here, we distinguish two cases depending on if **bool_expression** is unknown at compilation time:
 
-- If the assert statement depends on a control flow with only known conditions (see [Unknowns](../circom-insight/unknowns)) and the **bool_expression** is known (e.g., if it only depends on the value of template parameters or field constants), the assert is evaluated in compilation time. If the result of the evaluation is false, then the compilation fails.  Consider the next piece of code:
+- If the assert statement depends on a control flow with only known conditions (see [Unknowns](../../circom-insight/unknowns)) and the **bool_expression** is known (e.g., if it only depends on the value of template parameters or field constants), the assert is evaluated in compilation time. If the result of the evaluation is false, then the compilation fails.  Consider the next piece of code:
 
 ```
 template A(n) {
@@ -28,6 +28,4 @@ template Translate(n) {
 }
 ```
 
-Recall that, when a constraint like `in * in === n;` is introduced with `===`, then an assert is automatically added in the witness generation code. In this case, `assert(in * in == n)`.
-
-
+Recall that, when a constraint like `in * in === n;` is introduced with `===`, then (by default) an assert is automatically added in the witness generation code. In this case, `assert(in * in == n)`. Such `assert` is not added  if the flag `--constraint_assert_dissabled` is enabled.

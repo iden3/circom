@@ -1,4 +1,5 @@
 use num_bigint_dig::BigInt;
+use crate::ast::Meta;
 use std::fmt::{Display, Formatter};
 
 pub enum TypeInvalidAccess {
@@ -12,7 +13,7 @@ pub enum TypeInvalidAccess {
 pub enum TypeAssignmentError {
     MultipleAssignmentsComponent,
     MultipleAssignmentsBus,
-    MultipleAssignments,
+    MultipleAssignments(Meta),
     AssignmentOutput,
     NoInitializedComponent,
     DifferentBusInstances,
@@ -38,7 +39,7 @@ pub enum MemoryError {
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;
 /*
-    Represents the value stored in a element of a circom program.
+    Represents the value stored in an element of a circom program.
     The attribute route stores the dimensions of the slice, used to navigate through them.
     The length of values is equal to multiplying all the values in route.
 */
@@ -376,6 +377,15 @@ impl<C: Clone> MemorySlice<C> {
         return Result::Ok(memory_slice.values[index].clone());
     }
 
+    pub fn access_values_by_index_mut_reference<'a>(
+        memory_slice: &'a mut MemorySlice<C>,
+        index: usize,
+    ) -> Result<&'a mut C, MemoryError> {
+        if index > MemorySlice::get_number_of_cells(memory_slice) {
+            return Result::Err(MemoryError::OutOfBoundsError);
+        }
+        return Result::Ok(memory_slice.values.get_mut(index).unwrap());    }
+
     pub fn get_reference_values<'a>(
         memory_slice: &'a MemorySlice<C>,
     )-> &'a Vec<C>{
@@ -431,6 +441,9 @@ impl<C: Clone> MemorySlice<C> {
 
     pub fn route(&self) -> &[SliceCapacity] {
         &self.route
+    }
+    pub fn route_value(&self) ->Vec<SliceCapacity> {
+        self.route.clone()
     }
     pub fn is_single(&self) -> bool {
         self.route.is_empty()

@@ -5,6 +5,7 @@ pub use super::memory_slice::{MemoryError, TypeInvalidAccess, TypeAssignmentErro
 pub use circom_algebra::algebra::ArithmeticExpression;
 pub use num_bigint::BigInt;
 use std::collections::BTreeMap;
+use program_structure::ast::Meta;
 
 #[derive(Debug, Copy, Clone)]
 pub struct TagState{
@@ -32,10 +33,20 @@ pub struct BusTagInfo{
     pub fields: BTreeMap<String, BusTagInfo>,
 }
 
+#[derive(Clone)]
+pub enum AssignmentState {
+    Assigned(Option<Meta>), // location of the assignment
+    MightAssigned(
+        Vec<(usize, bool)>,
+        Option<Meta> // location of the assignment
+    ), // the number of the conditional and if it is true/false
+    NoAssigned
+}
+
 
 pub type AExpressionSlice = MemorySlice<ArithmeticExpression<String>>;
 // The boolean is true if the signal contains a value
-pub type SignalSlice = MemorySlice<bool>;
+pub type SignalSlice = MemorySlice<AssignmentState>;
 pub type ComponentSlice = MemorySlice<ComponentRepresentation>;
 
 // To store the buses, similar to the components

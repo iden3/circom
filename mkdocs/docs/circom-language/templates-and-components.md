@@ -117,6 +117,8 @@ template B(N){
   else{
      a = A(0);
   }
+  a.in <== 1;
+  a.out ==> out;
 }
 
 component main = B(1);
@@ -171,7 +173,7 @@ component comp = parallel NameTemplate(...){...}
 A real example of use case is the following piece of code from the rollup code:
 ```
 component rollupTx[nTx];
-for (i = 0; i < nTx; i++) {
+for (var i = 0; i < nTx; i++) {
         rollupTx[i] = parallel RollupTx(nLevels, maxFeeTx);
 }
 ```

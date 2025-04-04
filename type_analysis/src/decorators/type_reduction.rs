@@ -170,8 +170,11 @@ fn reduce_types_in_substitution (
     if is_simple_component {
         let xtype = environment.get_mut_component(name); 
         if xtype.is_some() && xtype.as_ref().unwrap().is_initialized() {
-            let reduced_type = expr.get_meta().get_type_knowledge().get_reduces_to();
-            xtype.unwrap().set_reduces_to(reduced_type);
+            let type_knowledge = expr.get_meta().get_type_knowledge();
+            if type_knowledge.is_initialized() {
+                let reduced_type = expr.get_meta().get_type_knowledge().get_reduces_to();
+                xtype.unwrap().set_reduces_to(reduced_type);
+            }
         }
     }
     reports 

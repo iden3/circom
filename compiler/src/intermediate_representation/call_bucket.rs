@@ -471,7 +471,11 @@ impl WriteC for CallBucket {
         prologue.push("{\n".to_string());
         prologue.push("// start of call bucket".to_string());
         // create lvar parameter
-        prologue.push(format!("{};", declare_lvar_func_call(self.arena_size)));
+        if producer.prime_str != "goldilocks" {
+            prologue.push(format!("{};", declare_lvar_func_call(self.arena_size)));
+        } else {
+            prologue.push(format!("{};", declare_64bit_lvar_func_call(self.arena_size)));
+        }            
         // copying parameters
         let mut count = 0;
         let mut i = 0;
@@ -479,7 +483,12 @@ impl WriteC for CallBucket {
             prologue.push(format!("// copying argument {}", i));
             let (mut prologue_value, src) = p.produce_c(producer, parallel);
             prologue.append(&mut prologue_value);
-            let arena_position = format!("&{}[{}]", L_VAR_FUNC_CALL_STORAGE, count);
+            let arena_position =
+                if producer.prime_str != "goldilocks" {
+                    format!("&{}[{}]", L_VAR_FUNC_CALL_STORAGE, count)
+                } else {
+                    format!("{}[{}]", L_VAR_FUNC_CALL_STORAGE, count)
+                };
             // TODO, CASE CALL ARGUMENTS
             let size = match &self.argument_types[i].size{
                 SizeOption::Single(value) => *value,
@@ -489,8 +498,11 @@ impl WriteC for CallBucket {
                 }
             };
             if size > 1 {
-                let copy_arguments =
-                    vec![arena_position, src, size.to_string()];
+                let copy_arguments = if producer.prime_str != "goldilocks" {
+                    vec![arena_position, src, size.to_string()]
+                }else {
+                    vec![format!("&{}",arena_position), format!("&{}",src), size.to_string()]
+                };
                 prologue
                     .push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
             } else {
@@ -510,7 +522,12 @@ impl WriteC for CallBucket {
         match &self.return_info {
             ReturnType::Intermediate { op_aux_no } => {
                 let exp_aux_index = op_aux_no.to_string();
-                let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
+                let result_ref =
+                    if producer.prime_str != "goldilocks" {
+                        format!("&{}", expaux(exp_aux_index.clone()))
+                    } else {
+                        format!("{}", expaux(exp_aux_index.clone()))
+                    };
                 call_arguments.push(result_ref.clone());
                 call_arguments.push("1".to_string());
                 prologue.push(format!("{};", build_call(self.symbol.clone(), call_arguments)));
@@ -614,20 +631,35 @@ impl WriteC for CallBucket {
 		prologue.append(&mut dest_prologue);
                 let result_ref = match &data.dest_address_type {
                     AddressType::Variable => {
-                        format!("&{}", lvar(dest_index.clone()))
+                        if producer.prime_str != "goldilocks" {
+                            format!("&{}", lvar(dest_index.clone()))
+                        } else {
+                            format!("{}", lvar(dest_index.clone()))
+                        }
                     }
                     AddressType::Signal => {
-                        format!("&{}", signal_values(dest_index.clone()))
+                        if producer.prime_str != "goldilocks" {
+                            format!("&{}", signal_values(dest_index.clone()))
+                        } else {
+                            format!("{}", signal_values(dest_index.clone()))
+                        }
                     }
                     AddressType::SubcmpSignal { .. } => {
                         let sub_cmp_start = format!(
                             "{}->componentMemory[{}[{}]].signalStart",
                             CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref
                         );
-                        format!(
-                            "&{}->signalValues[{} + {}]",
-                            CIRCOM_CALC_WIT, sub_cmp_start, dest_index.clone()
-                        )
+                        if producer.prime_str != "goldilocks" {
+                            format!(
+                                "&{}->signalValues[{} + {}]",
+                                CIRCOM_CALC_WIT, sub_cmp_start, dest_index.clone()
+                            )
+                        } else {
+                            format!(
+                                "{}->signalValues[{} + {}]",
+                                CIRCOM_CALC_WIT, sub_cmp_start, dest_index.clone()
+                            )
+                        }
                     }
                 };
                 call_arguments.push(result_ref);

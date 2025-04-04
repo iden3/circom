@@ -1,10 +1,10 @@
 [package]
 name = "circom_algebra"
-version = "2.2.0"
+version = "2.2.2"
 authors = ["Costa Group UCM","iden3"]
 edition = "2018"
 
 [dependencies]
-num-bigint-dig = "0.6.0"
+num-bigint-dig = "0.8.4"
 num-traits = "0.2.6"
 constant_tracking = {path = "../constant_tracking" }

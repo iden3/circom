@@ -21,8 +21,10 @@ pub struct CompilerConfig {
     pub c_flag: bool,
     pub debug_output: bool,
     pub produce_input_log: bool,
-    pub constraint_assert_dissabled_flag: bool,
+    pub constraint_assert_disabled_flag: bool,
     pub vcp: VCP,
+    pub no_asm_flag: bool,
+    pub prime: String,
 }
 
 pub fn compile(config: CompilerConfig) -> Result<(), ()> {
@@ -35,7 +37,9 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 debug_output: config.debug_output, 
                 produce_input_log: config.produce_input_log, 
                 wat_flag: config.wat_flag,
-                constraint_assert_dissabled_flag: config.constraint_assert_dissabled_flag,
+
+                constraint_assert_disabled_flag: config.constraint_assert_disabled_flag,
+                no_asm_flag: config.no_asm_flag,
             },
             VERSION
         )?;
@@ -48,21 +52,50 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                 config.c_file,
                 config.dat_file
             );
-            println!(
-                "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
-                Colour::Green.paint("Written successfully:"),
-            &config.c_folder,
-                "main.cpp".to_string(),
-                "circom.hpp".to_string(),
-                "calcwit.hpp".to_string(),
-                "calcwit.cpp".to_string(),
-                "fr.hpp".to_string(),
-                "fr.cpp".to_string(),
-                "fr.asm".to_string(),
-                "Makefile".to_string()
-            );
+            if config.no_asm_flag {                
+                println!(
+                    "{} {}/{}, {}, {}, {}, {}, {} and {}",
+                    Colour::Green.paint("Written successfully:"),
+                    &config.c_folder,
+                    "main.cpp".to_string(),
+                    "circom.hpp".to_string(),
+                    "calcwit.hpp".to_string(),
+                    "calcwit.cpp".to_string(),
+                    "fr.hpp".to_string(),
+                    "fr.cpp".to_string(),
+                    "Makefile".to_string()
+                );
+            } else {
+                if config.prime == "goldilocks" {
+                    println!(
+                        "{} {}/{}, {}, {}, {}, {}, {} and {}",
+                        Colour::Green.paint("Written successfully:"),
+                        &config.c_folder,
+                        "main.cpp".to_string(),
+                        "circom.hpp".to_string(),
+                        "calcwit.hpp".to_string(),
+                        "calcwit.cpp".to_string(),
+                        "fr.hpp".to_string(),
+                        "Makefile".to_string(),
+                        "json2bin64.cpp".to_string()
+                    );
+                } else {
+                    println!(
+                        "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
+                        Colour::Green.paint("Written successfully:"),
+                        &config.c_folder,
+                        "main.cpp".to_string(),
+                        "circom.hpp".to_string(),
+                        "calcwit.hpp".to_string(),
+                        "calcwit.cpp".to_string(),
+                        "fr.hpp".to_string(),
+                        "fr.cpp".to_string(),
+                        "fr.asm".to_string(),
+                        "Makefile".to_string()
+                    );
+                }
+            }
         }
-    
         match (config.wat_flag, config.wasm_flag) {
             (true, true) => {
                 compiler_interface::write_wasm(&circuit, &config.js_folder, &config.wasm_name, &config.wat_file)?;
