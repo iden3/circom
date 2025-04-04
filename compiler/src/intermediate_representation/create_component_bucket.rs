@@ -244,7 +244,7 @@ impl WriteC for CreateCmpBucket {
         if complete_array {
             if self.number_of_cmp != 1{
                 instructions.push(format!("for (uint i = 0; i < {}; i++) {{", self.number_of_cmp));
-                // update the value of the the parallel status if it is not uniform parallel using the array aux_parallel
+                // update the value of the parallel status if it is not uniform parallel using the array aux_parallel
                 if self.uniform_parallel.is_none(){
                     instructions.push(format!("bool status_parallel = aux_parallel[i];"));
                 }
@@ -262,7 +262,7 @@ impl WriteC for CreateCmpBucket {
             if self.number_of_cmp != 1{
                 instructions.push(format!("for (uint i_aux = 0; i_aux < {}; i_aux++) {{",  self.defined_positions.len()));
                 instructions.push(format!("uint i = aux_positions[i_aux];"));
-                // update the value of the the parallel status if it is not uniform parallel using the array aux_parallel
+                // update the value of the parallel status if it is not uniform parallel using the array aux_parallel
                 if self.uniform_parallel.is_none(){
                     instructions.push(format!("bool status_parallel = aux_parallel[i_aux];"));
                 }
