@@ -10,22 +10,28 @@ FLAGS:
         --wasm                                 Compiles the circuit to wasm
         --json                                 Outputs the constraints in json format
         --wat                                  Compiles the circuit to wat
-    -c, --c                                    Compiles the circuit to c
+    -c, --c                                    Compiles the circuit to C++
         --O0                                   No simplification is applied
         --O1                                   Only applies signal to signal and signal to constant simplification
         --O2                                   Full constraint simplification
         --verbose                              Shows logs during compilation
         --inspect                              Does an additional check over the constraints produced
+        --constraint_assert_dissabled          Does not add asserts in the witness generation code to check constraints
+                                               introduced with "==="
         --use_old_simplification_heuristics    Applies the old version of the heuristics when performing linear
                                                simplification
-        --simplification_substitution          Outputs the substitution applied in the simplification phase in json format
+        --simplification_substitution          Outputs the substitution applied in the simplification phase in
+                                               json format
+        --no_asm                               Does not use asm files in witness generation code in C++
+        --no_init                              Removes initializations to 0 of variables ("var") in the witness
+                                               generation code
     -h, --help                                 Prints help information
     -V, --version                              Prints version information
 
 OPTIONS:
     -o, --output <output>                    Path to the directory where the output will be written [default: .]
     -p, --prime <prime>                      To choose the prime number to use to generate the circuit. Receives the
-                                             name of the curve (bn128, bls12381, goldilocks, grumpkin, secq256r1, pallas, vesta) [default: bn128]
+                                             name of the curve (bn128, bls12377, bls12381, goldilocks, grumpkin, pallas, secq256r1, vesta) [default: bn128]
     -l <link_libraries>...                   Adds directory to library search path
         --O2round <simplification_rounds>    Maximum number of rounds of the simplification process
 
@@ -42,8 +48,12 @@ In the following, we explain these options.
 * Flag ```--simplification_substitution``` outputs the substitutions performed by the --O1 (default) and --O2 constraint simplification options in json format (see the detailed format [here](../circom-language/formats/simplification-json.md)).
 * Flag ```--wasm``` produces a WebAssembly program that receives the private and public inputs and generates the circuit witness.
 * Flag ```-c / --c``` produces a C++ program that receives the private and public inputs and generates the circuit witness.
+    * When flag ```--no_asm``` is activated the generated C code does not use asm files, this is a new version that can be used in all architectures
 * Flag ```--wat``` compiles the circuit to wat.
 * Flag ```--json``` outputs the R1CS system in JSON format (see the detailed format [here](../circom-language/formats/constraints-json.md)).
+* Flag ```--constraint_assert_dissabled``` avoids the introduction of an assert statement in the wasm or C++ code generated whenever a constraint is introduced using ```===```.
+* Flag ```--no_asm``` (combined with the flag ```--c```) generates C++ code without using asm files. This makes the generated code compatible with any architecture.
+* Flag ```--no_init``` avoids the introduction of an initialization to 0 in the wasm and C++ code for every declared ```var``` in the circom program.
 * Option ```-o / --output <output>``` allows to indicate the path to the directory where the output will be written. By default the path is ```.```. 
 
 ##### Flags and options related to the constraint generation process
@@ -66,9 +76,11 @@ In the following, we explain the different optimizations that we can apply to th
 Only one of these flags/options must be used during the compilation.
 
 ##### Other flags and options
-* Option ```-p, --prime <prime>``` allows the user indicate which prime must be used during the compilation. Currently, it admits six different primes: bn128, bls12381, goldilock, grumpkin, secq256r1, pallas and vesta. If not indicated, the default prime is bn128.
+* Option ```-p, --prime <prime>``` allows the user indicate which prime must be used during the compilation. Currently, it admits six different primes: bn128, bls12377, bls12381, goldilocks, grumpkin, pallas, secq256r1 and vesta. If not indicated, the default prime is bn128.
 
 * Option ```-l <link_libraries>``` adds the provided directory in ```<link_libraries>```to the library search path. It is possible to add as much ```-l <link_libraries>``` as needed, but only one directory per option.
+
+* Flag ```--no_init``` removes variable initializations to 0. 
 
 * Flag ```-v / --version``` prints the version information.
 * Flag ```-h / --help``` prints the help information.

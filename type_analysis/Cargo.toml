@@ -1,10 +1,10 @@
 [package]
 name = "type_analysis"
-version = "2.2.1"
+version = "2.2.2"
 authors = ["Costa Group UCM","iden3"]
 edition = "2018"
 
 [dependencies]
 program_structure = {path = "../program_structure"}
-num-bigint-dig = "0.6.0"
+num-bigint-dig = "0.8.4"
 num-traits = "0.2.6"

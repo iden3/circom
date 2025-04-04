@@ -9,7 +9,7 @@ use program_structure::ast::produce_report;
 use program_structure::error_definition::Report;
 use program_structure::error_code::ReportCode;
 
-grammar<'err>(file_id: usize, errors:&'err mut Vec<Report>, field: &BigInt);
+grammar<'err>(file_id: usize, errors:&'err mut Vec<Report>, field: &BigInt, flag_no_init: bool);
 CommaSepList<T>:Vec<T> = {
     <mut e:(<T> ",")*> <t:T> => {
         e.push(t);
@@ -306,14 +306,14 @@ ParseDeclaration : Statement = {
         let meta = Meta::new(s,e);
         let xtype = VariableType::Var;
         symbols.push(symbol);
-        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols,init)
+        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols,init, flag_no_init)
     },
 
     <s:@L> <xtype:SignalHeader> "(" <symbols:(<SimpleSymbol> ",")*> <symbol: SimpleSymbol> ")" <init : TupleInitialization?>  <e:@R> => {
         let mut symbols = symbols;
         let meta = Meta::new(s,e);
         symbols.push(symbol);
-        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init)
+        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init, flag_no_init)
     },
 
     <s:@L> "component" "(" <symbols:(<SimpleSymbol> ",")*> <symbol: SimpleSymbol> ")" <init : TupleInitialization?>  <e:@R> => {
@@ -321,7 +321,7 @@ ParseDeclaration : Statement = {
         let meta = Meta::new(s,e);
         let xtype = VariableType::Component;
         symbols.push(symbol);
-        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init)
+        ast_shortcuts::split_declaration_into_single_nodes_and_multisubstitution(meta,xtype,symbols, init, flag_no_init)
     },
 
 
@@ -330,7 +330,7 @@ ParseDeclaration : Statement = {
             let meta = Meta::new(s,e);
             let xtype = VariableType::Var;
             symbols.push(symbol);
-            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar, flag_no_init)
     },
 
     <s:@L> "component" <symbols:(<SomeSymbol> ",")*> <symbol: SomeSymbol> <e:@R> => {
@@ -338,7 +338,7 @@ ParseDeclaration : Statement = {
             let meta = Meta::new(s,e);
             let xtype = VariableType::Component;
             symbols.push(symbol);
-            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar)
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignVar, flag_no_init)
     },
 
     <s:@L> <xtype: SignalHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol>  <e:@R>
@@ -346,14 +346,14 @@ ParseDeclaration : Statement = {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
             symbols.push(symbol);
-            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignConstraintSignal)
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignConstraintSignal, flag_no_init)
     },
     <s:@L> <xtype: SignalHeader> <symbols:(<SignalSimpleSymbol> ",")*> <symbol: SignalSimpleSymbol>  <e:@R>
     => {
             let mut symbols = symbols;
             let meta = Meta::new(s,e);
             symbols.push(symbol);
-            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignSignal)
+            ast_shortcuts::split_declaration_into_single_nodes(meta,xtype,symbols,AssignOp::AssignSignal, flag_no_init)
     },
 
     <s:@L> <bus_header: BusHeader> <symbols:(<SignalSymbol> ",")*> <symbol: SignalSymbol> <e:@R> => {

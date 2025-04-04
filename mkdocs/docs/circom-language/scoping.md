@@ -68,6 +68,6 @@ template t(){
 
 component main = t();
 ```
-That rises and error on `c3.comp2.x`: _"Signal not found in component: only accesses to input/output signals are allowed"_.
+That raises an error on `c3.comp2.x`: _"Signal not found in component: only accesses to input/output signals are allowed"_.
 
 A var can be defined at any block and its visibility is reduced to the block like in C or Rust.

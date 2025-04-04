@@ -23,6 +23,8 @@ Circom language reference can be found at [circom language reference](https://do
 
 At this time there are two available syntax highlighters: [circom Visual Studio Code highlight syntax](https://github.com/iden3/circom-highlighting-vscode) and  [circom Vim highlight syntax](https://github.com/iden3/vim-circom-syntax).
 
+The circom development team is part of the COSTA research group at the Complutense University of Madrid.
+
 # Documentation
 All documentation is available in [circom 2 Documentation](https://docs.circom.io/), we encourage you to read it. If you are new start with the [Getting started section](https://docs.circom.io/getting-started/installation/).
 Basic background on Zero-knowledge proofs can be found on [Background section](https://docs.circom.io/background/background/).
