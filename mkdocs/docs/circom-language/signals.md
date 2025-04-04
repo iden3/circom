@@ -36,7 +36,7 @@ template Multiplier2(){
 
 component main {public [in1,in2]} = Multiplier2();
 ```
-Since circom 2.0.4, it is also allowed to initialize intermediate and outputs signals right after their declaration. Then, the previous example can be rewritten as follows:
+Since circom 2.0.4, it is also allowed to initialize intermediate and output signals right after their declaration. Then, the previous example can be rewritten as follows:
 
 ```text
 pragma circom 2.0.0;
@@ -54,7 +54,7 @@ component main {public [in1,in2]} = Multiplier2();
 
 This example declares input signals `in1` and `in2` of the main component as public signals.
 
-In circom, all output signals of the main component are public (and cannot be made private), the input signals of the main component are private if not stated otherwise using the keyword public as above. The rest of signals are all private and cannot be made public. 
+In circom, all output signals of the main component are public (and cannot be made private), the input signals of the main component are private if not stated otherwise using the keyword public as above. The rest of the signals are all private and cannot be made public. 
 
 Thus, from the programmer's point of view, only public input and output signals are visible from outside the circuit, and hence no intermediate signal can be accessed.
 
@@ -125,7 +125,7 @@ template B(){
 component main = B();
 ```
 
-This example produces a compilation error since value of signal `outA` depends on the value of signal `in`, even though, such a value is the constant 3.
+This example produces a compilation error since the value of signal `outA` depends on the value of signal `in`, even though such a value is the constant 3.
 
 Signals can only be assigned using the operations `<--` or `<==` (see [Basic operators](../basic-operators)) with the signal on the left hand side and `-->` or `==>` (see [Basic operators](../basic-operators)) with the signal on the right hand side. The safe options are `<==` and `==>`, since they assign values and also generate constraints at the same time. Using `<--` and `-->` is, in general, dangerous and should only be used when the assigned expression cannot be included in a constraint, like in the following example.
 
