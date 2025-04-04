@@ -1,4 +1,21 @@
 # Release notes
+## March 11, 2025 circom 2.2.2
+#### Extensions
+- Adding a new prime number: bls12377.
+- Adding an r1cs reader.
+- Adding a new compilation flag --no_asm: If activated, it does not use asm files for witness generation code in C++.
+- Adding a new compilation flag --no_init: If activated, it removes zero-initializations of circom variables (var).
+
+#### Improvements
+- Adding a specific 64-bit arithmetization for Goldilocks in C++ (not using asm), which dramatically improves witness generation efficiency for this prime.
+- Generation of full C++ code for the arithmatization (for the prime in use) as an alternative to asm code. This is activated with the new --no_asm flag and provides C++ witness generation code which is independent from the architecture being used.
+- Improving the analysis of signal double assigment: branch case no longer causes an error in assignments in different branches.
+- Improving the generated C++ code by removing unnecessary instructions.
+  
+###Fixed bugs
+- Fixing a panic in type analysis.
+
+
 ## November 12, 2024 circom 2.2.1
 #### Improvements: 
 - Improving the use and heritance of tags inside buses. Now the values are propagated correctly following the same rules as arrays.
@@ -8,7 +25,6 @@
 - Improving error messages.
 - Improving error recovery in parser.
 - Adding flag --constraint_assert_dissabled. When this flag is activated the compiler does not add asserts in the generated code (C++, WASM) for === constraint equalities
-
   
 #### Fixed bugs: 
 - Importing function printDebug removed from WASM (circom tests from circomlib working now).
@@ -120,7 +136,7 @@
 ## February 10, 2023 circom 2.1.4
 
  #### Extensions
- - Improving the efficiency of the parser regarding the anonnymous components and tuples. 
+ - Improving the efficiency of the parser regarding the anonymous components and tuples. 
  - Improving the substitution process: better compilation times for --O1 and --O2.
  - Improving the handling of the underscore substitution.
  - Extending the substitution to allow the inheritance of signal tags.
@@ -258,7 +274,7 @@
 
 #### Extensions
 -	A check that all inputs are set is added in the wasm/JS and C++ generated code.
--	Improvement of the “merge_code” implementation in code generators. 
+-	Improvement of the "merge_code" implementation in code generators. 
 
 ## Nov 9, 2021 circom 2.0.1
 

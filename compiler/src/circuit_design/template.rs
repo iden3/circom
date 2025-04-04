@@ -276,7 +276,16 @@ impl TemplateCodeInfo {
         run_params.push(declare_ctx_index());
         run_params.push(declare_circom_calc_wit());
         let mut run_body = vec![];
+        if producer.prime_str != "goldilocks" {
+            run_body.push(format!("{};", declare_circuit_constants()));
         run_body.push(format!("{};", declare_signal_values()));
+            run_body.push(format!("{};", declare_expaux(self.expression_stack_depth)));
+            run_body.push(format!("{};", declare_lvar(self.var_stack_depth)));
+        } else{
+            run_body.push(format!("{};", declare_64bit_signal_values()));
+            run_body.push(format!("{};", declare_64bit_expaux(self.expression_stack_depth)));
+            run_body.push(format!("{};", declare_64bit_lvar(self.var_stack_depth)));
+        }
         run_body.push(format!("{};", declare_my_signal_start()));
         run_body.push(format!("{};", declare_my_template_name()));
         run_body.push(format!("{};", declare_my_component_name()));
@@ -284,16 +293,11 @@ impl TemplateCodeInfo {
         run_body.push(format!("{};", declare_my_id()));
         run_body.push(format!("{};", declare_my_subcomponents()));
         run_body.push(format!("{};", declare_my_subcomponents_parallel()));
-        run_body.push(format!("{};", declare_circuit_constants()));
         run_body.push(format!("{};", declare_list_of_template_messages_use()));
-        run_body.push(format!("{};", declare_expaux(self.expression_stack_depth)));
-        run_body.push(format!("{};", declare_lvar(self.var_stack_depth)));
         run_body.push(format!("{};", declare_sub_component_aux()));
         run_body.push(format!("{};", declare_index_multiple_eq()));
         run_body.push(format!("int cmp_index_ref_load = -1;"));
 
-
-        
         for t in &self.body {
             let (mut instructions_body, _) = t.produce_c(producer, Some(parallel));
             run_body.append(&mut instructions_body);

@@ -1,4 +1,4 @@
-use super::slice_types::{FoldedResult, FoldedArgument, BusSlice, MemoryError, SignalSlice, SliceCapacity, TagInfo, TypeAssignmentError, TypeInvalidAccess};
+use super::slice_types::{AssignmentState, BusSlice, FoldedArgument, FoldedResult, MemoryError, SignalSlice, SliceCapacity, TagInfo, TypeAssignmentError, TypeInvalidAccess};
 use crate::execution_data::type_definitions::AccessingInformationBus;
 use crate::{environment_utils::slice_types::BusRepresentation, execution_data::type_definitions::NodePointer};
 use crate::execution_data::ExecutedProgram;
@@ -7,6 +7,7 @@ use crate::ast::Meta;
 use crate::execution_data::type_definitions::{TagNames,TagWire};
 use crate::assignment_utils::*;
 use num_bigint_dig::BigInt;
+use crate::environment_utils::slice_types::AssignmentState::*;
 
 pub struct ComponentRepresentation {
     pub node_pointer: Option<NodePointer>,
@@ -14,9 +15,9 @@ pub struct ComponentRepresentation {
     pub meta: Option<Meta>,
     unassigned_inputs: HashMap<String, SliceCapacity>,
     unassigned_tags: HashSet<Vec<String>>,
-    to_assign_inputs: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>)>,
-    to_assign_input_buses: Vec<(String, Vec<SliceCapacity>, BusSlice)>,
-    to_assign_input_bus_fields: Vec<(String, AccessingInformationBus, FoldedResult)>,
+    to_assign_inputs: Vec<(String, Vec<SliceCapacity>, Vec<SliceCapacity>, AssignmentState)>,
+    to_assign_input_buses: Vec<(String, Vec<SliceCapacity>, BusSlice, AssignmentState)>,
+    to_assign_input_bus_fields: Vec<(String, AccessingInformationBus, FoldedResult, AssignmentState)>,
     inputs: HashMap<String, SignalSlice>,
     input_buses: HashMap<String, BusSlice>,
     pub inputs_tags: HashMap<String, TagWire>,
@@ -165,7 +166,7 @@ impl ComponentRepresentation {
             let symbol = &info_wire.name;
             let route = &info_wire.length;
             if !info_wire.is_bus{
-                let signal_slice = SignalSlice::new_with_route(route, &false);
+                let signal_slice = SignalSlice::new_with_route(route, &NoAssigned);
                 let signal_slice_size = SignalSlice::get_number_of_cells(&signal_slice);
                 if signal_slice_size > 0{
                     component.unassigned_inputs
@@ -211,7 +212,7 @@ impl ComponentRepresentation {
             let symbol = &info_wire.name;
             let route = &info_wire.length;
             if !info_wire.is_bus{
-                component.outputs.insert(symbol.clone(), SignalSlice::new_with_route(route, &true));
+                component.outputs.insert(symbol.clone(), SignalSlice::new_with_route(route, &Assigned(None)));
             } else{
                 let mut initial_value_bus = BusRepresentation::default();
                 let bus_node = node.bus_connexions.get(symbol).unwrap().inspect.goes_to;
@@ -234,26 +235,26 @@ impl ComponentRepresentation {
 
         let to_assign = std::mem::replace(&mut component.to_assign_inputs, vec![]);
 
-        for (signal_name, access, route) in &to_assign{
+        for (signal_name, access, route, conditions_assignment) in &to_assign{
             let tags_input = component.inputs_tags[signal_name].clone();
-            component.assign_value_to_signal_init(signal_name, access, route, &tags_input)?;
+            component.assign_value_to_signal_init(signal_name, access, route, &tags_input, conditions_assignment)?;
         }
 
         let to_assign = std::mem::replace(&mut component.to_assign_input_buses, vec![]);
-        for (signal_name, access, bus_slice) in &to_assign{
+        for (signal_name, access, bus_slice, conditions_assignment) in &to_assign{
             let tags_input = component.inputs_tags[signal_name].clone();
-            component.assign_value_to_bus_init(signal_name, access, bus_slice, &tags_input)?;
+            component.assign_value_to_bus_init(signal_name, access, bus_slice, &tags_input, conditions_assignment)?;
         }
 
         let to_assign = std::mem::replace(&mut component.to_assign_input_bus_fields, vec![]);
-        for (signal_name, access, field_value) in &to_assign{
+        for (signal_name, access, field_value, conditions_assignment) in &to_assign{
             let mut tags_input = &component.inputs_tags[signal_name].clone();
             let mut aux_access = access;
             while aux_access.field_access.is_some(){
                 tags_input = tags_input.fields.as_ref().unwrap().get(aux_access.field_access.as_ref().unwrap()).unwrap();
                 aux_access = aux_access.remaining_access.as_ref().unwrap();
             }
-            component.assign_value_to_bus_field_init(&signal_name, &access, &field_value, tags_input)?;
+            component.assign_value_to_bus_field_init(&signal_name, &access, &field_value, tags_input, conditions_assignment)?;
         }
 
         Result::Ok(())
@@ -417,6 +418,7 @@ impl ComponentRepresentation {
         access: &[SliceCapacity],
         slice_route: &[SliceCapacity],
         tags: &TagWire,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
         if !component.is_initialized{
             ComponentRepresentation::assign_value_to_signal_no_init(
@@ -424,7 +426,8 @@ impl ComponentRepresentation {
                 signal_name, 
                 access, 
                 slice_route,
-                tags
+                tags,
+                conditions_assignment
             )
         } else {
             ComponentRepresentation::assign_value_to_signal_init(
@@ -432,7 +435,8 @@ impl ComponentRepresentation {
                 signal_name, 
                 access, 
                 slice_route,
-                tags
+                tags,
+                conditions_assignment
             )
         }
     }
@@ -443,11 +447,12 @@ impl ComponentRepresentation {
         access: &[SliceCapacity],
         slice_route: &[SliceCapacity],
         tags: &TagWire,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
 
         // check that the tags are correct and update values
         ComponentRepresentation::handle_tag_assignment_no_init(component, &vec![signal_name.to_string()], tags)?;
-        component.to_assign_inputs.push((signal_name.to_string(), access.to_vec(), slice_route.to_vec()));
+        component.to_assign_inputs.push((signal_name.to_string(), access.to_vec(), slice_route.to_vec(), conditions_assignment.clone()));
         
         Result::Ok(())
     }
@@ -458,6 +463,7 @@ impl ComponentRepresentation {
         access: &[SliceCapacity],
         slice_route: &[SliceCapacity],
         tags: &TagWire,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
 
         if !self.is_preinitialized() {
@@ -474,7 +480,7 @@ impl ComponentRepresentation {
         
         // Perform the assignment
         let inputs_response = self.inputs.get_mut(signal_name).unwrap();
-        perform_signal_assignment(inputs_response, &access, slice_route)?;
+        perform_signal_assignment(inputs_response, &access, slice_route, conditions_assignment)?;
         
         // Update the value of unnasigned fields
         ComponentRepresentation::update_unassigned_inputs(self, signal_name, slice_route);
@@ -491,6 +497,7 @@ impl ComponentRepresentation {
         access: &[SliceCapacity],
         bus_slice: BusSlice,
         tags: &TagWire,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
         if !component.is_initialized{
             ComponentRepresentation::assign_value_to_bus_no_init(
@@ -498,7 +505,8 @@ impl ComponentRepresentation {
                 bus_name, 
                 access, 
                 bus_slice,
-                tags
+                tags,
+                conditions_assignment
             )
         } else {
             ComponentRepresentation::assign_value_to_bus_init(
@@ -506,7 +514,8 @@ impl ComponentRepresentation {
                 bus_name, 
                 access, 
                 &bus_slice,
-                tags
+                tags,
+                conditions_assignment
             )
         }
     }
@@ -517,11 +526,12 @@ impl ComponentRepresentation {
         access: &[SliceCapacity],
         bus_slice: BusSlice,
         tags: &TagWire,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
 
         // check that the tags are correct and update values
         ComponentRepresentation::handle_tag_assignment_no_init(component, &vec![bus_name.to_string()], tags)?;
-        component.to_assign_input_buses.push((bus_name.to_string(), access.to_vec(), bus_slice));
+        component.to_assign_input_buses.push((bus_name.to_string(), access.to_vec(), bus_slice, conditions_assignment.clone()));
         
         Result::Ok(())
     }
@@ -532,6 +542,7 @@ impl ComponentRepresentation {
         access: &[SliceCapacity],
         bus_slice: &BusSlice,
         tags: &TagWire,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
 
         if !self.is_preinitialized() {
@@ -547,7 +558,7 @@ impl ComponentRepresentation {
         
         // Perform the assignment
         let inputs_response = self.input_buses.get_mut(bus_name).unwrap();
-        perform_bus_assignment(inputs_response, &access, bus_slice, true)?;
+        perform_bus_assignment(inputs_response, &access, bus_slice, true, conditions_assignment)?;
         
         // Update the value of unnasigned fields
         ComponentRepresentation::update_unassigned_inputs(self, bus_name, bus_slice.route());
@@ -566,6 +577,7 @@ impl ComponentRepresentation {
         access: &AccessingInformationBus,
         field_value: FoldedResult,
         tags: &TagWire,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
         if !component.is_initialized{
             ComponentRepresentation::assign_value_to_bus_field_no_init(
@@ -573,7 +585,8 @@ impl ComponentRepresentation {
                 bus_name, 
                 access, 
                 field_value,
-                tags
+                tags,
+                conditions_assignment
             )
         } else {
             ComponentRepresentation::assign_value_to_bus_field_init(
@@ -581,7 +594,8 @@ impl ComponentRepresentation {
                 bus_name, 
                 access, 
                 &field_value,
-                tags
+                tags,
+                conditions_assignment
             )
         }
     }
@@ -592,6 +606,7 @@ impl ComponentRepresentation {
         access: &AccessingInformationBus,
         field_value: FoldedResult,
         tags: &TagWire,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
 
         fn build_name(complete_bus_name: &mut Vec<String>, access: &AccessingInformationBus){
@@ -622,6 +637,7 @@ impl ComponentRepresentation {
             bus_name.to_string(), 
             access.clone(), 
             field_value,
+            conditions_assignment.clone()
         )
         );
         
@@ -634,6 +650,7 @@ impl ComponentRepresentation {
         access: &AccessingInformationBus,
         field_value: &FoldedResult,
         tags: &TagWire,
+        conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
 
         if !self.is_preinitialized() {
@@ -680,6 +697,7 @@ impl ComponentRepresentation {
             access.remaining_access.as_ref().unwrap(),
             folded_arg,
             true, 
+            conditions_assignment
         )?;
         
         

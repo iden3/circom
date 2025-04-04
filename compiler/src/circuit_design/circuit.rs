@@ -10,7 +10,9 @@ use std::io::Write;
 pub struct CompilationFlags {
     pub main_inputs_log: bool,
     pub wat_flag:bool,
-    pub constraint_assert_dissabled_flag: bool
+
+    pub no_asm_flag: bool,
+    pub constraint_assert_disabled_flag: bool
 }
 
 pub struct Circuit {
@@ -311,7 +313,7 @@ impl WriteC for Circuit {
             .iter()
             .map(|f| f.header.clone())
             .collect();
-        let mut function_headers = collect_function_headers(function_headers);
+        let mut function_headers = collect_function_headers(producer,function_headers);
         code.append(&mut template_headers);
         code.append(&mut function_headers);
         std::mem::drop(template_headers);
@@ -427,14 +429,16 @@ impl WriteC for Circuit {
         code.push("#include <assert.h>".to_string());
         code.push("#include \"circom.hpp\"".to_string());
         code.push("#include \"calcwit.hpp\"".to_string());
-
+        if producer.get_size_32_bit() <= 2 {        
+            code.push("#include \"fr.hpp\"".to_string());
+        }
 	
         let mut template_headers = collect_template_headers(producer.get_template_instance_list());
         let function_headers: Vec<_> = self.functions
             .iter()
             .map(|f| f.header.clone())
             .collect();
-        let mut function_headers = collect_function_headers(function_headers);
+        let mut function_headers = collect_function_headers(producer,function_headers);
         code.append(&mut template_headers);
         code.append(&mut function_headers);
         std::mem::drop(template_headers);
@@ -593,14 +597,17 @@ impl Circuit {
     pub fn produce_c<W: Write>(&self, c_folder: &str, run_name: &str, c_circuit: &mut W, c_dat: &mut W) -> Result<(), ()> {
 	use std::path::Path;
 	let c_folder_path = Path::new(c_folder).to_path_buf();
-        c_code_generator::generate_main_cpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_circom_hpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_hpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_hpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_cpp_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
-        c_code_generator::generate_calcwit_cpp_file(&c_folder_path).map_err(|_err| {})?;
-        c_code_generator::generate_fr_asm_file(&c_folder_path, &self.c_producer.prime_str).map_err(|_err| {})?;
+        c_code_generator::generate_main_cpp_file(&c_folder_path,&self.c_producer).map_err(|_err| {})?;
+        c_code_generator::generate_circom_hpp_file(&c_folder_path,&self.c_producer).map_err(|_err| {})?;
+        c_code_generator::generate_fr_hpp_file(&c_folder_path, &self.c_producer.prime_str,&self.c_producer).map_err(|_err| {})?;
+        c_code_generator::generate_calcwit_hpp_file(&c_folder_path,&self.c_producer).map_err(|_err| {})?;
+        c_code_generator::generate_fr_cpp_file(&c_folder_path, &self.c_producer.prime_str,&self.c_producer).map_err(|_err| {})?;
+        c_code_generator::generate_calcwit_cpp_file(&c_folder_path,&self.c_producer).map_err(|_err| {})?;
+        c_code_generator::generate_fr_asm_file(&c_folder_path, &self.c_producer.prime_str,&self.c_producer).map_err(|_err| {})?;
         c_code_generator::generate_make_file(&c_folder_path,run_name,&self.c_producer).map_err(|_err| {})?;
+        if self.c_producer.prime_str == "goldilocks" {
+            c_code_generator::generate_json2bin64(&c_folder_path,&self.c_producer).map_err(|_err| {})?;
+        }
         c_code_generator::generate_dat_file(c_dat, &self.c_producer).map_err(|_err| {})?;
         self.write_c(c_circuit, &self.c_producer)
     }

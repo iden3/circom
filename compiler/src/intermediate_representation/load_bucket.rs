@@ -324,12 +324,22 @@ impl WriteC for LoadBucket {
         prologue.append(&mut src_prologue);
         let access = match &self.address_type {
             AddressType::Variable => {
-                format!("&{}", lvar(src_index))
+                if producer.prime_str != "goldilocks" {
+                    format!("&{}", lvar(src_index))
+                } else {
+                    format!("{}", lvar(src_index))
+                }                    
             }
             AddressType::Signal => {
-                format!("&{}", signal_values(src_index))
+                if producer.prime_str != "goldilocks" {
+                    format!("&{}", signal_values(src_index))
+                } else {
+                    format!("{}", signal_values(src_index))
+                }
             }
             AddressType::SubcmpSignal { uniform_parallel_value, is_output, .. } => {
+            // we store the value of the cmp index
+            prologue.push(format!("cmp_index_ref_load = {};",cmp_index_ref.clone()));
 
             // we store the value of the cmp index
             prologue.push(format!("cmp_index_ref_load = {};",cmp_index_ref.clone()));
@@ -431,8 +441,11 @@ impl WriteC for LoadBucket {
                     "{}->componentMemory[{}[{}]].signalStart",
                     CIRCOM_CALC_WIT, MY_SUBCOMPONENTS, cmp_index_ref
                 );
-		
-                format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)
+		if producer.prime_str != "goldilocks" {   
+                    format!("&{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)
+                } else {
+                    format!("{}->signalValues[{} + {}]", CIRCOM_CALC_WIT, sub_cmp_start, src_index)
+                }
             }
         };
         

@@ -69,13 +69,16 @@ impl WriteWasm for AssertBucket {
 impl WriteC for AssertBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
-        let (prologue, value) = self.evaluate.produce_c(producer, parallel);
+        let (mut prologue, value) = self.evaluate.produce_c(producer, parallel);
         let is_true = build_call("Fr_isTrue".to_string(), vec![value]);
         let if_condition = format!("if (!{}) {};", is_true, build_failed_assert_message(self.line));    
         let assertion = format!("{};", build_call("assert".to_string(), vec![is_true]));
-        let mut assert_c = prologue;
+        let mut assert_c = vec![];
+        assert_c.push(format!("{{"));
+        assert_c.append(&mut prologue);
         assert_c.push(if_condition);
         assert_c.push(assertion);
+        assert_c.push(format!("}}"));
         (assert_c, "".to_string())
     }
 }
