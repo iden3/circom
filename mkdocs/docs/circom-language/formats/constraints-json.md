@@ -50,7 +50,7 @@ if we run
 ```text
 circom basic.circom --json --wasm 
 ```
-a file 'basic_contraints.json' is generated and it contains two constraints: 
+a file 'basic_constraints.json' is generated and it contains two constraints:
 
 ```text
 {
