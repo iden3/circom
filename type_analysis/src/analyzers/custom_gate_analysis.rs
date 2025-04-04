@@ -15,7 +15,7 @@ pub fn custom_gate_analysis(
         use Statement::*;
         match stmt {
             IfThenElse { if_case, else_case, .. } => {
-                custom_gate_analysis(custom_gate_name, if_case, warnings, errors);
+                custom_gate_analysis(custom_gate_name, if_case, errors, warnings);
                 if let Some(else_case_s) = else_case {
                     custom_gate_analysis(custom_gate_name, else_case_s, errors, warnings);
                 }

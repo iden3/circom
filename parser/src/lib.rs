@@ -62,6 +62,7 @@ pub fn run_parser(
     version: &str,
     link_libraries: Vec<PathBuf>,
     field: &BigInt,     
+    flag_no_init: bool
 ) -> Result<(ProgramArchive, ReportCollection), (FileLibrary, ReportCollection)> {
     let mut file_library = FileLibrary::new();
     let mut definitions = Vec::new();
@@ -80,7 +81,7 @@ pub fn run_parser(
         }
         let file_id = file_library.add_file(path.clone(), src.clone());
         let program =
-            parser_logic::parse_file(&src, file_id, field).map_err(|e| (file_library.clone(), e))?;
+            parser_logic::parse_file(&src, file_id, field, flag_no_init).map_err(|e| (file_library.clone(), e))?;
         if let Some(main) = program.main_component {
             main_components.push((file_id, main, program.custom_gates));
         }

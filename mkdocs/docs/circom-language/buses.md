@@ -6,7 +6,7 @@ circom 2.2.0 introduces a new feature called __signal buses__.
 ## Definition
 A bus is a collection of different but related signals grouped under one name. They are similar to structs in programming languages like C++, helping to make the code more organized and easier to manage.
 
-Buses can be defined at the same level as templates and can be used as inputs, intermediates or ouputs within a template.
+Buses can be defined at the same level as templates and can be used as inputs, intermediates or outputs within a template.
 
 ```
 bus NameBus(param1,...,paramN){
