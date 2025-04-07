@@ -1552,9 +1552,10 @@ fn perform_assign(
         } else{
             reference_to_tags.remaining_inserts = 0;
         }
-        reference_to_tags.is_init = true;
-        perform_tag_propagation(&mut reference_to_tags.tags, &mut reference_to_tags.definitions, &new_tags.tags, reference_to_tags.is_init);
 
+        perform_tag_propagation(&mut reference_to_tags.tags, &mut reference_to_tags.definitions, &new_tags.tags, reference_to_tags.is_init);
+        reference_to_tags.is_init = true;
+        
         // Perform the signal assignment
         let signal_assignment_response = perform_signal_assignment(reference_to_signal_content, &accessing_information.before_signal, &r_slice.route(), &conditions_assignment);
         
@@ -3148,12 +3149,15 @@ fn execute_function_call(
     runtime: &mut RuntimeInformation,
     flags: FlagsExecution
 ) -> Result<(FoldedValue, bool), ()> {
+    use std::mem;
     let previous_block = runtime.block_type;
+    let previous_conditions = mem::replace(&mut runtime.conditions_state, vec![]);
     runtime.block_type = BlockType::Known;
     let function_body = program_archive.get_function_data(id).get_body_as_vec();
     let (function_result, can_be_simplified) =
         execute_sequence_of_statements(function_body, program_archive, runtime, &mut Option::None, flags, true)?;
     runtime.block_type = previous_block;
+    runtime.conditions_state = previous_conditions;
     let return_value = function_result.unwrap();
     debug_assert!(FoldedValue::valid_arithmetic_slice(&return_value));
     Result::Ok((return_value, can_be_simplified))
