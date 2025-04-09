@@ -503,6 +503,7 @@ impl DAG {
     }
 
     pub fn main_id(&self) -> usize {
+        assert!(!self.nodes.is_empty(), "Cannot get main_id from an empty DAG");
         self.nodes.len() - 1
     }
 
