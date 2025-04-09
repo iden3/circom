@@ -79,8 +79,10 @@ fn map_node_to_encoding(id: usize, node: Node) -> EncodingNode {
         }
     }
 
+    let mut ordered_signals = Vec::new();
     for signal in node.ordered_signals {
-        let signal_numbering = node.signal_correspondence.get(&signal).unwrap();
+        let signal_numbering = node.signal_correspondence.get(&signal)
+            .expect(&format!("Signal name '{}' from ordered_signals not found in correspondence map", signal));
         ordered_signals.push(*signal_numbering);
     }
 
