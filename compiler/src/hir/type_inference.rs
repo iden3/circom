@@ -270,8 +270,8 @@ fn infer_args(args: &[Expression], state: &State, context: &mut SearchInfo) -> O
         if index == args.len() {
             break Option::Some(arg_types);
         }
-        let arg_type = infer_type_expresion(&args[index], state, context);
-        if let Option::Some(t) = arg_type {
+        let arg_result = infer_type_expresion(&args[index], state, context);
+        if let Option::Some(t) = arg_result {
             arg_types.push(t);
         } else {
             break Option::None;
