@@ -91,7 +91,7 @@ impl WriteWasm for CreateCmpBucket {
         if self.number_of_cmp == 1 {
             instructions.push(call(&format!("${}_create", self.symbol)));
             if !self.has_inputs {
-                instructions.push(tee_local(producer.get_temp_tag())); //here we use $temp to keep the offset created subcomponent
+                instructions.push(tee_local(producer.get_temp_tag())); //here we use $temp to keep the offset created subcomponet
                 instructions.push(store32(None)); //store the offset given by create in the subcomponent address
                 instructions.push(get_local(producer.get_temp_tag()));
                 instructions.push(call(&format!("${}_run", self.symbol)));
@@ -120,7 +120,7 @@ impl WriteWasm for CreateCmpBucket {
                 //sub_component signal address start
                 instructions.push(call(&format!("${}_create", self.symbol)));
                 if !self.has_inputs {
-                    instructions.push(tee_local(producer.get_temp_tag())); //here we use $temp to keep the offset created subcomponent
+                    instructions.push(tee_local(producer.get_temp_tag())); //here we use $temp to keep the offset created subcomponet
                     instructions.push(store32(None)); //store the offset given by create in the subcomponent address
                     instructions.push(get_local(producer.get_temp_tag()));
                     instructions.push(call(&format!("${}_run", self.symbol)));
@@ -226,7 +226,7 @@ impl WriteC for CreateCmpBucket {
         // if the array is complete traverse all its positions
         if complete_array {
             instructions.push(format!("for (uint i = 0; i < {}; i++) {{", self.number_of_cmp));
-            // update the value of the parallel status if it is not uniform parallel using the array aux_parallel
+            // update the value of the the parallel status if it is not uniform parallel using the array aux_parallel
             if self.uniform_parallel.is_none(){
                 instructions.push(format!("bool status_parallel = aux_parallel[i];"));
             }
@@ -237,7 +237,7 @@ impl WriteC for CreateCmpBucket {
             instructions.push(format!("uint aux_positions [{}]= {};", self.defined_positions.len(), set_list(self.defined_positions.iter().map(|(x, _y)| *x).collect())));
             instructions.push(format!("for (uint i_aux = 0; i_aux < {}; i_aux++) {{",  self.defined_positions.len()));
             instructions.push(format!("uint i = aux_positions[i_aux];"));
-            // update the value of the parallel status if it is not uniform parallel using the array aux_parallel
+            // update the value of the the parallel status if it is not uniform parallel using the array aux_parallel
             if self.uniform_parallel.is_none(){
                 instructions.push(format!("bool status_parallel = aux_parallel[i_aux];"));
             }
