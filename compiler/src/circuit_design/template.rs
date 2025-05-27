@@ -4,6 +4,8 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use crate::hir::very_concrete_program::Wire;
 use program_structure::ast::SignalType;
+use crate::hir::very_concrete_program::Argument;
+use std::collections::HashMap;
 
 type TemplateID = usize;
 pub type TemplateCode = Box<TemplateCodeInfo>;
@@ -26,7 +28,9 @@ pub struct TemplateCodeInfo {
     pub expression_stack_depth: usize,
     pub signal_stack_depth: usize, // Not used now
     pub number_of_components: usize,
-    pub is_extern_c: bool
+    pub is_extern_c: bool,
+    pub arguments: Vec<Argument>,
+    pub map_constants_arguments: HashMap<String, usize>
 }
 impl ToString for TemplateCodeInfo {
     fn to_string(&self) -> String {
@@ -309,8 +313,10 @@ impl TemplateCodeInfo {
         if self.is_extern_c{
             // call of the external C -> arguments: name of inputs/outputs with their sizes
             // name of the function -> name of the template
-            // send the parameters of the template? -> variables used in loops?
             run_body.push("{".to_string());
+
+
+
             // build the info of the inputs/outputs
             let mut outputs_info: Vec<(usize, String, Vec<usize>)> = Vec::new();
             let mut inputs_info: Vec<(usize, String, Vec<usize>)> = Vec::new();
@@ -345,6 +351,32 @@ impl TemplateCodeInfo {
             }
             // Generate the arguments of the call
             let mut arguments = Vec::new();
+
+            // add the parameters of the instance
+            for arg in &self.arguments{
+                if arg.lengths.len() == 0{
+                    // case single value
+                    let constant = arg.values[0].to_str_radix(10);
+                    let index = self.map_constants_arguments.get(&constant).unwrap();
+                    arguments.push(format!("&{}", circuit_constants(index.to_string())));
+                } else{
+                    // case array
+                    // build the array of indexes
+                    let mut arg_values = Vec::new();
+                    for v in &arg.values{
+                        let constant = v.to_str_radix(10);
+                        let index = self.map_constants_arguments.get(&constant).unwrap();
+                        arg_values.push(format!("&{}", circuit_constants(index.to_string())));
+                    }
+                    run_body.push(format!("FrElement* arg_{}{:?} = {};",
+                        arg.name, arg.lengths, set_list_str(arg_values)
+                    ));
+                    arguments.push(format!("arg_{}", arg.name));
+
+                }
+            }
+
+            // add the io signals
             for (position, name , size) in outputs_info{
                 
                 run_body.push(format!("uint size_{}[{}] = {};",

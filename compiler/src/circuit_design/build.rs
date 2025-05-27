@@ -90,7 +90,7 @@ fn build_template_instances(
             params: Vec::new(),
             header: header.clone(),
             wires: template.wires.clone(),
-            constants: instance_values,
+            constants: instance_values.clone(),
             files: &c_info.file_library,
             triggers: template.triggers,
             clusters: template.clusters,
@@ -117,11 +117,22 @@ fn build_template_instances(
             has_parallel_sub_cmp: template.has_parallel_sub_cmp,
             is_extern_c: template.is_extern_c,
             wires: template.wires,
+            arguments: instance_values,
             ..TemplateCodeInfo::default()
         };
         let code = template.code;
         let out = translate::translate_code(code, code_info);
         field_tracker = out.constant_tracker;
+        // we update the map of constants used as parameters
+        let mut map_constants_parameters = HashMap::new();
+        for arg in &template_info.arguments{
+            for v in &arg.values{
+                let constant = v.to_str_radix(10);
+                let index = field_tracker.get_id(&constant).unwrap();
+                map_constants_parameters.insert(constant, index);
+            }
+        }
+        template_info.map_constants_arguments = map_constants_parameters;
         template_info.body = out.code;
         template_info.expression_stack_depth = out.expression_depth;
         template_info.var_stack_depth = out.stack_depth;
@@ -450,6 +461,18 @@ fn build_template_list_parallel(vcp: &VCP) -> TemplateListInfo {
         } else{
             None
         };
+
+        // build argument names info
+        let argument_names = if instance.is_extern_c{
+            let mut names = Vec::new();
+            for arg in &instance.header{
+                // we store the name and if it is an array
+                names.push((arg.name.clone(), arg.lengths.len() != 0));
+            }
+            Some(names)
+        } else{
+            None
+        };
         
 
         tmp_list.push(InfoTemplate{
@@ -458,7 +481,8 @@ fn build_template_list_parallel(vcp: &VCP) -> TemplateListInfo {
             is_parallel: instance.is_parallel || instance.is_parallel_component,
             is_not_parallel: !instance.is_parallel && instance.is_not_parallel_component,
             is_extern_c: instance.is_extern_c,
-            io_signals: info_io_signals
+            io_signals: info_io_signals,
+            arguments: argument_names
         });
     }
     tmp_list

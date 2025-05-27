@@ -38,7 +38,8 @@ pub struct InfoTemplate{
     pub is_parallel: bool,
     pub is_not_parallel: bool,
     pub is_extern_c: bool,
-    pub io_signals: Option<Vec<String>> // Only needed in case is extern c
+    pub io_signals: Option<Vec<String>>, // Only needed in case is extern c
+    pub arguments: Option<Vec<(String, bool)>> // stores the name and if it is an array
 }
 pub type TemplateListInfo = Vec<InfoTemplate>;
 pub type SignalList = Vec<usize>;
