@@ -16,26 +16,6 @@
 
 #define Fr_copy(r, a) r = a
 
-/*
-void to_mpz(const uint64_t & a, mpz_t ma) {
-  uint32_t a0 = (uint32_t)a;
-  uint32_t a1 = (uint32_t)(a >> 32);
-  mpz_set_ui(ma, a1);
-  mpz_mul_2exp(ma, ma, 32);
-  mpz_add_ui(ma, ma, a0);
-}
-
-uint64_t from_mpz(mpz_t ma) {
-  uint32_t a0 = mpz_get_ui(ma);
-  mpz_tdiv_q_2exp(ma,ma,32);
-  uint32_t a1 = mpz_get_ui(ma);
-  //mpz_clear(ma);
-  uint64_t a = (uint64_t)a1 << 32;
-  a += (uint64_t)a0;
-  return a;
-}
-*/
-
 inline void Fr_copyn(uint64_t r[], const uint64_t a[], int n){
   for (int i = 0; i < n; i++) {
     r[i] = a[i];
@@ -60,7 +40,6 @@ inline char *Fr_element2str(const uint64_t & a) {
   return cstr;
 }
 
-//inline uint64_t Fr_add_r (const uint64_t & a, const uint64_t & b) {
 inline uint64_t Fr_add (const uint64_t & a, const uint64_t & b) {
   if (a <= Fr_half) {
     if (b > Fr_half) {
@@ -75,71 +54,13 @@ inline uint64_t Fr_add (const uint64_t & a, const uint64_t & b) {
   }
 }
 
-/*
-inline uint64_t Fr_add (const uint64_t & a, const uint64_t & b) {
-  uint64_t res = Fr_add_r(a,b);
-  mpz_t ma;
-  mpz_init(ma);
-  to_mpz(a, ma);
-  mpz_t mb;
-  mpz_init(mb);
-  to_mpz(b, mb);
-  mpz_t mpz_prime;
-  mpz_init_set_str(mpz_prime, Fr_prime_str, 10);
-  mpz_t mr;
-  mpz_init(mr);
-  mpz_add(mr,ma,mb);
-  mpz_mod(mr, mr, mpz_prime);
-  uint64_t mres = from_mpz(mr);
-  if (res != mres) {
-    std::cout << a << " + " << b << " == " << res << " != " << mres << std::endl;
-  }
-  assert(res == mres);
-  mpz_clear(ma);
-  mpz_clear(mb);
-  mpz_clear(mr);
-  mpz_clear(mpz_prime);
-  return res;
-}
-*/
-
-//inline uint64_t Fr_sub_r (const uint64_t & a, const uint64_t & b) {
 inline uint64_t Fr_sub (const uint64_t & a, const uint64_t & b) {
   return (b <= a)? a - b : Fr_prime - (b - a); 
 }
 
-/*
-inline uint64_t Fr_sub (const uint64_t & a, const uint64_t & b) {
-  uint64_t res = Fr_sub_r(a,b);
-  mpz_t ma;
-  mpz_init(ma);
-  to_mpz(a, ma);
-  mpz_t mb;
-  mpz_init(mb);
-  to_mpz(b, mb);
-  mpz_t mpz_prime;
-  mpz_init_set_str(mpz_prime, Fr_prime_str, 10);
-  mpz_t mr;
-  mpz_init(mr);
-  mpz_sub(mr,ma,mb);
-  mpz_mod(mr, mr, mpz_prime);
-  uint64_t mres = from_mpz(mr);
-  if (res != mres) {
-    std::cout << a << " - " << b << " == " << res << " != " << mres << std::endl;
-  }
-  assert(res == mres);
-  mpz_clear(ma);
-  mpz_clear(mb);
-  mpz_clear(mr);
-  mpz_clear(mpz_prime);
-  return res;
-}
-*/
-
 //Assume prime is in (2**64, 2^64 - 2^33 + 1 )
 //For instance goldilocks 2^64 - 2^32 + 1
 //Multiplying 2 32 bits number is below 2^64 - 2^33 + 1, hence below prime
-//inline uint64_t Fr_mul_r(const uint64_t & a, const uint64_t & b) {
 inline uint64_t Fr_mul(const uint64_t & a, const uint64_t & b) {
   uint64_t a0 = (uint32_t)a;
   uint64_t a1 = a >> 32;
@@ -147,62 +68,24 @@ inline uint64_t Fr_mul(const uint64_t & a, const uint64_t & b) {
   uint64_t b0 = (uint32_t)b;
   uint64_t b1 = b >> 32;
   // b = b1*2^32 + b0
-  //std::cout << "a0: " << a0 << "; a1: " << a1 << std::endl;
-  //std::cout << "b0: " << b0 << "; b1: " << b1 << std::endl;
   uint64_t a0b0 = (a0 * b0); //by assumption below prime
   uint64_t a0b1 = (a0 * b1); //by assumption below prime
   uint64_t a1b0 = (a1 * b0); //by assumption below prime
   uint64_t a1b1 = (a1 * b1); //by assumption below prime
-  //std::cout << "a0b0: " << a0b0 << "; a0b1: " << a0b1 << std::endl;
-  //std::cout << "a1b0: " << a1b0 << "; a1b1: " << a1b1 << std::endl;
   // res = a1b1*2**64 + (a1b0 + a0b1)*2**32 + a0b0
   // res = (a1b1 + a1b0 + a0b1)*2**32 + (a0b0-a1b1)
   uint64_t res32 = Fr_add(Fr_add(a1b1,a1b0),a0b1);
   uint64_t res0 = Fr_sub(a0b0,a1b1);
-  //std::cout << "res32: " << res32 << std::endl;
-  //std::cout << "res0: " << res0 << std::endl;
   uint64_t res32_0 = (uint32_t)res32;
   uint64_t res32_1 = res32 >> 32;
-  //std::cout << "res32_0: " << res32_0 << std::endl;
-  //std::cout << "res32_1: " << res32_1 << std::endl;
   // res32*2**32 = res32_1*2**64 + res32_0*2**32
   // res32*2**32 = (res32_1*2**32  + res32_0*2**32) - res32_1
   uint64_t res32_1_aux = res32_1 << 32;
   res32_0 <<= 32;
   uint64_t aux = Fr_sub(Fr_add(res32_1_aux,res32_0),res32_1);
-  //std::cout << "aux: " << aux << std::endl;
   uint64_t res = Fr_add(aux,res0);
-  //std::cout << a << " * " << b << " = " << res << std::endl;
   return res;
 }
-
-/*
-inline uint64_t Fr_mul (const uint64_t & a, const uint64_t & b) {
-  uint64_t res = Fr_mul_r(a,b);
-  mpz_t ma;
-  mpz_init(ma);
-  to_mpz(a, ma);
-  mpz_t mb;
-  mpz_init(mb);
-  to_mpz(b, mb);
-  mpz_t mpz_prime;
-  mpz_init_set_str(mpz_prime, Fr_prime_str, 10);
-  mpz_t mr;
-  mpz_init(mr);
-  mpz_mul(mr,ma,mb);
-  mpz_mod(mr, mr, mpz_prime);
-  uint64_t mres = from_mpz(mr);
-  if (res != mres) {
-    std::cout << a << " * " << b << " == " << res << " != " << mres << std::endl;
-  }
-  assert(res == mres);
-  mpz_clear(ma);
-  mpz_clear(mb);
-  mpz_clear(mr);
-  mpz_clear(mpz_prime);
-  return res;
-}
-*/
 
 inline uint64_t Fr_inv(const uint64_t & a) {
   uint32_t a0 = (uint32_t)a;
@@ -261,16 +144,34 @@ uint64_t Fr_shr(const uint64_t & a, const uint64_t & b);
 
 inline uint64_t Fr_shl(const uint64_t & a, const uint64_t & b) {
   if (b > Fr_half) return Fr_shr(a,Fr_prime-b);
-  else {
-    uint64_t s = a << b;
-    if (s >= Fr_prime) s -= Fr_prime;
-    return s;
-  }
+  if (b >= 64) return 0;
+  uint64_t s = a << b;
+  return s < Fr_prime ? s : s - Fr_prime;
 }
+
+/*
+inline uint64_t Fr_shl(const uint64_t & a, const uint64_t & b) {
+  if (b > Fr_half) return Fr_shr(a,Fr_prime-b);
+  if (b == 0) return a;
+  uint64_t u = a >> 64 - b;
+  uint64_t s = a << b;
+  uint64_t u0 = (uint32_t)u;
+  uint64_t u1 = u >> 32;
+  // u * (2^32 -1) + s
+  // u * 2^32 + s - u
+  // u1*2^64 + u0*2^32 + s - u
+  // u1*(2^32-1) + u0*2^32 + s - u
+  // u1*2^32 + u0*2^32 + s - (u+u1) ; u+u1 is smaller than goldilocks since u1 < 2^31
+  return Fr_sub(Fr_add(Fr_add(u1 << 32, u0 << 32),s),u+u1);
+}
+*/
 
 inline uint64_t Fr_shr(const uint64_t & a, const uint64_t & b) {
   if (b > Fr_half) return Fr_shl(a,Fr_prime-b);
-  else return a >> b;
+  else {
+    if (b >= 64) return 0;
+    else return a >> b;
+  }
 }
 
 inline uint64_t Fr_leq(const uint64_t & a, const uint64_t & b) {
@@ -351,6 +252,7 @@ inline uint64_t Fr_bxor(const uint64_t & a, const uint64_t & b) {
 }
 
 inline uint64_t Fr_neg(const uint64_t & a) {
+  if (a == 0) return a;
   return Fr_prime - a;
 }
 
@@ -369,5 +271,3 @@ inline int Fr_isTrue(const uint64_t & a) {
 
 
 #endif // __FR_H
-
-

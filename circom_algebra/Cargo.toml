@@ -1,6 +1,6 @@
 [package]
 name = "circom_algebra"
-version = "2.2.0"
+version = "2.2.2"
 authors = ["Costa Group UCM","iden3"]
 edition = "2018"
 

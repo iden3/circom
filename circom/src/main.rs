@@ -63,7 +63,8 @@ fn start() -> Result<(), ()> {
         produce_input_log: user_input.main_inputs_flag(),
 
         no_asm_flag: user_input.no_asm_flag(),
-        constraint_assert_disabled_flag: user_input.constraint_assert_disabled_flag()
+        constraint_assert_disabled_flag: user_input.constraint_assert_disabled_flag(),
+        prime: user_input.prime(),        
     };
     compilation_user::compile(compilation_config)?;
     Result::Ok(())

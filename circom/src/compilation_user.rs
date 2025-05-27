@@ -24,6 +24,7 @@ pub struct CompilerConfig {
     pub constraint_assert_disabled_flag: bool,
     pub vcp: VCP,
     pub no_asm_flag: bool,
+    pub prime: String,
 }
 
 pub fn compile(config: CompilerConfig) -> Result<(), ()> {
@@ -65,19 +66,34 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
                     "Makefile".to_string()
                 );
             } else {
-                println!(
-                    "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
-                    Colour::Green.paint("Written successfully:"),
-                    &config.c_folder,
-                    "main.cpp".to_string(),
-                    "circom.hpp".to_string(),
-                    "calcwit.hpp".to_string(),
-                    "calcwit.cpp".to_string(),
-                    "fr.hpp".to_string(),
-                    "fr.cpp".to_string(),
-                    "fr.asm".to_string(),
-                    "Makefile".to_string()
-                );
+                if config.prime == "goldilocks" {
+                    println!(
+                        "{} {}/{}, {}, {}, {}, {}, {} and {}",
+                        Colour::Green.paint("Written successfully:"),
+                        &config.c_folder,
+                        "main.cpp".to_string(),
+                        "circom.hpp".to_string(),
+                        "calcwit.hpp".to_string(),
+                        "calcwit.cpp".to_string(),
+                        "fr.hpp".to_string(),
+                        "Makefile".to_string(),
+                        "json2bin64.cpp".to_string()
+                    );
+                } else {
+                    println!(
+                        "{} {}/{}, {}, {}, {}, {}, {}, {} and {}",
+                        Colour::Green.paint("Written successfully:"),
+                        &config.c_folder,
+                        "main.cpp".to_string(),
+                        "circom.hpp".to_string(),
+                        "calcwit.hpp".to_string(),
+                        "calcwit.cpp".to_string(),
+                        "fr.hpp".to_string(),
+                        "fr.cpp".to_string(),
+                        "fr.asm".to_string(),
+                        "Makefile".to_string()
+                    );
+                }
             }
         }
         match (config.wat_flag, config.wasm_flag) {

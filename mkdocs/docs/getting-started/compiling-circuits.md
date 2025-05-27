@@ -11,7 +11,7 @@ Once you have the compiler installed you can see the available options as follow
 ```console
 circom --help
 
-   circom compiler 2.1.7
+   circom compiler 2.2.2
    IDEN3
    Compiler for the Circom programming language
 
@@ -24,28 +24,33 @@ circom --help
            --wasm                                 Compiles the circuit to wasm
            --json                                 Outputs the constraints in json format
            --wat                                  Compiles the circuit to wat
-       -c, --c                                    Compiles the circuit to c
+       -c, --c                                    Compiles the circuit to C++
            --O0                                   No simplification is applied
            --O1                                   Only applies signal to signal and signal to constant simplification
            --O2                                   Full constraint simplification
            --verbose                              Shows logs during compilation
            --inspect                              Does an additional check over the constraints produced
+           --constraint_assert_dissabled          Does not add asserts in the witness generation code to check constraints
+                                                  introduced with "==="
            --use_old_simplification_heuristics    Applies the old version of the heuristics when performing linear
                                                   simplification
-           --simplification_substitution          Outputs the substitution in the simplification phase in json format
+           --simplification_substitution          Outputs the substitution applied in the simplification phase in
+                                                  json format
+           --no_asm                               Does not use asm files in witness generation code in C++
+           --no_init                              Removes initializations to 0 of variables ("var") in the witness
+                                                  generation code
        -h, --help                                 Prints help information
        -V, --version                              Prints version information
-
+   
    OPTIONS:
        -o, --output <output>                    Path to the directory where the output will be written [default: .]
        -p, --prime <prime>                      To choose the prime number to use to generate the circuit. Receives the
-                                                name of the curve (bn128, bls12381, goldilocks, grumpkin, pallas, vesta)
-                                                [default: bn128]
-       -l <link_libraries>...                   Adds directory to library search path
+                                                name of the curve (bn128, bls12377, bls12381, goldilocks, grumpkin, pallas, secq256r1, vesta) [default: bn128]
+    -l <link_libraries>...                   Adds directory to library search path
            --O2round <simplification_rounds>    Maximum number of rounds of the simplification process
-
+   
    ARGS:
-      <input>    Path to a circuit with a main component [default: ./circuit.circom]
+       <input>    Path to a circuit with a main component [default: ./circuit.circom]
 ```
 
 We created a template called `Multiplier2` in [Writing our first circuit](../writing-circuits). 
@@ -79,7 +84,7 @@ With these options we generate three types of files:
 * `--r1cs`: it generates the file `multiplier2.r1cs` that contains the [R1CS constraint system](../../background/background#rank-1-constraint-system) of the circuit in binary format.
 * `--wasm`: it generates the directory `multiplier2_js` that contains the `Wasm` code (multiplier2.wasm) and other files needed to generate the [witness](../../background/background#witness).
 * `--sym` : it generates the file `multiplier2.sym` , a symbols file required for debugging or for printing the constraint system in an annotated mode.
-* `--c` : it generates the directory `multiplier2_cpp` that contains several files (multiplier2.cpp, multiplier2.dat, and other common files for every compiled program  like main.cpp, MakeFile, etc)  needed to compile the C code to generate the witness.
+* `--c` : it generates the directory `multiplier2_cpp` that contains several files (multiplier2.cpp, multiplier2.dat, and other common files for every compiled program  like main.cpp, MakeFile, etc)  needed to compile the C++ code to generate the witness. By default, this option generates an asm file that is incompatible with some architectures. To avoid producing asm files, the flag `--no_asm` must be activated.
 
 We can use the option `-o` to specify the directory where these files are created. 
 

@@ -96,7 +96,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "circom"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "ansi_term",
  "clap",
@@ -113,7 +113,7 @@ dependencies = [
 
 [[package]]
 name = "circom_algebra"
-version = "2.2.0"
+version = "2.2.2"
 dependencies = [
  "constant_tracking",
  "num-bigint-dig",
@@ -137,7 +137,7 @@ dependencies = [
 
 [[package]]
 name = "code_producers"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "circom_algebra",
  "handlebars",
@@ -167,7 +167,7 @@ dependencies = [
 
 [[package]]
 name = "compiler"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "code_producers",
  "constant_tracking",
@@ -182,7 +182,7 @@ version = "2.0.0"
 
 [[package]]
 name = "constraint_generation"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "ansi_term",
  "circom_algebra",
@@ -209,7 +209,7 @@ dependencies = [
 
 [[package]]
 name = "constraint_writers"
-version = "2.1.8"
+version = "2.2.2"
 dependencies = [
  "circom_algebra",
  "json",
@@ -634,7 +634,7 @@ dependencies = [
 
 [[package]]
 name = "parser"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "lalrpop",
  "lalrpop-util",
@@ -733,7 +733,7 @@ dependencies = [
 
 [[package]]
 name = "program_structure"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -1015,7 +1015,7 @@ dependencies = [
 
 [[package]]
 name = "type_analysis"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "num-bigint-dig",
  "num-traits",
