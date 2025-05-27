@@ -347,7 +347,7 @@ impl TemplateCodeInfo {
             let mut arguments = Vec::new();
             for (position, name , size) in outputs_info{
                 
-                run_body.push(format!("int size_{}[{}] = {};",
+                run_body.push(format!("uint size_{}[{}] = {};",
                     name, size.len(), set_list(size)
                 ));
                 arguments.push(
@@ -361,7 +361,7 @@ impl TemplateCodeInfo {
                 );
             }
             for (position, name , size) in inputs_info{
-                run_body.push(format!("int size_{}[{}] = {};",
+                run_body.push(format!("uint size_{}[{}] = {};",
                     name, size.len(), set_list(size)
                 ));
                 arguments.push(

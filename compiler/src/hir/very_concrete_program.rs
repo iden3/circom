@@ -196,7 +196,6 @@ pub struct TemplateInstance {
     pub number_of_inputs: usize,
     pub number_of_outputs: usize,
     pub number_of_intermediates: usize,
-    pub number_of_io_signal_names: usize,
     pub wires: Vec<Wire>,
     pub signals_to_tags: HashMap<Vec<String>, BigInt>,
     pub components: Vec<Component>,
@@ -237,7 +236,6 @@ impl TemplateInstance {
             number_of_inputs: 0,
             number_of_outputs: 0,
             number_of_intermediates: 0,
-            number_of_io_signal_names: 0,
             number_of_components: config.number_of_components,
             wires: Vec::new(),
             components: config.components,
@@ -253,11 +251,9 @@ impl TemplateInstance {
         match wire.xtype() {
             SignalType::Input => {
                 self.number_of_inputs += new_signals;
-                self.number_of_io_signal_names += 1;
             }
             SignalType::Output => {
                 self.number_of_outputs += new_signals;
-                self.number_of_io_signal_names += 1;
             }
             SignalType::Intermediate => {
                 self.number_of_intermediates += new_signals;
