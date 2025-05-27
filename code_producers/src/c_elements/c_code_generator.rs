@@ -463,7 +463,7 @@ pub fn merge_code(instructions: Vec<String>) -> String {
     code
 }
 
-pub fn collect_template_headers(instances: &TemplateListInfo) -> Vec<String> {
+pub fn collect_template_headers(producer: &CProducer, instances: &TemplateListInfo) -> Vec<String> {
     let mut template_headers = vec![];
     for instance in instances {
         let params_run = vec![declare_ctx_index(), declare_circom_calc_wit()];
@@ -488,14 +488,19 @@ pub fn collect_template_headers(instances: &TemplateListInfo) -> Vec<String> {
             template_headers.push(create_header);
             template_headers.push(run_header);
         }
-        if instance.is_extern_c{
-            
+        if instance.is_extern_c{            
             let mut params_io = Vec::new();
-            for name in instance.io_signals.as_ref().unwrap(){
-                params_io.push(format!("FrElement* {}", name));
-                params_io.push(format!("uint* size_{}", name));
-
-            }
+            if producer.prime_str != "goldilocks" {
+                for name in instance.io_signals.as_ref().unwrap(){
+                    params_io.push(format!("FrElement* {}", name));
+                    params_io.push(format!("uint* size_{}", name));
+                }
+            } else {
+                for name in instance.io_signals.as_ref().unwrap(){
+                    params_io.push(format!("uint64_t* {}", name));
+                    params_io.push(format!("uint* size_{}", name));
+                }
+            }                
             let run_header = format!("void {}({});", instance.template_name, argument_list(params_io));
 
             template_headers.push(run_header);
