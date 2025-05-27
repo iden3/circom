@@ -191,9 +191,10 @@ impl ExecutedProgram {
             buses_table.push(info.unwrap());
         }
 
-
+        let mut has_extern_c = false;
         for exe in self.model {
             let tmp_instance = exe.export_to_circuit(&mut temp_instances, &buses_table);
+            has_extern_c |= tmp_instance.is_extern_c;
             temp_instances.push(tmp_instance);
         }
 
@@ -223,7 +224,8 @@ impl ExecutedProgram {
             templates_in_mixed: mixed,
             program,
             prime: self.prime,
-            buses: buses_table
+            buses: buses_table,
+            has_extern_c
         };
         let vcp = VCP::new(config);
         Result::Ok((dag, vcp, warnings))

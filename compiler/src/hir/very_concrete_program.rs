@@ -296,7 +296,7 @@ pub struct VCPConfig {
     pub program: ProgramArchive,
     pub prime: String,
     pub buses: Vec<BusInstance>,
-
+    pub has_extern_c: bool,
 }
 
 #[derive(Clone)]
@@ -311,6 +311,7 @@ pub struct VCP {
     pub templates_in_mixed: Vec<usize>,
     pub prime: String,
     pub buses: Vec<BusInstance>,
+    pub has_extern_c: bool
 
 }
 impl VCP {
@@ -325,7 +326,8 @@ impl VCP {
             functions: vec![],
             quick_knowledge: HashMap::new(),
             prime: config.prime,
-            buses: config.buses
+            buses: config.buses,
+            has_extern_c: config.has_extern_c
         };
         super::merger::run_preprocessing(&mut vcp, config.program);
         vcp
