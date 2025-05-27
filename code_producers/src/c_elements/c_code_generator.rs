@@ -516,26 +516,26 @@ pub fn collect_template_headers(producer: &CProducer, instances: &TemplateListIn
             if producer.prime_str != "goldilocks" {
                 for (name, is_array) in instance.arguments.as_ref().unwrap(){
                     if *is_array{
-                        params_io.push(format!("FrElement* {}[]", name));
+                        params_io.push(format!("FrElement* {}[] ", name));
                     } else{
-                        params_io.push(format!("FrElement* {}", name));
+                        params_io.push(format!("FrElement* {} ", name));
                     }
                 }
                 for name in instance.io_signals.as_ref().unwrap(){
-                    params_io.push(format!("FrElement* {}", name));
-                    params_io.push(format!("uint* size_{}", name));
+                    params_io.push(format!("FrElement* {} ", name));
+                    params_io.push(format!("uint* size_{} ", name));
                 }
             } else {
                  for (name, is_array) in instance.arguments.as_ref().unwrap(){
                     if *is_array{
-                        params_io.push(format!("uint64_t {}[]", name));
+                        params_io.push(format!("uint64_t {}[] ", name));
                     } else{
-                        params_io.push(format!("uint64_t {}", name));
+                        params_io.push(format!("uint64_t {} ", name));
                     }
                 }
                for name in instance.io_signals.as_ref().unwrap(){
-                    params_io.push(format!("uint64_t* {}", name));
-                    params_io.push(format!("uint* size_{}", name));
+                    params_io.push(format!("uint64_t* {} ", name));
+                    params_io.push(format!("uint* size_{} ", name));
                 }
             }                
             let run_header = format!("void {}({});", instance.template_name, argument_list(params_io));
@@ -1261,7 +1261,7 @@ pub fn generate_c_file(name: String, producer: &CProducer) -> std::io::Result<()
     code.push("#include \"circom.hpp\"".to_string());
     code.push("#include \"calcwit.hpp\"".to_string());
 
-    let mut run_defs = collect_template_headers(producer.get_template_instance_list());
+    let mut run_defs = collect_template_headers(producer,producer.get_template_instance_list());
     code.append(&mut run_defs);
 
     let (func_list_no_parallel, func_list_parallel) = generate_function_list(producer, producer.get_template_instance_list());
