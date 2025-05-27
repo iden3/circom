@@ -463,7 +463,7 @@ pub fn merge_code(instructions: Vec<String>) -> String {
     code
 }
 
-pub fn collect_template_headers(instances: &TemplateListParallel) -> Vec<String> {
+pub fn collect_template_headers(instances: &TemplateListInfo) -> Vec<String> {
     let mut template_headers = vec![];
     for instance in instances {
         let params_run = vec![declare_ctx_index(), declare_circom_calc_wit()];
@@ -489,15 +489,17 @@ pub fn collect_template_headers(instances: &TemplateListParallel) -> Vec<String>
             template_headers.push(run_header);
         }
         if instance.is_extern_c{
-            /* 
+            
             let mut params_io = Vec::new();
-            for i in 0..instance.n_io_signals{
-                params_io.push("FrElement* io_{}", i);
+            for name in instance.io_signals.as_ref().unwrap(){
+                params_io.push(format!("FrElement* {}", name));
+                params_io.push(format!("uint* size_{}", name));
+
             }
             let run_header = format!("void {}({});", instance.template_name, argument_list(params_io));
 
             template_headers.push(run_header);
-            */
+            
         }
     }
     template_headers
@@ -818,7 +820,7 @@ pub fn generate_dat_file(dat_file: &mut dyn Write, producer: &CProducer) -> std:
     dat_file.flush()?;
     Ok(())
 }
-pub fn generate_function_list(_producer: &CProducer, list: &TemplateListParallel) -> (String, String) {
+pub fn generate_function_list(_producer: &CProducer, list: &TemplateListInfo) -> (String, String) {
     let mut func_list= "".to_string();
     let mut func_list_parallel= "".to_string();
     if list.len() > 0 {

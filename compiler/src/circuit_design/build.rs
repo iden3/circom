@@ -8,6 +8,7 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use program_structure::file_definition::FileLibrary;
 use std::collections::{BTreeMap, HashMap};
+use program_structure::ast::SignalType;
 
 #[cfg(debug_assertions)]
 fn matching_lengths_and_offsets(list: &InputOutputList) {
@@ -427,16 +428,37 @@ fn build_template_list(vcp: &VCP) -> TemplateList {
     tmp_list
 }
 
-fn build_template_list_parallel(vcp: &VCP) -> TemplateListParallel {
-    let mut tmp_list = TemplateListParallel::new();
+fn build_template_list_parallel(vcp: &VCP) -> TemplateListInfo {
+    let mut tmp_list = TemplateListInfo::new();
     for instance in &vcp.templates {
-        tmp_list.push(InfoParallel{
+        let info_io_signals = if instance.is_extern_c{
+            let mut output_names = Vec::new();
+            let mut input_names = Vec::new();
+            for wire in &instance.wires{
+                match wire.xtype(){
+                    SignalType::Input => {
+                        input_names.push(wire.name().clone());
+                    }
+                    SignalType::Output => {
+                        output_names.push(wire.name().clone());
+                    }
+                    _ =>{}
+                }
+            }
+            output_names.append(&mut input_names);
+            Some(output_names)
+        } else{
+            None
+        };
+        
+
+        tmp_list.push(InfoTemplate{
             template_name: instance.template_name.clone(),
             name: instance.template_header.clone(), 
             is_parallel: instance.is_parallel || instance.is_parallel_component,
             is_not_parallel: !instance.is_parallel && instance.is_not_parallel_component,
             is_extern_c: instance.is_extern_c,
-            n_io_signals: instance.number_of_io_signal_names
+            io_signals: info_io_signals
         });
     }
     tmp_list
