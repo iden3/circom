@@ -39,7 +39,7 @@ pub enum MemoryError {
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;
 /*
-    Represents the value stored in a element of a circom program.
+    Represents the value stored in an element of a circom program.
     The attribute route stores the dimensions of the slice, used to navigate through them.
     The length of values is equal to multiplying all the values in route.
 */

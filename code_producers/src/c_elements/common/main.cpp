@@ -189,13 +189,15 @@ void json2FrElements (json val, std::vector<FrElement> & vval){
 
 json::value_t check_type(std::string prefix, json in){
   if (not in.is_array()) {
-      return in.type();
+    if (in.is_number_integer() || in.is_number_unsigned() || in.is_string())
+      return json::value_t::number_integer;
+    else  return in.type();
     } else {
     if (in.size() == 0) return json::value_t::null;
     json::value_t t = check_type(prefix, in[0]);
     for (uint i = 1; i < in.size(); i++) {
       if (t != check_type(prefix, in[i])) {
-	fprintf(stderr, "Types are not the same in the the key %s\n",prefix.c_str());
+	fprintf(stderr, "Types are not the same in the key %s\n",prefix.c_str());
 	assert(false);
       }
     }

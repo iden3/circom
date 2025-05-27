@@ -19,7 +19,7 @@ A constraint is imposed with the operator `===`,  which creates the simplified f
 a*(a-1) === 0;
 ```
 
-Adding such constraint also implies adding an `assert` statement in the witness code generation.
+Adding such constraint also implies (by default) adding an `assert` statement in the witness code generation. Such `assert` is not added if the flag `--constraint_assert_dissabled` is enabled.
 
 Constraint generation can be combined with signal assignment with the operator  `<==` with the signal to be assigned on the left hand side of the operator.
 

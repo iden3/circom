@@ -210,7 +210,7 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
         "pallas" => 1948,
         "vesta" => 1948,
         "secq256r1" => 1948,
-        "bls12-377" => 1948,
+        "bls12377" => 1948,
         _ => unreachable!()
     };
     //producer.fr_memory_size = 412 if goldilocks and 1948 for bn128 and bls12381
