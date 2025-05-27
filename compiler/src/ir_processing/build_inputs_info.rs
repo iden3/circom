@@ -258,7 +258,6 @@ pub fn visit_address_type(
         if let Input {..} = input_information{
             
             if *is_anonymous{
-                println!("{}", cmp_name);
                 if known_last_component.contains(&cmp_name.to_string()){
                     *input_information = Input{status: NoLast};
                 } else{
