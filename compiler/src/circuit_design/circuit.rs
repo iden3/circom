@@ -308,7 +308,7 @@ impl WriteC for Circuit {
         code.push("#include \"circom.hpp\"".to_string());
         code.push("#include \"calcwit.hpp\"".to_string());
 
-        let mut template_headers = collect_template_headers(producer.get_template_instance_list());
+        let mut template_headers = collect_template_headers(producer,producer.get_template_instance_list());
         let function_headers: Vec<_> = self.functions
             .iter()
             .map(|f| f.header.clone())
@@ -433,7 +433,7 @@ impl WriteC for Circuit {
             code.push("#include \"fr.hpp\"".to_string());
         }
 	
-        let mut template_headers = collect_template_headers(producer.get_template_instance_list());
+        let mut template_headers = collect_template_headers(producer,producer.get_template_instance_list());
         let function_headers: Vec<_> = self.functions
             .iter()
             .map(|f| f.header.clone())
