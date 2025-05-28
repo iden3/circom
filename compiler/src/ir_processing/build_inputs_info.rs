@@ -55,7 +55,7 @@ pub fn visit_branch(
     found_unknown_address: bool,
     inside_loop: bool
 ) -> bool {
-  let mut known_last_component_if: ComponentsSet = known_last_component.clone();
+    let mut known_last_component_if: ComponentsSet = known_last_component.clone();
     let mut known_last_component_else: ComponentsSet = known_last_component.clone();
     let mut unknown_last_component_if: ComponentsSet = unknown_last_component.clone();
     let mut unknown_last_component_else: ComponentsSet = unknown_last_component.clone();
@@ -68,7 +68,7 @@ pub fn visit_branch(
         inside_loop
     );
     let found_unknown_else :bool = visit_list(
-        &mut bucket.if_branch, 
+        &mut bucket.else_branch, 
         &mut known_last_component_else, 
         &mut unknown_last_component_else, 
         found_unknown_address,
