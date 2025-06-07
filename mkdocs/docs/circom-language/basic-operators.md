@@ -168,4 +168,4 @@ template Num2Bits(n) {
 component main {public [in]}= Num2Bits(3);
 ```
 
-This templates returns an `n`-element array with the value of `in` in binary, in little endian order. Line 9 uses the right shift `>>` and operator `&` to obtain the `i` component of the array at each iteration. Finally, line 14 adds the constraint `lc1 === in` to guarantee  that the conversion is well done.
+This template returns an `n`-element array with the value of `in` in binary, in little endian order. Line 9 uses the right shift `>>` and operator `&` to obtain the `i` component of the array at each iteration. Finally, line 14 adds the constraint `lc1 === in` to guarantee  that the conversion is well done.
