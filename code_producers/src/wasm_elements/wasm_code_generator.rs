@@ -224,7 +224,7 @@ pub fn exception_code_signal_not_found() -> usize {
     1
 }
 
-pub fn exception_code_no_remaing_signals_to_set() -> usize {
+pub fn exception_code_no_remaining_signals_to_set() -> usize {
     2
 }
 
@@ -1097,7 +1097,7 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(get_local("$ns"));
     instructions.push(eqz32());
     instructions.push(add_if()); // if 1
-    instructions.push(set_constant(&exception_code_no_remaing_signals_to_set().to_string()));
+    instructions.push(set_constant(&exception_code_no_remaining_signals_to_set().to_string()));
     instructions.push(call("$exceptionHandler"));
     instructions.push(add_else()); // else if 1
     instructions.push(get_local("$hmsb"));
