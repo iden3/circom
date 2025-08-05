@@ -126,12 +126,12 @@ pub ParseDefinition : Definition = {
         Some(a)
         => build_function(Meta::new(s,e),name,a,args..arge,body),
     },
-    <s:@L> "template" <custom_gate: "custom"?> <parallel: "parallel"?> <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R>  <body: ParseBlock> <e:@R>
+    <s:@L> "template" <custom_gate: "custom"?> <extern_c: "extern_c"?> <parallel: "parallel"?> <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R>  <body: ParseBlock> <e:@R>
     => match arg_names {
         None
-        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), custom_gate.is_some()),
+        => build_template(Meta::new(s,e), name, Vec::new(), args..arge, body, parallel.is_some(), custom_gate.is_some(), extern_c.is_some()),
         Some(a)
-        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), custom_gate.is_some()),
+        => build_template(Meta::new(s,e), name, a, args..arge, body, parallel.is_some(), custom_gate.is_some(), extern_c.is_some()),
     },
 
     <s:@L> "bus" <name: IDENTIFIER> <args:@L> <arg_names: ParseParenthesisArguments?> <arge:@R> <body: ParseBlock> <e:@R>

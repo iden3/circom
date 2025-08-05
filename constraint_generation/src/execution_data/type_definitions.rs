@@ -32,7 +32,13 @@ pub struct WireData{
     pub is_bus: bool
 }
 pub type WireCollector = Vec<WireData>;
-pub type ComponentCollector = Vec<(String, Vec<usize>)>;
+
+pub struct ComponentData{
+    pub name: String,
+    pub length: Vec<usize>,
+    pub is_anonymous: bool,
+}
+pub type ComponentCollector = Vec<ComponentData>;
 pub struct SubComponentData {
     pub name: String,
     pub is_parallel: bool,

@@ -92,7 +92,23 @@ fn program_level_analyses(program_archive: &ProgramArchive, reports: &mut Report
 }
 
 fn template_level_analyses(program_archive: &ProgramArchive, reports: &mut ReportCollection) {
+    use program_structure::error_code::ReportCode;
+    use program_structure::error_definition::Report;
+    
     for template_data in program_archive.get_templates().values() {
+        // check that extern_c only if custom gate
+        if template_data.is_extern_c() && !template_data.is_custom_gate(){
+            let mut report = Report::error(
+                format!(""),
+                ReportCode::BusWrongNumberOfArguments,
+            );
+            report.add_primary(
+                template_data.get_param_location(),
+                template_data.get_file_id(),
+                format!("The extern_c decorator can only be used in custom templates."),
+            );
+            reports.push(report);
+        }
         let no_returns_in_template_result = free_of_returns(template_data);
         let signal_declaration_result = check_signal_correctness(template_data);
         if let Result::Err(mut no_returns_reports) = no_returns_in_template_result {

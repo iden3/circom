@@ -32,12 +32,16 @@ pub type FieldMap = Vec<Vec<FieldData>>;
 
 pub type InputList = Vec<InputInfo>;
 pub type TemplateList = Vec<String>;
-pub struct InfoParallel{
+pub struct InfoTemplate{
+    pub template_name: String,
     pub name: String,
     pub is_parallel: bool,
     pub is_not_parallel: bool,
+    pub is_extern_c: bool,
+    pub io_signals: Option<Vec<String>>, // Only needed in case is extern c
+    pub arguments: Option<Vec<(String, bool)>> // stores the name and if it is an array
 }
-pub type TemplateListParallel = Vec<InfoParallel>;
+pub type TemplateListInfo = Vec<InfoTemplate>;
 pub type SignalList = Vec<usize>;
 pub type InputOutputList = Vec<IODef>;
 pub type TemplateInstanceIOMap = BTreeMap<usize, InputOutputList>;

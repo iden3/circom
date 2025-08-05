@@ -55,7 +55,7 @@ pub fn visit_branch(
     found_unknown_address: bool,
     inside_loop: bool
 ) -> bool {
-  let mut known_last_component_if: ComponentsSet = known_last_component.clone();
+    let mut known_last_component_if: ComponentsSet = known_last_component.clone();
     let mut known_last_component_else: ComponentsSet = known_last_component.clone();
     let mut unknown_last_component_if: ComponentsSet = unknown_last_component.clone();
     let mut unknown_last_component_else: ComponentsSet = unknown_last_component.clone();
@@ -68,7 +68,7 @@ pub fn visit_branch(
         inside_loop
     );
     let found_unknown_else :bool = visit_list(
-        &mut bucket.if_branch, 
+        &mut bucket.else_branch, 
         &mut known_last_component_else, 
         &mut unknown_last_component_else, 
         found_unknown_address,
@@ -253,51 +253,54 @@ pub fn visit_address_type(
     use StatusInput::*;
     use Instruction::*;
 
-    if let SubcmpSignal { cmp_address, input_information ,..} = xtype {
+    if let SubcmpSignal { cmp_address, input_information, is_anonymous , cmp_name, ..} = xtype {
+        
         if let Input {..} = input_information{
-
-            if known_last_component.contains(&cmp_address.to_string()){
-                *input_information = Input{status: NoLast};
-                //println!("Poniendo un nolast en {}", cmp_address.to_string());
+            
+            if *is_anonymous{
+                if known_last_component.contains(&cmp_name.to_string()){
+                    *input_information = Input{status: NoLast};
+                } else{
+                    // in this case it is always last
+                    *input_information = Input{status: Last};
+                    known_last_component.insert(cmp_name.clone());
+                }
                 found_unknown_address
-            }
-            else if unknown_last_component.contains(&cmp_address.to_string()){
-                *input_information = Input{status: Unknown};
-                //println!("Poniendo un unknown en {}", cmp_address.to_string());
-                found_unknown_address
-            }
-            else{
-                if let Value {..} = **cmp_address{
-                    if found_unknown_address{
-                        *input_information = Input{status: Unknown};
-                        //println!("Poniendo un unknown en {}", cmp_address.to_string());
-                    }
-                    else{
-                        if inside_loop {
-                            *input_information = Input{status: Unknown};
-                            //println!("Poniendo un unknown en {}", cmp_address.to_string());
-                        }
-                        else{
-                            *input_information = Input{status: Last};
-                            //println!("Poniendo un last en {}", cmp_address.to_string());
-                        }
-                    }
-                    known_last_component.insert(cmp_address.to_string());
-                    unknown_last_component.remove(&cmp_address.to_string());
+            } else{
+                if known_last_component.contains(&cmp_address.to_string()){
+                    *input_information = Input{status: NoLast};
                     found_unknown_address
                 }
-                else{
+                else if unknown_last_component.contains(&cmp_address.to_string()){
                     *input_information = Input{status: Unknown};
-                    //println!("Poniendo un unknown en {}", cmp_address.to_string());
-                    false
+                    found_unknown_address
+                } 
+                else{
+                    if let Value {..} = **cmp_address{
+                        if found_unknown_address{
+                            *input_information = Input{status: Unknown};
+                        }
+                        else{
+                            if inside_loop {
+                                *input_information = Input{status: Unknown};
+                            }
+                            else{
+                                *input_information = Input{status: Last};
+                            }
+                        }
+                        known_last_component.insert(cmp_address.to_string());
+                        unknown_last_component.remove(&cmp_address.to_string());
+                        found_unknown_address
+                    } else{
+                        *input_information = Input{status: Unknown};
+                        false
+                    }
                 }
             }
-        }
-        else{
+        } else{
             found_unknown_address
-        }
-    }
-    else{
+        } 
+    } else{
         found_unknown_address
     }
 }

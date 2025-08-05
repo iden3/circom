@@ -8,6 +8,7 @@ use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
 use program_structure::file_definition::FileLibrary;
 use std::collections::{BTreeMap, HashMap};
+use program_structure::ast::SignalType;
 
 #[cfg(debug_assertions)]
 fn matching_lengths_and_offsets(list: &InputOutputList) {
@@ -88,8 +89,8 @@ fn build_template_instances(
             message_id: tmp_id,
             params: Vec::new(),
             header: header.clone(),
-            wires: template.wires,
-            constants: instance_values,
+            wires: template.wires.clone(),
+            constants: instance_values.clone(),
             files: &c_info.file_library,
             triggers: template.triggers,
             clusters: template.clusters,
@@ -114,11 +115,24 @@ fn build_template_instances(
             number_of_outputs: template.number_of_outputs,
             number_of_intermediates: template.number_of_intermediates,
             has_parallel_sub_cmp: template.has_parallel_sub_cmp,
+            is_extern_c: template.is_extern_c,
+            wires: template.wires,
+            arguments: instance_values,
             ..TemplateCodeInfo::default()
         };
         let code = template.code;
         let out = translate::translate_code(code, code_info);
         field_tracker = out.constant_tracker;
+        // we update the map of constants used as parameters
+        let mut map_constants_parameters = HashMap::new();
+        for arg in &template_info.arguments{
+            for v in &arg.values{
+                let constant = v.to_str_radix(10);
+                let index = field_tracker.get_id(&constant).unwrap();
+                map_constants_parameters.insert(constant, index);
+            }
+        }
+        template_info.map_constants_arguments = map_constants_parameters;
         template_info.body = out.code;
         template_info.expression_stack_depth = out.expression_depth;
         template_info.var_stack_depth = out.stack_depth;
@@ -425,13 +439,50 @@ fn build_template_list(vcp: &VCP) -> TemplateList {
     tmp_list
 }
 
-fn build_template_list_parallel(vcp: &VCP) -> TemplateListParallel {
-    let mut tmp_list = TemplateListParallel::new();
+fn build_template_list_parallel(vcp: &VCP) -> TemplateListInfo {
+    let mut tmp_list = TemplateListInfo::new();
     for instance in &vcp.templates {
-        tmp_list.push(InfoParallel{
+        let info_io_signals = if instance.is_extern_c{
+            let mut output_names = Vec::new();
+            let mut input_names = Vec::new();
+            for wire in &instance.wires{
+                match wire.xtype(){
+                    SignalType::Input => {
+                        input_names.push(wire.name().clone());
+                    }
+                    SignalType::Output => {
+                        output_names.push(wire.name().clone());
+                    }
+                    _ =>{}
+                }
+            }
+            output_names.append(&mut input_names);
+            Some(output_names)
+        } else{
+            None
+        };
+
+        // build argument names info
+        let argument_names = if instance.is_extern_c{
+            let mut names = Vec::new();
+            for arg in &instance.header{
+                // we store the name and if it is an array
+                names.push((arg.name.clone(), arg.lengths.len() != 0));
+            }
+            Some(names)
+        } else{
+            None
+        };
+        
+
+        tmp_list.push(InfoTemplate{
+            template_name: instance.template_name.clone(),
             name: instance.template_header.clone(), 
             is_parallel: instance.is_parallel || instance.is_parallel_component,
             is_not_parallel: !instance.is_parallel && instance.is_not_parallel_component,
+            is_extern_c: instance.is_extern_c,
+            io_signals: info_io_signals,
+            arguments: argument_names
         });
     }
     tmp_list
