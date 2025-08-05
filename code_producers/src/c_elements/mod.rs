@@ -22,7 +22,7 @@ pub struct CProducer {
     pub main_input_list: InputList,
     pub witness_to_signal_list: SignalList,
     pub io_map: TemplateInstanceIOMap,
-    pub template_instance_list: TemplateListParallel,
+    pub template_instance_list: TemplateListInfo,
     pub message_list: MessageList,
     pub field_tracking: Vec<String>,
     pub major_version: usize,
@@ -181,7 +181,7 @@ impl CProducer {
     pub fn get_io_map(&self) -> &TemplateInstanceIOMap {
         &self.io_map
     }
-    pub fn get_template_instance_list(&self) -> &TemplateListParallel {
+    pub fn get_template_instance_list(&self) -> &TemplateListInfo {
         &self.template_instance_list
     }
     pub fn get_number_of_template_instances(&self) -> usize {

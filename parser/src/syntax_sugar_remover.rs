@@ -329,6 +329,7 @@ fn remove_anonymous_from_statement(
                         VariableType::Var, 
                         id_var_while.clone(),
                         Vec::new(),
+                        false
                     )
                 );
                 subs.push(
@@ -441,6 +442,7 @@ pub fn remove_anonymous_from_expression(
                     VariableType::Component, 
                     id_anon_temp.clone(),
                     Vec::new(),
+                    true
                 ));
             } else{ // we generate an anonymous component, it depends on the var_access indicating the loop
                 declarations.push(build_declaration(
@@ -448,6 +450,7 @@ pub fn remove_anonymous_from_expression(
                     VariableType::AnonymousComponent, 
                     id_anon_temp.clone(),
                     vec![var_access.as_ref().unwrap().clone()],
+                    true
                 ));
             }
 

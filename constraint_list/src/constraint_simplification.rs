@@ -590,7 +590,9 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         crate::state_utils::empty_encoding_constraints(&mut smp.dag_encoding);
         let _dur = now.elapsed().unwrap().as_millis();
         // println!("Storages built in {} ms", dur);
-        no_rounds -= 1;
+        if no_rounds > 0{
+            no_rounds -= 1;
+        }
         (with_linear, storage)
     };
 

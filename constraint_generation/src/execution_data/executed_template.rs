@@ -84,6 +84,7 @@ pub struct ExecutedTemplate {
     pub underscored_signals: Vec<String>,
     connexions: Vec<Connexion>,
     pub bus_connexions: HashMap<String, BusConnexion>,
+    pub is_extern_c: bool
 }
 
 impl ExecutedTemplate {
@@ -95,7 +96,8 @@ impl ExecutedTemplate {
         tag_instances: HashMap<String, TagWire>,
         code: Statement,
         is_parallel: bool,
-        is_custom_gate: bool
+        is_custom_gate: bool,
+        is_extern_c: bool
     ) -> ExecutedTemplate {
         let public_inputs: HashSet<_> = public.iter().cloned().collect();
 
@@ -121,6 +123,7 @@ impl ExecutedTemplate {
             connexions: Vec::new(),
             bus_connexions: HashMap::new(),
             underscored_signals: Vec::new(),
+            is_extern_c
         }
     }
 
@@ -198,8 +201,13 @@ impl ExecutedTemplate {
         self.signal_to_tags.insert(signal_name, value);
     }
 
-    pub fn add_component(&mut self, component_name: &str, dimensions: &[usize]) {
-        self.components.push((component_name.to_string(), dimensions.to_vec()));
+    pub fn add_component(&mut self, component_name: &str, dimensions: &[usize], is_anonymous: bool) {
+        let comp_data = ComponentData{
+            name: component_name.to_string(),
+            length: dimensions.to_vec(),
+            is_anonymous
+        };
+        self.components.push(comp_data);
         self.number_of_components += dimensions.iter().fold(1, |p, c| p * (*c));
     }
 
@@ -389,8 +397,12 @@ impl ExecutedTemplate {
 
         fn build_components(components: ComponentCollector) -> Vec<Component> {
             let mut cmp = vec![];
-            for (name, lengths) in components {
-                cmp.push(Component { name, lengths })
+            for c in components {
+                cmp.push(Component { 
+                    name: c.name, 
+                    lengths: c.length, 
+                    is_anonymous: c.is_anonymous,
+                })
             }
             cmp
         }
@@ -423,6 +435,7 @@ impl ExecutedTemplate {
             name: self.template_name,
             number_of_components : self.number_of_components,
             signals_to_tags: self.signal_to_tags,
+            is_extern_c: self.is_extern_c
         };
 
         let mut instance = TemplateInstance::new(config);
@@ -668,9 +681,14 @@ fn filter_used_components(tmp: &ExecutedTemplate) -> (ComponentCollector, usize)
     let mut filtered = Vec::with_capacity(used.len());
     let mut number_of_components = 0;
     for cmp in &tmp.components {
-        if used.contains(&cmp.0) {
-            filtered.push(cmp.clone());
-            number_of_components = number_of_components + compute_number_cmp(&cmp.1);
+        if used.contains(&cmp.name) {
+            let value = ComponentData{
+                name: cmp.name.clone(),
+                length: cmp.length.clone(),
+                is_anonymous: cmp.is_anonymous
+            };
+            filtered.push(value);
+            number_of_components = number_of_components + compute_number_cmp(&cmp.length);
         }
     }
     (filtered, number_of_components)
@@ -714,7 +732,7 @@ fn mixed_components(exec_tmp: &ExecutedTemplate) -> Vec<bool> {
     let solution = apply_pos_to_connexions(&exec_tmp.connexions);
     let mut mixed = vec![false; exec_tmp.components.len()];
     for (index, value) in exec_tmp.components.iter().enumerate() {
-        let pos_value = solution.get(&value.0).unwrap();
+        let pos_value = solution.get(&value.name).unwrap();
         mixed[index] = mixed[index] || matches!(pos_value, T);
     }
     mixed
@@ -763,7 +781,7 @@ fn build_clusters(tmp: &ExecutedTemplate, instances: &[TemplateInstance]) -> Vec
     // cmp_data and result binding
     let mut index = 0;
     while index < components.len() {
-        let cmp_name = &components[index].0;
+        let cmp_name = &components[index].name;
         let mut cluster = cmp_data.remove(cmp_name).unwrap();
         let start = cluster.slice.start;
         let tmp_id = connexions[start].inspect.goes_to;

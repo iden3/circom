@@ -229,7 +229,7 @@ fn execute_statement(
             debug_assert!(possible_fold.is_none());
             possible_fold
         }
-        Declaration { meta, xtype, name, dimensions, .. } => {
+        Declaration { meta, xtype, name, dimensions, is_anonymous, .. } => {
             match xtype {
                 VariableType::AnonymousComponent => {
                     if runtime.block_type == BlockType::Unknown{
@@ -291,6 +291,7 @@ fn execute_statement(
                             execute_component_declaration(
                                 name,
                                 &usable_dimensions,
+                                *is_anonymous,
                                 &mut runtime.environment,
                                 actual_node,
                             )
@@ -1176,11 +1177,12 @@ fn execute_template_call_complete(
 fn execute_component_declaration(
     component_name: &str,
     dimensions: &[SliceCapacity],
+    is_anonymous: bool,
     environment: &mut ExecutionEnvironment,
     actual_node: &mut Option<ExecutedTemplate>,
 ) {
     if let Option::Some(node) = actual_node {
-        node.add_component(component_name, dimensions);
+        node.add_component(component_name, dimensions, is_anonymous);
         environment_shortcut_add_component(environment, component_name, dimensions);
     } else {
         unreachable!()
@@ -2566,7 +2568,8 @@ fn execute_delayed_declarations(
                 )?
             };
         if let Option::Some(node) = actual_node {
-            node.add_component(&component_name, &usable_dimensions);
+            // They are always anonymous components
+            node.add_component(&component_name, &usable_dimensions, true);
         }           
     }
     Result::Ok(())
@@ -3177,6 +3180,7 @@ fn execute_template_call(
     let is_main = std::mem::replace(&mut runtime.public_inputs, vec![]);
     let is_parallel = program_archive.get_template_data(id).is_parallel();
     let is_custom_gate = program_archive.get_template_data(id).is_custom_gate();
+    let is_extern_c = program_archive.get_template_data(id).is_extern_c();    
     let args_names = program_archive.get_template_data(id).get_name_of_params();
     let template_body = program_archive.get_template_data(id).get_body_as_vec();
     let mut args_to_values = BTreeMap::new();
@@ -3221,7 +3225,8 @@ fn execute_template_call(
             tag_values,
             code,
             is_parallel,
-            is_custom_gate
+            is_custom_gate,
+            is_extern_c
         ));
         let (ret, _) = execute_sequence_of_statements(
             template_body,
