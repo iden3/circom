@@ -12,7 +12,7 @@
 - Improving the analysis of signal double assigment: branch case no longer causes an error in assignments in different branches.
 - Improving the generated C++ code by removing unnecessary instructions.
   
-###Fixed bugs
+### Fixed bugs
 - Fixing a panic in type analysis.
 
 
