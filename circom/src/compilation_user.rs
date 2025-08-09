@@ -114,7 +114,9 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
             (false, true) => {
                 compiler_interface::write_wasm(&circuit,  &config.js_folder, &config.wasm_name, &config.wat_file)?;
                 let result = wat_to_wasm(&config.wat_file, &config.wasm_file);
-                std::fs::remove_file(&config.wat_file).unwrap();
+                if let Err(err) = std::fs::remove_file(&config.wat_file) {
+                    eprintln!("{}", Colour::Yellow.paint(format!("warning: could not remove temporary WAT file '{}': {}", &config.wat_file, err)));
+                }
                 match result {
                     Result::Err(report) => {
                         Report::print_reports(&[report], &FileLibrary::new());
