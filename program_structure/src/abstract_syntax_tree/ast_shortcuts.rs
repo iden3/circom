@@ -71,7 +71,7 @@ pub fn split_declaration_into_single_nodes(
         // For the variables, we need to initialize them to 0 in case:
         //     - They are not initialized to other value
         //     - They are arrays (and maybe not all positions are initialized)
-        // in case flag no_init we do not perfom these changes
+        // in case flag no_init we do not perform these changes
 
         if xtype == Var && (possible_init.is_none() || dimensions.len() > 0) && !flag_no_init{
             let mut value = Expression:: Number(meta.clone(), BigInt::from(0));

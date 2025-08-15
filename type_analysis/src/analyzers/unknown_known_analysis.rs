@@ -549,7 +549,7 @@ fn add_report(
     let mut report = Report::error("Typing error found".to_string(), error_code);
     let location = generate_file_location(meta.start, meta.end);
     let message = match error_code {
-        UnknownTemplateAssignment => "Assigments to signals within an unknown access to an array of components are not allowed".to_string(),
+        UnknownTemplateAssignment => "Assignments to signals within an unknown access to an array of components are not allowed".to_string(),
         UnknownBus => "Parameters of a bus must be known during the constraint generation phase".to_string(),
         UnknownDimension => "The length of every array must be known during the constraint generation phase".to_string(),
         UnknownTemplate => "Every component instantiation must be resolved during the constraint generation phase. This component declaration uses a value that can be unknown during the constraint generation phase.".to_string(),

@@ -186,7 +186,7 @@ impl BusRepresentation {
         is_input: bool,
         conditions_assignment: &AssignmentState
     ) -> Result<(), MemoryError> {
-            // TODO: move to auxiliar function to do not repeat effort
+            // TODO: move to auxiliary function to do not repeat effort
             // We update the has_assignment value if not tag and not empty
             let has_assignment = match assigned_value{
                 FoldedArgument::Signal(dimensions)=>{

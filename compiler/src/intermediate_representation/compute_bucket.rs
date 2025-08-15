@@ -236,7 +236,7 @@ impl WriteWasm for ComputeBucket {
                             instructions.push(set_local(producer.get_counter_tag()));
                             instructions.push(set_local(producer.get_aux_2_tag()));  // second argument initial position
 			    instructions.push(set_local(producer.get_aux_1_tag()));  // first argument initial position
-			    instructions.push(set_local(producer.get_aux_0_tag()));  // resut position
+			    instructions.push(set_local(producer.get_aux_0_tag()));  // result position
                             instructions.push(add_block());
                             instructions.push(add_loop());
                             instructions.push(get_local(producer.get_aux_0_tag()));
