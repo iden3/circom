@@ -508,7 +508,7 @@ impl WriteC for StoreBucket {
 	            map_prologue.push(format!("{{"));
 		    map_prologue.push(format!("uint map_accesses_aux[{}];",indexes.len().to_string()));
 	            map_prologue.push(format!("{{"));		    
-		    //cur_def contains a pointer to the definion of the next acces.
+		    //cur_def contains a pointer to the definition of the next access.
 		    //The first time it is taken from template_ins_2_io_info
 		    map_prologue.push(format!("IOFieldDef *cur_def = &({}->{}[{}].defs[{}]);",
 					    circom_calc_wit(), template_ins_2_io_info(),
@@ -597,7 +597,7 @@ impl WriteC for StoreBucket {
                 }
             }
         };
-	//keep dest_index in an auxiliar if parallel and out put
+	//keep dest_index in an auxiliary if parallel and out put
 	if let AddressType::Signal = &self.dest_address_type {
 	    if parallel.unwrap() && self.dest_is_output {
             prologue.push(format!("{{")); //open block 1 when parallel and Signal 
@@ -634,7 +634,7 @@ impl WriteC for StoreBucket {
 		    prologue.push(format!("{}->componentMemory[{}].cvs[{}+i].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
 		    prologue.push(format!("}}")); // close block 4
 		    prologue.push(format!("}}")); // close block 3
-		    prologue.push(format!("}}")); // add a close for block 1 (as it's oppened)
+		    prologue.push(format!("}}")); // add a close for block 1 (as it's opened)
 		}
 	    }
         } else {

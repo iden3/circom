@@ -319,7 +319,7 @@ pub fn generate_data_io_signals_to_info(
                     //do not store code and the first one of lengths (offset + size + length-1(if >0)
                     if s.lengths.len() == 0 { //only offset
                         pos += 4;
-                    } else { // offest + length -1 + size
+                    } else { // offset + length -1 + size
                         pos += s.lengths.len() * 4 + 4;
                     }
 		    if let Some(_) = s.bus_id {

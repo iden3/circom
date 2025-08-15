@@ -270,7 +270,7 @@ impl TemplateCodeInfo {
 		&self.number_of_outputs.to_string()
             ));
 	}
-	// if has no inputs should be runned
+	// if has no inputs should be run
 	if self.number_of_inputs == 0 {
 	    let cmp_call_name = format!("{}_run", self.header);
 	    let cmp_call_arguments = vec![component_offset(), CIRCOM_CALC_WIT.to_string()]; 

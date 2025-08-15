@@ -269,7 +269,7 @@ u64toLong_adjust_neg:
 ; Convert a 64 bit integer to a long format field element
 ; Params:
 ;   rsi <= Pointer to the element
-; Returs:
+; Returns:
 ;   rax <= The value
 ;;;;;;;;;;;;;;;;;;;;;;;
 Fr_toInt:
@@ -8807,7 +8807,7 @@ lnot_retOne:
 ; Convert a 64 bit integer to a long format field element
 ; Params:
 ;   rsi <= Pointer to the element
-; Returs:
+; Returns:
 ;   rax <= 1 if true 0 if false
 ;;;;;;;;;;;;;;;;;;;;;;;
 Fr_isTrue:
