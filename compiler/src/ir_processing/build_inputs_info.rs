@@ -114,105 +114,96 @@ pub fn visit_call(
         } else{
             found_unknown_address
         }
-    }
-    else{
+    } else{
         found_unknown_address
     }
 }
 
 pub fn visit_compute(
-    _bucket: &mut ComputeBucket, 
+    _bucket: &mut  ComputeBucket, 
     _known_last_component: &mut ComponentsSet, 
     _unknown_last_component: &mut ComponentsSet,  
     found_unknown_address: bool,
     _inside_loop: bool
-) -> bool{
+)-> bool{
     found_unknown_address
 }
+
 pub fn visit_load(
-    _bucket: &mut LoadBucket, 
+    _bucket: &mut  LoadBucket, 
     _known_last_component: &mut ComponentsSet, 
     _unknown_last_component: &mut ComponentsSet,  
     found_unknown_address: bool,
     _inside_loop: bool
-) -> bool{
+)-> bool{
     found_unknown_address
 }
 
 pub fn visit_loop(
-    bucket: &mut LoopBucket,
+    bucket: &mut  LoopBucket, 
     known_last_component: &mut ComponentsSet, 
     unknown_last_component: &mut ComponentsSet,  
     found_unknown_address: bool,
     _inside_loop: bool
 )-> bool{
-    let mut known_last_component_loop: ComponentsSet = known_last_component.clone();
-    let mut unknown_last_component_loop: ComponentsSet = unknown_last_component.clone();
-
-    let found_unknown_address_new  = visit_list(
+    visit_list(
         &mut bucket.body, 
-        &mut known_last_component_loop, 
-        &mut unknown_last_component_loop, 
+        known_last_component,
+        unknown_last_component, 
         found_unknown_address,
         true
-    );
-
-    let new_unknown_component: ComponentsSet = known_last_component_loop.union(&unknown_last_component_loop).map(|s| s.clone()).collect();
-
-    *known_last_component = known_last_component.difference(&new_unknown_component).map(|s| s.clone()).collect();
-    *unknown_last_component = unknown_last_component.union(&new_unknown_component).map(|s| s.clone()).collect();
-    found_unknown_address_new
-}
-
-pub fn visit_create_cmp(
-    _bucket: &mut CreateCmpBucket,
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
+    )
 }
 
 pub fn visit_return(
-    _bucket: &mut ReturnBucket,     
+    _bucket: &mut  ReturnBucket, 
     _known_last_component: &mut ComponentsSet, 
     _unknown_last_component: &mut ComponentsSet,  
     found_unknown_address: bool,
     _inside_loop: bool
-) -> bool{
+)-> bool{
+    found_unknown_address
+}
+
+pub fn visit_value(
+    _bucket: &mut  ValueBucket, 
+    _known_last_component: &mut ComponentsSet, 
+    _unknown_last_component: &mut ComponentsSet,  
+    found_unknown_address: bool,
+    _inside_loop: bool
+)-> bool{
+    found_unknown_address
+}
+
+pub fn visit_assert(
+    _bucket: &mut  AssertBucket, 
+    _known_last_component: &mut ComponentsSet, 
+    _unknown_last_component: &mut ComponentsSet,  
+    found_unknown_address: bool,
+    _inside_loop: bool
+)-> bool{
+    found_unknown_address
+}
+
+pub fn visit_create_cmp(
+    _bucket: &mut  CreateCmpBucket, 
+    _known_last_component: &mut ComponentsSet, 
+    _unknown_last_component: &mut ComponentsSet,  
+    found_unknown_address: bool,
+    _inside_loop: bool
+)-> bool{
     found_unknown_address
 }
 
 pub fn visit_log(
-    _bucket: &mut LogBucket,
+    _bucket: &mut  LogBucket, 
     _known_last_component: &mut ComponentsSet, 
     _unknown_last_component: &mut ComponentsSet,  
     found_unknown_address: bool,
     _inside_loop: bool
-) -> bool{
+)-> bool{
     found_unknown_address
 }
-
-pub fn visit_assert(_bucket: &mut AssertBucket,
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
-}
-
-pub fn visit_value(_bucket: &mut ValueBucket,
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
-}
-
-
 
 pub fn visit_store(
     bucket: &mut StoreBucket,
@@ -277,16 +268,14 @@ pub fn visit_address_type(
                 } 
                 else{
                     if let Value {..} = **cmp_address{
-                        if found_unknown_address{
+                        // Fix: When inside a loop, we need to be more conservative about determining
+                        // if this is the last input signal, especially when scalar signals are assigned
+                        // before array signals in the loop
+                        if found_unknown_address || inside_loop {
                             *input_information = Input{status: Unknown};
                         }
                         else{
-                            if inside_loop {
-                                *input_information = Input{status: Unknown};
-                            }
-                            else{
-                                *input_information = Input{status: Last};
-                            }
+                            *input_information = Input{status: Last};
                         }
                         known_last_component.insert(cmp_address.to_string());
                         unknown_last_component.remove(&cmp_address.to_string());
