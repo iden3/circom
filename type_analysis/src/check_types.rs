@@ -182,7 +182,7 @@ fn semantic_analyses(
 ) {
     for bus_name in program_archive.get_bus_names().iter() {
         if let Result::Err(mut unknown_known_report) =
-            unknown_known_analysis(&bus_name, program_archive) {
+            unknown_known_analysis(bus_name, program_archive) {
                 errors.append(&mut unknown_known_report);
             }
     }
