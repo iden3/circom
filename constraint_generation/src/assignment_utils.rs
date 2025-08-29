@@ -147,6 +147,47 @@ pub fn perform_tag_propagation_bus(tag_data: &mut BusTagInfo, assigned_tags: &Ta
     }
 }
 
+pub fn join_tags_propagation(tags: Option<TagWire>, new_tags: &TagWire)-> Option<TagWire>{
+    
+    if tags.is_some(){
+        let unfolded_tags = tags.unwrap();
+
+
+        // Study the tags
+        let mut result_tags = TagInfo::new();
+        for (tag, value) in unfolded_tags.tags{
+             if new_tags.tags.contains_key(&tag){
+                let value_new = new_tags.tags.get(&tag).unwrap();
+                if value == *value_new{
+                    result_tags.insert(tag, value);
+                }
+             } 
+        }
+
+        // Study the fields
+        let result_fields = if unfolded_tags.fields.is_none(){
+            None
+        } else{
+            let mut result = HashMap::new();
+            let aux = new_tags.fields.as_ref().unwrap();
+            for (field, tags) in unfolded_tags.fields.unwrap(){
+                let tags_aux = aux.get(&field).unwrap();
+                result.insert(field, join_tags_propagation(Some(tags), tags_aux).unwrap());
+            } 
+            Some(result)
+        };
+        
+        let result = TagWire{
+            tags: result_tags,
+            fields: result_fields
+        };
+        Some(result)
+    } else{
+        None
+    }
+}
+
+
 
 pub fn perform_signal_assignment(
     signal_slice: &mut SignalSlice, 
