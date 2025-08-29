@@ -950,10 +950,26 @@ fn execute_expression(
         }
         ArrayInLine { meta, values, .. } => {
             let mut arithmetic_slice_array = Vec::new();
+            let mut tags = None;
+
+            let mut is_first = true;
             for value in values.iter() {
                 let f_value = execute_expression(value, program_archive, runtime, flags)?;
+                // Study the tags
+                if f_value.tags.is_some(){
+                    if is_first{
+                        tags = f_value.tags.clone();
+                    } else{
+                        tags = join_tags_propagation(tags, f_value.tags.as_ref().unwrap());
+                    }
+                } else{
+                    tags = None;
+                }
                 let slice_value = safe_unwrap_to_arithmetic_slice(f_value, line!());
+                
                 arithmetic_slice_array.push(slice_value);
+                is_first = false;
+
             }
             debug_assert!(!arithmetic_slice_array.is_empty());
 
@@ -978,7 +994,7 @@ fn execute_expression(
                 )?;
                 row += 1;
             }
-            FoldedValue { arithmetic_slice: Option::Some(array_slice), ..FoldedValue::default() }
+            FoldedValue { arithmetic_slice: Option::Some(array_slice), tags, ..FoldedValue::default() }
         }
         UniformArray { meta, value, dimension, .. } => {
             let f_dimension = execute_expression(dimension, program_archive, runtime, flags)?;
@@ -2240,7 +2256,7 @@ fn perform_assign(
                     tag_data = tag_data.fields.get_mut(to_access.field_access.as_ref().unwrap()).unwrap();
                     to_access = to_access.remaining_access.as_ref().unwrap();
                 }
-                perform_tag_propagation_bus(tag_data, &new_tags, MemorySlice::get_number_of_cells(&bus_slice));
+                perform_tag_propagation_bus(tag_data, &new_tags, MemorySlice::get_number_of_cells(&assigned_bus_slice));
 
                 // We assign the original buses
                 let bus_assignment_response = perform_bus_assignment(bus_slice, &accessing_information.array_access, assigned_bus_slice, false, &conditions_assignment);
