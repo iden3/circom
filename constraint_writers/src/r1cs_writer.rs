@@ -382,7 +382,7 @@ impl CustomGatesUsedSection {
             for parameter in custom_gate_parameters {
                 let (parameter_stream, parameter_size) = bigint_as_bytes(&parameter, self.field_size);
                 self.size += parameter_size;
-                self.writer.write(&parameter_stream).map_err(|_err| {})?;
+                self.writer.write_all(&parameter_stream).map_err(|_err| {})?;
                 //self.writer.flush().map_err(|_err| {})?;
             }
         }
@@ -432,7 +432,7 @@ impl CustomGatesAppliedSection {
             for signal in custom_gate_signals {
                 let (signal_stream, signal_size) = bigint_as_bytes(&BigInt::from(signal), 8);
                 self.size += signal_size;
-                self.writer.write(&signal_stream).map_err(|_err| {})?;
+                self.writer.write_all(&signal_stream).map_err(|_err| {})?;
                 //self.writer.flush().map_err(|_err| {})?;
             }
         }
