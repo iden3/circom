@@ -34,7 +34,7 @@ struct FoldedType {
     // template name
     template: Option<String>,
     // bus type name
-    bus: Option<String>,
+    bus: Option<(String, ArithmeticType)>,
 }
 impl FoldedType {
     pub fn arithmetic_type(dimensions: ArithmeticType) -> FoldedType {
@@ -47,7 +47,7 @@ impl FoldedType {
         self.template.is_some() && self.arithmetic.is_none()
     }
     pub fn bus(name: &str, dimensions: ArithmeticType) -> FoldedType {
-        FoldedType { bus: Option::Some(name.to_string()), arithmetic: Option::Some(dimensions), template: Option::None }
+        FoldedType { bus: Option::Some((name.to_string(), dimensions)), arithmetic: Option::Some(dimensions), template: Option::None }
     }
     pub fn is_bus(&self) -> bool {
         self.bus.is_some()
@@ -55,6 +55,8 @@ impl FoldedType {
     pub fn dim(&self) -> usize {
         if let Option::Some(dim) = &self.arithmetic {
             *dim
+        } else  if let Option::Some((_, bus_dim)) = &self.bus {
+            *bus_dim
         } else {
             0
         }
@@ -352,12 +354,12 @@ fn type_statement(
                             let (current_bus, _,_) = analysis_information
                                 .environment
                                 .get_mut_bus_or_break(var, file!(), line!());
-                            *current_bus = rhe_type.bus;
+                            *current_bus = rhe_type.bus.as_ref().map(|(name, _)| name.clone());
                         } else {
                             let bus = possible_bus.unwrap();
                             let r_bus = rhe_type.bus.unwrap();
-                            if bus != r_bus {
-                                if dim > 0 {
+                            if bus != r_bus.0 {
+                                if dim != r_bus.1 {
                                     add_report(
                                         ReportCode::WrongTypesInAssignOperationArrayBuses,
                                         meta,
@@ -365,12 +367,12 @@ fn type_statement(
                                     )
                                 }
                                 else {
-                                    add_report(
-                                        ReportCode::WrongTypesInAssignOperationBus,
-                                        meta,
-                                        &mut analysis_information.reports,
-                                    )
-                                }
+                                        add_report(
+                                            ReportCode::WrongTypesInAssignOperationBus,
+                                            meta,
+                                            &mut analysis_information.reports,
+                                        )
+                                    }
                             }
                         }
                     } else {
@@ -660,6 +662,8 @@ fn type_expression(
                 );
             }
             let inferred_dim = values_types[0].dim();
+            let inferred_type = values_types[0].bus.clone();
+            let is_bus = inferred_type.is_some();
             for (expression, value_type) in values.iter().zip(values_types.iter()) {
                 if value_type.is_template() {
                     add_report(
@@ -667,13 +671,26 @@ fn type_expression(
                         expression.get_meta(),
                         &mut analysis_information.reports,
                     );
-                } else if value_type.is_bus() {
+                } else if !is_bus && value_type.is_bus() {
                     add_report(
-                        ReportCode::InvalidArrayTypeB,
+                        ReportCode::InvalidArrayTypeBandSignal,
                         expression.get_meta(),
                         &mut analysis_information.reports,
                     );
-                } else if inferred_dim != value_type.dim() {
+                } else if is_bus && !value_type.is_bus() {
+                    add_report(
+                        ReportCode::InvalidArrayTypeBandSignal,
+                        expression.get_meta(),
+                        &mut analysis_information.reports,
+                    );
+                } else if is_bus && value_type.is_bus() && inferred_type != value_type.bus {
+                    add_report(
+                        ReportCode::InvalidArrayTypeDifferentBuses,
+                        expression.get_meta(),
+                        &mut analysis_information.reports,
+                    );
+                }
+                else if inferred_dim != value_type.dim() {
                     add_report(
                         ReportCode::NonHomogeneousArray(inferred_dim, value_type.dim()),
                         expression.get_meta(),
@@ -681,7 +698,11 @@ fn type_expression(
                     );
                 }
             }
-            Result::Ok(FoldedType::arithmetic_type(inferred_dim + 1))
+            if is_bus {
+                Result::Ok(FoldedType::bus(&inferred_type.unwrap().0, inferred_dim + 1))
+            } else {
+                Result::Ok(FoldedType::arithmetic_type(inferred_dim + 1))
+            }
         }
         UniformArray { meta, value, dimension } => {
             let value_type = type_expression(value, program_archive, analysis_information)?;
@@ -713,7 +734,7 @@ fn type_expression(
                 );
             }
             if let Some(iden) = &value_type.bus {
-                Result::Ok(FoldedType::bus(iden.clone().as_str(), value_type.dim() + 1))
+                Result::Ok(FoldedType::bus(iden.clone().0.as_str(), value_type.dim() + 1))
             } else {
                 Result::Ok(FoldedType::arithmetic_type(value_type.dim() + 1))
             }
@@ -1473,6 +1494,8 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         InvalidTagAccessAfterArray => "Invalid access to the tag of an array element: tags belong to complete arrays, not to individual positions.\n Hint: instead of signal[pos].tag use signal.tag".to_string(),
         InvalidArrayType => "Components can not be declared inside inline arrays".to_string(),
         InvalidArrayTypeB => "Buses can not be declared inside inline arrays".to_string(),
+        InvalidArrayTypeBandSignal => "Signals and Buses cannot be used together inside inline arrays".to_string(),
+        InvalidArrayTypeDifferentBuses => "All buses in an inline array must be the same type".to_string(),
         InfixOperatorWithWrongTypes | PrefixOperatorWithWrongTypes => {
             "Type not allowed by the operator".to_string()
         }
