@@ -367,8 +367,8 @@ fn type_statement(
                                     )
                                 }
                                 else {
-                                        add_report(
-                                            ReportCode::WrongTypesInAssignOperationBus,
+                                    add_report(
+                                            ReportCode::WrongTypesInAssignOperationDifferentBus,
                                             meta,
                                             &mut analysis_information.reports,
                                         )
@@ -1514,6 +1514,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
         WrongTypesInAssignOperationTemplate => "Assignee and assigned types do not match.\n Expected template but found expression.".to_string(),
         WrongTypesInAssignOperationArrayBuses => "Assignee and assigned types do not match.\n All buses of an array must be the same type.".to_string(),
         WrongTypesInAssignOperationBus => "Assignee and assigned types do not match.\n Expected bus but found a different expression.".to_string(),
+        WrongTypesInAssignOperationDifferentBus => "Assignee and assigned types do not match.\n Expected same type of bus but found different types.".to_string(),
         WrongTypesInAssignOperationExpression => "Assignee and assigned types do not match.\n Expected expression found template.".to_string(),
         WrongTypesInAssignOperationDims(expected, found) => {
             format!("Assignee and assigned types do not match. \n Expected dimensions: {}, found {}",
