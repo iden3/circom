@@ -638,9 +638,41 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use num_bigint_dig::BigInt;
     use Expression::{ArrayInLine, Number, UniformArray};
     use Statement::Substitution;
+    use std::cmp;
     if let Substitution { var, access, op, rhe, meta } = stmt {
         if let ArrayInLine { values, .. } = rhe {
             let mut index = 0;
+
+            let sizes = values[0].get_meta().get_memory_knowledge().get_concrete_dimensions(); 
+            let mut all_equal = true;
+            let mut max_sizes = Vec::new();
+            
+            for v in 1..values.len() {
+                
+                let new_sizes = values[v].get_meta().get_memory_knowledge().get_concrete_dimensions();
+                if sizes != new_sizes{
+                    all_equal = false;
+                    for dim in 0..sizes.len(){
+                        max_sizes.push(cmp::max(sizes[dim], new_sizes[dim]));
+                    }
+                }
+            }
+
+            let vaux_0s = if !all_equal{
+                let value = Box::new(Number(meta.clone(), BigInt::from(0)));
+
+                let size = max_sizes.iter().fold(1, |mul, &val| mul * val);
+                let dimension = Box::new(Number(meta.clone(), BigInt::from(size)));
+
+                Some(UniformArray{
+                    meta: meta.clone(),
+                    value,
+                    dimension,
+                })
+            } else{
+                None
+            };
+
             for v in values {
                 let mut index_meta = meta.clone();
                 index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
@@ -648,6 +680,23 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                 let as_access = Access::ArrayAccess(expr_index);
                 let mut accessed_with = access.clone();
                 accessed_with.push(as_access);
+
+                // in case the dimensions are not the same add a expression with 0s
+                if !all_equal && v.get_meta().get_memory_knowledge().get_concrete_dimensions() != max_sizes{
+                    
+
+                    let sub = Substitution {
+                        op,
+                        var: var.clone(),
+                        access: accessed_with.clone(),
+                        meta: meta.clone(),
+                        rhe: vaux_0s.as_ref().unwrap().clone(),
+                    };
+                    rhe_array_case(sub, stmts);
+                }   
+
+
+
                 let sub = Substitution {
                     op,
                     var: var.clone(),
