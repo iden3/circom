@@ -16,6 +16,7 @@ use super::environment_utils::{
         FoldedResult, FoldedArgument
     },
 };
+use std::cmp;
 use program_structure::wire_data::WireType;
 use crate::{assignment_utils::*, environment_utils::slice_types::AssignmentState};
 
@@ -973,11 +974,25 @@ fn execute_expression(
             }
             debug_assert!(!arithmetic_slice_array.is_empty());
 
+
+            // Check the sices and decide if they are the same in all. If not take the max
             let mut dims = vec![values.len()];
+            // init the dims using the first
+
             for dim in arithmetic_slice_array[0].route() {
                 dims.push(*dim);
             }
-            let mut array_slice = AExpressionSlice::new_with_route(&dims, &AExpr::default());
+
+            // compare and take the max
+            for index in 1..arithmetic_slice_array.len(){
+
+                for n_dim in 0..arithmetic_slice_array[index].route().len() {
+                    dims[n_dim + 1] = cmp::max(dims[n_dim + 1], arithmetic_slice_array[index].route()[n_dim]);
+                }
+            }
+
+            // We init to 0 instead to default
+            let mut array_slice = AExpressionSlice::new_with_route(&dims, &AExpr::Number { value: BigInt::from(0)});
             let mut row: SliceCapacity = 0;
             while row < arithmetic_slice_array.len() {
                 let memory_insert_result = AExpressionSlice::insert_values(
@@ -994,6 +1009,8 @@ fn execute_expression(
                 )?;
                 row += 1;
             }
+
+            println!("We return a slice of {:?}", array_slice.route());
             FoldedValue { arithmetic_slice: Option::Some(array_slice), tags, ..FoldedValue::default() }
         }
         UniformArray { meta, value, dimension, .. } => {
