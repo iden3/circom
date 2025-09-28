@@ -259,7 +259,7 @@ fn initialize_wasm_producer(vcp: &VCP, database: &TemplateDB, wat_flag:bool, ver
     producer
 }
 
-fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, no_asm_flag: bool, version: &str) -> CProducer {
+fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, no_asm_flag: bool, safe_flag: bool, version: &str) -> CProducer {
     use program_structure::utils::constants::UsefulConstants;
     let initial_node = vcp.get_main_id();
     let prime = UsefulConstants::new(&vcp.prime).get_p().clone();
@@ -295,7 +295,7 @@ fn initialize_c_producer(vcp: &VCP, database: &TemplateDB, no_asm_flag: bool, ve
     producer.template_instance_list = build_template_list_parallel(vcp);
     producer.field_tracking.clear();
     producer.no_asm = no_asm_flag;
-    
+    producer.safe = safe_flag;
     (producer.major_version, producer.minor_version, producer.patch_version) = get_number_version(version);
     producer
 }
@@ -644,7 +644,7 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
     let template_database = TemplateDB::build(&vcp.templates);
     let mut circuit = Circuit::default();
     circuit.wasm_producer = initialize_wasm_producer(&vcp, &template_database, flag.wat_flag, version);
-    circuit.c_producer = initialize_c_producer(&vcp, &template_database, flag.no_asm_flag, version);
+    circuit.c_producer = initialize_c_producer(&vcp, &template_database, flag.no_asm_flag, flag.safe_flag, version);
 
     let field_tracker = FieldTracker::new();
     let circuit_info = CircuitInfo {

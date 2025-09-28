@@ -658,7 +658,7 @@ impl WriteC for StoreBucket {
 	    prologue.push(format!("}}")); // add a close block 2 if opened // not that since all closing } are at the end it works
         }
         match &self.dest_address_type {
-            AddressType::SubcmpSignal{ uniform_parallel_value, input_information, is_anonymous,.. } => {
+            AddressType::SubcmpSignal{ uniform_parallel_value, input_information,.. } => {
                 // if subcomponent input check if run needed
                 let sub_cmp_counter = format!(
                     "{}->componentMemory[{}[{}]].inputCounter",
@@ -668,61 +668,69 @@ impl WriteC for StoreBucket {
                     "{} -= {}",
                     sub_cmp_counter, size
                 );
-		if let InputInformation::Input{status} = input_information {
+		if let InputInformation::Input{status, needs_decrement} = input_information {
 		    if let StatusInput::NoLast = status {
 			    // no need to run subcomponent
-                if !is_anonymous{
+                if *needs_decrement || producer.safe{
                     prologue.push("// no need to run sub component".to_string());
-			        prologue.push(format!("{};", sub_cmp_counter_decrease));
-			        prologue.push(format!("assert({} > 0);", sub_cmp_counter));
+                    prologue.push(format!("{};", sub_cmp_counter_decrease));
+			        if producer.safe{
+                        prologue.push(format!("assert({} > 0);", sub_cmp_counter));
+                    }
                 }
 		    } else {
-			let sub_cmp_pos = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
-			let sub_cmp_call_arguments =
-			    vec![sub_cmp_pos, CIRCOM_CALC_WIT.to_string()];
-            // to create the call instruction we need to consider the cases of parallel/not parallel/ known only at execution
-            if uniform_parallel_value.is_some(){
-                // Case parallel
-                let mut call_instructions = if uniform_parallel_value.unwrap(){
-                    let sub_cmp_call_name = if let LocationRule::Indexed { .. } = &self.dest {
-                        format!("{}_run_parallel", my_template_header.unwrap())
-                    } else {
-                        format!("(*{}[{}])", function_table_parallel(), my_template_header.unwrap())
-                    };
-                    let mut thread_call_instr = vec![];
+			    let sub_cmp_pos = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
+			    let sub_cmp_call_arguments =
+			        vec![sub_cmp_pos, CIRCOM_CALC_WIT.to_string()];
+                // to create the call instruction we need to consider the cases of parallel/not parallel/ known only at execution
+                if uniform_parallel_value.is_some(){
+                    // Case parallel
+                    let mut call_instructions = if uniform_parallel_value.unwrap(){
+                        let sub_cmp_call_name = if let LocationRule::Indexed { .. } = &self.dest {
+                            format!("{}_run_parallel", my_template_header.unwrap())
+                        } else {
+                            format!("(*{}[{}])", function_table_parallel(), my_template_header.unwrap())
+                        };
+                        let mut thread_call_instr = vec![];
                         
                         // parallelism
                         thread_call_instr.push(format!("{}->componentMemory[{}].sbct[{}] = std::thread({},{});",CIRCOM_CALC_WIT,CTX_INDEX,cmp_index_ref, sub_cmp_call_name, argument_list(sub_cmp_call_arguments)));
                         thread_call_instr.push(format!("std::unique_lock<std::mutex> lkt({}->numThreadMutex);",CIRCOM_CALC_WIT));
                         thread_call_instr.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
                         thread_call_instr.push(format!("ctx->numThread++;"));
-                    thread_call_instr
+                        thread_call_instr
 
-                }
-                // Case not parallel
-                else{
-                    let sub_cmp_call_name = if let LocationRule::Indexed { .. } = &self.dest {
-                        format!("{}_run", my_template_header.unwrap())
-                    } else {
-                        format!("(*{}[{}])", function_table(), my_template_header.unwrap())
+                    }
+                    // Case not parallel
+                    else{
+                        let sub_cmp_call_name = if let LocationRule::Indexed { .. } = &self.dest {
+                            format!("{}_run", my_template_header.unwrap())
+                        } else {
+                            format!("(*{}[{}])", function_table(), my_template_header.unwrap())
+                        };
+                        vec![format!(
+                            "{};",
+                            build_call(sub_cmp_call_name, sub_cmp_call_arguments)
+                        )]
                     };
-                    vec![format!(
-                        "{};",
-                        build_call(sub_cmp_call_name, sub_cmp_call_arguments)
-                    )]
-                };
+
                 if let StatusInput::Unknown = status {
-                    assert!(!is_anonymous);
+                    assert!(needs_decrement);
                     let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
                     let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                     prologue.push("// run sub component if needed".to_string());
                     let else_instructions = vec![];
                     prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
                 } else {
-                    if !is_anonymous{
-                        prologue.push("// need to run sub component".to_string());
+                    // Case Last
+                    // If not in safe mode no need to decrement the inputs
+                    prologue.push("// need to run sub component".to_string());
+
+                    if producer.safe {
                         prologue.push(format!("{};", sub_cmp_counter_decrease));
-                        prologue.push(format!("assert(!({}));", sub_cmp_counter));
+                        if producer.safe{
+                            prologue.push(format!("assert(!({}));", sub_cmp_counter));
+                        }
                     }
                     prologue.append(&mut call_instructions);
                 }
@@ -748,17 +756,36 @@ impl WriteC for StoreBucket {
                     call_instructions.push(format!("{}->ntcvs.wait(lkt, [{}]() {{return {}->numThread <  {}->maxThread; }});",CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT,CIRCOM_CALC_WIT));
                     call_instructions.push(format!("ctx->numThread++;"));
 
-                if let StatusInput::Unknown = status {
-                    let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
-                    let if_condition = vec![sub_cmp_counter_decrease_andcheck];
-                    prologue.push("// run sub component if needed".to_string());
-                    let else_instructions = vec![];
-                    prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
-                } else {
-                    prologue.push("// need to run sub component".to_string());
-                    prologue.push(format!("{};", sub_cmp_counter_decrease));
-                    prologue.push(format!("assert(!({}));", sub_cmp_counter));
-                    prologue.append(&mut call_instructions);
+                match status {
+                    StatusInput::Last =>{
+                        prologue.push("// need to run sub component".to_string());
+                        if *needs_decrement || producer.safe{
+                            prologue.push(format!("{};", sub_cmp_counter_decrease));
+                            if producer.safe{
+                                prologue.push(format!("assert(!({}));", sub_cmp_counter));
+                            }
+                        }
+                        prologue.append(&mut call_instructions);
+                    },
+                    StatusInput::NoLast =>{
+                        // no need to run subcomponent
+                        if *needs_decrement || producer.safe{
+                            prologue.push("// no need to run sub component".to_string());
+                            prologue.push(format!("{};", sub_cmp_counter_decrease));
+			                if producer.safe{
+                                prologue.push(format!("assert({} > 0);", sub_cmp_counter));
+                            }
+                        }
+                    },
+                    StatusInput::Unknown =>{
+                        assert!(needs_decrement);
+                        let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                        let if_condition = vec![sub_cmp_counter_decrease_andcheck];
+                        prologue.push("// run sub component if needed".to_string());
+                        let else_instructions = vec![];
+                        prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
+                    }
+                    
                 }
                 // end of case parallel
 
@@ -773,18 +800,35 @@ impl WriteC for StoreBucket {
                 let mut call_instructions = vec![format!(
                     "{};",
                     build_call(sub_cmp_call_name, sub_cmp_call_arguments)
-                )];                   
-                if let StatusInput::Unknown = status {
-                    let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
-                    let if_condition = vec![sub_cmp_counter_decrease_andcheck];
-                    prologue.push("// run sub component if needed".to_string());
-                    let else_instructions = vec![];
-                    prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
-                } else {
-                    prologue.push("// need to run sub component".to_string());
-                    prologue.push(format!("{};", sub_cmp_counter_decrease));
-                    prologue.push(format!("assert(!({}));", sub_cmp_counter));
-                    prologue.append(&mut call_instructions);
+                )]; 
+                match status{                  
+                    StatusInput::Last =>{
+                        prologue.push("// need to run sub component".to_string());
+                        if *needs_decrement || producer.safe{
+                            prologue.push(format!("{};", sub_cmp_counter_decrease));
+                            if producer.safe{
+                                prologue.push(format!("assert(!({}));", sub_cmp_counter));
+                            }
+                        }
+                        prologue.append(&mut call_instructions);
+                    },
+                    StatusInput::NoLast =>{
+                        // no need to run subcomponent
+                        if *needs_decrement || producer.safe{
+                            prologue.push("// no need to run sub component".to_string());
+                            prologue.push(format!("{};", sub_cmp_counter_decrease));
+			                if producer.safe{
+                                prologue.push(format!("assert({} > 0);", sub_cmp_counter));
+                            }
+                        }
+                    },
+                    StatusInput::Unknown =>{
+                        let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                        let if_condition = vec![sub_cmp_counter_decrease_andcheck];
+                        prologue.push("// run sub component if needed".to_string());
+                        let else_instructions = vec![];
+                        prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
+                    }
                 }
                 // end of not parallel case
                 prologue.push(format!("}}"));
