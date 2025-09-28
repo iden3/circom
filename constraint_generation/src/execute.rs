@@ -1010,7 +1010,6 @@ fn execute_expression(
                 row += 1;
             }
 
-            println!("We return a slice of {:?}", array_slice.route());
             FoldedValue { arithmetic_slice: Option::Some(array_slice), tags, ..FoldedValue::default() }
         }
         UniformArray { meta, value, dimension, .. } => {

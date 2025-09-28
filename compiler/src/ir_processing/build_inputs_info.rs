@@ -1,310 +1,290 @@
 use crate::intermediate_representation::ir_interface::*;
-use std::collections::{HashSet};
+use std::collections::{HashSet, HashMap};
 
 type ComponentsSet = HashSet<String>;
+
+pub struct LastInfo{
+    needs_decrement: bool,
+    found_last: bool,
+}
+
+type LastInfoMap = HashMap<String, LastInfo>;
+
+
+// We store the following information:
+// Components where we have found the last assignment and we do not need to decrement
+//// Flag -> Last, NoLast
+//// Flag -> Decrement: false
+
+// Components where there are multiple possible last assignments -> we need decrement
+//// - If there is a loop or if/else where there is one branch with no assignments
+//// - If there is an unknown assigment -> affects to all components that might be assigned
+//// All possible lasts -> Unknown, NoLast
+//// Flag -> Decrement: true
+ 
+// HashMap: ComponentStates -> true if sure assigned, false otherwise 
+// HashSet: AssignedUnknownComponent: the names of the components where we do not know 
+//          which one has been assigned -> HashSet<String>
+
 
 
 pub fn visit_list(
     instructions: &mut InstructionList, 
-    known_last_component: &mut ComponentsSet, 
-    unknown_last_component: &mut ComponentsSet, 
-    found_unknown_address: bool,
+    assigment_status: &mut LastInfoMap, 
+    unknown_component_names: &mut ComponentsSet, 
     inside_loop: bool
-)-> bool {
+) {
+    let mut assignments_level = HashSet::new();
     let len_instructions = instructions.len();
-    let mut found_unknown_aux = found_unknown_address;
-    for i in 0..instructions.len(){
-        found_unknown_aux = visit_instruction(
+    for i in 0..len_instructions{
+        visit_instruction(
             &mut instructions[len_instructions - 1 - i],
-            known_last_component,
-            unknown_last_component, 
-            found_unknown_aux,
+            assigment_status,
+            &mut assignments_level,
+            unknown_component_names, 
             inside_loop
         );
     }
-    found_unknown_aux
 }
 
 pub fn visit_instruction(
-    instruction: &mut  Instruction, 
-    known_last_component: &mut ComponentsSet, 
-    unknown_last_component: &mut ComponentsSet, 
-    found_unknown_address: bool,
+    instruction: &mut Instruction, 
+    assignment_status: &mut LastInfoMap, 
+    assignments_level: &mut ComponentsSet,
+    unknown_component_names: &mut ComponentsSet, 
     inside_loop: bool
-) ->bool {
+) {
     use Instruction::*;
     match instruction {
-        Branch(b) => visit_branch(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        Call(b) => visit_call(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        Compute(b) => visit_compute(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        Load(b) => visit_load(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        Loop(b) => visit_loop(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        Return(b) => visit_return(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        Store(b) => visit_store(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        Value(b) => visit_value(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        Assert(b) => visit_assert(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        CreateCmp(b) => visit_create_cmp(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
-        Log(b) => visit_log(b, known_last_component, unknown_last_component, found_unknown_address, inside_loop),
+        Branch(b) => visit_branch(b, assignment_status, unknown_component_names),
+        Call(b) => visit_call(b, assignment_status, assignments_level, unknown_component_names, inside_loop),
+        Loop(b) => visit_loop(b, assignment_status, unknown_component_names),
+        Store(b) => visit_store(b, assignment_status, assignments_level, unknown_component_names, inside_loop),
+        _ => {} // in all other cases we do not need to visit the instructions
     }
 }
 
 pub fn visit_branch(
     bucket: &mut BranchBucket,  
-    known_last_component: &mut ComponentsSet, 
-    unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    inside_loop: bool
-) -> bool {
-    let mut known_last_component_if: ComponentsSet = known_last_component.clone();
-    let mut known_last_component_else: ComponentsSet = known_last_component.clone();
-    let mut unknown_last_component_if: ComponentsSet = unknown_last_component.clone();
-    let mut unknown_last_component_else: ComponentsSet = unknown_last_component.clone();
-
-    let found_unknown_if :bool = visit_list(
-        &mut bucket.if_branch, 
-        &mut known_last_component_if, 
-        &mut unknown_last_component_if, 
-        found_unknown_address,
-        inside_loop
-    );
-    let found_unknown_else :bool = visit_list(
-        &mut bucket.else_branch, 
-        &mut known_last_component_else, 
-        &mut unknown_last_component_else, 
-        found_unknown_address,
-        inside_loop
-    );
-
-    let known_component_both_branches: ComponentsSet = known_last_component_if.intersection(& known_last_component_else).map(|s| s.clone()).collect();
-    let known_component_one_branch: ComponentsSet = known_last_component_if.symmetric_difference(&known_last_component_else).map(|s| s.clone()).collect();
-
-    let mut new_unknown_component: ComponentsSet = unknown_last_component_if.union(&unknown_last_component_else).map(|s| s.clone()).collect();
-    new_unknown_component = new_unknown_component.union(&known_component_one_branch).map(|s| s.clone()).collect(); 
-
-    let joined_unknown_component: ComponentsSet = unknown_last_component.union(&new_unknown_component).map(|s| s.clone()).collect();
-
-    *known_last_component = known_last_component.union(&known_component_both_branches).map(|s| s.clone()).collect();
-    *unknown_last_component =  joined_unknown_component.difference(&known_component_both_branches).map(|s| s.clone()).collect();
-    found_unknown_if || found_unknown_else
+    assignment_status: &mut LastInfoMap, 
+    unknown_component_names: &mut ComponentsSet, 
+) {
+    
+    // Visit each one of the branches
+    visit_list(&mut bucket.if_branch, assignment_status, unknown_component_names, true);
+    visit_list(&mut bucket.else_branch, assignment_status, unknown_component_names, true);
+    
 }
 
 pub fn visit_call(
     bucket: &mut  CallBucket, 
-    known_last_component: &mut ComponentsSet, 
-    unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
+    assignment_status: &mut LastInfoMap, 
+    assignments_level: &mut ComponentsSet,
+    unknown_component_names: &mut ComponentsSet, 
     inside_loop: bool
-)-> bool {
+) {
     use ReturnType::*;
     if let Final(data) = &mut bucket.return_info {
-        let needs_consider = match data.context.size{
+        match data.context.size{
             SizeOption::Single(value) if value == 0 =>{
-                false
+                
             }
-            _ => true
+            _ => {
+                visit_address_type(
+                    &mut data.dest_address_type, 
+                    assignment_status,
+                    assignments_level,
+                    unknown_component_names,
+                    inside_loop
+                )
+            }
         };
-        if needs_consider{
-            visit_address_type(
-                &mut data.dest_address_type, 
-                known_last_component,
-                unknown_last_component,
-                found_unknown_address,
-                inside_loop
-            )
-        } else{
-            found_unknown_address
-        }
-    }
-    else{
-        found_unknown_address
-    }
-}
 
-pub fn visit_compute(
-    _bucket: &mut ComputeBucket, 
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
-}
-pub fn visit_load(
-    _bucket: &mut LoadBucket, 
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
+    }
 }
 
 pub fn visit_loop(
     bucket: &mut LoopBucket,
-    known_last_component: &mut ComponentsSet, 
-    unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-)-> bool{
-    let mut known_last_component_loop: ComponentsSet = known_last_component.clone();
-    let mut unknown_last_component_loop: ComponentsSet = unknown_last_component.clone();
+    assignment_status: &mut LastInfoMap, 
+    unknown_component_names: &mut ComponentsSet, 
+) {
 
-    let found_unknown_address_new  = visit_list(
+    // We visit the list of instructions in the body and update
+
+    visit_list(
         &mut bucket.body, 
-        &mut known_last_component_loop, 
-        &mut unknown_last_component_loop, 
-        found_unknown_address,
+        assignment_status, 
+        unknown_component_names,
         true
     );
-
-    let new_unknown_component: ComponentsSet = known_last_component_loop.union(&unknown_last_component_loop).map(|s| s.clone()).collect();
-
-    *known_last_component = known_last_component.difference(&new_unknown_component).map(|s| s.clone()).collect();
-    *unknown_last_component = unknown_last_component.union(&new_unknown_component).map(|s| s.clone()).collect();
-    found_unknown_address_new
 }
-
-pub fn visit_create_cmp(
-    _bucket: &mut CreateCmpBucket,
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
-}
-
-pub fn visit_return(
-    _bucket: &mut ReturnBucket,     
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
-}
-
-pub fn visit_log(
-    _bucket: &mut LogBucket,
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
-}
-
-pub fn visit_assert(_bucket: &mut AssertBucket,
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
-}
-
-pub fn visit_value(_bucket: &mut ValueBucket,
-    _known_last_component: &mut ComponentsSet, 
-    _unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
-    _inside_loop: bool
-) -> bool{
-    found_unknown_address
-}
-
-
 
 pub fn visit_store(
     bucket: &mut StoreBucket,
-    known_last_component: &mut ComponentsSet, 
-    unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
+    assignment_status: &mut LastInfoMap, 
+    assigments_level: &mut ComponentsSet,
+    unknown_component_names: &mut ComponentsSet, 
     inside_loop: bool
-)-> bool{
-    let needs_consider = match bucket.context.size{
+) {
+    
+    match bucket.context.size{
         SizeOption::Single(value) if value == 0 =>{
-            false
         }
-        _ => true
+        _ => {
+            visit_address_type(
+                &mut bucket.dest_address_type, 
+                assignment_status,
+                assigments_level,
+                unknown_component_names,
+                inside_loop
+            )
+        }
     };
-    if needs_consider{
-        visit_address_type(
-            &mut bucket.dest_address_type, 
-            known_last_component,
-            unknown_last_component,
-            found_unknown_address,
-            inside_loop
-        )
-    } else{
-        found_unknown_address
-    }
 }
+
 
 
 pub fn visit_address_type(
     xtype: &mut AddressType,
-    known_last_component: &mut ComponentsSet, 
-    unknown_last_component: &mut ComponentsSet,  
-    found_unknown_address: bool,
+    assignment_status: &mut LastInfoMap, 
+    assigments_level: &mut ComponentsSet,
+    unknown_component_names: &mut ComponentsSet, 
     inside_loop: bool
-) -> bool {
+) {
     use AddressType::*;
     use InputInformation::*;
     use StatusInput::*;
     use Instruction::*;
 
-    if let SubcmpSignal { cmp_address, input_information, is_anonymous , cmp_name, ..} = xtype {
-        
-        if let Input {..} = input_information{
-            
-            if *is_anonymous{
-                if known_last_component.contains(&cmp_name.to_string()){
-                    *input_information = Input{status: NoLast};
-                } else{
-                    // in this case it is always last
-                    *input_information = Input{status: Last};
-                    known_last_component.insert(cmp_name.clone());
-                }
-                found_unknown_address
-            } else{
-                if known_last_component.contains(&cmp_address.to_string()){
-                    *input_information = Input{status: NoLast};
-                    found_unknown_address
-                }
-                else if unknown_last_component.contains(&cmp_address.to_string()){
-                    *input_information = Input{status: Unknown};
-                    found_unknown_address
-                } 
-                else{
-                    if let Value {..} = **cmp_address{
-                        if found_unknown_address{
-                            *input_information = Input{status: Unknown};
+    // Case known component or anonymous
+
+    // If it the assignment status is Last
+    // --> The state is NoLast
+
+    // If the assignment status is Unknown
+    // --> If the assignment level contains the component then NoLast
+    // --> In other case Unknown and
+    //     --> If we are in a loop we just update level_assignments
+    //     --> If not then we update both level_assignments and assignment status (to Last)
+
+    // If there is not assignment status and the component is not unknown
+    //     --> If we are in a loop then Unknown and just update level_assignments
+    //     --> If not then we update both level_assignments and assignment status (to Last)
+
+    // If there is not assignment status and the component is in the list of unknowns
+    //     We set the value unknown and
+    //     --> If we are in a loop we just update level_assignments
+    //     --> If not then we update both level_assignments and assignment status (to Last)
+
+    // Case unknown components
+    // Value unknown and we add the cmp id to the list of unknowns
+
+    
+
+    match xtype{
+        SubcmpSignal { 
+            cmp_address, 
+            input_information,
+            is_anonymous,
+            cmp_name,
+            ..
+        } => {
+            match input_information{
+                Input{status, needs_decrement} =>{
+                    
+                    // case anonymous components
+                    if *is_anonymous {
+                        if assignment_status.contains_key(cmp_name){
+                            assert!(assignment_status.get(cmp_name).unwrap().found_last);
+                            *status = NoLast;
+                            *needs_decrement = false;
+                        } else{
+                            *status = Last;
+                            *needs_decrement = false;
+                            assignment_status.insert(cmp_name.clone(), LastInfo{
+                                needs_decrement: false,
+                                found_last: true
+                            });
                         }
-                        else{
-                            if inside_loop {
-                                *input_information = Input{status: Unknown};
-                            }
-                            else{
-                                *input_information = Input{status: Last};
-                            }
-                        }
-                        known_last_component.insert(cmp_address.to_string());
-                        unknown_last_component.remove(&cmp_address.to_string());
-                        found_unknown_address
                     } else{
-                        *input_information = Input{status: Unknown};
-                        false
+                        if let Value(vb) = *cmp_address.clone(){               
+                            let value = format!("cmp_{}", vb.value.clone());
+                            if assignment_status.contains_key(&value){
+                                let last_info = assignment_status.get_mut(&value).unwrap();
+                                if last_info.found_last{
+                                    // in this case we have previously found the last
+                                    *status = NoLast;
+                                    *needs_decrement = last_info.needs_decrement;
+                                } else{
+                                    // in this case it is unknown, we check if assigned in this level
+                                    if assigments_level.contains(&value){
+                                        *status = NoLast;
+                                        *needs_decrement = true;
+                                    } else{
+                                        *status = Unknown;
+                                        *needs_decrement = true;
+                                        if !inside_loop{
+                                            last_info.found_last = true;
+                                        } else{
+                                            assigments_level.insert(value.clone());
+                                        }
+                                    }
+                                }
+                            } else{
+                                if !unknown_component_names.contains(cmp_name){
+                                    // case we know all assignments to the component
+                                    if inside_loop{
+                                        *status = Unknown;
+                                        *needs_decrement = true;
+                                        assignment_status.insert(value.clone(), LastInfo{
+                                            needs_decrement: true,
+                                            found_last: false
+                                        });
+                                        assigments_level.insert(value);
+                                    } else{
+                                        *status = Last;
+                                        *needs_decrement = false;
+                                        assignment_status.insert(value.clone(), LastInfo{
+                                            needs_decrement: false,
+                                            found_last: true
+                                        });
+                                    }
+                                } else{
+                                    // case we do not know all assignments to the component
+                                    if inside_loop{
+                                        *status = Unknown;
+                                        *needs_decrement = true;
+                                        assignment_status.insert(value.clone(), LastInfo{
+                                            needs_decrement: true,
+                                            found_last: false
+                                        });
+                                        assigments_level.insert(value);
+                                    } else{
+                                        *status = Unknown;
+                                        *needs_decrement = true;
+                                        assignment_status.insert(value.clone(), LastInfo{
+                                            needs_decrement: true,
+                                            found_last: true
+                                        });
+                                    }
+                                }
+                            }
+                        } else{
+                            // case unknown
+                            *status = StatusInput::Unknown;
+                            *needs_decrement = true;
+                            unknown_component_names.insert(cmp_name.clone());
+                        }
                     }
+                },
+                NoInput =>{
+                    // no input signal, no needed
                 }
             }
-        } else{
-            found_unknown_address
-        } 
-    } else{
-        found_unknown_address
-    }
+        },
+        _ =>{
+            // no input signal, no needed
+        }
+    } 
+
 }
-
-
-
-

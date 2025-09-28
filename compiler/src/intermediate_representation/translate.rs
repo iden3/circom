@@ -1367,7 +1367,10 @@ impl ProcessedSymbol {
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 input_information : match self.signal_type.unwrap() {
-                    SignalType::Input => InputInformation::Input { status: StatusInput:: Unknown},
+                    SignalType::Input => InputInformation::Input { 
+                        status: StatusInput:: Unknown,
+                        needs_decrement: true
+                    },
                     _ => InputInformation::NoInput,
                 },
                 is_anonymous: context.tmp_database.anonymous.contains(&self.name),
@@ -1431,7 +1434,10 @@ impl ProcessedSymbol {
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 input_information : match self.signal_type.unwrap() {
-                    SignalType::Input => InputInformation::Input { status:StatusInput:: Unknown},
+                    SignalType::Input => InputInformation::Input { 
+                        status:StatusInput:: Unknown,
+                        needs_decrement: true
+                    },
                     _ => InputInformation::NoInput,
                 },
                 is_anonymous: context.tmp_database.anonymous.contains(&self.name),
@@ -1491,7 +1497,10 @@ impl ProcessedSymbol {
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 input_information : match self.signal_type.unwrap() {
-                    SignalType::Input => InputInformation::Input { status: StatusInput:: Unknown},
+                    SignalType::Input => InputInformation::Input { 
+                        status: StatusInput:: Unknown,
+                        needs_decrement: true
+                    },
                     _ => InputInformation::NoInput,
                 },
                 is_anonymous: context.tmp_database.anonymous.contains(&self.name),

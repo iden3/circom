@@ -19,6 +19,7 @@ pub struct Input {
     pub wasm_flag: bool,
     pub wat_flag: bool,
     pub no_asm_flag: bool,
+    pub safe_flag: bool,
     pub r1cs_flag: bool,
     pub sym_flag: bool,
     pub json_constraint_flag: bool,
@@ -95,6 +96,7 @@ impl Input {
             wasm_flag: input_processing::get_wasm(&matches),
             c_flag: c_flag,
             no_asm_flag:input_processing::get_no_asm(&matches),
+            safe_flag:input_processing::get_safe(&matches),
             r1cs_flag: input_processing::get_r1cs(&matches),
             sym_flag: input_processing::get_sym(&matches),
             main_inputs_flag: input_processing::get_main_inputs_log(&matches),
@@ -184,6 +186,9 @@ impl Input {
     }
     pub fn no_asm_flag(&self) -> bool {
         self.no_asm_flag
+    }
+    pub fn safe_flag(&self) -> bool {
+        self.safe_flag
     }
     pub fn unsimplified_flag(&self) -> bool {
         self.fast_flag
@@ -309,6 +314,10 @@ mod input_processing {
 
     pub fn get_no_asm(matches: &ArgMatches) -> bool {
         matches.is_present("no_asm")
+    }
+
+    pub fn get_safe(matches: &ArgMatches) -> bool {
+        matches.is_present("safe")
     }
 
     pub fn get_c(matches: &ArgMatches) -> bool {
@@ -486,6 +495,13 @@ mod input_processing {
                     .takes_value(false)
                     .display_order(990)
                     .help("Does not use asm files in witness generation code in C++"),
+            )
+            .arg(
+                Arg::with_name("safe")
+                    .long("safe")
+                    .takes_value(false)
+                    .display_order(990)
+                    .help("Includes extra checks (all inputs set) in the witness generation code in C++"),
             )
             .arg(
                 Arg::with_name("link_libraries")

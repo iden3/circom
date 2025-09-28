@@ -24,6 +24,8 @@ pub struct CompilerConfig {
     pub constraint_assert_disabled_flag: bool,
     pub vcp: VCP,
     pub no_asm_flag: bool,
+    pub safe_flag: bool,
+
     pub prime: String,
 }
 
@@ -40,6 +42,8 @@ pub fn compile(config: CompilerConfig) -> Result<(), ()> {
 
                 constraint_assert_disabled_flag: config.constraint_assert_disabled_flag,
                 no_asm_flag: config.no_asm_flag,
+                safe_flag: config.safe_flag,
+
             },
             VERSION
         )?;
