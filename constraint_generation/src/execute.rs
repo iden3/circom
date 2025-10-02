@@ -3903,7 +3903,7 @@ fn safe_unwrap_to_valid_bus_node_pointer(folded_value: FoldedValue, line: u32) -
     folded_value.bus_node_pointer.unwrap()
 }
 fn safe_unwrap_to_bus_slice(folded_value: FoldedValue, line: u32) -> (InfoBusSliceNameVec, BusSlice) {
-    debug_assert!(FoldedValue::valid_arithmetic_slice(&folded_value), "Caused by call at {}", line);
+    debug_assert!(FoldedValue::valid_bus_slice(&folded_value), "Caused by call at {}", line);
     folded_value.bus_slice.unwrap()
 }
 fn safe_unwrap_to_single<C: Clone>(slice: MemorySlice<C>, line: u32) -> C {
