@@ -704,10 +704,10 @@ impl WriteC for CallBucket {
                         );
 			if let InputInformation::Input{status, needs_decrement} = input_information {
 			    // no need to run subcomponent
-                if *needs_decrement || producer.safe{
+                if *needs_decrement || producer.sanity_check_style >= 2{
                     prologue.push("// no need to run sub component".to_string());
                     prologue.push(format!("{};", sub_cmp_counter_decrease));
-			        if producer.safe{
+			        if producer.sanity_check_style >= 2{
                         prologue.push(format!("assert({} > 0);", sub_cmp_counter));
                     }
                 } else {
@@ -758,11 +758,9 @@ impl WriteC for CallBucket {
                         // If not in safe mode no need to decrement the inputs
                         prologue.push("// need to run sub component".to_string());
 
-                        if producer.safe {
+                        if producer.sanity_check_style >= 2 {
                             prologue.push(format!("{};", sub_cmp_counter_decrease));
-                            if producer.safe{
-                                prologue.push(format!("assert(!({}));", sub_cmp_counter));
-                            }
+                            prologue.push(format!("assert(!({}));", sub_cmp_counter));
                         }
                         prologue.append(&mut call_instructions);
                     }
@@ -791,9 +789,9 @@ impl WriteC for CallBucket {
                     match status {
                         StatusInput::Last =>{
                             prologue.push("// need to run sub component".to_string());
-                            if *needs_decrement || producer.safe{
+                            if *needs_decrement ||  producer.sanity_check_style >= 2{
                                 prologue.push(format!("{};", sub_cmp_counter_decrease));
-                                if producer.safe{
+                                if producer.sanity_check_style >= 2{
                                     prologue.push(format!("assert(!({}));", sub_cmp_counter));
                                 }
                             }
@@ -801,10 +799,10 @@ impl WriteC for CallBucket {
                         },
                         StatusInput::NoLast =>{
                             // no need to run subcomponent
-                            if *needs_decrement || producer.safe{
+                            if *needs_decrement || producer.sanity_check_style >= 2{
                                 prologue.push("// no need to run sub component".to_string());
                                 prologue.push(format!("{};", sub_cmp_counter_decrease));
-			                    if producer.safe{
+			                    if producer.sanity_check_style >= 2{
                                     prologue.push(format!("assert({} > 0);", sub_cmp_counter));
                                 }
                             }
@@ -836,9 +834,9 @@ impl WriteC for CallBucket {
                     match status {
                         StatusInput::Last =>{
                             prologue.push("// need to run sub component".to_string());
-                            if *needs_decrement || producer.safe{
+                            if *needs_decrement ||  producer.sanity_check_style >= 2{
                                 prologue.push(format!("{};", sub_cmp_counter_decrease));
-                                if producer.safe{
+                                if producer.sanity_check_style >= 2{
                                     prologue.push(format!("assert(!({}));", sub_cmp_counter));
                                 }
                             }
@@ -846,10 +844,10 @@ impl WriteC for CallBucket {
                         },
                         StatusInput::NoLast =>{
                             // no need to run subcomponent
-                            if *needs_decrement || producer.safe{
+                            if *needs_decrement ||  producer.sanity_check_style >= 2{
                                 prologue.push("// no need to run sub component".to_string());
                                 prologue.push(format!("{};", sub_cmp_counter_decrease));
-			                    if producer.safe{
+			                    if  producer.sanity_check_style >= 2{
                                     prologue.push(format!("assert({} > 0);", sub_cmp_counter));
                                 }
                             }
