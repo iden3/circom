@@ -165,16 +165,21 @@ pub fn join_tags_propagation(tags: Option<TagWire>, new_tags: &TagWire)-> Option
         }
 
         // Study the fields
-        let result_fields = if unfolded_tags.fields.is_none(){
+        let result_fields = if unfolded_tags.fields.is_none() {
             None
         } else{
-            let mut result = HashMap::new();
-            let aux = new_tags.fields.as_ref().unwrap();
-            for (field, tags) in unfolded_tags.fields.unwrap(){
-                let tags_aux = aux.get(&field).unwrap();
-                result.insert(field, join_tags_propagation(Some(tags), tags_aux).unwrap());
-            } 
-            Some(result)
+            let unwrapped_unfolded = unfolded_tags.fields.unwrap();
+            if unwrapped_unfolded.len() == 0{
+                None
+            } else{
+                let mut result = HashMap::new();
+                let aux = new_tags.fields.as_ref().unwrap();
+                for (field, tags) in unwrapped_unfolded{
+                    let tags_aux = aux.get(&field).unwrap();
+                    result.insert(field, join_tags_propagation(Some(tags), tags_aux).unwrap());
+                } 
+                Some(result)
+            }
         };
         
         let result = TagWire{
