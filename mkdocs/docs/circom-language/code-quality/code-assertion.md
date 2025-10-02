@@ -28,4 +28,5 @@ template Translate(n) {
 }
 ```
 
-Recall that, when a constraint like `in * in === n;` is introduced with `===`, then (by default) an assert is automatically added in the witness generation code. In this case, `assert(in * in == n)`. Such `assert` is not added  if the flag `--constraint_assert_dissabled` is enabled.
+Recall that, when a constraint like `in * in === n;` is introduced with `===`, then (by default) an assert is automatically added in the witness generation code. In this case, `assert(in * in == n)`. Such `assert` is not added with
+the option `--sanity_check 0`.
