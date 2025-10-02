@@ -35,6 +35,8 @@ pub enum MemoryError {
     AssignmentTagInput,
     TagValueNotInitializedAccess,
     MissingInputs(String),
+    MultipleSizesInlineBuses,
+    DifferentBusesInline
 }
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;
