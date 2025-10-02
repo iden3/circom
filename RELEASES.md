@@ -5,7 +5,7 @@
 - Extern functions for C++ witness generation are added. More information [here] (https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/templates-and-components.md#extern-c-code-in-custom-templates)
 - Safe compilation flag is now replaced by th new compilation option: —sanity_check. More information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/getting-started/compilation-options.md) 
 - Flag constraint_assert_disabled is now removed (use option —sanity_check 0)
-- Anonymous components and buses are not allowed inline arrays. 
+- Anonymous components and buses are now allowed inside inline arrays. 
 
 #### Improvements
 - Improving documentation.
