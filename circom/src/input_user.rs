@@ -291,7 +291,7 @@ mod input_processing {
         match matches.is_present("sanity_check"){
             true => 
                {
-                   let value = matches.value_of("prime").unwrap();
+                   let value = matches.value_of("sanity_check").unwrap();
                    if value == "0"{
                     Ok(O0)
                    } else if value == "1"{
@@ -302,7 +302,7 @@ mod input_processing {
                     Ok(O3)
                    } 
                     else{
-                        Result::Err(eprintln!("{}", Colour::Red.paint("invalid sanity check mode")))
+                        Result::Err(eprintln!("{}", Colour::Red.paint("invalid sanity check level")))
                     }
                }
                
@@ -512,10 +512,11 @@ mod input_processing {
             )
             .arg(
                 Arg::with_name("sanity_check")
-                    .long("true")
-                    .takes_value(false)
-                    .display_order(990)
-                    .help("Selects the sanity checks to be included in the generated C++ and WASM code"),
+                    .long("sanity_check")
+                    .takes_value(true)
+                    .display_order(990) 
+                    .default_value("2")
+                    .help("Selects the level of sanity checks to be included in the witness generation code generated. It receives the value 0, 1, 2, or 3."),
             )
             .arg(
                 Arg::with_name("link_libraries")

@@ -61,10 +61,6 @@ Now, you should be able to see all the options of the executable by using the `h
 ```console
 circom --help
 
-circom compiler 2.2.2
-IDEN3
-Compiler for the circom programming language
-
 USAGE:
     circom [FLAGS] [OPTIONS] [--] [input]
 
@@ -81,8 +77,6 @@ FLAGS:
         --O2                                   Full constraint simplification
         --verbose                              Shows logs during compilation
         --inspect                              Does an additional check over the constraints produced
-        --constraint_assert_dissabled          Does not add asserts in the witness generation code to check constraints
-                                               introduced with "==="
         --use_old_simplification_heuristics    Applies the old version of the heuristics when performing linear
                                                simplification
         --simplification_substitution          Outputs the substitution applied in the simplification phase in json
@@ -100,6 +94,8 @@ OPTIONS:
                                              secq256r1, vesta) [default: bn128]
     -l <link_libraries>...                   Adds directory to library search path
         --O2round <simplification_rounds>    Maximum number of rounds of the simplification process
+        --sanity_check <sanity_check>        Selects the level of sanity checks to be included in the witness generation
+                                             code generated. It receives the value 0, 1, 2, or 3. [default: 2]
 
 ARGS:
     <input>    Path to a circuit with a main component [default: ./circuit.circom]
