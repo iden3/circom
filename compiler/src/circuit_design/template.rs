@@ -444,19 +444,30 @@ impl TemplateCodeInfo {
 	    run_body.push(format!("ctx->ntcvs.notify_one();"));
 	}
 
-        // to release the memory of its subcomponents
+        // to check that all components inputs have been assigned and release the memory of its subcomponents
         run_body.push(format!("for (uint i = 0; i < {}; i++){{", &self.number_of_components.to_string()));
         run_body.push(format!(
             "uint index_subc = {}->componentMemory[{}].subcomponents[i];",
             CIRCOM_CALC_WIT,
             ctx_index(),
         ));
-        run_body.push(format!("if (index_subc != 0){};", 
+        run_body.push(format!("if (index_subc != 0){{"));
+        // check that all inputs have been set if sanity_check >= 2
+        if producer.sanity_check_style >= 2{
+            let num_inputs = format!(
+                "{}->componentMemory[index_subc].inputCounter",
+                CIRCOM_CALC_WIT
+            );
+            run_body.push(format!("assert(!({}));", num_inputs));
+        }
+        // release the memory
+        run_body.push(format!("{};",
             build_call(
                 "release_memory_component".to_string(), 
                 vec![CIRCOM_CALC_WIT.to_string(), "index_subc".to_string()]
-            )));
-        
+            ))
+        );
+        run_body.push(format!("}}"));
         run_body.push(format!("}}"));
         let run_fun = build_callable(run_header, run_params, run_body);
         vec![create_fun, run_fun]
