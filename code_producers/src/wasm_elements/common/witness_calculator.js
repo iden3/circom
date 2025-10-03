@@ -8,7 +8,7 @@ module.exports = async function builder(code, options) {
     }  catch (err) {
 	console.log(err);
 	console.log("\nTry to run circom --c in order to generate c++ code instead\n");
-	throw new Error(err);
+	throw err;
     }
 
     let wc;
@@ -291,7 +291,7 @@ function qualify_input_list(prefix,input,input1){
 
 function qualify_input(prefix,input,input1) {
     if (Array.isArray(input)) {
-	a = flatArray(input);
+	const a = flatArray(input);
 	if (a.length > 0) {
 	    let t = typeof a[0];
 	    for (let i = 1; i<a.length; i++) {
@@ -304,7 +304,8 @@ function qualify_input(prefix,input,input1) {
 	    } else {
 		input1[prefix] = input;
 	    }
-	} else {	    
+	} else
+	{	    
 	    input1[prefix] = input;
 	}
     } else if (typeof input == "object") {
