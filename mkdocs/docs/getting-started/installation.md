@@ -13,6 +13,22 @@ Put links to all the docs
 
 The old `circom` compiler written in Javascript will be frozen, but it can still be downloaded from the [old circom repository](https://github.com/iden3/circom_old).
 
+## Building a Docker container image
+
+There is a `Dockerfile` provided, so you can build a container image in the usual way, e.g.:
+
+```shell
+docker build -t circom .
+```
+
+For convenient usage, you could place the following shell script somewhere on your `$PATH`:
+
+```shell
+#!/bin/bash
+
+docker run -v $PWD:/data circom circom "$@"
+```
+
 ## Installing dependencies
 
 You need several dependencies in your system to 
