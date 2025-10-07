@@ -10,3 +10,7 @@ type_analysis/target/
 .idea/
 .vscode/
 .DS_Store
+
+# Nix package build
+/result
+/build-tools

@@ -1,0 +1,31 @@
+name: CI (circom-to-llzk)
+on:
+  push:
+    branches: [ llzk ]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@9280e7aca88deada44c930f1e2c78e21c3ae3edd # v31.7.0
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.31.2/install
+          github_access_token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Set Git credentials
+        run: |
+          git config --global 'url.https://api@github.com/'.insteadOf 'https://github.com/'
+          git config --global 'url.https://ssh@github.com/'.insteadOf 'ssh://git@github.com/'
+          git config --global 'url.https://git@github.com/'.insteadOf 'git@github.com:'
+      - uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad # v16
+        with:
+          name: veridise-public
+          authToken: '${{ secrets.CACHIX_PUBLIC_TOKEN }}'
+      - name: Build and test ${{ matrix.derivation }}
+        run: nix --print-build-logs build

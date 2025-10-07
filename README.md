@@ -31,6 +31,7 @@ Basic background on Zero-knowledge proofs can be found on [Background section](h
 
 # Install
 
+Set path variables for the [LLZK dependency](https://github.com/Veridise/llzk-rs?tab=readme-ov-file#building-tips)
 Refer to [Installation section](https://docs.circom.io/getting-started/installation/)
 
 ## :warning: Deprecation note

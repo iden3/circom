@@ -1,0 +1,169 @@
+{
+  "nodes": {
+    "flake-utils": {
+      "locked": {
+        "lastModified": 1652776076,
+        "narHash": "sha256-gzTw/v1vj4dOVbpBSJX4J0DwUR6LIyXo7/SuuTJp1kM=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "04c1b180862888302ddfb2e3ad9eaa63afc60cf8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "ref": "v1.0.0",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "llzk-lib": {
+      "inputs": {
+        "flake-utils": [
+          "llzk-pkgs",
+          "flake-utils"
+        ],
+        "llzk-pkgs": [
+          "llzk-pkgs"
+        ],
+        "nixpkgs": [
+          "llzk-pkgs",
+          "nixpkgs"
+        ],
+        "release-helpers": "release-helpers"
+      },
+      "locked": {
+        "lastModified": 1759503547,
+        "narHash": "sha256-IKt+y3HMCn1KTPSrVxEHKoizwo8F8lVx7ZyRR5uSIZ0=",
+        "owner": "Veridise",
+        "repo": "llzk-lib",
+        "rev": "6e3404bdcc283137602998ab7bb13ce945ca0387",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Veridise",
+        "repo": "llzk-lib",
+        "type": "github"
+      }
+    },
+    "llzk-pkgs": {
+      "inputs": {
+        "flake-utils": "flake-utils",
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1759260436,
+        "narHash": "sha256-5+s6xkcEwDsgTq25s2JdeDqspvu0TF7MUS3ZU3VC5KE=",
+        "owner": "Veridise",
+        "repo": "llzk-nix-pkgs",
+        "rev": "1b823ab142612a5c8b03e4b99dfebdf0ad35c887",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Veridise",
+        "repo": "llzk-nix-pkgs",
+        "type": "github"
+      }
+    },
+    "llzk-rs-pkgs": {
+      "inputs": {
+        "flake-utils": [
+          "llzk-pkgs",
+          "flake-utils"
+        ],
+        "llzk-lib": [
+          "llzk-lib"
+        ],
+        "llzk-pkgs": [
+          "llzk-pkgs"
+        ],
+        "nixpkgs": [
+          "llzk-pkgs",
+          "nixpkgs"
+        ],
+        "release-helpers": [
+          "llzk-rs-pkgs",
+          "llzk-lib",
+          "release-helpers"
+        ]
+      },
+      "locked": {
+        "lastModified": 1759522343,
+        "narHash": "sha256-Xak1OmR1wMElCHF6vVAyIuFxQq7tHpAaN/k9cxl6A6A=",
+        "ref": "refs/heads/main",
+        "rev": "eba2420f47bcf4c140c3a90c0f6f5ef86d99aa05",
+        "revCount": 246,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/Veridise/llzk-rs"
+      },
+      "original": {
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/Veridise/llzk-rs"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1758917213,
+        "narHash": "sha256-1oA6zZxSl8F1yCKEWnw8EdE1TGoifTWlwGdfUlAQ5Hs=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "1fb3d0b78eb00961e57bf274d980120dd8a48f82",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "release-helpers": {
+      "inputs": {
+        "flake-utils": [
+          "llzk-lib",
+          "llzk-pkgs",
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "llzk-lib",
+          "llzk-pkgs",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1747068965,
+        "narHash": "sha256-px7s7IVHnR3SiShc7FKCUiL6vfqew5AM6jnkH7qO03I=",
+        "owner": "Veridise",
+        "repo": "open-source-release-helpers",
+        "rev": "c3d1ab6082cc62b167927d074f2836f290b9e3b7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Veridise",
+        "repo": "open-source-release-helpers",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "flake-utils": [
+          "llzk-pkgs",
+          "flake-utils"
+        ],
+        "llzk-lib": "llzk-lib",
+        "llzk-pkgs": "llzk-pkgs",
+        "llzk-rs-pkgs": "llzk-rs-pkgs",
+        "nixpkgs": [
+          "llzk-pkgs",
+          "nixpkgs"
+        ],
+        "release-helpers": [
+          "llzk-lib",
+          "release-helpers"
+        ]
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

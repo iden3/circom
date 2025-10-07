@@ -3,6 +3,7 @@ mod execution_user;
 mod input_user;
 mod parser_user;
 mod type_analysis_user;
+mod llzk_backend;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -26,6 +27,15 @@ fn start() -> Result<(), ()> {
     let user_input = Input::new()?;
     let mut program_archive = parser_user::parse_project(&user_input)?;
     type_analysis_user::analyse_project(&mut program_archive)?;
+
+    // Dump the ProgramArchive if requested
+    if user_input.dump_parse_flag() {
+        write_to_file(format!("{:#?}", program_archive), user_input.dump_parse_file())?;
+    }
+    // Generate LLZK IR output if requested
+    if user_input.llzk_flag() {
+        return llzk_backend::generate_llzk(&program_archive, user_input.llzk_file());
+    }
 
     let config = ExecutionConfig {
         no_rounds: user_input.no_rounds(),
@@ -67,5 +77,16 @@ fn start() -> Result<(), ()> {
         prime: user_input.prime(),        
     };
     compilation_user::compile(compilation_config)?;
+    Result::Ok(())
+}
+
+fn write_to_file<C: AsRef<[u8]>>(contents: C, filename: &str) -> Result<(), ()> {
+    let out_path = std::path::Path::new(filename);
+    // Ensure parent directories exist
+    if let Some(parent) = out_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|_err| {})?;
+    }
+    std::fs::write(out_path, contents).map_err(|_err| {})?;
+    println!("{} {}", Colour::Green.paint("Written successfully:"), filename);
     Result::Ok(())
 }

@@ -2,9 +2,11 @@ use std::path::PathBuf;
 
 pub struct Input {
     pub input_program: PathBuf,
+    pub out_dump_parse: PathBuf,
     pub out_r1cs: PathBuf,
     pub out_json_constraints: PathBuf,
     pub out_json_substitutions: PathBuf,
+    pub out_llzk_code: PathBuf,
     pub out_wat_code: PathBuf,
     pub out_wasm_code: PathBuf,
     pub out_wasm_name: String,
@@ -15,7 +17,9 @@ pub struct Input {
     pub out_c_dat: PathBuf,
     pub out_sym: PathBuf,
     //pub field: &'static str,
+    pub dump_parse_flag: bool,
     pub c_flag: bool,
+    pub llzk_flag: bool,
     pub wasm_flag: bool,
     pub wat_flag: bool,
     pub no_asm_flag: bool,
@@ -43,6 +47,7 @@ const R1CS: &'static str = "r1cs";
 const WAT: &'static str = "wat";
 const WASM: &'static str = "wasm";
 const CPP: &'static str = "cpp";
+const LLZK: &'static str = "llzk";
 const JS: &'static str = "js";
 const DAT: &'static str = "dat";
 const SYM: &'static str = "sym";
@@ -65,12 +70,14 @@ impl Input {
             file_name = format!("{}_c", file_name)
         };
         let output_c_path = Input::build_folder(&output_path, &file_name, CPP);
+        let output_llzk_path = Input::build_folder(&output_path, &file_name, LLZK);
         let output_js_path = Input::build_folder(&output_path, &file_name, JS);
         let o_style = input_processing::get_simplification_style(&matches)?;
         let link_libraries = input_processing::get_link_libraries(&matches);
         Result::Ok(Input {
             //field: P_BN128,
             input_program: input,
+            out_dump_parse: Input::build_output(&output_path, &file_name, "txt"),
             out_r1cs: Input::build_output(&output_path, &file_name, R1CS),
             out_wat_code: Input::build_output(&output_js_path, &file_name, WAT),
             out_wasm_code: Input::build_output(&output_js_path, &file_name, WASM),
@@ -80,6 +87,7 @@ impl Input {
 	        out_c_run_name: file_name.clone(),
             out_c_code: Input::build_output(&output_c_path, &file_name, CPP),
             out_c_dat: Input::build_output(&output_c_path, &file_name, DAT),
+            out_llzk_code: Input::build_output(&output_llzk_path, &file_name, LLZK),
             out_sym: Input::build_output(&output_path, &file_name, SYM),
             out_json_constraints: Input::build_output(
                 &output_path,
@@ -91,9 +99,11 @@ impl Input {
                 &format!("{}_substitutions", file_name),
                 JSON,
             ),
+            dump_parse_flag: input_processing::get_dump_parse(&matches),
             wat_flag:input_processing::get_wat(&matches),
             wasm_flag: input_processing::get_wasm(&matches),
             c_flag: c_flag,
+            llzk_flag: input_processing::get_llzk(&matches),
             no_asm_flag:input_processing::get_no_asm(&matches),
             r1cs_flag: input_processing::get_r1cs(&matches),
             sym_flag: input_processing::get_sym(&matches),
@@ -161,17 +171,26 @@ impl Input {
         self.out_c_run_name.clone()
     }
 
+    pub fn dump_parse_file(&self) -> &str {
+        self.out_dump_parse.to_str().unwrap()
+    }
     pub fn c_file(&self) -> &str {
         self.out_c_code.to_str().unwrap()
     }
     pub fn dat_file(&self) -> &str {
         self.out_c_dat.to_str().unwrap()
     }
+    pub fn llzk_file(&self) -> &str {
+        self.out_llzk_code.to_str().unwrap()
+    }
     pub fn json_constraints_file(&self) -> &str {
         self.out_json_constraints.to_str().unwrap()
     }
     pub fn json_substitutions_file(&self) -> &str {
         self.out_json_substitutions.to_str().unwrap()
+    }
+    pub fn dump_parse_flag(&self) -> bool {
+        self.dump_parse_flag
     }
     pub fn wasm_flag(&self) -> bool {
         self.wasm_flag
@@ -181,6 +200,9 @@ impl Input {
     }
     pub fn c_flag(&self) -> bool {
         self.c_flag
+    }
+    pub fn llzk_flag(&self) -> bool {
+        self.llzk_flag
     }
     pub fn no_asm_flag(&self) -> bool {
         self.no_asm_flag
@@ -311,8 +333,16 @@ mod input_processing {
         matches.is_present("no_asm")
     }
 
+    pub fn get_dump_parse(matches: &ArgMatches) -> bool {
+        matches.is_present("print_dump_parse")
+    }
+
     pub fn get_c(matches: &ArgMatches) -> bool {
         matches.is_present("print_c")
+    }
+
+    pub fn get_llzk(matches: &ArgMatches) -> bool {
+        matches.is_present("print_llzk_ir")
     }
 
     pub fn get_main_inputs_log(matches: &ArgMatches) -> bool {
@@ -497,12 +527,26 @@ mod input_processing {
                 .help("Adds directory to library search path"),
             )
             .arg(
+                Arg::with_name("print_dump_parse")
+                    .long("dump_parse")
+                    .takes_value(false)
+                    .display_order(89)
+                    .help("Parses the circuit and dumps the program archive"),
+            )
+            .arg(
                 Arg::with_name("print_c")
                     .long("c")
                     .short("c")
                     .takes_value(false)
                     .display_order(150)
                     .help("Compiles the circuit to C++"),
+            )
+            .arg(
+                Arg::with_name("print_llzk_ir")
+                    .long("llzk")
+                    .takes_value(false)
+                    .display_order(91)
+                    .help("Compiles the circuit to LLZK-IR"),
             )
             .arg(
                 Arg::with_name("parallel_simplification")
