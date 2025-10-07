@@ -799,11 +799,12 @@ checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
 [[package]]
 name = "llzk"
 version = "0.1.0"
-source = "git+https://github.com/Veridise/llzk-rs#245c3d816c5fc2127ffa2221e79a6ad0894cadd5"
+source = "git+https://github.com/Veridise/llzk-rs#4a4e3452dbf1f000fd7688ed8911c266a12d2acc"
 dependencies = [
  "llzk-sys",
  "log",
  "melior",
+ "melior-macro",
  "mlir-sys",
  "paste",
 ]
@@ -811,14 +812,23 @@ dependencies = [
 [[package]]
 name = "llzk-sys"
 version = "0.1.0"
-source = "git+https://github.com/Veridise/llzk-rs#245c3d816c5fc2127ffa2221e79a6ad0894cadd5"
+source = "git+https://github.com/Veridise/llzk-rs#4a4e3452dbf1f000fd7688ed8911c266a12d2acc"
+dependencies = [
+ "anyhow",
+ "llzk-sys-build-support",
+ "mlir-sys",
+]
+
+[[package]]
+name = "llzk-sys-build-support"
+version = "0.1.0"
+source = "git+https://github.com/Veridise/llzk-rs#4a4e3452dbf1f000fd7688ed8911c266a12d2acc"
 dependencies = [
  "anyhow",
  "bindgen",
  "cc",
  "cmake",
  "glob",
- "mlir-sys",
  "tempfile",
 ]
 
