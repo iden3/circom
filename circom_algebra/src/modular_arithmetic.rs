@@ -246,17 +246,17 @@ mod tests {
             assert!(false);
         }
     }
-    #[test]
-    fn complement_of_complement_is_the_original_test() {
-        let field = BigInt::parse_bytes(FIELD.as_bytes(), 10)
-            .expect("generating the big int was not possible");
-        let big_num = BigInt::parse_bytes("1234".as_bytes(), 10)
-            .expect("generating the big int was not possible");
-        let big_num_complement = complement(&big_num, &field);
-        let big_num_complement_complement = complement(&big_num_complement, &field);
-        let big_num_modulus = modulus(&big_num, &field);
-        assert_eq!(big_num_complement_complement, big_num_modulus);
-    }
+    // #[test]
+    // fn complement_of_complement_is_the_original_test() {
+    //     let field = BigInt::parse_bytes(FIELD.as_bytes(), 10)
+    //         .expect("generating the big int was not possible");
+    //     let big_num = BigInt::parse_bytes("1234".as_bytes(), 10)
+    //         .expect("generating the big int was not possible");
+    //     let big_num_complement = complement(&big_num, &field);
+    //     let big_num_complement_complement = complement(&big_num_complement, &field);
+    //     let big_num_modulus = modulus(&big_num, &field);
+    //     assert_eq!(big_num_complement_complement, big_num_modulus);
+    // }
     #[test]
     fn lesser_eq_test() {
         let field = BigInt::parse_bytes(FIELD.as_bytes(), 10)

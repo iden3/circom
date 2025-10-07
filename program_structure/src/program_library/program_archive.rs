@@ -10,7 +10,7 @@ use crate::error_definition::Report;
 
 type Contents = Vec<(FileID, Vec<Definition>)>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ProgramArchive {
     pub id_max: usize,
     pub file_id_main: FileID,

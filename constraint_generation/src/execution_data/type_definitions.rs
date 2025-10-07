@@ -46,6 +46,7 @@ pub struct SubComponentData {
     pub goes_to: NodePointer,
 }
 
+#[allow(dead_code)]
 pub struct BusData {
     pub name: String,
     pub goes_to: NodePointer,
@@ -80,6 +81,7 @@ pub struct AccessingInformationBus {
         pub tag_access: Option<String> ==> may not appear,
     }
 */
+#[allow(dead_code)]
 pub struct AccessingInformation {
     pub undefined: bool,
     pub before_signal: Vec<usize>,

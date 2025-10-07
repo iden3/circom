@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 pub type FunctionInfo = HashMap<String, FunctionData>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FunctionData {
     name: String,
     file_id: FileID,

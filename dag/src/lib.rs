@@ -31,7 +31,7 @@ pub struct Tree<'a> {
 }
 
 impl<'a> Tree<'a> {
-    pub fn new(dag: &DAG) -> Tree {
+    pub fn new(dag: &'_ DAG) -> Tree<'_> {
         let constants = UsefulConstants::new(&dag.prime);
         let field = constants.get_p().clone();
         let root = dag.get_main().unwrap();

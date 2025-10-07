@@ -5,6 +5,7 @@ use compiler::hir::very_concrete_program::*;
 
 
 
+#[allow(dead_code)]
 pub struct BusConnexion{
     pub full_name: String,
     pub inspect: BusData,
@@ -13,6 +14,7 @@ pub struct BusConnexion{
 }
 
 
+#[allow(dead_code)]
 pub struct ExecutedBus {
     pub bus_name: String,
     pub report_name: String,

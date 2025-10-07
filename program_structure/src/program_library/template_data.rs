@@ -6,7 +6,7 @@ use std::collections::{HashMap};
 
 pub type TemplateInfo = HashMap<String, TemplateData>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TemplateData {
     file_id: FileID,
     name: String,

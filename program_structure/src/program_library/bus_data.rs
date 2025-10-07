@@ -5,7 +5,7 @@ use super::wire_data::*;
 
 pub type BusInfo = HashMap<String, BusData>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BusData {
     file_id: FileID,
     name: String,

@@ -6,14 +6,14 @@ pub type WireInfo = HashMap<String, WireData>;
 pub type WireDeclarationOrder = Vec<(String, usize)>;
 
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WireType {
     Signal,
     Bus(String),
 }
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WireData {
     wire_type: WireType,
     dimension: usize,

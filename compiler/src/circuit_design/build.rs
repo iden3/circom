@@ -15,7 +15,7 @@ fn matching_lengths_and_offsets(list: &InputOutputList) {
     let mut prev = 0;
     let mut offset = 0;
     for signal in list {
-        //debug_assert_eq!(signal.offset, prev + offset);
+        debug_assert_eq!(signal.offset, prev + offset);
         prev = signal.offset;
         offset = signal.lengths.iter().fold(signal.size, |p, c| p * (*c));
     }

@@ -1305,7 +1305,7 @@ mod tests {
     use std::path::Path;
     //    use std::fs::File;
     use super::*;
-    const LOCATION: &'static str = "../target/code_generator_test";
+    const LOCATION: &'static str = "../target/code_generator_test/c";
 
     fn create_producer() -> CProducer {
         CProducer::default()
@@ -1314,7 +1314,7 @@ mod tests {
     #[test]
     fn produce_dat() {
         if !Path::new(LOCATION).is_dir() {
-            std::fs::create_dir(LOCATION).unwrap();
+            std::fs::create_dir_all(LOCATION).unwrap();
         }
         let path = format!("{}/code", LOCATION);
         let producer = create_producer();

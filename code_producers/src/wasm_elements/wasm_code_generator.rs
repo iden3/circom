@@ -1822,7 +1822,7 @@ mod tests {
     use super::*;
     use std::io::{BufRead, BufReader, BufWriter, Write};
     use std::path::Path;
-    const LOCATION: &'static str = "../target/code_generator_test";
+    const LOCATION: &'static str = "../target/code_generator_test/wasm";
 
     fn create_producer() -> WASMProducer {
         WASMProducer::default()
@@ -1830,7 +1830,7 @@ mod tests {
 
     fn create_writer() -> BufWriter<File> {
         if !Path::new(LOCATION).is_dir() {
-            std::fs::create_dir(LOCATION).unwrap();
+            std::fs::create_dir_all(LOCATION).unwrap();
         }
         let path = format!("{}/code.wat", LOCATION);
         let file = File::create(path).unwrap();

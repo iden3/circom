@@ -14,6 +14,7 @@ pub struct InfoBus {
 
 
 
+#[allow(dead_code)]
 pub struct GenericFunction {
     pub name: String,
     pub params_names: Vec<String>,
