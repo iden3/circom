@@ -207,6 +207,7 @@ name = "circom"
 version = "2.2.2"
 dependencies = [
  "ansi_term",
+ "anyhow",
  "assert_cmd",
  "assert_fs",
  "clap",
@@ -214,7 +215,6 @@ dependencies = [
  "constraint_generation",
  "constraint_writers",
  "dag",
- "exitcode",
  "glob",
  "lazy_static",
  "llzk",
@@ -523,12 +523,6 @@ dependencies = [
  "libc",
  "windows-sys 0.61.0",
 ]
-
-[[package]]
-name = "exitcode"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de853764b47027c2e862a995c34978ffa63c1501f2e15f987ba11bd4f9bba193"
 
 [[package]]
 name = "fastrand"
