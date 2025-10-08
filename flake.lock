@@ -87,11 +87,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1759854157,
-        "narHash": "sha256-RQ6bKKBqyTfrJI7gwkW8NLhLnHvGIcwcneom3JmGo/U=",
+        "lastModified": 1759950426,
+        "narHash": "sha256-rKv4lIMVQ9rcS/v8Vm/dUWLhAfd+ZztfpgqxlaYNgHY=",
         "ref": "refs/heads/main",
-        "rev": "4a4e3452dbf1f000fd7688ed8911c266a12d2acc",
-        "revCount": 252,
+        "rev": "c6c769b4def0c714d7f09d356ea0d1ce8c966c3f",
+        "revCount": 253,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/Veridise/llzk-rs"
