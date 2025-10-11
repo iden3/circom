@@ -212,10 +212,23 @@ fn infer_type_array(expr: &Expression, state: &State, context: &mut SearchInfo) 
     if let ArrayInLine { values, .. } = expr {
         let mut lengths = vec![values.len()];
         let with_type = infer_type_expresion(&values[0], state, context);
-        with_type.map(|mut l| {
-            lengths.append(&mut l);
-            lengths
-        })
+        if with_type.is_none(){
+            None
+        } else{
+            let mut with_type = with_type.unwrap();
+            for index in 1..values.len(){
+                let aux_type = infer_type_expresion(&values[index], state, context);
+                if aux_type.is_none(){
+                    return None;
+                } 
+                for d in 0..with_type.len(){
+                    with_type[d] = std::cmp::max(with_type[d], aux_type.as_ref().unwrap()[d]);
+                }
+            }
+            lengths.append(&mut with_type);
+            Some(lengths)
+        }
+        
     } else if let UniformArray { value, dimension, .. } = expr {
         let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
             dimension
