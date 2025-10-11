@@ -384,13 +384,49 @@ fn extend_switch(expr: &mut Expression, state: &mut State, context: &Context) ->
 }
 
 fn extend_array(expr: &mut Expression, state: &mut State, context: &Context) -> ExtendedSyntax {
-    use Expression::{ArrayInLine, UniformArray};
-    if let ArrayInLine { values, .. } = expr {
+    use Expression::{ArrayInLine, UniformArray, Number};
+    use num_bigint_dig::BigInt;
+    use program_structure::expression_builders::build_uniform_array;
+
+    if let ArrayInLine { values, meta, .. } = expr {
         let mut initializations = vec![];
+        let aux_size = meta.get_memory_knowledge().get_concrete_dimensions(); 
+        let mut real_size = Vec::new(); // size of the real array (after setting all sizes eq)
+        for v in 1..aux_size.len(){
+            real_size.push(aux_size[v]);
+        }
+
         for v in values.iter_mut() {
+            v.get_mut_meta().get_mut_memory_knowledge().set_concrete_dimensions(real_size.clone());   
             let mut extended = extend_expression(v, state, context);
             initializations.append(&mut extended.initializations);
         }
+        // if sizes are different then add a previous assignment to all 0s
+        // add the 0s if needed
+        if values.len() < aux_size[0]{
+            // generate an uniform array with the needed sizes
+            let mut aux_meta = meta.clone();
+            let mut sizes = Vec::new();
+            aux_meta.get_mut_memory_knowledge().set_concrete_dimensions(Vec::new());
+
+            let mut new_uniform_array = Number(meta.clone(), BigInt::from(0));
+            for dim in real_size.iter().rev(){
+                sizes.push(*dim);
+                aux_meta.get_mut_memory_knowledge().set_concrete_dimensions(sizes.clone().into_iter().rev().collect());
+                let dim = Number(meta.clone(), BigInt::from(*dim));
+                
+                new_uniform_array = build_uniform_array(aux_meta.clone(), new_uniform_array, dim);
+            }
+            let mut extended_v = extend_expression(&mut new_uniform_array, state, context);
+            initializations.append(&mut extended_v.initializations);
+
+            // add the uniform array as many times as needed
+            let needed = aux_size[0] - values.len();
+            for _ in 0..needed {
+                values.push(new_uniform_array.clone());
+            }
+        }
+
         sugar_filter(values, state, &mut initializations);
         ExtendedSyntax { initializations }
     } else if let UniformArray { value, dimension, .. } = expr {
@@ -638,41 +674,9 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use num_bigint_dig::BigInt;
     use Expression::{ArrayInLine, Number, UniformArray};
     use Statement::Substitution;
-    use std::cmp;
     if let Substitution { var, access, op, rhe, meta } = stmt {
         if let ArrayInLine { values, .. } = rhe {
             let mut index = 0;
-
-            let sizes = values[0].get_meta().get_memory_knowledge().get_concrete_dimensions(); 
-            let mut all_equal = true;
-            let mut max_sizes = Vec::new();
-            
-            for v in 1..values.len() {
-                
-                let new_sizes = values[v].get_meta().get_memory_knowledge().get_concrete_dimensions();
-                if sizes != new_sizes{
-                    all_equal = false;
-                    for dim in 0..sizes.len(){
-                        max_sizes.push(cmp::max(sizes[dim], new_sizes[dim]));
-                    }
-                }
-            }
-
-            let vaux_0s = if !all_equal{
-                let value = Box::new(Number(meta.clone(), BigInt::from(0)));
-
-                let size = max_sizes.iter().fold(1, |mul, &val| mul * val);
-                let dimension = Box::new(Number(meta.clone(), BigInt::from(size)));
-
-                Some(UniformArray{
-                    meta: meta.clone(),
-                    value,
-                    dimension,
-                })
-            } else{
-                None
-            };
-
             for v in values {
                 let mut index_meta = meta.clone();
                 index_meta.get_mut_memory_knowledge().set_concrete_dimensions(vec![]);
@@ -680,23 +684,6 @@ fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                 let as_access = Access::ArrayAccess(expr_index);
                 let mut accessed_with = access.clone();
                 accessed_with.push(as_access);
-
-                // in case the dimensions are not the same add a expression with 0s
-                if !all_equal && v.get_meta().get_memory_knowledge().get_concrete_dimensions() != max_sizes{
-                    
-
-                    let sub = Substitution {
-                        op,
-                        var: var.clone(),
-                        access: accessed_with.clone(),
-                        meta: meta.clone(),
-                        rhe: vaux_0s.as_ref().unwrap().clone(),
-                    };
-                    rhe_array_case(sub, stmts);
-                }   
-
-
-
                 let sub = Substitution {
                     op,
                     var: var.clone(),
