@@ -77,3 +77,35 @@ template all(N){
 component main = all(5);
 ```
 
+As shown in the previous examples, inline arrays can be used with field elements and signals to assign signal or value arrays. Since Circom 2.2.3, it is also possible to use inline arrays whose elements are buses or anonymous components.
+
+```
+bus A(){
+  signal x;
+}
+
+template B(){
+  input A a[3];
+  output A b[3];
+  b <== [a[2], a[0], a[1]];
+}
+```
+
+A useful example of anonymous components within inline arrays is to add tags to each signal in the output array.
+
+```
+template checkBinary(){
+  signal input x;
+  signal output {binary} y;
+  y <== x;
+  x * (x-1) === 0; 
+}
+
+template C(){
+  input signal x[2];
+  output signal {binary} y[2];
+  y <== [checkBinary()(x[0]), checkBinary()(x[1])];
+}
+```
+
+In this example, the output signal array `y` is tagged as binary, whereas the input array `x` is not. The template `checkBinary` is used to add the tag to each element of the array.

@@ -35,7 +35,7 @@ OPTIONS:
     -l <link_libraries>...                   Adds directory to library search path
         --O2round <simplification_rounds>    Maximum number of rounds of the simplification process
         --sanity_check <sanity_check>        Selects the level of sanity checks to be included in the witness generation
-                                             code generated. It receives the value 0, 1, 2, or 3. [default: 2]
+                                             code generated. It receives the value 0, 1, or 2. [default: 2]
 
 ARGS:
     <input>    Path to a circuit with a main component [default: ./circuit.circom]
@@ -57,7 +57,7 @@ In the following, we explain these options.
 * Flag ```--no_init``` avoids the introduction of an initialization to 0 in the wasm and C++ code for every declared ```var``` in the circom program.
 * Option ```-o / --output <output>``` allows to indicate the path to the directory where the output will be written. By default the path is ```.```. 
 * Option ```--sanity_check```  controls the amount of runtime checks inserted into the witness generation code:
-  0 (no sanity checks are added), 1 (insert assert statements for <== assignments), 2 (in addition to level 1, each component verifies that all its subcomponents have been executed with all required inputs set). 
+  0 (no sanity checks are added), 1 (insert assert statements for === instructions), 2 (in addition to level 1, each component verifies that all its subcomponents have been executed with all required inputs set). 
   By default the option is 2. 
 
 ##### Flags and options related to the constraint generation process
