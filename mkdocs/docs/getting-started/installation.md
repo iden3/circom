@@ -95,7 +95,7 @@ OPTIONS:
     -l <link_libraries>...                   Adds directory to library search path
         --O2round <simplification_rounds>    Maximum number of rounds of the simplification process
         --sanity_check <sanity_check>        Selects the level of sanity checks to be included in the witness generation
-                                             code generated. It receives the value 0, 1, 2, or 3. [default: 2]
+                                             code generated. It receives the value 0, 1, or 2. [default: 2]
 
 ARGS:
     <input>    Path to a circuit with a main component [default: ./circuit.circom]
