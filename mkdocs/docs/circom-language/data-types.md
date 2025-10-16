@@ -91,7 +91,7 @@ template B(){
 }
 ```
 
-A useful example of anonymous components within inline arrays is to add tags to each signal in the output array.
+Let us see another example of inline arrays, with anonymous components as elements.
 
 ```
 template checkBinary(){
@@ -101,11 +101,16 @@ template checkBinary(){
   x * (x-1) === 0; 
 }
 
+template needsBinary(){
+  input signal {binary} n[2];
+  output signal m <== n[0] + n[1];
+}
+
 template C(){
   input signal x[2];
-  output signal {binary} y[2];
-  y <== [checkBinary()(x[0]), checkBinary()(x[1])];
+  output signal y;
+  y <== needsBinary()([checkBinary()(x[0]), checkBinary()(x[1])]);
 }
 ```
 
-In this example, the output signal array `y` is tagged as binary, whereas the input array `x` is not. The template `checkBinary` is used to add the tag to each element of the array.
+In this example, the template `needsBinary` requires its inputs to be tagged as binary. Therefore, the statement `y <== needsBinary()(x)` results in a compiler error, since `x` is not tagged as binary. To fix this, the template `checkBinary` is used to add the binary tag to each element of the array, making the instantiation of `needsBinary` correct.
