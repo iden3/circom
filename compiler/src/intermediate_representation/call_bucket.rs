@@ -703,14 +703,16 @@ impl WriteC for CallBucket {
                             sub_cmp_counter, size
                         );
 			if let InputInformation::Input{status, needs_decrement} = input_information {
-			    // no need to run subcomponent
-                if *needs_decrement || producer.sanity_check_style >= 2{
-                    prologue.push("// no need to run sub component".to_string());
-                    prologue.push(format!("{};", sub_cmp_counter_decrease));
-			        if producer.sanity_check_style >= 2{
-                        prologue.push(format!("assert({} > 0);", sub_cmp_counter));
+			    if let StatusInput::NoLast = status {
+			        // no need to run subcomponent
+                    if *needs_decrement ||  producer.sanity_check_style >= 2{
+                        prologue.push("// no need to run sub component".to_string());
+                        prologue.push(format!("{};", sub_cmp_counter_decrease));
+			            if  producer.sanity_check_style >= 2{
+                            prologue.push(format!("assert({} > 0);", sub_cmp_counter));
+                        }
                     }
-                } else {
+		        } else {
 				    let sub_cmp_pos = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
 				    let sub_cmp_call_arguments =
 				        vec![sub_cmp_pos, CIRCOM_CALC_WIT.to_string()];
