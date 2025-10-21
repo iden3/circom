@@ -1,4 +1,28 @@
 # Release notes
+
+## October 21, 2025 circom 2.2.3
+#### Extensions
+- Extern functions for C++ witness generation are added. More information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/templates-and-components.md#extern-c-code-in-custom-templates).
+- Safe compilation flag is now replaced by th new compilation option: —sanity_check. More information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/getting-started/compilation-options.md).
+- Flag constraint_assert_disabled is now removed (use option —sanity_check 0)
+- Anonymous components and buses are now allowed inside inline arrays. More information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/circom-language/data-types.md).
+
+#### Improvements
+- Improving documentation.
+- Allowing anonymous components calls inside inline arrays. 
+- Allowing buses inside inline arrays. 
+- Goldilocks numbers are represented in C++ code using uint64_t.
+
+#### Fixed bugs
+- Errors and warning were swapped in custom-gates analysis for if-then-else statements.
+- Handling assignments of arrays when dimensions are incomplete to avoid errors.
+- Fixing JSON input reading type check in main.cpp (witness generation).
+- Fixing minors in multiple assignments analysis
+- Fixing minor in tag propagation for assignment statements and arrays.
+- Fixing minor in anonymous processing.
+- Fixing minor related to the size of the stack of auxiliary expressions.
+
+
 ## March 11, 2025 circom 2.2.2
 #### Extensions
 - Adding a new prime number: bls12377.
