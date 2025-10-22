@@ -231,12 +231,15 @@ fn check_custom_gates_version(
                 && required_version.1 == custom_gates_version.1
                 && required_version.2 < custom_gates_version.2)
         {
+            let required_version_pretty = format!("{}.{}.{}", required_version.0, required_version.1, required_version.2);
+            let custom_gates_version_pretty = format!("{}.{}.{}", custom_gates_version.0, custom_gates_version.1, custom_gates_version.2);
+
             let report = Report::error(
                 format!(
                     "File {} requires at least version {:?} to use custom templates (currently {:?})",
                     file_path,
-                    custom_gates_version,
-                    required_version
+                    custom_gates_version_pretty,
+                    required_version_pretty
                 ),
                 ReportCode::CustomGatesVersionError
             );
@@ -250,12 +253,16 @@ fn check_custom_gates_version(
                 && version_compiler.1 == custom_gates_version.1
                 && version_compiler.2 < custom_gates_version.2)
         {
+            let version_compiler_pretty = format!("{}.{}.{}", version_compiler.0, version_compiler.1, version_compiler.2);
+            let custom_gates_version_pretty = format!("{}.{}.{}", custom_gates_version.0, custom_gates_version.1, custom_gates_version.2);
+
+
             let report = Report::error(
                 format!(
-                    "File {} does not include pragma version and the compiler version (currently {:?}) should be at least {:?} to use custom templates",
+                    "File {} does not include pragma version and the compiler version (currently {}) should be at least {} to use custom templates",
                     file_path,
-                    version_compiler,
-                    custom_gates_version
+                    version_compiler_pretty,
+                    custom_gates_version_pretty
                 ),
                 ReportCode::CustomGatesVersionError
             );
