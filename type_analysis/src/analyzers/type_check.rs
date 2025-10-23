@@ -885,6 +885,12 @@ fn type_expression(
                         arg_expr.get_meta(),
                         &mut analysis_information.reports,
                     );
+                } else if arg_type.is_bus() {
+                    success = add_report_and_end(
+                        ReportCode::InvalidArgumentInCallBus,
+                        arg_expr.get_meta(),
+                        &mut analysis_information.reports,
+                    );
                 }
                 concrete_types.push(arg_type.dim());
             }
@@ -1521,6 +1527,7 @@ fn add_report(error_code: ReportCode, meta: &Meta, reports: &mut ReportCollectio
             expected, found)
         }
         InvalidArgumentInCall => "Components can not be passed as arguments".to_string(),
+        InvalidArgumentInCallBus => "Buses can not be passed as arguments".to_string(),
         InvalidArgumentInBusInstantiationT => "Components can not be passed as arguments".to_string(),
         InvalidArgumentInBusInstantiationB => "Buses can not be passed as arguments".to_string(),
         UnableToTypeFunction => "Unable to infer the type of this function".to_string(),
