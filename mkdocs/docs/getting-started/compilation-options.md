@@ -12,16 +12,15 @@ FLAGS:
         --wat                                  Compiles the circuit to wat
     -c, --c                                    Compiles the circuit to C++
         --O0                                   No simplification is applied
-        --O1                                   Only applies signal to signal and signal to constant simplification
+        --O1                                   Only applies signal to signal and signal to constant simplification. This
+                                               is the default option
         --O2                                   Full constraint simplification
         --verbose                              Shows logs during compilation
         --inspect                              Does an additional check over the constraints produced
-        --constraint_assert_dissabled          Does not add asserts in the witness generation code to check constraints
-                                               introduced with "==="
         --use_old_simplification_heuristics    Applies the old version of the heuristics when performing linear
                                                simplification
-        --simplification_substitution          Outputs the substitution applied in the simplification phase in
-                                               json format
+        --simplification_substitution          Outputs the substitution applied in the simplification phase in json
+                                               format
         --no_asm                               Does not use asm files in witness generation code in C++
         --no_init                              Removes initializations to 0 of variables ("var") in the witness
                                                generation code
@@ -31,9 +30,12 @@ FLAGS:
 OPTIONS:
     -o, --output <output>                    Path to the directory where the output will be written [default: .]
     -p, --prime <prime>                      To choose the prime number to use to generate the circuit. Receives the
-                                             name of the curve (bn128, bls12377, bls12381, goldilocks, grumpkin, pallas, secq256r1, vesta) [default: bn128]
+                                             name of the curve (bn128, bls12377, bls12381, goldilocks, grumpkin, pallas,
+                                             secq256r1, vesta) [default: bn128]
     -l <link_libraries>...                   Adds directory to library search path
         --O2round <simplification_rounds>    Maximum number of rounds of the simplification process
+        --sanity_check <sanity_check>        Selects the level of sanity checks to be included in the witness generation
+                                             code generated. It receives the value 0, 1, or 2. [default: 2]
 
 ARGS:
     <input>    Path to a circuit with a main component [default: ./circuit.circom]
@@ -51,16 +53,17 @@ In the following, we explain these options.
     * When flag ```--no_asm``` is activated the generated C code does not use asm files, this is a new version that can be used in all architectures
 * Flag ```--wat``` compiles the circuit to wat.
 * Flag ```--json``` outputs the R1CS system in JSON format (see the detailed format [here](../circom-language/formats/constraints-json.md)).
-* Flag ```--constraint_assert_dissabled``` avoids the introduction of an assert statement in the wasm or C++ code generated whenever a constraint is introduced using ```===```.
 * Flag ```--no_asm``` (combined with the flag ```--c```) generates C++ code without using asm files. This makes the generated code compatible with any architecture.
 * Flag ```--no_init``` avoids the introduction of an initialization to 0 in the wasm and C++ code for every declared ```var``` in the circom program.
 * Option ```-o / --output <output>``` allows to indicate the path to the directory where the output will be written. By default the path is ```.```. 
+* Option ```--sanity_check```  controls the amount of runtime checks inserted into the witness generation code:
+  0 (no sanity checks are added), 1 (insert assert statements for === instructions), 2 (in addition to level 1, each component verifies that all its subcomponents have been executed with all required inputs set). 
+  By default the option is 2. 
 
 ##### Flags and options related to the constraint generation process
 * Flag ```--verbose``` shows logs with known values at compilation time during the constraint generation process. 
 * Flag ```--inspect``` does an additional check over the R1CS system produced. (see [--inspect](../circom-language/code-quality/inspect.md)).
 * Flag ```--use_old_simplification_heuristics``` allows to use an old heuristics of the optimization algorithm. However, it is not recommended since the new heuristics has produced better results in practice.
-
 
 ##### Flags and options related to the R1CS optimization
 In the following, we explain the different optimizations that we can apply to the final R1CS during the constraint generation phase. More details on the simplification process can be found [here](../circom-language/circom-insight/simplification.md)

@@ -16,6 +16,7 @@ use super::environment_utils::{
         FoldedResult, FoldedArgument
     },
 };
+use std::cmp;
 use program_structure::wire_data::WireType;
 use crate::{assignment_utils::*, environment_utils::slice_types::AssignmentState};
 
@@ -74,9 +75,34 @@ impl RuntimeInformation {
     }
 }
 
+
+enum InfoBusSliceNameVec{
+    Uniform(String),
+    Multiple(Vec<String>)
+}
+
+fn unfold_name(
+    name: &InfoBusSliceNameVec, 
+    index: usize, 
+    slice: &BusSlice
+)->Result<String, MemoryError>{
+    match name{
+        InfoBusSliceNameVec::Uniform(name) => {
+            let access_index = MemorySlice::get_access_index(&slice, index)?;
+            let string_index = create_index_appendix(&access_index);
+            Ok(format!("{}{}", name, string_index))
+            
+        },
+        InfoBusSliceNameVec::Multiple(vec) =>{
+            Ok(vec[index].clone())
+        }
+
+    }
+}
+
 struct FoldedValue {
     pub arithmetic_slice: Option<AExpressionSlice>,
-    pub bus_slice: Option<(String, BusSlice)>, // stores the name of the bus and the value
+    pub bus_slice: Option<(InfoBusSliceNameVec, BusSlice)>, // stores the name of the bus and the value
     pub node_pointer: Option<NodePointer>,
     pub bus_node_pointer: Option<NodePointer>,
     pub is_parallel: Option<bool>,
@@ -562,22 +588,27 @@ fn execute_statement(
 
                 for i in 0..BusSlice::get_number_of_cells(&slice_left){
                                         
-                    let access_index = treat_result_with_memory_error(
-                        BusSlice::get_access_index(&slice_left, i),
+                    let complete_name_left = treat_result_with_memory_error(
+                        unfold_name(&name_left, i, &slice_left),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
-                    )?;
-                    let string_index = create_index_appendix(&access_index); 
+                    )?; 
+                    let complete_name_right = treat_result_with_memory_error(
+                        unfold_name(&name_right, i, &slice_left),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?; 
 
                     for s in &inside_bus_signals{
                         signals_values_right.push(
                             format!(
-                                "{}{}{}", name_right, string_index, s.clone()
+                                "{}{}", complete_name_right, s.clone()
                         ));
                         signals_values_left.push(
                             format!(
-                                "{}{}{}", name_left, string_index, s.clone()
+                                "{}{}", complete_name_left, s.clone()
                         ));
                     }
                          
@@ -796,18 +827,17 @@ fn execute_statement(
 
                 for i in 0..BusSlice::get_number_of_cells(&bus_slice){
                                         
-                    let access_index = treat_result_with_memory_error(
-                        BusSlice::get_access_index(&bus_slice, i),
+                    let complete_name_right = treat_result_with_memory_error(
+                        unfold_name(&bus_name, i, &bus_slice),
                         meta,
                         &mut runtime.runtime_errors,
                         &runtime.call_trace,
-                    )?;
-                    let string_index = create_index_appendix(&access_index); 
+                    )?; 
 
                     for s in &inside_bus_signals{
                         signal_values.push(
                             format!(
-                                "{}{}{}", bus_name, string_index, s.clone()
+                                "{}{}", complete_name_right, s.clone()
                         ));
                     }
                          
@@ -950,35 +980,187 @@ fn execute_expression(
         }
         ArrayInLine { meta, values, .. } => {
             let mut arithmetic_slice_array = Vec::new();
+            let mut bus_slice_array = Vec::new();
+            let mut tags = None;
+
+            let mut is_first = true;
             for value in values.iter() {
                 let f_value = execute_expression(value, program_archive, runtime, flags)?;
-                let slice_value = safe_unwrap_to_arithmetic_slice(f_value, line!());
-                arithmetic_slice_array.push(slice_value);
-            }
-            debug_assert!(!arithmetic_slice_array.is_empty());
+                // Study the tags
+                if f_value.tags.is_some(){
+                    if is_first{
+                        tags = f_value.tags.clone();
+                    } else{
+                        tags = join_tags_propagation(tags, f_value.tags.as_ref().unwrap());
+                    }
+                } else{
+                    tags = None;
+                }
 
-            let mut dims = vec![values.len()];
-            for dim in arithmetic_slice_array[0].route() {
-                dims.push(*dim);
+                if  f_value.arithmetic_slice.is_some(){
+                    let slice_value = safe_unwrap_to_arithmetic_slice(f_value, line!());
+                    arithmetic_slice_array.push(slice_value);
+                } else if f_value.bus_slice.is_some(){
+                    let bus_value = safe_unwrap_to_bus_slice(f_value, line!());
+                    bus_slice_array.push(bus_value);
+                } else{
+                    unreachable!();
+                }
+                is_first = false;
+
             }
-            let mut array_slice = AExpressionSlice::new_with_route(&dims, &AExpr::default());
-            let mut row: SliceCapacity = 0;
-            while row < arithmetic_slice_array.len() {
-                let memory_insert_result = AExpressionSlice::insert_values(
-                    &mut array_slice,
-                    &[row],
-                    &arithmetic_slice_array[row],
-                    false
-                );
-                treat_result_with_memory_error_void(
+            debug_assert!(!arithmetic_slice_array.is_empty() || !bus_slice_array.is_empty());
+
+
+            // Check the sices and decide if they are the same in all. If not take the max
+            let mut dims = vec![values.len()];
+            
+
+            // We init to 0 instead to default
+            // Case arithmetic expression
+            if !arithmetic_slice_array.is_empty(){
+
+                // init the dims using the first
+                for dim in arithmetic_slice_array[0].route() {
+                    dims.push(*dim);
+                }
+
+                // compare and take the max
+                for index in 1..arithmetic_slice_array.len(){
+
+                    for n_dim in 0..arithmetic_slice_array[index].route().len() {
+                        dims[n_dim + 1] = cmp::max(dims[n_dim + 1], arithmetic_slice_array[index].route()[n_dim]);
+                    }
+                }
+
+
+                let mut array_slice = AExpressionSlice::new_with_route(&dims, &AExpr::Number { value: BigInt::from(0)});
+                let mut row: SliceCapacity = 0;
+                while row < arithmetic_slice_array.len() {
+                    let memory_insert_result = AExpressionSlice::insert_values(
+                        &mut array_slice,
+                        &[row],
+                        &arithmetic_slice_array[row],
+                        false
+                    );
+                    treat_result_with_memory_error_void(
                     memory_insert_result,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    row += 1;
+                }
+
+                FoldedValue { arithmetic_slice: Option::Some(array_slice), tags, ..FoldedValue::default() }
+            } else if !bus_slice_array.is_empty(){
+
+                // init the dims using the first
+                for dim in bus_slice_array[0].1.route() {
+                    dims.push(*dim);
+                }
+
+                // compare and check that all equal
+                for index in 1..bus_slice_array.len(){
+                    for n_dim in 0..bus_slice_array[index].1.route().len() {
+                        // case bus --> not allowed different sizes ? Or allow with all 0?
+                        if dims[n_dim + 1] !=  bus_slice_array[index].1.route()[n_dim]{
+                            let err = Result::Err(MemoryError::MultipleSizesInlineBuses);
+                            treat_result_with_memory_error_void(
+                    err,
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
+                        }                    
+                    }
+                }
+                
+                // check that all buses are the same instance and save them in the bus slice
+                // Store the names using the Multiple option
+                let mut array_slice = BusSlice::new_with_route(&dims, &&BusRepresentation::default());
+                let mut row: SliceCapacity = 0;
+                
+                let stored_node = treat_result_with_memory_error(
+                    BusSlice::access_value_by_index(
+                        &bus_slice_array[0].1,
+                        0
+                    ),
                     meta,
                     &mut runtime.runtime_errors,
                     &runtime.call_trace,
-                )?;
-                row += 1;
+                )?.node_pointer;
+
+
+                let mut complete_names:Vec<String> = Vec::new();
+                while row < bus_slice_array.len() {
+                    let (names, slice) = &bus_slice_array[row];
+
+                    // check same node
+                    let new_node = treat_result_with_memory_error(
+                    BusSlice::access_value_by_index(
+                            &slice,
+                            0
+                        ),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?.node_pointer;
+
+                    if stored_node != new_node{
+                        let err = Result::Err(MemoryError::DifferentBusesInline);
+                        treat_result_with_memory_error_void(
+                err,
+                            meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;
+                    }
+
+                    // update the names
+                    match names{
+                        InfoBusSliceNameVec::Uniform(_) =>{
+                            for i in 0..BusSlice::get_number_of_cells(&slice){
+
+                                let new_name = treat_result_with_memory_error(
+                            unfold_name(names, i, &slice),
+                                    meta,
+                                    &mut runtime.runtime_errors,
+                                    &runtime.call_trace,
+                                )?;  
+                                complete_names.push(new_name)
+                            }  
+                        },
+                        InfoBusSliceNameVec::Multiple(array_names) =>{
+                            complete_names.append(&mut array_names.clone());
+                        }
+                    }
+
+                    // update the slice
+                    let memory_insert_result = BusSlice::insert_values(
+                        &mut array_slice,
+                        &[row],
+                        &slice,
+                        true
+                    );
+                    treat_result_with_memory_error_void(
+                    memory_insert_result,
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                    row += 1;
+                }
+
+                let complete_names = InfoBusSliceNameVec::Multiple(complete_names);
+
+                FoldedValue { bus_slice: Option::Some((complete_names, array_slice)), tags, ..FoldedValue::default() }
+            } else{
+                unreachable!()
             }
-            FoldedValue { arithmetic_slice: Option::Some(array_slice), ..FoldedValue::default() }
+            
+            
+            
         }
         UniformArray { meta, value, dimension, .. } => {
             let f_dimension = execute_expression(dimension, program_archive, runtime, flags)?;
@@ -1245,14 +1427,13 @@ fn execute_signal_declaration(
     environment: &mut ExecutionEnvironment,
     actual_node: &mut Option<ExecutedTemplate>,
 ) {
-    use SignalType::*;
     let mut tags = TagInfo::new();
     for t in list_tags{
         tags.insert(t.clone(), None);
     } 
     if let Option::Some(node) = actual_node {
         match signal_type {
-            Input => {
+            SignalType::Input => {
                 if let Some(tags_input) = node.tag_instances().get(signal_name){
                     environment_shortcut_add_input(environment, signal_name, dimensions, &tags_input.tags);
                 } else{
@@ -1260,11 +1441,11 @@ fn execute_signal_declaration(
                 }
                 node.add_input(signal_name, dimensions, false);
             }
-            Output => {
+            SignalType::Output => {
                 environment_shortcut_add_output(environment, signal_name, dimensions, &tags);
                 node.add_output(signal_name, dimensions, false);
             }
-            Intermediate => {
+            SignalType::Intermediate => {
                 environment_shortcut_add_intermediate(environment, signal_name, dimensions, &tags);
                 node.add_intermediate(signal_name, dimensions, false);
             }
@@ -1305,7 +1486,6 @@ fn execute_bus_declaration(
     environment: &mut ExecutionEnvironment,
     actual_node: &mut Option<ExecutedTemplate>,
 ) {
-    use SignalType::*;
     let mut tags = TagInfo::new();
     for t in list_tags{
         tags.insert(t.clone(), None);
@@ -1313,7 +1493,7 @@ fn execute_bus_declaration(
 
     if let Option::Some(node) = actual_node {
         match signal_type {
-            Input => {
+            SignalType::Input => {
                 if let Some(tags_input) = node.tag_instances().get(bus_name){
                     environment_shortcut_add_bus_input(environment, bus_name, dimensions, tags_input);
                 } else{
@@ -1326,11 +1506,11 @@ fn execute_bus_declaration(
                 }
                 node.add_input(bus_name, dimensions, true);
             }
-            Output => {
+            SignalType::Output => {
                 environment_shortcut_add_bus_output(environment, bus_name, dimensions, &tags);
                 node.add_output(bus_name, dimensions, true);
             }
-            Intermediate => {
+            SignalType::Intermediate => {
                 environment_shortcut_add_bus_intermediate(environment, bus_name, dimensions, &tags);
                 node.add_intermediate(bus_name, dimensions, true);
             }
@@ -1796,19 +1976,27 @@ fn perform_assign(
                     }
 
                     for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
-                                        
-                        let access_index = treat_result_with_memory_error(
-                            BusSlice::get_access_index(&assigned_bus_slice, i),
+
+                        let complete_name_left = treat_result_with_memory_error(
+                            unfold_name(&name_bus, i, &assigned_bus_slice),
                             meta,
                             &mut runtime.runtime_errors,
                             &runtime.call_trace,
-                        )?;
-                        let string_index = create_index_appendix(&access_index); 
+                        )?;    
+
+                        let access_index = treat_result_with_memory_error(
+                MemorySlice::get_access_index(&assigned_bus_slice, i),                          meta,
+                            &mut runtime.runtime_errors,
+                            &runtime.call_trace,
+                        )?;    
+                        
+                        let string_index = create_index_appendix(&access_index);
+                         
 
                         for s in &inside_bus_signals{
                             signals_values_right.push(
                                 format!(
-                                    "{}{}{}", name_bus, string_index, s.clone()
+                                    "{}{}", complete_name_left, s.clone()
                             ));
                             signals_values_left.push(
                                 format!(
@@ -2240,7 +2428,7 @@ fn perform_assign(
                     tag_data = tag_data.fields.get_mut(to_access.field_access.as_ref().unwrap()).unwrap();
                     to_access = to_access.remaining_access.as_ref().unwrap();
                 }
-                perform_tag_propagation_bus(tag_data, &new_tags, MemorySlice::get_number_of_cells(&bus_slice));
+                perform_tag_propagation_bus(tag_data, &new_tags, MemorySlice::get_number_of_cells(&assigned_bus_slice));
 
                 // We assign the original buses
                 let bus_assignment_response = perform_bus_assignment(bus_slice, &accessing_information.array_access, assigned_bus_slice, false, &conditions_assignment);
@@ -2272,7 +2460,13 @@ fn perform_assign(
                 }
 
                 for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
-                                        
+
+                    let complete_name_assigned = treat_result_with_memory_error(
+                        unfold_name(name_bus, i, &assigned_bus_slice),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?; 
                     let access_index = treat_result_with_memory_error(
                         BusSlice::get_access_index(&assigned_bus_slice, i),
                         meta,
@@ -2284,7 +2478,7 @@ fn perform_assign(
                     for s in &inside_bus_signals{
                         signals_values_right.push(
                             format!(
-                                "{}{}{}", name_bus, string_index, s.clone()
+                                "{}{}", complete_name_assigned, s.clone()
                         ));
                         signals_values_left.push(
                                 format!(
@@ -2372,7 +2566,14 @@ fn perform_assign(
                 }
 
                 for i in 0..BusSlice::get_number_of_cells(&assigned_bus_slice){
-                                        
+
+                    let complete_name_assigned = treat_result_with_memory_error(
+                        unfold_name(name_bus, i, &assigned_bus_slice),
+                        meta,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?; 
+
                     let access_index = treat_result_with_memory_error(
                         BusSlice::get_access_index(&assigned_bus_slice, i),
                         meta,
@@ -2384,7 +2585,7 @@ fn perform_assign(
                     for s in &inside_bus_signals{
                         signals_values_right.push(
                             format!(
-                                "{}{}{}", name_bus, string_index, s.clone()
+                                "{}{}", complete_name_assigned, s.clone()
                         ));
                         signals_values_left.push(
                             format!(
@@ -2866,7 +3067,8 @@ fn execute_bus(
         }
         
 
-        Result::Ok(FoldedValue{bus_slice: Some((symbol.to_string(), bus_slice)), tags: Some(tags_propagated), ..FoldedValue::default()})
+        Result::Ok(FoldedValue{bus_slice: 
+            Some((InfoBusSliceNameVec::Uniform(symbol), bus_slice)), tags: Some(tags_propagated), ..FoldedValue::default()})
     } else if is_tag{
         // in this case we access to the value of a tag (of the complete bus or a field)
         let mut to_do_access = &access_information;
@@ -2978,7 +3180,10 @@ fn execute_bus(
                     }
                 }
                 Ok(FoldedValue { 
-                    bus_slice: Option::Some((symbol, buses)),
+                    bus_slice: Option::Some((
+                        InfoBusSliceNameVec::Uniform(symbol),
+                        buses
+                    )),
                     tags: Option::Some(tags_propagated),
                     ..FoldedValue::default() 
                 })
@@ -3087,7 +3292,10 @@ fn execute_component(
                         }
                     }
                     Ok(FoldedValue { 
-                        bus_slice: Option::Some((symbol, buses)),
+                        bus_slice: Option::Some((
+                            InfoBusSliceNameVec::Uniform(symbol),
+                            buses
+                        )),
                         tags: Option::Some(tags),
                         ..FoldedValue::default() 
                     })
@@ -3694,8 +3902,8 @@ fn safe_unwrap_to_valid_bus_node_pointer(folded_value: FoldedValue, line: u32) -
     debug_assert!(FoldedValue::valid_bus_node_pointer(&folded_value), "Caused by call at {}", line);
     folded_value.bus_node_pointer.unwrap()
 }
-fn safe_unwrap_to_bus_slice(folded_value: FoldedValue, line: u32) -> (String, BusSlice) {
-    debug_assert!(FoldedValue::valid_arithmetic_slice(&folded_value), "Caused by call at {}", line);
+fn safe_unwrap_to_bus_slice(folded_value: FoldedValue, line: u32) -> (InfoBusSliceNameVec, BusSlice) {
+    debug_assert!(FoldedValue::valid_bus_slice(&folded_value), "Caused by call at {}", line);
     folded_value.bus_slice.unwrap()
 }
 fn safe_unwrap_to_single<C: Clone>(slice: MemorySlice<C>, line: u32) -> C {
@@ -3873,7 +4081,15 @@ fn treat_result_with_memory_error_void(
                 MemoryError::MissingInputs(name) => Report::error(
                     format!("Component {} is created but not all its inputs are initialized", name),
                     RuntimeError,
-                )
+                ),
+                MemoryError::MultipleSizesInlineBuses =>  Report::error(
+                    format!("Arrays inlines of buses must have the same dimensions. Unexpected mistmached dimensions."),
+                    RuntimeError,
+                ),
+                MemoryError::DifferentBusesInline =>  Report::error(
+                    format!("Arrays inlines of buses must have the same bus instance."),
+                    RuntimeError,
+                ),
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Err(())
@@ -4007,7 +4223,15 @@ pub fn treat_result_with_memory_error<C>(
                 MemoryError::MissingInputs(name) => Report::error(
                     format!("Component {} is created but not all its inputs are initialized", name),
                     RuntimeError,
-                )
+                ),
+                MemoryError::MultipleSizesInlineBuses =>  Report::error(
+                    format!("Arrays inlines of buses must have the same dimensions. Unexpected mistmached dimensions."),
+                    RuntimeError,
+                ),
+                MemoryError::DifferentBusesInline =>  Report::error(
+                    format!("Arrays inlines of buses must have the same bus instance."),
+                    RuntimeError,
+                ),
                 
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);

@@ -707,8 +707,14 @@ fn cast_type_array(expr: &Expression, state: &State, environment: &E) -> VCT {
     use Expression::{ArrayInLine, UniformArray};
     if let ArrayInLine { values, .. } = expr {
         let mut result = vec![values.len()];
-        let mut inner_type = cast_type_expression(&values[0], state, environment);
-        result.append(&mut inner_type);
+        let mut max_size = cast_type_expression(&values[0], state, environment);
+        for i in 1..values.len(){
+            let new_size = cast_type_expression(&values[i], state, environment);
+            for d in 0..new_size.len(){
+                max_size[d] = std::cmp::max(max_size[d], new_size[d]);
+            }
+        }
+        result.append(&mut max_size);
         result
     } else if let UniformArray { value, dimension, .. } = expr {
         let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
