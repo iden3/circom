@@ -35,6 +35,8 @@ pub enum MemoryError {
     AssignmentTagInput,
     TagValueNotInitializedAccess,
     MissingInputs(String),
+    MultipleSizesInlineBuses,
+    DifferentBusesInline
 }
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;
@@ -296,19 +298,18 @@ impl<C: Clone> MemorySlice<C> {
                 Result::Ok(())
             }
             Result::Err(MemoryError::MismatchedDimensionsWeak(dim_1, dim_2)) => {
-                let mut cell = MemorySlice::get_initial_cell(memory_slice, access)?;
                 
-                // We assign the min between the number of cells in the new values and the memory slice
-                let number_inserts = std::cmp::min(
-                    MemorySlice::get_number_of_cells(new_values),
-                    MemorySlice::get_number_of_cells(memory_slice)
-                );
-
-                for i in 0..number_inserts{
-                    memory_slice.values[cell] = new_values.values[i].clone();
-                    cell += 1;
+                let mut aux_access = access.to_vec();
+                for index in 0..new_values.route()[0]{
+                    aux_access.push(index);
+                    let _ = MemorySlice::insert_values(
+                        memory_slice,
+                        &aux_access,
+                        &MemorySlice::access_values(new_values, &[index])?,
+                        is_strict
+                    );
+                    aux_access.pop();
                 }
-
                 Result::Err(MemoryError::MismatchedDimensionsWeak(dim_1, dim_2))
             }
             Result::Err(error) => return Err(error),

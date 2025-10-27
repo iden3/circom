@@ -92,9 +92,9 @@ pub fn build_compute(bucket: &mut ComputeBucket, mut fresh: usize) -> usize {
 
 
 pub fn build_load(bucket: &mut LoadBucket, fresh: usize) -> (usize, usize) {
-    let (_v0, f0) = build_address_type(&mut bucket.address_type, fresh);
+    let (v0, f0) = build_address_type(&mut bucket.address_type, fresh);
     let (v1, f1) = build_location(&mut bucket.src, f0);
-    (v1, f1)
+    (std::cmp::max(v0, v1),  f1)
 }
 
 pub fn build_create_cmp(bucket: &mut CreateCmpBucket, fresh: usize) -> usize {

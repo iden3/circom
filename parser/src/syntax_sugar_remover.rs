@@ -1,7 +1,7 @@
 use program_structure::ast::*;
 use program_structure::statement_builders::{build_block, build_substitution};
 use program_structure::error_definition::Report;
-use program_structure::expression_builders::{build_call, build_tuple, build_parallel_op};
+use program_structure::expression_builders::{build_call, build_tuple, build_parallel_op, build_array_in_line};
 use program_structure::file_definition::FileLibrary;
 use program_structure::program_archive::ProgramArchive;
 use program_structure::statement_builders::{build_declaration, build_log_call, build_initialization_block};
@@ -174,14 +174,7 @@ pub fn check_anonymous_components_expression(
 ) -> Result<(),Report>{
     use Expression::*;
     match exp {
-        ArrayInLine { meta, values, .. } => {    
-            for value in values{
-                if value.contains_anonymous_comp() {
-                    return Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()));
-                }
-            }
-            Result::Ok(())
-        }, 
+
         UniformArray { meta, value, dimension } => {
             if value.contains_anonymous_comp() || dimension.contains_anonymous_comp() {
                 Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used to define a dimension of an array".to_string()))
@@ -257,6 +250,12 @@ pub fn check_anonymous_components_expression(
         },
         Tuple {values, .. } => {
 
+            for val in values{
+                check_anonymous_components_expression(val)?;
+            }
+            Result::Ok(())
+        },
+        ArrayInLine {values, .. } => {
             for val in values{
                 check_anonymous_components_expression(val)?;
             }
@@ -424,6 +423,24 @@ pub fn remove_anonymous_from_expression(
 ) -> Result<UpdatedExpression,Report>{
     use Expression::*;
     match exp {
+
+        ArrayInLine{ meta, values, .. } => {    
+            let mut new_values = Vec::new();
+            let mut new_stmts : Vec<Statement> = Vec::new();
+            let mut declarations : Vec<Statement> = Vec::new();
+            for val in values{
+                let result = remove_anonymous_from_expression(templates, file_lib, val, var_access);
+                match result {
+                    Ok((mut declaration, mut stm, val2)) => {
+                        new_stmts.append(&mut stm);
+                        new_values.push(val2);
+                        declarations.append(&mut declaration);
+                    },
+                    Err(er) => {return Result::Err(er);},
+                }
+            }
+            Result::Ok((declarations, new_stmts, build_array_in_line(meta.clone(), new_values)))
+        }
         AnonymousComp { meta, id, params, signals, names,  is_parallel } => {
             let mut declarations = Vec::new();
             let mut seq_substs = Vec::new();

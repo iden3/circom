@@ -384,13 +384,49 @@ fn extend_switch(expr: &mut Expression, state: &mut State, context: &Context) ->
 }
 
 fn extend_array(expr: &mut Expression, state: &mut State, context: &Context) -> ExtendedSyntax {
-    use Expression::{ArrayInLine, UniformArray};
-    if let ArrayInLine { values, .. } = expr {
+    use Expression::{ArrayInLine, UniformArray, Number};
+    use num_bigint_dig::BigInt;
+    use program_structure::expression_builders::build_uniform_array;
+
+    if let ArrayInLine { values, meta, .. } = expr {
         let mut initializations = vec![];
+        let aux_size = meta.get_memory_knowledge().get_concrete_dimensions(); 
+        let mut real_size = Vec::new(); // size of the real array (after setting all sizes eq)
+        for v in 1..aux_size.len(){
+            real_size.push(aux_size[v]);
+        }
+
         for v in values.iter_mut() {
+            v.get_mut_meta().get_mut_memory_knowledge().set_concrete_dimensions(real_size.clone());   
             let mut extended = extend_expression(v, state, context);
             initializations.append(&mut extended.initializations);
         }
+        // if sizes are different then add a previous assignment to all 0s
+        // add the 0s if needed
+        if values.len() < aux_size[0]{
+            // generate an uniform array with the needed sizes
+            let mut aux_meta = meta.clone();
+            let mut sizes = Vec::new();
+            aux_meta.get_mut_memory_knowledge().set_concrete_dimensions(Vec::new());
+
+            let mut new_uniform_array = Number(meta.clone(), BigInt::from(0));
+            for dim in real_size.iter().rev(){
+                sizes.push(*dim);
+                aux_meta.get_mut_memory_knowledge().set_concrete_dimensions(sizes.clone().into_iter().rev().collect());
+                let dim = Number(meta.clone(), BigInt::from(*dim));
+                
+                new_uniform_array = build_uniform_array(aux_meta.clone(), new_uniform_array, dim);
+            }
+            let mut extended_v = extend_expression(&mut new_uniform_array, state, context);
+            initializations.append(&mut extended_v.initializations);
+
+            // add the uniform array as many times as needed
+            let needed = aux_size[0] - values.len();
+            for _ in 0..needed {
+                values.push(new_uniform_array.clone());
+            }
+        }
+
         sugar_filter(values, state, &mut initializations);
         ExtendedSyntax { initializations }
     } else if let UniformArray { value, dimension, .. } = expr {

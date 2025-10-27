@@ -199,8 +199,7 @@ struct Context<'a> {
     tmp_database: &'a TemplateDB,
     _functions: &'a HashMap<String, Vec<Length>>,
     cmp_to_type: HashMap<String, ClusterType>,
-    buses: &'a Vec<BusInstance>,
-    constraint_assert_dissabled_flag: bool,
+    buses: &'a Vec<BusInstance>
 }
 
 fn initialize_parameters(state: &mut State, params: Vec<Param>) {
@@ -677,8 +676,6 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
     use Statement::ConstraintEquality;
     use Expression::Variable;
     if let ConstraintEquality { meta, lhe, rhe } = stmt {
-        // if constraint_assert_dissabled is active then do not translate
-        if !context.constraint_assert_dissabled_flag{
             let starts_at = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
 
             let length = if let Variable { meta, name, access} = rhe.clone() {
@@ -723,10 +720,14 @@ fn translate_constraint_equality(stmt: Statement, state: &mut State, context: &C
             }
             .allocate();
             let assert_instruction =
-                AssertBucket { line: starts_at, message_id: state.message_id, evaluate: equality }
+                AssertBucket { 
+                    line: starts_at, 
+                    message_id: state.message_id, 
+                    evaluate: equality,
+                    is_constraint_equality: true
+                }
                     .allocate();
             state.code.push(assert_instruction);
-        }
         
     } else {
         unimplemented!()
@@ -738,7 +739,12 @@ fn translate_assert(stmt: Statement, state: &mut State, context: &Context) {
     if let Assert { meta, arg, .. } = stmt {
         let line = context.files.get_line(meta.start, meta.get_file_id()).unwrap();
         let code = translate_expression(arg, state, context);
-        let assert = AssertBucket { line, message_id: state.message_id, evaluate: code }.allocate();
+        let assert = AssertBucket { 
+            line, 
+            message_id: state.message_id, 
+            evaluate: code,
+            is_constraint_equality: false
+        }.allocate();
         state.code.push(assert);
     }
 }
@@ -1367,7 +1373,10 @@ impl ProcessedSymbol {
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 input_information : match self.signal_type.unwrap() {
-                    SignalType::Input => InputInformation::Input { status: StatusInput:: Unknown},
+                    SignalType::Input => InputInformation::Input { 
+                        status: StatusInput:: Unknown,
+                        needs_decrement: true
+                    },
                     _ => InputInformation::NoInput,
                 },
                 is_anonymous: context.tmp_database.anonymous.contains(&self.name),
@@ -1431,7 +1440,10 @@ impl ProcessedSymbol {
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 input_information : match self.signal_type.unwrap() {
-                    SignalType::Input => InputInformation::Input { status:StatusInput:: Unknown},
+                    SignalType::Input => InputInformation::Input { 
+                        status:StatusInput:: Unknown,
+                        needs_decrement: true
+                    },
                     _ => InputInformation::NoInput,
                 },
                 is_anonymous: context.tmp_database.anonymous.contains(&self.name),
@@ -1491,7 +1503,10 @@ impl ProcessedSymbol {
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 input_information : match self.signal_type.unwrap() {
-                    SignalType::Input => InputInformation::Input { status: StatusInput:: Unknown},
+                    SignalType::Input => InputInformation::Input { 
+                        status: StatusInput:: Unknown,
+                        needs_decrement: true
+                    },
                     _ => InputInformation::NoInput,
                 },
                 is_anonymous: context.tmp_database.anonymous.contains(&self.name),
@@ -1905,8 +1920,7 @@ pub struct CodeInfo<'a> {
     pub component_to_parallel: HashMap<String, ParallelClusters>,
     pub string_table: HashMap<String, usize>,
     pub signals_to_tags: HashMap<Vec<String>, BigInt>,
-    pub buses: &'a Vec<BusInstance>,
-    pub constraint_assert_dissabled_flag: bool
+    pub buses: &'a Vec<BusInstance>
 }
 
 pub struct CodeOutput {
@@ -1940,8 +1954,7 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         _functions: code_info.functions,
         cmp_to_type: code_info.cmp_to_type,
         tmp_database: code_info.template_database,
-        buses: code_info.buses,
-        constraint_assert_dissabled_flag: code_info.constraint_assert_dissabled_flag,
+        buses: code_info.buses
     };
 
     create_components(&mut state, &code_info.triggers, code_info.clusters);

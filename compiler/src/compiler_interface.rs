@@ -7,18 +7,16 @@ pub struct Config {
     pub debug_output: bool,
     pub produce_input_log: bool,
     pub wat_flag: bool,
-
+    pub sanity_check_style: usize,
     pub no_asm_flag: bool,
-    pub constraint_assert_disabled_flag: bool
 }
 
 pub fn run_compiler(vcp: VCP, config: Config, version: &str) -> Result<Circuit, ()> {
     let flags = CompilationFlags { 
         main_inputs_log: config.produce_input_log,
         wat_flag: config.wat_flag,
-
+        sanity_check_style: config.sanity_check_style,
         no_asm_flag: config.no_asm_flag,
-        constraint_assert_disabled_flag: config.constraint_assert_disabled_flag
     };
     let circuit = Circuit::build(vcp, flags, version);
     if config.debug_output {

@@ -19,6 +19,7 @@ pub struct Input {
     pub wasm_flag: bool,
     pub wat_flag: bool,
     pub no_asm_flag: bool,
+    pub sanity_check_style: usize,
     pub r1cs_flag: bool,
     pub sym_flag: bool,
     pub json_constraint_flag: bool,
@@ -28,7 +29,6 @@ pub struct Input {
     pub fast_flag: bool,
     pub reduced_simplification_flag: bool,
     pub parallel_simplification_flag: bool,
-    pub constraint_assert_disabled_flag: bool,
     pub flag_old_heuristics: bool,
     pub inspect_constraints_flag: bool,
     pub no_rounds: usize,
@@ -67,6 +67,7 @@ impl Input {
         let output_c_path = Input::build_folder(&output_path, &file_name, CPP);
         let output_js_path = Input::build_folder(&output_path, &file_name, JS);
         let o_style = input_processing::get_simplification_style(&matches)?;
+        let sanity_check_style = input_processing::get_sanity_check_style(&matches)?;
         let link_libraries = input_processing::get_link_libraries(&matches);
         Result::Ok(Input {
             //field: P_BN128,
@@ -95,6 +96,7 @@ impl Input {
             wasm_flag: input_processing::get_wasm(&matches),
             c_flag: c_flag,
             no_asm_flag:input_processing::get_no_asm(&matches),
+            sanity_check_style: sanity_check_style as usize,
             r1cs_flag: input_processing::get_r1cs(&matches),
             sym_flag: input_processing::get_sym(&matches),
             main_inputs_flag: input_processing::get_main_inputs_log(&matches),
@@ -105,7 +107,6 @@ impl Input {
             fast_flag: o_style == SimplificationStyle::O0,
             reduced_simplification_flag: o_style == SimplificationStyle::O1,
             parallel_simplification_flag: input_processing::get_parallel_simplification(&matches),
-            constraint_assert_disabled_flag: input_processing::get_constraint_assert_disabled(&matches),
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
             flag_old_heuristics: input_processing::get_flag_old_heuristics(&matches),
             flag_verbose: input_processing::get_flag_verbose(&matches), 
@@ -185,6 +186,9 @@ impl Input {
     pub fn no_asm_flag(&self) -> bool {
         self.no_asm_flag
     }
+    pub fn sanity_check_style(&self) -> usize {
+        self.sanity_check_style
+    }
     pub fn unsimplified_flag(&self) -> bool {
         self.fast_flag
     }
@@ -220,9 +224,6 @@ impl Input {
     }
     pub fn parallel_simplification_flag(&self) -> bool {
         self.parallel_simplification_flag
-    }
-    pub fn constraint_assert_disabled_flag(&self) -> bool {
-        self.constraint_assert_disabled_flag
     }
     pub fn flag_old_heuristics(&self) -> bool {
         self.flag_old_heuristics
@@ -283,6 +284,32 @@ mod input_processing {
         }
     }
 
+    #[derive(Copy, Clone, Eq, PartialEq)]
+    pub enum SanityCheckStyle { O0, O1, O2, O3 }
+    pub fn get_sanity_check_style(matches: &ArgMatches) -> Result<SanityCheckStyle, ()> {
+        use SanityCheckStyle::*;
+        match matches.is_present("sanity_check"){
+            true => 
+               {
+                   let value = matches.value_of("sanity_check").unwrap();
+                   if value == "0"{
+                    Ok(O0)
+                   } else if value == "1"{
+                    Ok(O1)
+                   } else if value == "2"{
+                    Ok(O2)
+                   } else if value == "3"{
+                    Ok(O3)
+                   } 
+                    else{
+                        Result::Err(eprintln!("{}", Colour::Red.paint("invalid sanity check level")))
+                    }
+               }
+               
+            false => Ok(O2),
+        }
+    }
+
     pub fn get_json_constraints(matches: &ArgMatches) -> bool {
         matches.is_present("print_json_c")
     }
@@ -321,10 +348,6 @@ mod input_processing {
 
     pub fn get_parallel_simplification(matches: &ArgMatches) -> bool {
         matches.is_present("parallel_simplification")
-    }
-
-    pub fn get_constraint_assert_disabled(matches: &ArgMatches) -> bool {
-        matches.is_present("constraint_assert_disabled")
     }
 
     pub fn get_ir(matches: &ArgMatches) -> bool {
@@ -488,6 +511,14 @@ mod input_processing {
                     .help("Does not use asm files in witness generation code in C++"),
             )
             .arg(
+                Arg::with_name("sanity_check")
+                    .long("sanity_check")
+                    .takes_value(true)
+                    .display_order(990) 
+                    .default_value("2")
+                    .help("Selects the level of sanity checks to be included in the witness generation code generated. It receives the value 0, 1, 2, or 3."),
+            )
+            .arg(
                 Arg::with_name("link_libraries")
                 .short("l")
                 .takes_value(true)
@@ -511,14 +542,6 @@ mod input_processing {
                     .hidden(true)
                     .display_order(180)
                     .help("Runs non-linear simplification in parallel"),
-            )
-            .arg(
-                Arg::with_name("constraint_assert_dissabled")
-                    .long("constraint_assert_dissabled")
-                    .takes_value(false)
-                    .hidden(false)
-                    .display_order(810)
-                    .help("Does not add asserts in the witness generation code to check constraints introduced with \"===\""),
             )
             .arg(
                 Arg::with_name("main_inputs_log")

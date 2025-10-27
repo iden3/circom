@@ -35,6 +35,7 @@ pub struct CProducer {
     //pub size_of_bus_fields: usize,  //total number of fields in all differen bus intances
     pub busid_field_info: FieldMap, //for every busId (0..num-1) provides de offset, size, dimensions and busId of each field (0..n-1) in it
     pub no_asm: bool,
+    pub sanity_check_style: usize
 }
 
 impl Default for CProducer {
@@ -122,6 +123,7 @@ impl Default for CProducer {
 //	        size_of_bus_fields: 0,
 	    busid_field_info: Vec::new(),
             no_asm: false,
+            sanity_check_style: 2
         }
     }
 }
