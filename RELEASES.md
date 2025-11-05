@@ -32,7 +32,7 @@
 #### Improvements
 - Adding a specific 64-bit arithmetization for Goldilocks in C++ (not using asm), which dramatically improves witness generation efficiency for this prime.
 - Generation of full C++ code for the arithmatization (for the prime in use) as an alternative to asm code. This is activated with the new --no_asm flag and provides C++ witness generation code which is independent from the architecture being used.
-- Improving the analysis of signal double assigment: branch case no longer causes an error in assignments in different branches.
+- Improving the analysis of signal double assignment: branch case no longer causes an error in assignments in different branches.
 - Improving the generated C++ code by removing unnecessary instructions.
   
 ###Fixed bugs

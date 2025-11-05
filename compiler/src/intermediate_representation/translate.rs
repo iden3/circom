@@ -1143,7 +1143,7 @@ impl ProcessedSymbol {
             match acc {
 
                 ArrayAccess(exp) => {
-                    // we need to study all possible sizes and lenghts
+                    // we need to study all possible sizes and lengths
                     let mut index = 0;
                     for possible_length in &mut possible_status.possible_lengths{
                         let aux_length = possible_length.pop();
@@ -1161,7 +1161,7 @@ impl ProcessedSymbol {
                         let possible_cmp_id = state.component_to_instance.get(&symbol_name).unwrap().clone();
                         let mut is_first = true;
 
-                        // We init the possible lenghts and sizes
+                        // We init the possible lengths and sizes
                         possible_status.possible_lengths = Vec::new();
                         possible_status.possible_sizes = Vec::new();
                         possible_status.possible_cmp_id = Vec::new();
