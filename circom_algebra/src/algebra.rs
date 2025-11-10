@@ -898,7 +898,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
         let symbol = substitution.from;
         let mut coefficients = substitution.to;
         ArithmeticExpression::initialize_hashmap_for_expression(&mut coefficients);
-        coefficients.insert(symbol, BigInt::from(-1 % field));
+        coefficients.insert(symbol, BigInt::from(-1));
         let arith = ArithmeticExpression::Linear { coefficients };
         ArithmeticExpression::transform_expression_to_constraint_form(arith, field).unwrap()
     }
