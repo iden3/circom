@@ -107,7 +107,7 @@ impl ProgramArchive {
         self.templates.remove(id);
     }
 
-    //functions functions
+    //functions
     pub fn contains_function(&self, function_name: &str) -> bool {
         self.get_functions().contains_key(function_name)
     }
