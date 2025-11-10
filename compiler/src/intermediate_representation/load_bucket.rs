@@ -269,7 +269,7 @@ impl WriteC for LoadBucket {
 					     template_id_in_component(sub_component_pos_in_memory.clone()),
 					     signal_code.to_string());
 	        if indexes.len() > 0 {
-		    //cur_def contains a string that goes to the definion of the next acces.
+		    //cur_def contains a string that goes to the definition of the next access.
 		    //The first time it is taken from template_ins_2_io_info
 		    let mut cur_def = format!("{}->{}[{}].defs[{}]",
 					    circom_calc_wit(), template_ins_2_io_info(),

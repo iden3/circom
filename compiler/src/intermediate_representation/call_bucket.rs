@@ -567,7 +567,7 @@ impl WriteC for CallBucket {
 			    map_prologue.push(format!("{{"));
 			    map_prologue.push(format!("uint map_accesses_aux[{}];",indexes.len().to_string()));	
 			    map_prologue.push(format!("{{"));
-			    //cur_def contains a pointer to the definion of the next acces.
+			    //cur_def contains a pointer to the definition of the next access.
 			    //The first time it is taken from template_ins_2_io_info
 			    map_prologue.push(format!("IOFieldDef *cur_def = &({}->{}[{}].defs[{}]);",
 						      circom_calc_wit(), template_ins_2_io_info(),
