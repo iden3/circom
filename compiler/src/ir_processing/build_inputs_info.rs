@@ -86,8 +86,15 @@ pub fn visit_call(
     use ReturnType::*;
     if let Final(data) = &mut bucket.return_info {
         match data.context.size{
-            SizeOption::Single(value) if value == 0 =>{
-                
+            SizeOption::Single(value) =>{
+                visit_address_type(
+                    &mut data.dest_address_type, 
+                    assignment_status,
+                    assignments_level,
+                    unknown_component_names,
+                    inside_loop, 
+                    value == 0
+                )
             }
             _ => {
                 visit_address_type(
@@ -95,7 +102,8 @@ pub fn visit_call(
                     assignment_status,
                     assignments_level,
                     unknown_component_names,
-                    inside_loop
+                    inside_loop, 
+                    false
                 )
             }
         };
@@ -128,7 +136,15 @@ pub fn visit_store(
 ) {
     
     match bucket.context.size{
-        SizeOption::Single(value) if value == 0 =>{
+        SizeOption::Single(value) =>{
+            visit_address_type(
+                &mut bucket.dest_address_type, 
+                assignment_status,
+                assigments_level,
+                unknown_component_names,
+                inside_loop,
+                value == 0
+            )
         }
         _ => {
             visit_address_type(
@@ -136,7 +152,8 @@ pub fn visit_store(
                 assignment_status,
                 assigments_level,
                 unknown_component_names,
-                inside_loop
+                inside_loop,
+                false
             )
         }
     };
@@ -149,7 +166,8 @@ pub fn visit_address_type(
     assignment_status: &mut LastInfoMap, 
     assigments_level: &mut ComponentsSet,
     unknown_component_names: &mut ComponentsSet, 
-    inside_loop: bool
+    inside_loop: bool,
+    always_empty: bool
 ) {
     use AddressType::*;
     use InputInformation::*;
@@ -192,88 +210,93 @@ pub fn visit_address_type(
             match input_information{
                 Input{status, needs_decrement} =>{
                     
-                    // case anonymous components
-                    if *is_anonymous {
-                        if assignment_status.contains_key(cmp_name){
-                            assert!(assignment_status.get(cmp_name).unwrap().found_last);
-                            *status = NoLast;
-                            *needs_decrement = false;
-                        } else{
-                            *status = Last;
-                            *needs_decrement = false;
-                            assignment_status.insert(cmp_name.clone(), LastInfo{
-                                needs_decrement: false,
-                                found_last: true
-                            });
-                        }
+                    // in this case there is no need to do anything, just put SizeZero
+                    if always_empty{
+                        *status = SizeZero;
                     } else{
-                        if let Value(vb) = *cmp_address.clone(){               
-                            let value = format!("cmp_{}", vb.value.clone());
-                            if assignment_status.contains_key(&value){
-                                let last_info = assignment_status.get_mut(&value).unwrap();
-                                if last_info.found_last{
-                                    // in this case we have previously found the last
-                                    *status = NoLast;
-                                    *needs_decrement = last_info.needs_decrement;
-                                } else{
-                                    // in this case it is unknown, we check if assigned in this level
-                                    if assigments_level.contains(&value){
+                        // case anonymous components
+                        if *is_anonymous {
+                            if assignment_status.contains_key(cmp_name){
+                                assert!(assignment_status.get(cmp_name).unwrap().found_last);
+                                *status = NoLast;
+                                *needs_decrement = false;
+                            } else{
+                                *status = Last;
+                                *needs_decrement = false;
+                                assignment_status.insert(cmp_name.clone(), LastInfo{
+                                    needs_decrement: false,
+                                    found_last: true
+                                });
+                            }
+                        } else{
+                            if let Value(vb) = *cmp_address.clone(){               
+                                let value = format!("cmp_{}", vb.value.clone());
+                                if assignment_status.contains_key(&value){
+                                    let last_info = assignment_status.get_mut(&value).unwrap();
+                                    if last_info.found_last{
+                                        // in this case we have previously found the last
                                         *status = NoLast;
-                                        *needs_decrement = true;
+                                        *needs_decrement = last_info.needs_decrement;
                                     } else{
-                                        *status = Unknown;
-                                        *needs_decrement = true;
-                                        if !inside_loop{
-                                            last_info.found_last = true;
+                                        // in this case it is unknown, we check if assigned in this level
+                                        if assigments_level.contains(&value){
+                                            *status = NoLast;
+                                            *needs_decrement = true;
                                         } else{
-                                            assigments_level.insert(value.clone());
+                                            *status = Unknown;
+                                            *needs_decrement = true;
+                                            if !inside_loop{
+                                                last_info.found_last = true;
+                                            } else{
+                                                assigments_level.insert(value.clone());
+                                            }
+                                        }
+                                    }
+                                } else{
+                                    if !unknown_component_names.contains(cmp_name){
+                                        // case we know all assignments to the component
+                                        if inside_loop{
+                                            *status = Unknown;
+                                            *needs_decrement = true;
+                                            assignment_status.insert(value.clone(), LastInfo{
+                                                needs_decrement: true,
+                                                found_last: false
+                                            });
+                                            assigments_level.insert(value);
+                                        } else{
+                                            *status = Last;
+                                            *needs_decrement = false;
+                                            assignment_status.insert(value.clone(), LastInfo{
+                                                needs_decrement: false,
+                                                found_last: true
+                                            });
+                                        }
+                                    } else{
+                                        // case we do not know all assignments to the component
+                                        if inside_loop{
+                                            *status = Unknown;
+                                            *needs_decrement = true;
+                                            assignment_status.insert(value.clone(), LastInfo{
+                                                needs_decrement: true,
+                                                found_last: false
+                                            });
+                                            assigments_level.insert(value);
+                                        } else{
+                                            *status = Unknown;
+                                            *needs_decrement = true;
+                                            assignment_status.insert(value.clone(), LastInfo{
+                                                needs_decrement: true,
+                                                found_last: true
+                                            });
                                         }
                                     }
                                 }
                             } else{
-                                if !unknown_component_names.contains(cmp_name){
-                                    // case we know all assignments to the component
-                                    if inside_loop{
-                                        *status = Unknown;
-                                        *needs_decrement = true;
-                                        assignment_status.insert(value.clone(), LastInfo{
-                                            needs_decrement: true,
-                                            found_last: false
-                                        });
-                                        assigments_level.insert(value);
-                                    } else{
-                                        *status = Last;
-                                        *needs_decrement = false;
-                                        assignment_status.insert(value.clone(), LastInfo{
-                                            needs_decrement: false,
-                                            found_last: true
-                                        });
-                                    }
-                                } else{
-                                    // case we do not know all assignments to the component
-                                    if inside_loop{
-                                        *status = Unknown;
-                                        *needs_decrement = true;
-                                        assignment_status.insert(value.clone(), LastInfo{
-                                            needs_decrement: true,
-                                            found_last: false
-                                        });
-                                        assigments_level.insert(value);
-                                    } else{
-                                        *status = Unknown;
-                                        *needs_decrement = true;
-                                        assignment_status.insert(value.clone(), LastInfo{
-                                            needs_decrement: true,
-                                            found_last: true
-                                        });
-                                    }
-                                }
+                                // case unknown
+                                *status = StatusInput::Unknown;
+                                *needs_decrement = true;
+                                unknown_component_names.insert(cmp_name.clone());
                             }
-                        } else{
-                            // case unknown
-                            *status = StatusInput::Unknown;
-                            *needs_decrement = true;
-                            unknown_component_names.insert(cmp_name.clone());
                         }
                     }
                 },
