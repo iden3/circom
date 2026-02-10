@@ -712,7 +712,11 @@ impl WriteC for CallBucket {
                             prologue.push(format!("assert({} > 0);", sub_cmp_counter));
                         }
                     }
-		        } else {
+		        } else if let StatusInput::SizeZero = status{
+                    // no need to do anything
+                    prologue.push("// no need to run sub component because size 0 assignment".to_string());
+
+                } else {
 				    let sub_cmp_pos = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
 				    let sub_cmp_call_arguments =
 				        vec![sub_cmp_pos, CIRCOM_CALC_WIT.to_string()];
@@ -816,7 +820,9 @@ impl WriteC for CallBucket {
                             prologue.push("// run sub component if needed".to_string());
                             let else_instructions = vec![];
                             prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
-                        }
+                        },
+                        StatusInput::SizeZero =>{}
+
 
                     }
                     // end of case parallel
@@ -861,7 +867,9 @@ impl WriteC for CallBucket {
                             prologue.push("// run sub component if needed".to_string());
                             let else_instructions = vec![];
                             prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
-                        }
+                        },
+                        StatusInput::SizeZero =>{}
+
                     
                     }
 

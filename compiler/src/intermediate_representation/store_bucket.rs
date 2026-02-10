@@ -624,38 +624,39 @@ impl WriteC for StoreBucket {
                 vec![format!("&{}",dest), format!("&{}",src), size.clone()]
             };
             prologue.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
-	    if let AddressType::Signal = &self.dest_address_type {
+	        if let AddressType::Signal = &self.dest_address_type {
                 if parallel.unwrap() && self.dest_is_output {
-		    prologue.push(format!("{{")); // open block 3
-		    prologue.push(format!("for (int i = 0; i < {}; i++) {{", size)); // open block 4
-		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].lock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}+i]=true;",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("{}->componentMemory[{}].cvs[{}+i].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("}}")); // close block 4
-		    prologue.push(format!("}}")); // close block 3
-		    prologue.push(format!("}}")); // add a close for block 1 (as it's oppened)
-		}
-	    }
-        } else {
+		            prologue.push(format!("{{")); // open block 3
+		            prologue.push(format!("for (int i = 0; i < {}; i++) {{", size)); // open block 4
+		            prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].lock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
+		            prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}+i]=true;",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
+		            prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
+		            prologue.push(format!("{}->componentMemory[{}].cvs[{}+i].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
+		            prologue.push(format!("}}")); // close block 4
+		            prologue.push(format!("}}")); // close block 3
+		            prologue.push(format!("}}")); // add a close for block 1 (as it's oppened)
+		        }
+	        }
+        } else if size == "1"{
             if producer.prime_str != "goldilocks" {
                 let copy_arguments = vec![aux_dest, src];
                 prologue.push(format!("{};", build_call("Fr_copy".to_string(), copy_arguments)));
             } else {
                 prologue.push(format!("{} = {};", dest, src));
             }
-	    if let AddressType::Signal = &self.dest_address_type {
-		if parallel.unwrap() && self.dest_is_output {
-		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}].lock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}]=true;",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("{}->componentMemory[{}].mutexes[{}].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("{}->componentMemory[{}].cvs[{}].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
-		    prologue.push(format!("}}")); // add a close for block 1 (as it's opened
-		}
-	    }
+	        if let AddressType::Signal = &self.dest_address_type {
+		    if parallel.unwrap() && self.dest_is_output {
+		        prologue.push(format!("{}->componentMemory[{}].mutexes[{}].lock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
+		        prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}]=true;",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
+		        prologue.push(format!("{}->componentMemory[{}].mutexes[{}].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
+		        prologue.push(format!("{}->componentMemory[{}].cvs[{}].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,aux_dest_index.clone()));
+		        prologue.push(format!("}}")); // add a close for block 1 (as it's opened
+		    }
+	        }
         }
+        
         if producer.prime_str != "goldilocks" {
-	    prologue.push(format!("}}")); // add a close block 2 if opened // not that since all closing } are at the end it works
+	        prologue.push(format!("}}")); // add a close block 2 if opened // not that since all closing } are at the end it works
         }
         match &self.dest_address_type {
             AddressType::SubcmpSignal{ uniform_parallel_value, input_information,.. } => {
@@ -678,7 +679,11 @@ impl WriteC for StoreBucket {
                         prologue.push(format!("assert({} > 0);", sub_cmp_counter));
                     }
                 }
-		    } else {
+		    } else if let StatusInput::SizeZero = status{
+                // no need to do anything
+                prologue.push("// no need to run sub component because size 0 assignment".to_string());
+
+            }  else {
 			    let sub_cmp_pos = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
 			    let sub_cmp_call_arguments =
 			        vec![sub_cmp_pos, CIRCOM_CALC_WIT.to_string()];
@@ -782,7 +787,9 @@ impl WriteC for StoreBucket {
                         prologue.push("// run sub component if needed".to_string());
                         let else_instructions = vec![];
                         prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
-                    }
+                    },
+                    StatusInput::SizeZero =>{}
+
                     
                 }
                 // end of case parallel
@@ -826,7 +833,8 @@ impl WriteC for StoreBucket {
                         prologue.push("// run sub component if needed".to_string());
                         let else_instructions = vec![];
                         prologue.push(build_conditional(if_condition,call_instructions,else_instructions));
-                    }
+                    },
+                    StatusInput::SizeZero =>{}
                 }
                 // end of not parallel case
                 prologue.push(format!("}}"));
