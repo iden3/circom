@@ -1,4 +1,5 @@
 use super::ir_interface::*;
+use crate::intermediate_representation::translate::OutBoundsCheck;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
@@ -27,6 +28,7 @@ pub struct CallBucket {
     pub arguments: InstructionList,
     pub arena_size: usize,
     pub return_info: ReturnType,
+    pub checks: Vec<OutBoundsCheck>
 }
 
 impl IntoInstruction for CallBucket {
@@ -475,7 +477,22 @@ impl WriteC for CallBucket {
             prologue.push(format!("{};", declare_lvar_func_call(self.arena_size)));
         } else {
             prologue.push(format!("{};", declare_64bit_lvar_func_call(self.arena_size)));
-        }            
+        }    
+        // Check that the access does not generate an out of bounds exception.
+        if producer.sanity_check_style >= 3{
+            prologue.push(format!("{{"));
+            for ob_check in &self.checks{
+                let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
+                prologue.append(&mut index_prologue);
+                let check = format!("{} < {}", index, ob_check.size);         
+                let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));    
+                let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
+                prologue.push(if_condition);
+                prologue.push(assertion);
+            }
+            prologue.push(format!("}}"));
+
+        }        
         // copying parameters
         let mut count = 0;
         let mut i = 0;
