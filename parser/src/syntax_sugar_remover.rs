@@ -12,8 +12,11 @@ use num_bigint::BigInt;
 
 
 pub fn apply_syntactic_sugar(program_archive : &mut  ProgramArchive) -> Result<(), Report> {
-    if program_archive.get_main_expression().is_anonymous_comp() {
-        return Result::Err(anonymous_general_error(program_archive.get_main_expression().get_meta().clone(),"The main component cannot contain an anonymous call  ".to_string()));
+    if program_archive.get_main_expression().is_anonymous_comp() ||  program_archive.get_main_expression().contains_anonymous_comp() {
+        return Result::Err(anonymous_general_error(program_archive.get_main_expression().get_meta().clone(),"The main component cannot contain an anonymous call  ".to_string())); 
+    }
+    if program_archive.get_main_expression().is_tuple() || program_archive.get_main_expression().contains_tuple()  {
+        return Result::Err(tuple_general_error(program_archive.get_main_expression().get_meta().clone(),"The main component cannot contain a tuple  ".to_string()));
      
     }
     let old_templates = program_archive.templates.clone();

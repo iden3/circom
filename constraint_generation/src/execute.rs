@@ -6,7 +6,8 @@ use super::environment_utils::{
         environment_shortcut_add_bus_output,
         environment_shortcut_add_variable, ExecutionEnvironment, ExecutionEnvironmentError,
         environment_check_all_components_assigned,
-        environment_get_value_tags_bus, environment_get_value_tags_signal
+        environment_get_value_tags_bus, environment_get_value_tags_signal,
+        environment_check_available_symbol
     
     },
     slice_types::{
@@ -152,7 +153,8 @@ enum ExecutionError {
     UnknownTemplate,
     NonValidTagAssignment,
     FalseAssert,
-    ArraySizeTooBig
+    ArraySizeTooBig,
+    RepeatedDeclaration
 }
 
 enum ExecutionWarning {
@@ -302,18 +304,47 @@ fn execute_statement(
                                 &runtime.call_trace,
                             )?
                         };
+                    if *xtype == VariableType::Var{
+                        if !environment_check_available_symbol(
+                            &runtime.environment,
+                            name,
+                            false
+                        ){
+                            let err = Result::Err(ExecutionError::RepeatedDeclaration);
+                            treat_result_with_execution_error(
+                                err,
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
+                        }
+                    } else{
+                        if !environment_check_available_symbol(
+                            &runtime.environment,
+                            name,
+                            true
+                        ){
+                            let err = Result::Err(ExecutionError::RepeatedDeclaration);
+                            treat_result_with_execution_error(
+                                err,
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
+                        }
+                        if runtime.block_type == BlockType::Unknown{
+                            // Case not valid constraint Known/Unknown
+                            let err = Result::Err(ExecutionError::DeclarationInUnknown);
+                            treat_result_with_execution_error(
+                                err,
+                                meta,
+                                &mut runtime.runtime_errors,
+                                &runtime.call_trace,
+                            )?;
+                        }
+                    }
                     match xtype {
                         VariableType::Component => {
-                            if runtime.block_type == BlockType::Unknown{
-                                // Case not valid constraint Known/Unknown
-                                let err = Result::Err(ExecutionError::DeclarationInUnknown);
-                                treat_result_with_execution_error(
-                                    err,
-                                    meta,
-                                    &mut runtime.runtime_errors,
-                                    &runtime.call_trace,
-                                )?;
-                            }
                             execute_component_declaration(
                                 name,
                                 &usable_dimensions,
@@ -328,16 +359,6 @@ fn execute_statement(
                             &usable_dimensions,
                         ),
                         VariableType::Signal(signal_type, tag_list) => {
-                            if runtime.block_type == BlockType::Unknown{
-                                // Case not valid constraint Known/Unknown
-                                let err = Result::Err(ExecutionError::DeclarationInUnknown);
-                                treat_result_with_execution_error(
-                                    err,
-                                    meta,
-                                    &mut runtime.runtime_errors,
-                                    &runtime.call_trace,
-                                )?;
-                            }
                             execute_signal_declaration(
                                 name,
                                 &usable_dimensions,
@@ -348,16 +369,6 @@ fn execute_statement(
                             )
                         },
                         VariableType::Bus(_id, signal_type, tag_list) => {
-                            if runtime.block_type == BlockType::Unknown{
-                                // Case not valid constraint Known/Unknown
-                                let err = Result::Err(ExecutionError::DeclarationInUnknown);
-                                treat_result_with_execution_error(
-                                    err,
-                                    meta,
-                                    &mut runtime.runtime_errors,
-                                    &runtime.call_trace,
-                                )?;
-                            }
                             execute_bus_declaration(
                                 name,
                                 &usable_dimensions,
@@ -4302,7 +4313,11 @@ fn treat_result_with_execution_error<C>(
                 TagAssignmentInUnknown => Report::error(
                     "There are tag assignments depending on the value of a condition that can be unknown during the constraint generation phase".to_string(),
                     ReportCode::RuntimeError,
-                )
+                ),
+                RepeatedDeclaration => Report::error(
+                    "The signal and component names must be unique after executing the template. Only variables can be redefined in different blocks".to_string(),
+                    ReportCode::RuntimeError,
+                ),
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Err(())

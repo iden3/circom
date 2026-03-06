@@ -237,3 +237,10 @@ pub fn environment_get_value_tags_bus(environment: &ExecutionEnvironment, name: 
 
     get_value_tags_data(tag_data, &vec![name.clone()])
 }
+
+//Weak: no bus, no signal no component (for vars)
+//Strict: adds check no variable (for others)
+pub fn environment_check_available_symbol(environment: &ExecutionEnvironment, name: &String, is_strict: bool) ->bool{
+    !environment.has_bus(name) && !environment.has_signal(name) && !environment.has_component(name) && !(is_strict && environment.has_variable(name))
+}
+
