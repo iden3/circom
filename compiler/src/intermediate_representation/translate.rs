@@ -14,6 +14,12 @@ type Length = usize;
 pub type E = VarEnvironment<SymbolInfo>;
 pub type FieldTracker = ConstantTracker<String>;
 
+#[derive(Clone)]
+pub struct OutBoundsCheck{
+    pub access: InstructionPointer,
+    pub size: usize
+}
+
 
 #[derive(Clone)]
 pub struct SymbolInfo {
@@ -288,6 +294,7 @@ fn initialize_constants(state: &mut State, constants: Vec<Argument>) {
                 src_context: InstrContext {size: SizeOption::Single(1)},
                 src_address_type: None,
                 src: content,
+                checks: Vec::new()
             }
             .allocate();
             state.code.push(store_instruction);
@@ -844,6 +851,7 @@ fn translate_call(
             arguments: args_inst.arguments,
             arena_size: 200,
             return_info: Intermediate { op_aux_no: 0 },
+            checks: Vec::new()
         }
         .allocate()
     } else {
@@ -1047,7 +1055,7 @@ fn build_signal_location(
         Uniform { instance_id, header, .. } => {
             let env = TemplateDB::get_instance_addresses(database, *instance_id);
             let location = env.get_variable(signal).unwrap().clone();
-            let full_address = compute_full_address(
+            let (full_address, checks) = compute_full_address(
                 state, 
                 location.access_instruction, 
                 dimensions,
@@ -1230,7 +1238,7 @@ impl ProcessedSymbol {
 
                             if field_info.bus_id.is_some(){
                                 let id = field_info.bus_id.unwrap();
-                                let fields = context.buses.get(id).unwrap().fields.clone();
+                                let fields: BTreeMap<String, FieldInfo> = context.buses.get(id).unwrap().fields.clone();
                                 if is_first{
                                     possible_status.possible_bus_fields = Some(vec![fields]);
                                 } else{
@@ -1360,16 +1368,18 @@ impl ProcessedSymbol {
         state: &State,
         context: &Context
     ) -> InstructionPointer {
-        let data = if let Option::Some(signal) = self.signal {
+        let (data, checks) = if let Option::Some(signal) = self.signal {
+
+            let (address, checks) = compute_full_address(
+                state, 
+                self.symbol.access_instruction,
+                self.symbol_dimensions,
+                self.symbol_size,
+                self.bus_accesses,
+                self.before_signal, 
+            );
             let dest_type = AddressType::SubcmpSignal {
-                cmp_address: compute_full_address(
-                        state, 
-                        self.symbol.access_instruction,
-                        self.symbol_dimensions,
-                        self.symbol_size,
-                        self.bus_accesses,
-                        self.before_signal, 
-                    ),
+                cmp_address: address,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 input_information : match self.signal_type.unwrap() {
@@ -1382,30 +1392,38 @@ impl ProcessedSymbol {
                 is_anonymous: context.tmp_database.anonymous.contains(&self.name),
                 cmp_name: self.name.clone()
             };
-            FinalData {
-                context: InstrContext { size: self.length },
-                dest_is_output: false,
-                dest_address_type: dest_type,
-                dest: signal,
-            }
+            (
+                FinalData {
+                    context: InstrContext { size: self.length },
+                    dest_is_output: false,
+                    dest_address_type: dest_type,
+                    dest: signal,
+                },
+                checks
+            )
         } else {
-            let address = compute_full_address(
+            
+            let (address, checks) = compute_full_address(
                 state, 
                 self.symbol.access_instruction,
                 self.symbol_dimensions,
                 self.symbol_size,
                 self.bus_accesses,
     self.before_signal, 
-            );            let xtype = match self.xtype {
+            );            
+            let xtype = match self.xtype {
                 TypeReduction::Variable => AddressType::Variable,
                 _ => AddressType::Signal,
             };
-            FinalData {
-                context: InstrContext { size: self.length },
-                dest_is_output: self.signal_type.map_or(false, |t| t == SignalType::Output),
-                dest_address_type: xtype,
-                dest: LocationRule::Indexed { location: address, template_header: None },
-            }
+            (
+                FinalData {
+                    context: InstrContext { size: self.length },
+                    dest_is_output: self.signal_type.map_or(false, |t| t == SignalType::Output),
+                    dest_address_type: xtype,
+                    dest: LocationRule::Indexed { location: address, template_header: None },
+                },
+                checks
+            )
         };
         CallBucket {
             line: self.line,
@@ -1415,6 +1433,7 @@ impl ProcessedSymbol {
             arguments: args.arguments,
             arena_size: 200,
             return_info: ReturnType::Final(data),
+            checks
         }
         .allocate()
     }
@@ -1428,15 +1447,16 @@ impl ProcessedSymbol {
         context: &Context
     ) -> InstructionPointer {
         if let Option::Some(signal) = self.signal {
+            let (address, checks) = compute_full_address(
+                state, 
+                self.symbol.access_instruction,
+                self.symbol_dimensions,
+                self.symbol_size,
+                self.bus_accesses,
+                self.before_signal, 
+            );
             let dest_type = AddressType::SubcmpSignal {
-                cmp_address: compute_full_address(
-                        state, 
-                        self.symbol.access_instruction,
-                        self.symbol_dimensions,
-                        self.symbol_size,
-                        self.bus_accesses,
-                        self.before_signal, 
-                    ),
+                cmp_address: address,
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 input_information : match self.signal_type.unwrap() {
@@ -1458,11 +1478,12 @@ impl ProcessedSymbol {
                 src_context: InstrContext {size: src_size},
                 dest_is_output: false,
                 dest_address_type: dest_type,
-                src_address_type: src_address
+                src_address_type: src_address,
+                checks
             }
             .allocate()
         } else {
-            let address = compute_full_address(
+            let (address, checks) = compute_full_address(
                 state, 
                 self.symbol.access_instruction,
                 self.symbol_dimensions,
@@ -1483,7 +1504,8 @@ impl ProcessedSymbol {
                 dest: LocationRule::Indexed { location: address, template_header: None },
                 context: InstrContext { size: self.length },
                 src_context: InstrContext {size: src_size},
-                src_address_type: src_address
+                src_address_type: src_address,
+                checks
             }
             .allocate()
         }
@@ -1491,15 +1513,16 @@ impl ProcessedSymbol {
 
     fn into_load(self, state: &State, context: &Context) -> InstructionPointer {
         if let Option::Some(signal) = self.signal {
+            let (address, checks) = compute_full_address(
+                state, 
+                self.symbol.access_instruction,
+                self.symbol_dimensions,
+                self.symbol_size,
+                self.bus_accesses,
+                self.before_signal, 
+            );
             let dest_type = AddressType::SubcmpSignal {
-                cmp_address: compute_full_address(
-                        state, 
-                        self.symbol.access_instruction,
-                        self.symbol_dimensions,
-                        self.symbol_size,
-                        self.bus_accesses,
-                        self.before_signal, 
-                    ),
+                cmp_address: address,
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
                 input_information : match self.signal_type.unwrap() {
@@ -1518,10 +1541,11 @@ impl ProcessedSymbol {
                 message_id: self.message_id,
                 address_type: dest_type,
                 context: InstrContext { size: self.length },
+                checks
             }
             .allocate()
         } else {
-            let address = compute_full_address(
+            let (address, checks) = compute_full_address(
                 state, 
                 self.symbol.access_instruction,
                 self.symbol_dimensions,
@@ -1539,6 +1563,7 @@ impl ProcessedSymbol {
                 message_id: self.message_id,
                 src: LocationRule::Indexed { location: address, template_header: None },
                 context: InstrContext { size: self.length },
+                checks
             }
             .allocate()
         }
@@ -1552,11 +1577,11 @@ fn compute_full_address(
     size: usize, // each one of the field sizes
     bus_accesses: Vec<BusAccessInfo>,
     indexed_with: Vec<Vec<InstructionPointer>>, // each one of the accesses
-) -> InstructionPointer {
+) -> (InstructionPointer, Vec<OutBoundsCheck>) {
 
     let at = symbol_access_instr;
     let mut stack = vec![];
-
+    let mut checks = vec![];
 
     let number_bus_access = bus_accesses.len();
     assert!(number_bus_access == indexed_with.len() - 1);
@@ -1581,10 +1606,18 @@ fn compute_full_address(
             message_id: at.get_message_id(),
             op_aux_no: 0,
             op: OperatorType::MulAddress,
-            stack: vec![inst, instruction],
+            stack: vec![inst, instruction.clone()],
         }
         .allocate();
         stack.push(jump);
+
+        // TODO: only apply in accesses that might fail -> check that the value is smaller than the size of each index
+        let check = OutBoundsCheck{
+            access: instruction,
+            size: dimension_length,
+        };
+        checks.push(check);
+
     }
 
     let mut index = 1;
@@ -1632,7 +1665,7 @@ fn compute_full_address(
     }
 
     stack.push(at);
-    fold(OperatorType::AddAddress, stack, state)
+    (fold(OperatorType::AddAddress, stack, state), checks)
 }
 
 fn indexing_instructions_filter(
@@ -1874,7 +1907,7 @@ fn get_variable_size(
             let size = aux_symbol.length;
             let possible_address = match size{
                 SizeOption::Multiple(_)=>{
-                    let address = compute_full_address(
+                    let (address, _) = compute_full_address(
                         state, 
                         aux_symbol.symbol.access_instruction,
                         aux_symbol.symbol_dimensions,

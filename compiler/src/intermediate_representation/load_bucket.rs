@@ -1,4 +1,5 @@
 use super::ir_interface::*;
+use crate::intermediate_representation::translate::OutBoundsCheck;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
@@ -10,6 +11,7 @@ pub struct LoadBucket {
     pub address_type: AddressType,
     pub src: LocationRule,
     pub context: InstrContext,
+    pub checks: Vec<OutBoundsCheck>
 }
 
 impl IntoInstruction for LoadBucket {
@@ -319,9 +321,28 @@ impl WriteC for LoadBucket {
 		assert!(false);
                 (vec![], "".to_string())
 	    };
+
         
         
         prologue.append(&mut src_prologue);
+        
+        // Check that the access does not generate an out of bounds exception.
+        if producer.sanity_check_style >= 3{
+            prologue.push(format!("{{"));
+            for ob_check in &self.checks{
+                let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
+                prologue.append(&mut index_prologue);
+                let check = format!("{} < {}", index, ob_check.size);         
+                let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));    
+                let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
+                prologue.push(if_condition);
+                prologue.push(assertion);
+            }
+            prologue.push(format!("}}"));
+
+        }
+
+
         let access = match &self.address_type {
             AddressType::Variable => {
                 if producer.prime_str != "goldilocks" {
