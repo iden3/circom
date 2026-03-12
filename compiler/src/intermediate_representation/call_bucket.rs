@@ -507,18 +507,18 @@ impl WriteC for CallBucket {
         }    
         // Check that the access does not generate an out of bounds exception.
         if producer.sanity_check_style >= 3{
-            prologue.push(format!("{{"));
             for ob_check in &self.checks{
+                prologue.push(format!("{{"));
                 let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
                 prologue.append(&mut index_prologue);
-                let check = format!("{} < {}", index, ob_check.size);         
-                let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));    
+                prologue.push(format!("int index = {};", index));
+                let check = format!("index >=0 && index < {}", ob_check.size);         
+            let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));     
                 let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
                 prologue.push(if_condition);
                 prologue.push(assertion);
+                prologue.push(format!("}}"));
             }
-            prologue.push(format!("}}"));
-
         }        
         // copying parameters
         let mut count = 0;
