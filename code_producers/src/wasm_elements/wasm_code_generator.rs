@@ -244,6 +244,10 @@ pub fn exception_code_input_array_access_exeeds_size() -> usize {
     6
 }
 
+pub fn exception_code_out_of_bounds() -> usize {
+    7
+}
+
 //------------------ compute initial size of memory ---------------
 
 pub fn get_initial_size_of_memory(producer: &WASMProducer) -> usize {
