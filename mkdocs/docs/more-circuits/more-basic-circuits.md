@@ -41,7 +41,7 @@ component main = Multiplier3();
 
 As expected, we first declare three input signals `in1, in2, in3,` and an output signal `out` and two instances of `Multiplier2` . Instantiations of templates are done using the keyword `component`. We need an instance `mult1` to multiply `in1` and `in2`. In order to assign the values of the input signals of `mult1` we use the dot notation `"."`. Once `mult1.in1` and `mult1.in2` have their values set, then the value of `mult1.out` is computed. This value can be now used to set the input value of `mult2`  of the second instance of `Multiplier2`to multiply `in1*in2` and `in3` obtaining the final result  `in1*in2*in3`.
 
-Finally, every execution starts from an initial [main component](../../circom-language/the-main-component) defined as follows.
+Finally, every execution starts from an initial [main component](../../circom-language/the-main-component.md) defined as follows.
 
 ```text
 component main {public [in1,in2,in3]} = Multiplier3();
@@ -52,7 +52,7 @@ In circom, all output signals of the main component are public (and cannot be ma
 
 ## Extending our multiplier to N inputs
 
-When defining a template, we can use [parameters](../../circom-language/templates-and-components) to build generic circuits. These parameters must have a [known](../../circom-language/circom-insight/unknowns) value at the moment of the instantiation of the template. Following up the previous example, we can implement an N-input multiplier, where `N` is a parameter.
+When defining a template, we can use [parameters](../../circom-language/templates-and-components.md) to build generic circuits. These parameters must have a [known](../../circom-language/circom-insight/unknowns.md) value at the moment of the instantiation of the template. Following up the previous example, we can implement an N-input multiplier, where `N` is a parameter.
 
 ```text
 pragma circom 2.0.0; 
@@ -79,7 +79,7 @@ template MultiplierN (N){
 component main = MultiplierN(4);
 ```
 
-In addition to the parameter`N`, two well-known concepts appear in this fragment of code: [arrays](../../circom-language/data-types) and [integer variables](../../circom-language/data-types). 
+In addition to the parameter`N`, two well-known concepts appear in this fragment of code: [arrays](../../circom-language/data-types.md) and [integer variables](../../circom-language/data-types.md). 
 
 As we have seen for a 3-input multiplier, we need 3 input signals and 2 components of `Multiplier2`. Then, for an N-input multiplier, we need an N-dimensional array of input signals and an \(N-1\)-dimensional array of components of `Multiplier2`. 
 
@@ -182,7 +182,7 @@ component main = binaryCheck();
 
 After declaring the signals of the circuit, we use the operator `===`to introduce the constraint `in * (in -1) = 0`. The solutions of this constraint are `in = 0` and `in = 1`. This means that the constraint has solution if and only if the input signal is binary.
 
-The instruction `out <== in` not only assigns the value of signal `in` to signal `out`, but it also adds the constraint `out = in` to the set of constraints that define the circuit. Then, when both constraints have solution, it is guaranteed that the output signal is binary. Sometimes, we only want to assign the value of a signal but not adding the corresponding constraint. In this case, we will use the operator `<--` and `-->`. The differences between `<--/-->` and `<==/==>` are described [here](../../circom-language/signals).
+The instruction `out <== in` not only assigns the value of signal `in` to signal `out`, but it also adds the constraint `out = in` to the set of constraints that define the circuit. Then, when both constraints have solution, it is guaranteed that the output signal is binary. Sometimes, we only want to assign the value of a signal but not adding the corresponding constraint. In this case, we will use the operator `<--` and `-->`. The differences between `<--/-->` and `<==/==>` are described [here](../../circom-language/signals.md).
 
 ## Writing a logic gate AND with two inputs
 
