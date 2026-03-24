@@ -40,7 +40,7 @@ The compiler outputs the representation of the circuit as constraints and everyt
 
 ## circomlib
 
-With `circom`, it is possible to create large circuits by combining smaller generic circuits called `templates`. The `circomlib` is a library of `circom` templates that contains hundreds of circuits such as comparators, hash functions, digital signatures, binary and decimal convertors and many more. You can also create your custom templates, but before start coding, we recommend you to take a look at our already created templates.
+With `circom`, it is possible to create large circuits by combining smaller generic circuits called `templates`. The `circomlib` is a library of `circom` templates that contains hundreds of circuits such as comparators, hash functions, digital signatures, binary and decimal converters and many more. You can also create your custom templates, but before start coding, we recommend you to take a look at our already created templates.
 
 The package already contains tests for circuits available in the `circomlib`.
 The package also installs the npm packages `circomlibjs`, `circom_tester` and `ffjavascript` as dependencies.

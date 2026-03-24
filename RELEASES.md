@@ -32,7 +32,7 @@
 #### Improvements
 - Adding a specific 64-bit arithmetization for Goldilocks in C++ (not using asm), which dramatically improves witness generation efficiency for this prime.
 - Generation of full C++ code for the arithmatization (for the prime in use) as an alternative to asm code. This is activated with the new --no_asm flag and provides C++ witness generation code which is independent from the architecture being used.
-- Improving the analysis of signal double assigment: branch case no longer causes an error in assignments in different branches.
+- Improving the analysis of signal double assignment: branch case no longer causes an error in assignments in different branches.
 - Improving the generated C++ code by removing unnecessary instructions.
   
 ###Fixed bugs
@@ -270,7 +270,7 @@
 #### Extensions
 -	Improvement of unused signals removal in constraint optimization.
 -	macos (x86_64) support for cpp backend added: use template to generate makefile (Not available for M1).
--	wabt dependency swapped to wast dependency instead.
+-	wabt dependency swapped to waste dependency instead.
 -	Improvement of the known/unknown analysis.
 -	Single signal declaration with initialization added for both <== and <--.
 -	Input signal size check added in wasm/JS and C++ generated code.
