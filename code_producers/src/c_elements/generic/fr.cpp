@@ -10,10 +10,10 @@ static FrRawElement half = { {{elements half_list}} };
 static FrRawElement zero = {0};
 
 
-static uint64_t     Fr_rawq[] = { {{elements fr_q_list}}, 0 };
+static mp_limb_t     Fr_rawq[] = { {{elements fr_q_list}}, 0 };
 static FrRawElement Fr_rawR2  = { {{elements fr_r2_list}} };
-static uint64_t     Fr_np     = {{ fr_np }};
-static uint64_t     lboMask   = {{ lboMask }};
+static mp_limb_t     Fr_np     = {{ fr_np }};
+static mp_limb_t     lboMask   = {{ lboMask }};
 
 
 void Fr_rawAdd(FrRawElement pRawResult, const FrRawElement pRawA, const FrRawElement pRawB)
@@ -110,14 +110,14 @@ int Fr_rawIsEq(const FrRawElement pRawA, const FrRawElement pRawB)
 void Fr_rawMMul(FrRawElement pRawResult, const FrRawElement pRawA, const FrRawElement pRawB)
 {
     const mp_size_t  N = Fr_N64+1;
-    const uint64_t  *mq = Fr_rawq;
+    const mp_limb_t  *mq = Fr_rawq;
 
     {{#if cannotOptimize }}
     uint64_t  c = 0;
     {{/if}}
     uint64_t  np0;
     {{#each list0n64}}
-    uint64_t  product{{@index}}[N] = {0};
+    mp_limb_t  product{{@index}}[N] = {0};
     {{/each}}
     product0[N-1] = mpn_mul_1(product0, pRawB, Fr_N64, pRawA[0]);
     {{#if cannotOptimize }}
@@ -171,13 +171,13 @@ void Fr_rawMSquare(FrRawElement pRawResult, const FrRawElement pRawA)
 void Fr_rawMMul1(FrRawElement pRawResult, const FrRawElement pRawA, uint64_t pRawB)
 {
     const mp_size_t  N = Fr_N64+1;
-    const uint64_t  *mq = Fr_rawq;
+    const mp_limb_t  *mq = Fr_rawq;
     {{#if cannotOptimize }}
     uint64_t  c = 0;
     {{/if}}
     uint64_t  np0;
     {{#each list0n64}}
-    uint64_t  product{{@index}}[N] = {0};
+    mp_limb_t  product{{@index}}[N] = {0};
     {{/each}}
     product0[N-1] = mpn_mul_1(product0, pRawA, Fr_N64, pRawB);
     {{#each list0n64_1}}
@@ -216,14 +216,14 @@ void Fr_rawToMontgomery(FrRawElement pRawResult, const FrRawElement pRawA)
 void Fr_rawFromMontgomery(FrRawElement pRawResult, const FrRawElement pRawA)
 {
     const mp_size_t  N = Fr_N64+1;
-    const uint64_t  *mq = Fr_rawq;
+    const mp_limb_t  *mq = Fr_rawq;
     {{#if cannotOptimize }}
     uint64_t  c = 0;
     {{/if}}
     uint64_t  np0;
-    uint64_t  product0[N];
+    mp_limb_t  product0[N];
     {{#each list1n64}}
-    uint64_t  product{{this}}[N] = {0};
+    mp_limb_t  product{{this}}[N] = {0};
     {{/each}}
     mpn_copyi(product0, pRawA, Fr_N64); product0[N-1] = 0;
     {{#each list0n64_1}}
