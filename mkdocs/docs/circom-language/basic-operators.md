@@ -39,9 +39,9 @@ Next boolean operators are allowed:
 
 ## Relational operators
 
-The definition of relational operators **`< , > , <= , >= , == , !=`**  depends on the mathematical function ```val(x)``` which is defined as follows:         
+The definition of relational operators **`< , > , <= , >= , == , !=`**  depends on the mathematical function `val(x)` which is defined as follows:         
 
-           val(z) = z-p  if p/2 +1 <= z < p
+           val(z) = z-p   if p/2 + 1 <= z < p
 
            val(z) = z,    otherwise.
 
@@ -55,13 +55,13 @@ According to this function, the definition of the relational operators is as fol
 
     `x >= y` is defined as val(x % p) >= val(y % p)   
 
-where ```<, >, <=, >=``` are the comparison of integers.
+where `<, >, <=, >=` are the integer comparison operators.
 
 
 
 ## Arithmetic operators
 
-All arithmetic operations work modulo p. We have the next operators:
+All arithmetic operations work modulo p. We have the following operators:
 
 | Operator | Example | Explanation |
 | :---: | :---: | :---: |
@@ -73,7 +73,7 @@ All arithmetic operations work modulo p. We have the next operators:
 | \ | a \ b | Quotient of the integer division |
 | % | a % b | Remainder of the integer division |
 
-There are operators that combine arithmetic operators with a final assignment.
+There are compound operators that combine arithmetic operations with a final assignment.
 
 | Operator | Example | Explanation |
 | :---: | :---: | :---: |
@@ -100,23 +100,23 @@ All bitwise operators are performed modulo p.
 | &gt;&gt; | a &gt;&gt; 4 | Right shift operator |
 | &lt;&lt; | a &lt;&lt; 4 | Left shift operator |
 
- The shift operations also work modulo p and are defined as follows (assuming p&gt;=7). 
+The shift operations also work modulo p and are defined as follows (assuming p&gt;=7). 
 
-For all ```k``` with ```0=< k <= p/2``` (integer division) we have that 
+For all `k` such that `0 <= k <= p/2` (integer division) we have:
 
-* ```x >> k = x/(2**k)``` 
-*  ```x << k = (x*(2**k)~ & ~mask) % p  ``` 
+* `x >> k == x / (2 ** k)` 
+* `x << k == (x * (2 ** k) & mask) % p`
 
-where b is the number of significant bits of p and mask is ```2**b - 1```.
+where b is the number of significant bits of p and `mask` is `2**b - 1`.
 
-For all ```k``` with ```p/2 +1<= k < p``` we have that
+For all `k` such that `p/2 + 1 <= k < p` we have:
 
-* ```x >> k = x << (p-k)``` 
-* ```x << k = x >> (p-k)``` 
+* `x >> k == x << (p - k)`
+* `x << k == x >> (p - k)`
 
-note that ```k``` is also the negative number ```k-p```.
+note that `k` is also the negative number `k-p`.
 
-There are operators that combine bitwise operators with a final assignment.
+There are compound operators that combine bitwise operations with a final assignment.
 
 | Operator | Example | Explanation |
 | :--- | :--- | :--- |
@@ -139,14 +139,14 @@ template IsZero() {
     signal output out;
     signal inv;
     inv <-- in!=0 ? 1/in : 0;
-    out <== -in*inv +1;
-    in*out === 0;
+    out <== -in * inv + 1;
+    in * out === 0;
 }
 
 component main {public [in]}= IsZero();
 ```
 
-This template checks if the input signal `in` is `0`. In case it is, the value of output signal`out` is `1`. `0`, otherwise. Note here that we use the intermediate signal `inv` to compute the inverse of the value of `in` or `0` if it does not exist. If `in`is 0, then `in*inv` is 0, and the value of `out` is `1`. Otherwise, `in*inv` is always `1`, then `out` is `0`.
+This template checks if the input signal `in` is `0`. In case it is, the value of output signal `out` is `1`. `0`, otherwise. Note here that we use the intermediate signal `inv` to compute the inverse of the value of `in` or `0` if it does not exist. If `in` is 0, then `in*inv` is 0, and the value of `out` is `1`. Otherwise, `in*inv` is always `1`, then `out` is `0`.
 
 ```text
 pragma circom 2.0.0;
@@ -154,13 +154,13 @@ pragma circom 2.0.0;
 template Num2Bits(n) {
     signal input in;
     signal output out[n];
-    var lc1=0;
-    var e2=1;
-    for (var i = 0; i<n; i++) {
+    var lc1 = 0;
+    var e2 = 1;
+    for (var i = 0; i < n; i++) {
         out[i] <-- (in >> i) & 1;
-        out[i] * (out[i] -1 ) === 0;
+        out[i] * (out[i] - 1) === 0;
         lc1 += out[i] * e2;
-        e2 = e2+e2;
+        e2 = e2 + e2;
     }
     lc1 === in;
 }
@@ -168,5 +168,4 @@ template Num2Bits(n) {
 component main {public [in]}= Num2Bits(3);
 ```
 
-This templates returns a n-dimensional array with the value of `in` in binary. Line 7 uses the right shift `>>` and operator `&` to obtain at each iteration the `i` component of the array. Finally, line 12 adds the constraint `lc1 = in` to guarantee  that the conversion is well done.
-
+This template returns an `n`-element array with the value of `in` in binary, in little endian order. Line 9 uses the right shift `>>` and operator `&` to obtain the `i` component of the array at each iteration. Finally, line 14 adds the constraint `lc1 === in` to guarantee  that the conversion is well done.
