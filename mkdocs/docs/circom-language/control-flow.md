@@ -125,10 +125,10 @@ template mult4(){
   signal input in[4];
   component comp1 = mult();
   component comp2 = mult();
-  comp1.in[0] = in[0];
-  comp2.in[0] = in[1];
-  comp2.in[1] = in[2];
-  comp1.in[1] = in[3];
+  comp1.in[0] <== in[0];
+  comp2.in[0] <== in[1];
+  comp2.in[1] <== in[2];
+  comp1.in[1] <== in[3];
 }
 ```
 
