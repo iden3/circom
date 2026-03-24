@@ -105,15 +105,15 @@ impl AST {
         let mut reports = Vec::new();
         for p in pragmas {
             match p {
-                // TODO: don't panic
+                // Handle version pragma without panicking
                 Pragma::Version(location, file_id, ver) => match compiler_version {
                     Some(_) => reports.push(produce_report(
-                            ReportCode::MultiplePragma,location.start..location.end, file_id)),
+                            ReportCode::MultiplePragma, location.location.clone(), file_id)),
                     None => compiler_version = Some(ver),
                 },
                 Pragma::CustomGates(location, file_id ) => match custom_gates {
                     Some(_) => reports.push(produce_report(
-                        ReportCode::MultiplePragma, location.start..location.end, file_id)),
+                        ReportCode::MultiplePragma, location.location.clone(), file_id)),
                     None => custom_gates = Some(true),
                 },
                 Pragma::Unrecognized => {}, //This error is previously handled, and the
