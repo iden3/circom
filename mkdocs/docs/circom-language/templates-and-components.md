@@ -88,7 +88,7 @@ template Main() {
    signal output out;
    component c = Internal ();
    c.in[0] <== in[0];
-   c.out ==> out;  // c.in[1] is not assigned yet
+   c.out <== out;  // c.in[1] is not assigned yet
    c.in[1] <== in[1];  // this line should be placed before calling c.out
 }
 
