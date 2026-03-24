@@ -50,7 +50,7 @@ TOOLS
 
 + [zkREPL an online playground for zk circuits](https://zkrepl.dev)
 
-+ [Shield: a development framework for circom developers](https://xord.notion.site/SHIELD-5306223ca4f745d19f54b9a5f4004cd6)
++ [Shield: a development framework for circom developers](https://github.com/xorddotcom/SHIELD)
 
 + [Circomspect: a static analyzer for detecting common vulnerabilities in circom circuits that extends the checks performed by the circom flag --inspect](https://github.com/trailofbits/circomspect)
 
