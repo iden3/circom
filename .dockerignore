@@ -1,0 +1,13 @@
+Dockerfile
+site/
+target/
+circom/target/
+circom_algebra/target/
+compiler/target/
+constraint_generation/target/
+parser/target/
+program_structure/target/
+type_analysis/target/
+.idea/
+.DS_Store
+.git
