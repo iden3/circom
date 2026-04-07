@@ -46,7 +46,7 @@ impl<'a> Tree<'a> {
         for (name, id) in root.correspondence() {
             if root.is_local_signal(*id) {
                 Vec::push(&mut signals, *id + offset);
-                HashMap::insert(&mut id_to_name, *id, name.clone());
+                HashMap::insert(&mut id_to_name, *id + offset, name.clone());
             }
         }
         signals.sort();
