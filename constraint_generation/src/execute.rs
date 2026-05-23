@@ -2665,7 +2665,7 @@ fn execute_conditional_statement(
         runtime.block_type = BlockType::Unknown;
         // TODO: here instead of executing both branches what we do is to store the values
         // that we assign in each one of the branches and assign later: if we assign in both 
-        // of them a signal we return an error. If we assign in just one then we dont return error
+        // of them a signal we return an error. If we assign in just one then we don't return error
         // (maybe a warning indicating that the variable may not get assigned in the if)
         
         

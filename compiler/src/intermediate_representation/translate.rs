@@ -25,7 +25,7 @@ pub struct OutBoundsCheck{
 pub struct SymbolInfo {
     access_instruction: InstructionPointer,
     dimensions: Vec<Length>,
-    size: usize, // needed, in case it is a bus to dont have to compute it again
+    size: usize, // needed, in case it is a bus to don't have to compute it again
     is_component: bool,
     is_bus: bool,
     bus_id: Option<usize>,
