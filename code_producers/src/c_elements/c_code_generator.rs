@@ -1334,4 +1334,39 @@ mod tests {
         let _rc = generate_c_file(pathc, &producer);
         assert!(true);
     }
+
+    #[test]
+    fn generated_makefiles_pass_darwin_gmp_limb_flag() {
+        let path = "../target/code_generator_makefile_test";
+        let _ = std::fs::remove_dir_all(path);
+        std::fs::create_dir(path).unwrap();
+
+        for (name, no_asm, prime) in [
+            ("asm", false, "bn128"),
+            ("no_asm", true, "bn128"),
+            ("goldilocks", false, "goldilocks"),
+        ] {
+            let mut producer = create_producer();
+            producer.no_asm = no_asm;
+            producer.prime_str = prime.to_string();
+            let c_folder = std::path::PathBuf::from(format!("{}/{}", path, name));
+            std::fs::create_dir(&c_folder).unwrap();
+            generate_make_file(&c_folder, "test_circuit", &producer).unwrap();
+
+            let makefile = std::fs::read_to_string(c_folder.join("Makefile")).unwrap();
+            assert!(makefile.contains(
+                "ifeq ($(shell uname),Darwin)\n\tGMP_CFLAGS=-D_LONG_LONG_LIMB"
+            ));
+            if producer.no_asm {
+                assert!(makefile
+                    .contains("\t$(CC) -Wno-address-of-packed-member -c $< $(CFLAGS) $(GMP_CFLAGS)"));
+            } else {
+                assert!(makefile.contains("\t$(CC) -c $< $(CFLAGS) $(GMP_CFLAGS)"));
+            }
+            if producer.prime_str == "goldilocks" {
+                assert!(makefile
+                    .contains("\t$(CC) -o json2bin64 json2bin64.cpp $(GMP_CFLAGS) -lgmp"));
+            }
+        }
+    }
 }
