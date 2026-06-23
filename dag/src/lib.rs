@@ -3,10 +3,11 @@ mod json_porting;
 mod map_to_constraint_list;
 mod r1cs_porting;
 mod sym_porting;
+mod name_to_signal_porting;
 mod witness_producer;
 use circom_algebra::num_bigint::BigInt;
 use constraint_list::ConstraintList;
-use constraint_writers::debug_writer::DebugWriter;
+use constraint_writers::{debug_writer::DebugWriter, name_to_signal_writer};
 use constraint_writers::ConstraintExporter;
 use program_structure::constants::UsefulConstants;
 use program_structure::error_definition::ReportCollection;
@@ -24,6 +25,7 @@ pub struct TreeConstraints {
     pub number_constraints: usize,
     pub node_id: usize,
     pub template_name: String,
+    pub component_name: String,
     pub number_signals: usize,
     pub number_inputs: usize, 
     pub number_outputs: usize,
@@ -103,6 +105,7 @@ impl<'a> Tree<'a> {
 #[derive(Default)]
 pub struct Edge {
     label: String,
+    component_name: String,
     goes_to: usize,
     in_number: usize,
     out_number: usize,
@@ -111,7 +114,7 @@ pub struct Edge {
 }
 impl Edge {
     fn new_entry(id: usize) -> Edge {
-        Edge { label: "main".to_string(), goes_to: id, in_number: 0, out_number: 0, in_component_number: 0, out_component_number: 0  }
+        Edge { label: "main".to_string(), component_name: "main".to_string(), goes_to: id, in_number: 0, out_number: 0, in_component_number: 0, out_component_number: 0  }
     }
 
     pub fn get_goes_to(&self) -> usize {
@@ -333,6 +336,10 @@ impl ConstraintExporter for DAG {
     fn sym(&self, out: &str) -> Result<(), ()> {
         DAG::generate_sym_output(self, out)
     }
+
+    fn name_to_signal(&self, out: &str) -> Result<(), ()> {
+        DAG::generate_name_to_signal_output(self, out)
+    }
 }
 
 impl DAG {
@@ -345,7 +352,7 @@ impl DAG {
         }
     }
 
-    pub fn add_edge(&mut self, to: usize, label: &str, is_parallel: bool) -> Option<&Edge> {
+    pub fn add_edge(&mut self, to: usize, label: &str, component_name: &str, is_parallel: bool) -> Option<&Edge> {
         if to < self.main_id() {
             // create arrow
             let from = self.main_id();
@@ -360,6 +367,7 @@ impl DAG {
             self.nodes[from].has_parallel_sub_cmp |= self.nodes[to].is_parallel || is_parallel;
             let with = Edge {
                 label: label.to_string(),
+                component_name: component_name.to_string(),
                 goes_to: to,
                 in_number: in_num,
                 out_number: out_num,
@@ -505,6 +513,10 @@ impl DAG {
 
     pub fn generate_sym_output(&self, output_file: &str) -> Result<(), ()> {
         sym_porting::write(self, output_file)
+    }
+
+    pub fn generate_name_to_signal_output(&self, output_file: &str) -> Result<(), ()> {
+        name_to_signal_porting::write(self, output_file)
     }
 
     pub fn generate_json_constraints(&self, debug: &DebugWriter) -> Result<(), ()> {

@@ -14,6 +14,7 @@ pub struct Input {
     pub out_c_code: PathBuf,
     pub out_c_dat: PathBuf,
     pub out_sym: PathBuf,
+    pub out_name_to_signal: PathBuf,
     //pub field: &'static str,
     pub c_flag: bool,
     pub wasm_flag: bool,
@@ -22,6 +23,7 @@ pub struct Input {
     pub sanity_check_style: usize,
     pub r1cs_flag: bool,
     pub sym_flag: bool,
+    pub name_to_signal_flag: bool,
     pub json_constraint_flag: bool,
     pub json_substitution_flag: bool,
     pub main_inputs_flag: bool,
@@ -88,6 +90,8 @@ impl Input {
             out_c_code: Input::build_output(&output_c_path, &file_name, CPP),
             out_c_dat: Input::build_output(&output_c_path, &file_name, DAT),
             out_sym: Input::build_output(&output_path, &file_name, SYM),
+            out_name_to_signal: Input::build_output(&output_path, &format!("{}_signals",file_name), JSON),
+
             out_json_constraints: Input::build_output(
                 &output_path,
                 &format!("{}_constraints", file_name),
@@ -105,6 +109,7 @@ impl Input {
             sanity_check_style: sanity_check_style as usize,
             r1cs_flag: input_processing::get_r1cs(&matches),
             sym_flag: input_processing::get_sym(&matches),
+            name_to_signal_flag: input_processing::get_name_to_signal(&matches),
             main_inputs_flag: input_processing::get_main_inputs_log(&matches),
             json_constraint_flag: input_processing::get_json_constraints(&matches),
             json_substitution_flag: input_processing::get_json_substitutions(&matches),
@@ -150,6 +155,9 @@ impl Input {
     }
     pub fn sym_file(&self) -> &str {
         self.out_sym.to_str().unwrap()
+    }
+    pub fn name_to_signal_file(&self) -> &str {
+        self.out_name_to_signal.to_str().unwrap()
     }
     pub fn wat_file(&self) -> &str {
         self.out_wat_code.to_str().unwrap()
@@ -215,6 +223,9 @@ impl Input {
     }
     pub fn sym_flag(&self) -> bool {
         self.sym_flag
+    }
+    pub fn name_to_signal_flag(&self) -> bool {
+        self.name_to_signal_flag
     }
     pub fn print_ir_flag(&self) -> bool {
         self.print_ir_flag
@@ -338,6 +349,10 @@ mod input_processing {
 
     pub fn get_sym(matches: &ArgMatches) -> bool {
         matches.is_present("print_sym")
+    }
+
+    pub fn get_name_to_signal(matches: &ArgMatches) -> bool {
+        matches.is_present("print_name_to_signal")
     }
 
     pub fn get_r1cs(matches: &ArgMatches) -> bool {
@@ -503,6 +518,13 @@ mod input_processing {
                     .takes_value(false)
                     .display_order(60)
                     .help("Outputs witness in sym format"),
+            )
+            .arg(
+                Arg::with_name("print_name_to_signal")
+                    .long("name_to_signal")
+                    .takes_value(false)
+                    .display_order(60)
+                    .help("Outputs names to signal correspondence in json format"),
             )
             .arg(
                 Arg::with_name("print_r1cs")

@@ -19,6 +19,14 @@ struct Connexion {
     dag_component_jump: usize,
 }
 
+pub fn build_connexion_name(con: &Connexion) -> String{
+    let mut name = con.inspect.name.clone();
+    for index in &con.inspect.indexed_with{
+        name = format!("{}[{}]", name, index);
+    }
+    name
+}
+
 #[derive(Clone)]
 pub struct PreExecutedTemplate {
     pub template_name: String,
@@ -346,7 +354,13 @@ impl ExecutedTemplate {
         for cnn in &mut self.connexions {
             cnn.dag_offset = dag.get_entry().unwrap().get_out();
             cnn.dag_component_offset = dag.get_entry().unwrap().get_out_component();
-            dag.add_edge(cnn.inspect.goes_to, &cnn.full_name, cnn.inspect.is_parallel);
+
+            dag.add_edge(
+                cnn.inspect.goes_to, 
+                &cnn.full_name, 
+                &build_connexion_name(cnn),
+                cnn.inspect.is_parallel
+            );
             cnn.dag_jump = dag.get_entry().unwrap().get_out() - cnn.dag_offset;
             cnn.dag_component_jump = dag.get_entry().unwrap().get_out_component() - cnn.dag_component_offset;
         }

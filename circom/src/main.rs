@@ -46,7 +46,9 @@ fn start() -> Result<(), ()> {
         prime: user_input.prime(),
         initial_constraints_file: user_input.initial_constraints_file().to_string(),
         structure_file: user_input.structure_file().to_string(),
-        print_tree_info: user_input.print_tree_info()
+        print_tree_info: user_input.print_tree_info(),
+        name_to_signal: user_input.name_to_signal_file().to_string(),
+        name_to_signal_flag: user_input.name_to_signal_flag(),
     };
     let circuit = execution_user::execute_project(program_archive, config)?;
     let compilation_config = CompilerConfig {

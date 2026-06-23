@@ -8,6 +8,7 @@ use program_structure::program_archive::ProgramArchive;
 pub struct ExecutionConfig {
     pub r1cs: String,
     pub sym: String,
+    pub name_to_signal: String,
     pub json_constraints: String,
     pub json_substitutions: String,
     pub no_rounds: usize,
@@ -19,6 +20,7 @@ pub struct ExecutionConfig {
     pub inspect_constraints_flag: bool,
     pub sym_flag: bool,
     pub r1cs_flag: bool,
+    pub name_to_signal_flag: bool,
     pub json_substitution_flag: bool,
     pub json_constraint_flag: bool,
     pub prime: String,
@@ -59,6 +61,9 @@ pub fn execute_project(
     if config.json_constraint_flag {
         generate_json_constraints(&debug, exporter.as_ref())?;
     }
+    if config.name_to_signal_flag {
+        generate_output_name_to_signal(&config.name_to_signal, exporter.as_ref())?;
+    }
     Result::Ok(vcp)
 }
 
@@ -74,6 +79,17 @@ fn generate_output_r1cs(file: &str, exporter: &dyn ConstraintExporter, custom_ga
 
 fn generate_output_sym(file: &str, exporter: &dyn ConstraintExporter) -> Result<(), ()> {
     if let Result::Ok(()) = exporter.sym(file) {
+        println!("{} {}", Colour::Green.paint("Written successfully:"), file);
+        Result::Ok(())
+    } else {
+        eprintln!("{}", Colour::Red.paint("Could not write the output in the given path"));
+        Result::Err(())
+    }
+}
+
+
+fn generate_output_name_to_signal(file: &str, exporter: &dyn ConstraintExporter) -> Result<(), ()> {
+    if let Result::Ok(()) = exporter.name_to_signal(file) {
         println!("{} {}", Colour::Green.paint("Written successfully:"), file);
         Result::Ok(())
     } else {

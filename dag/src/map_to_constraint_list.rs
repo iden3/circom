@@ -31,6 +31,7 @@ fn map_tree_constraints(
     for edge in Tree::get_edges(tree) {
         let subtree = Tree::go_to_subtree(tree, edge);
         let mut subtree_constraints = TreeConstraints::default();
+        subtree_constraints.component_name = edge.component_name.clone();
         map_tree_constraints(&subtree, &mut subtree_constraints);
         tree_constraints.subcomponents.push_back(subtree_constraints);
     }

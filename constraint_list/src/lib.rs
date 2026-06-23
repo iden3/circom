@@ -11,6 +11,7 @@ mod non_linear_utils;
 mod r1cs_porting;
 mod state_utils;
 mod sym_porting;
+mod name_to_signal_porting;
 mod non_linear_simplification;
 
 type C = circom_algebra::algebra::Constraint<usize>;
@@ -176,6 +177,10 @@ impl ConstraintExporter for ConstraintList {
 
     fn sym(&self, out: &str) -> Result<(), ()> {
         sym_porting::port_sym(self, out)
+    }
+
+    fn name_to_signal(&self, out: &str) -> Result<(), ()> {
+        name_to_signal_porting::port_name_to_signal(&self, out)
     }
 }
 
