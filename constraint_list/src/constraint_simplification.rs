@@ -258,18 +258,61 @@ fn constant_eq_simplification(
 ) -> (LinkedList<S>, LinkedList<C>) {
     let mut cons = LinkedList::new();
     let mut subs = LinkedList::new();
-    for constraint in c_eq {
+    let mut encoded_substitutions = HashMap::new();
+    for mut constraint in c_eq {
         let mut signals: Vec<_> = C::take_cloned_signals_ordered(&constraint).iter().cloned().collect();
         let signal = signals.pop().unwrap();
         if HashSet::contains(&forbidden, &signal) {
             LinkedList::push_back(&mut cons, constraint);
+        } else if let Some(previous) = encoded_substitutions.get(&signal) {
+            // Keep every additional pin as a constraint. Applying the first pin here turns
+            // contradictory pins into an explicit non-zero constant constraint instead of
+            // allowing a later HashMap insertion to overwrite the earlier substitution.
+            C::apply_substitution(&mut constraint, previous, field);
+            C::fix_constraint(&mut constraint, field);
+            LinkedList::push_back(&mut cons, constraint);
         } else {
             let sub = C::clear_signal_from_linear(constraint, &signal, field);
+            encoded_substitutions.insert(signal, sub.clone());
             LinkedList::push_back(&mut subs, sub);
         }
     }
     log_substitutions(&subs, substitution_log);
     (subs, cons)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn contradictory_constant_pins_are_not_overwritten() {
+        let field = BigInt::from(257);
+        let signal = 1;
+        let pin = |value: i32| {
+            let mut linear = HashMap::new();
+            linear.insert(signal, BigInt::from(1));
+            linear.insert(C::constant_coefficient(), &field - BigInt::from(value));
+            let mut constraint =
+                A::transform_expression_to_constraint_form(A::Linear { coefficients: linear }, &field)
+                    .unwrap();
+            C::fix_constraint(&mut constraint, &field);
+            constraint
+        };
+        let constraints = LinkedList::from([pin(3), pin(5)]);
+
+        let (substitutions, remaining) =
+            constant_eq_simplification(constraints, &HashSet::new(), &field, &mut None);
+
+        assert_eq!(substitutions.len(), 1);
+        assert_eq!(remaining.len(), 1);
+        let contradiction = remaining.front().unwrap();
+        assert!(C::take_cloned_signals(contradiction).is_empty());
+        assert_ne!(
+            contradiction.c().get(&C::constant_coefficient()),
+            Some(&BigInt::from(0))
+        );
+    }
 }
 
 fn linear_simplification(
@@ -728,6 +771,3 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
     // println!("NO CONSTANTS: {}", constraint_storage.no_constants());
     (constraint_storage, signal_map, smp.no_private_inputs - deleted_inputs)
 }
-
-
-
