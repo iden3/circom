@@ -277,13 +277,15 @@ impl HeaderSection {
     }
 }
 
-type Constraint = HashMap<usize, BigInt>;
+// Generic over the hasher so callers can pass maps built with a faster,
+// non-cryptographic hasher without converting them first.
+type Constraint<S> = HashMap<usize, BigInt, S>;
 impl ConstraintSection {
-    pub fn write_constraint_usize(
+    pub fn write_constraint_usize<S: std::hash::BuildHasher>(
         &mut self,
-        a: &Constraint,
-        b: &Constraint,
-        c: &Constraint,
+        a: &Constraint<S>,
+        b: &Constraint<S>,
+        c: &Constraint<S>,
     ) -> Result<(), ()> {
         let field_size = self.field_size;
         let mut r1cs_a = HashMap::new();

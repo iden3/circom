@@ -3229,10 +3229,13 @@ fn execute_component(
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
+    // Access the component by reference: cloning the whole component environment
+    // (a hashmap of memory slices) on every signal access dominated compile time
+    // on access-heavy circuits.
     let memory_response = if runtime.anonymous_components.contains_key(symbol) {
-        ComponentSlice::access_values(component_slice, &Vec::new())
+        ComponentSlice::access_values_by_reference(component_slice, &Vec::new())
     } else{
-        ComponentSlice::access_values(component_slice, &access_information.array_access)
+        ComponentSlice::access_values_by_reference(component_slice, &access_information.array_access)
     };
     let slice_result = treat_result_with_memory_error(
         memory_response,
@@ -3240,7 +3243,7 @@ fn execute_component(
         &mut runtime.runtime_errors,
         &runtime.call_trace,
     )?;
-    let resulting_component = safe_unwrap_to_single(slice_result, line!());
+    let resulting_component = safe_unwrap_to_single_ref(slice_result, line!());
     
     if let Option::Some(signal_name) = &access_information.field_access {
         let remaining_access = access_information.remaining_access.as_ref().unwrap();
@@ -3920,6 +3923,10 @@ fn safe_unwrap_to_bus_slice(folded_value: FoldedValue, line: u32) -> (InfoBusSli
 fn safe_unwrap_to_single<C: Clone>(slice: MemorySlice<C>, line: u32) -> C {
     debug_assert!(slice.is_single(), "Caused by call at {}", line);
     MemorySlice::unwrap_to_single(slice)
+}
+fn safe_unwrap_to_single_ref<C>(values: Vec<&C>, line: u32) -> &C {
+    debug_assert!(values.len() == 1, "Caused by call at {}", line);
+    values[0]
 }
 
 //************************************************* Result handling *************************************************

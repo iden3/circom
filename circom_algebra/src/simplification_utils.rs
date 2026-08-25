@@ -1,7 +1,8 @@
 use super::num_bigint::BigInt;
 use crate::num_traits::ToPrimitive;
 use crate::modular_arithmetic;
-use std::collections::{BTreeMap, HashMap, HashSet, LinkedList};
+use std::collections::{BTreeMap, LinkedList};
+use crate::fast_hash::{HashMap, HashSet};
 use std::mem::replace;
 
 type C = crate::algebra::Constraint<usize>;
@@ -64,8 +65,8 @@ struct SignalsInformation {
 impl SignalsInformation {
 
     pub fn new(constraints: &Vec<C>, signals: &SignalDefinition4, num_signals: usize) -> (SignalsInformation, BTreeMap<usize, usize>) {
-        let mut signal_to_ocurrences: HashMap<usize, usize> = HashMap::with_capacity(num_signals);
-        let mut signal_to_rep: HashMap<usize, usize> = HashMap::with_capacity(num_signals);
+        let mut signal_to_ocurrences: HashMap<usize, usize> = crate::fast_hash::map_with_capacity(num_signals);
+        let mut signal_to_rep: HashMap<usize, usize> = crate::fast_hash::map_with_capacity(num_signals);
         let mut uniques: BTreeMap<usize, usize> = BTreeMap::new();
         for pos in 0..constraints.len(){
             for k in constraints[pos].c().keys() {
@@ -450,7 +451,7 @@ fn take_substitutions_to_be_applied<'a>(sh: &'a HashMap<usize, S>, subs: &S) -> 
 #[allow(dead_code)]
 fn create_nonoverlapping_substitutions(possible_overlap: SH, field: &BigInt) -> HashMap<usize, S> {
     debug_assert!(debug_check_keys_in_order(&possible_overlap));
-    let mut no_overlap = HashMap::with_capacity(possible_overlap.len());
+    let mut no_overlap = crate::fast_hash::map_with_capacity(possible_overlap.len());
     for (s, mut substitution) in possible_overlap {
         let to_be_applied = take_substitutions_to_be_applied(&no_overlap, &substitution);
         for sub in to_be_applied {
@@ -465,7 +466,7 @@ fn create_nonoverlapping_substitutions(possible_overlap: SH, field: &BigInt) -> 
 fn create_nonoverlapping_substitutions_4(mut possible_overlap: SH, signals: &SignalDefinition4,field: &BigInt) -> HashMap<usize, S> {
     debug_assert!(debug_check_keys_in_order(&possible_overlap));
 
-    let mut no_overlap = HashMap::with_capacity(possible_overlap.len());
+    let mut no_overlap = crate::fast_hash::map_with_capacity(possible_overlap.len());
     for s in &signals.order_signals{
         let mut substitution = possible_overlap.remove(s).unwrap();
         let to_be_applied = take_substitutions_to_be_applied(&no_overlap, &substitution);
@@ -481,7 +482,7 @@ fn create_nonoverlapping_substitutions_4(mut possible_overlap: SH, signals: &Sig
 #[allow(dead_code)]
 pub fn debug_substitution_check(substitutions: &HashMap<usize, S>) -> bool {
     let mut result = true;
-    let mut left_hand = HashSet::new();
+    let mut left_hand = HashSet::default();
     for k in substitutions.keys() {
         left_hand.insert(*k);
     }
@@ -518,7 +519,7 @@ pub fn fast_encoded_substitution_substitution(s: &mut S, enc: &HashMap<usize, A>
 }
 
 pub fn build_encoded_fast_substitutions(fast_sub: LinkedList<S>) -> HashMap<usize, A> {
-    let mut encoded = HashMap::with_capacity(LinkedList::len(&fast_sub));
+    let mut encoded = crate::fast_hash::map_with_capacity(LinkedList::len(&fast_sub));
     for sub in fast_sub {
         let (from, to) = S::decompose(sub);
         HashMap::insert(&mut encoded, from, to);
@@ -559,13 +560,13 @@ where
     let non_overlapping: HashMap<usize, S>;
 
     if apply_less_ocurrences{
-        let mut signals = SignalDefinition4 { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new(),  order_signals: LinkedList::new() };
+        let mut signals = SignalDefinition4 { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::default(),  order_signals: LinkedList::new() };
         substitution_process_4(&mut signals, &mut constraints, &mut holder, config.num_signals, &field);
         normalized_holder = normalize_substitutions(holder, &field);
         non_overlapping = create_nonoverlapping_substitutions_4(normalized_holder, &signals, &field);
     }
     else{
-        let mut signals = SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new() };
+        let mut signals = SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::default() };
         substitution_process_3(&mut signals, &mut constraints, &mut holder, &field);
         normalized_holder = normalize_substitutions(holder, &field);
         non_overlapping = create_nonoverlapping_substitutions(normalized_holder, &field);
@@ -586,7 +587,7 @@ where
 {
     let field = config.field.clone();
     // build the subs using always the complete new version
-    let mut signals_4 = SignalDefinition4 { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new(),  order_signals: LinkedList::new() };
+    let mut signals_4 = SignalDefinition4 { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::default(),  order_signals: LinkedList::new() };
     let mut constraints_4 = config.constraints.clone();
     let mut holder_4 = SHNotNormalized::new();
     substitution_process_4(&mut signals_4, &mut constraints_4, &mut holder_4, config.num_signals, &field);
@@ -601,7 +602,7 @@ where
 
     // build the subs using the multi-inv and taking the bigger signal 
     let mut signals_3 =
-        SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new() };
+        SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::default() };
     let mut constraints_3 = config.constraints.clone();
     let mut holder_3 = SHNotNormalized::new();
     substitution_process_3(&mut signals_3, &mut constraints_3, &mut holder_3, &field);
@@ -616,7 +617,7 @@ where
 
     // build the subs using only the multi-inv
     // let mut signals_2 =
-    //     SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new() };
+    //     SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::default() };
     // let mut constraints_2 = config.constraints.clone();
     // let mut holder_2 = SHNotNormalized::new();
     // substitution_process_2(&mut signals_2, &mut constraints_2, &mut holder_2, &field);
@@ -631,7 +632,7 @@ where
 
     // Build the subs using the original version
     // let mut signals_1 =
-    //     SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new() };
+    //     SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::default() };
     // let mut constraints_1 = config.constraints;
     // let mut holder_1 = SH::new();
     // substitution_process_1(&mut signals_1, &mut constraints_1, &mut holder_1, &field);

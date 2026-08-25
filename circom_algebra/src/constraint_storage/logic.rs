@@ -1,5 +1,5 @@
 use super::*;
-use std::collections::HashMap;
+use crate::fast_hash::HashMap;
 
 pub fn code_expression(expr: HashMap<S, BigInt>, tracker: &mut FieldTracker) -> CompressedExpr {
     let mut c_expr = CompressedExpr::new();
@@ -19,7 +19,7 @@ pub fn code_constraint(constraint: C, tracker: &mut FieldTracker) -> CompressedC
 }
 
 pub fn decode_expr(c_expr: &CompressedExpr, tracker: &FieldTracker) -> HashMap<S, BigInt> {
-    let mut decoded_expr = HashMap::new();
+    let mut decoded_expr = HashMap::default();
     for (coeff_id, var) in c_expr {
         let raw_coeff = tracker.get_constant(*coeff_id).unwrap();
         let coeff = BigInt::from_signed_bytes_le(raw_coeff);
