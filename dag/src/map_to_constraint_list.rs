@@ -27,6 +27,13 @@ fn map_tree_constraints(
 
     tree_constraints.node_id = tree.node_id;
     tree_constraints.number_constraints = tree.constraints.len();
+    for constraint in &tree.constraints {
+        if Constraint::is_linear(constraint) {
+            tree_constraints.number_linear_constraints += 1;
+        } else {
+            tree_constraints.number_non_linear_constraints += 1;
+        }
+    }
 
     for edge in Tree::get_edges(tree) {
         let subtree = Tree::go_to_subtree(tree, edge);

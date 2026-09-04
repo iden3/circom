@@ -10,4 +10,3 @@ constraint_writers = { path = "../constraint_writers" }
 circom_algebra = { path = "../circom_algebra" }
 program_structure = { path = "../program_structure" }
 json = "0.12.4"
-serde = { version = "1.0.104", features = ["derive"] }
