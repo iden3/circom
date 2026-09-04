@@ -240,18 +240,6 @@ pub struct InstanceInfo {
     pub total_tree: Cost,
 }
 
-/// The same, aggregating every instance of a template (`Num2Bits(254)` and
-/// `Num2Bits(8)` are two instances of the template `Num2Bits`).
-#[derive(Clone, Deserialize, Serialize, Debug)]
-pub struct TemplateInfo {
-    pub template: String,
-    pub instances: usize,
-    pub components: usize,
-    pub total_own: Cost,
-    pub total_tree: Cost,
-    pub instance_names: Vec<String>,
-}
-
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CircuitTemplateInfo {
     pub main: String,
@@ -261,10 +249,9 @@ pub struct CircuitTemplateInfo {
     pub number_of_instances: usize,
     pub number_of_components: usize,
     /// One entry per template instance, that is, per distinct combination of
-    /// arguments. Sorted by the constraints they add to the circuit.
+    /// arguments, which are exactly the rows of the printed table. Sorted by
+    /// the constraints they add to the circuit.
     pub instances: Vec<InstanceInfo>,
-    /// The same information rolled up by template name.
-    pub templates: Vec<TemplateInfo>,
 }
 
 fn template_of(name: &str) -> String {
@@ -338,38 +325,6 @@ fn build_template_info(tree_constraints: &TreeConstraints, prime: &String) -> Ci
             .then_with(|| a.name.cmp(&b.name))
     });
 
-    let mut order = Vec::new();
-    let mut by_template: HashMap<String, TemplateInfo> = HashMap::new();
-    for instance in &instances {
-        let entry = by_template.entry(instance.template.clone()).or_insert_with(|| {
-            order.push(instance.template.clone());
-            TemplateInfo {
-                template: instance.template.clone(),
-                instances: 0,
-                components: 0,
-                total_own: Cost::default(),
-                total_tree: Cost::default(),
-                instance_names: Vec::new(),
-            }
-        });
-        entry.instances += 1;
-        entry.components = entry.components.saturating_add(instance.components);
-        entry.total_own.add(&instance.total_own);
-        entry.total_tree.add(&instance.total_tree);
-        entry.instance_names.push(instance.name.clone());
-    }
-    let mut templates: Vec<TemplateInfo> =
-        order.into_iter().map(|name| by_template.remove(&name).unwrap()).collect();
-    for template in &mut templates {
-        template.instance_names.sort();
-    }
-    templates.sort_by(|a, b| {
-        b.total_own
-            .constraints
-            .total
-            .cmp(&a.total_own.constraints.total)
-            .then_with(|| a.template.cmp(&b.template))
-    });
 
     // The main component is not inside any subtree, so it is added apart.
     let number_of_components = circuit.components.saturating_add(1);
@@ -381,7 +336,6 @@ fn build_template_info(tree_constraints: &TreeConstraints, prime: &String) -> Ci
         number_of_instances: instances.len(),
         number_of_components,
         instances,
-        templates,
     }
 }
 
