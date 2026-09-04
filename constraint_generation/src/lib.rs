@@ -12,7 +12,7 @@ use circom_algebra::algebra::{ArithmeticError, ArithmeticExpression};
 use compiler::hir::very_concrete_program::VCP;
 use constraint_list::ConstraintList;
 use constraint_writers::ConstraintExporter;
-use dag::{DAG, TreeConstraints};
+use dag::{CircuitTemplateInfo, DAG, TreeConstraints};
 use execution_data::executed_program::ExportResult;
 use execution_data::ExecutedProgram;
 use program_structure::ast::{self};
@@ -37,8 +37,10 @@ pub struct BuildConfig {
     pub inspect_constraints: bool,
     pub prime: String,
     pub print_tree_info: bool,
+    pub print_template_info: bool,
     pub initial_constraints_file: String,
     pub structure_file: String,
+    pub template_info_file: String,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -72,6 +74,10 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
             &config.initial_constraints_file,
             &config.structure_file
         );
+    }
+    if config.print_template_info {
+        let template_info = dag.map_to_template_info();
+        print_template_info(&template_info, &config.template_info_file);
     }
     if config.flag_f {
         sync_dag_and_vcp(&mut vcp, &mut dag);
@@ -208,6 +214,121 @@ fn print_tree_info(
         structure_file,
         serde_json::to_string_pretty(&structure).unwrap(),
     );
+}
+
+
+/// Longest instantiation name shown in the table. Names carrying a big
+/// parameter, such as `CompConstant(2188...5616)`, are cut in the middle: the
+/// whole name is always kept in the JSON file.
+const NAME_LIMIT: usize = 46;
+
+fn shorten(name: &str, limit: usize) -> String {
+    let characters: Vec<char> = name.chars().collect();
+    if characters.len() <= limit || limit < 5 {
+        return name.to_string();
+    }
+    let kept = limit - 3;
+    let head = kept - kept / 2;
+    let mut shortened: String = characters[..head].iter().collect();
+    shortened.push_str("...");
+    shortened.extend(characters[characters.len() - (kept - head)..].iter());
+    shortened
+}
+
+fn center(text: &str, width: usize) -> String {
+    let length = text.chars().count();
+    if length >= width {
+        return text.to_string();
+    }
+    let left = (width - length) / 2;
+    format!("{}{}{}", " ".repeat(left), text, " ".repeat(width - length - left))
+}
+
+fn print_template_info(template_info: &CircuitTemplateInfo, template_info_file: &String) {
+    // One row per template instance: `Num2Bits(135)` and `Num2Bits(254)` are
+    // two instances of Num2Bits and get a row each. The first group of columns
+    // is what a single component of the instance costs and the second one is
+    // that cost times the number of components of the instance.
+    let names: Vec<String> =
+        template_info.instances.iter().map(|i| shorten(&i.name, NAME_LIMIT)).collect();
+    let name_width =
+        names.iter().map(|n| n.chars().count()).fold("instance".len(), std::cmp::max);
+    let all_constraints = template_info.circuit.constraints.total;
+    let percentage = |part: usize| {
+        if all_constraints == 0 { 0.0 } else { (part as f64 * 100.0) / all_constraints as f64 }
+    };
+
+    println!("{}", Colour::Green.paint("template information (before simplification)"));
+    let group_header = format!(
+        "{:<width$} {:>10} {} {}",
+        "",
+        "",
+        center("per component", 39),
+        center("total (per component x components)", 55),
+        width = name_width
+    );
+    println!("{}", group_header.trim_end());
+    println!(
+        "{:<width$} {:>10} {:>9} {:>9} {:>9} {:>9} {:>11} {:>7} {:>11} {:>11} {:>11}",
+        "instance",
+        "components",
+        "constrs",
+        "non-lin",
+        "linear",
+        "signals",
+        "constrs",
+        "%",
+        "non-lin",
+        "linear",
+        "signals",
+        width = name_width
+    );
+    for (instance, name) in template_info.instances.iter().zip(&names) {
+        println!(
+            "{:<width$} {:>10} {:>9} {:>9} {:>9} {:>9} {:>11} {:>6.1}% {:>11} {:>11} {:>11}",
+            name,
+            instance.components,
+            instance.own.constraints.total,
+            instance.own.constraints.non_linear,
+            instance.own.constraints.linear,
+            instance.own.signals.total,
+            instance.total_own.constraints.total,
+            percentage(instance.total_own.constraints.total),
+            instance.total_own.constraints.non_linear,
+            instance.total_own.constraints.linear,
+            instance.total_own.signals.total,
+            width = name_width
+        );
+    }
+    println!(
+        "{:<width$} {:>10} {:>9} {:>9} {:>9} {:>9} {:>11} {:>6.1}% {:>11} {:>11} {:>11}",
+        "TOTAL",
+        template_info.number_of_components,
+        "-",
+        "-",
+        "-",
+        "-",
+        all_constraints,
+        percentage(all_constraints),
+        template_info.circuit.constraints.non_linear,
+        template_info.circuit.constraints.linear,
+        template_info.circuit.signals.total,
+        width = name_width
+    );
+
+    let written = std::fs::write(
+        template_info_file,
+        serde_json::to_string_pretty(template_info).unwrap(),
+    );
+    if written.is_ok() {
+        println!("{} {}", Colour::Green.paint("Written successfully:"), template_info_file);
+    } else {
+        eprintln!(
+            "{} {}",
+            Colour::Red.paint("Could not write the template information in:"),
+            template_info_file
+        );
+    }
 }
 
 

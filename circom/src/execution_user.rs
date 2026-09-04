@@ -26,7 +26,9 @@ pub struct ExecutionConfig {
     pub prime: String,
     pub initial_constraints_file: String,
     pub structure_file: String,
-    pub print_tree_info: bool
+    pub template_info_file: String,
+    pub print_tree_info: bool,
+    pub print_template_info: bool,
 }
 
 pub fn execute_project(
@@ -48,7 +50,9 @@ pub fn execute_project(
         prime: config.prime,
         initial_constraints_file: config.initial_constraints_file,
         structure_file: config.structure_file,
-        print_tree_info: config.print_tree_info
+        template_info_file: config.template_info_file,
+        print_tree_info: config.print_tree_info,
+        print_template_info: config.print_template_info,
     };
     let custom_gates = program_archive.custom_gates;
     let (exporter, vcp) = build_circuit(program_archive, build_config)?;

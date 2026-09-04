@@ -39,8 +39,10 @@ pub struct Input {
     pub prime: String,
     pub link_libraries : Vec<PathBuf>,
     pub print_tree_info: bool,
+    pub print_template_info: bool,
     pub structure_file: PathBuf,
     pub initial_constraints_file: PathBuf,
+    pub template_info_file: PathBuf,
 }
 
 
@@ -76,6 +78,7 @@ impl Input {
         let link_libraries = input_processing::get_link_libraries(&matches);
         let file_name_initial_constraints = format!("{}_initial_constraints", file_name);
         let file_structure = format!("{}_structure", file_name);
+        let file_template_info = format!("{}_template_info", file_name);
         
         Result::Ok(Input {
             //field: P_BN128,
@@ -127,6 +130,8 @@ impl Input {
             initial_constraints_file: Input::build_output(&output_path, &file_name_initial_constraints, JSON),
             structure_file: Input::build_output(&output_path, &file_structure, JSON),
             print_tree_info: input_processing::get_print_tree_info(&matches),
+            template_info_file: Input::build_output(&output_path, &file_template_info, JSON),
+            print_template_info: input_processing::get_print_template_info(&matches),
         })
     }
 
@@ -262,6 +267,12 @@ impl Input {
     }
     pub fn print_tree_info(&self) -> bool{
         self.print_tree_info
+    }
+    pub fn template_info_file(&self) -> &str {
+        self.template_info_file.to_str().unwrap()
+    }
+    pub fn print_template_info(&self) -> bool{
+        self.print_template_info
     }
 }
 mod input_processing {
@@ -425,6 +436,10 @@ mod input_processing {
                
             false => Ok(String::from("bn128")),
         }
+    }
+
+    pub fn get_print_template_info(matches: &ArgMatches) -> bool {
+        matches.is_present("print_template_info")
     }
 
     pub fn get_print_tree_info(matches: &ArgMatches) -> bool {
@@ -632,6 +647,13 @@ mod input_processing {
                     .takes_value(false)
                     .display_order(990)
                     .help("To print the structure of the circuit as a tree in JSON format"),  
+            )
+            .arg(
+                Arg::with_name("print_template_info")
+                    .long("print_template_info")
+                    .takes_value(false)
+                    .display_order(991)
+                    .help("To print, per template, its number of instances, constraints and signals (before simplification), also written in JSON format"),
             )
             .get_matches()
     }

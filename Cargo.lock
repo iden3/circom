@@ -251,6 +251,7 @@ dependencies = [
  "constraint_writers",
  "json",
  "program_structure",
+ "serde",
 ]
 
 [[package]]

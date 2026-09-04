@@ -47,6 +47,8 @@ fn start() -> Result<(), ()> {
         initial_constraints_file: user_input.initial_constraints_file().to_string(),
         structure_file: user_input.structure_file().to_string(),
         print_tree_info: user_input.print_tree_info(),
+        template_info_file: user_input.template_info_file().to_string(),
+        print_template_info: user_input.print_template_info(),
         name_to_signal: user_input.name_to_signal_file().to_string(),
         name_to_signal_flag: user_input.name_to_signal_flag(),
     };

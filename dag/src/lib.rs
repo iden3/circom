@@ -3,8 +3,12 @@ mod json_porting;
 mod map_to_constraint_list;
 mod r1cs_porting;
 mod sym_porting;
+mod template_info;
 mod name_to_signal_porting;
 mod witness_producer;
+pub use template_info::{
+    CircuitTemplateInfo, ConstraintStats, Cost, InstanceInfo, SignalStats, TemplateInfo,
+};
 use circom_algebra::num_bigint::BigInt;
 use constraint_list::ConstraintList;
 use constraint_writers::{debug_writer::DebugWriter, name_to_signal_writer};
@@ -573,6 +577,10 @@ impl DAG {
 
     pub fn map_to_list(self, flags: SimplificationFlags) -> ConstraintList {
         map_to_constraint_list::map(self, flags)
+    }
+
+    pub fn map_to_template_info(&self) -> CircuitTemplateInfo {
+        template_info::map_to_template_info(self)
     }
 
     pub fn map_to_constraint_tree(&self) -> TreeConstraints {
