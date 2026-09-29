@@ -147,8 +147,14 @@ fn wat_to_wasm(wat_file: &str, wasm_file: &str) -> Result<(), Report> {
     use wast::Wat;
     use wast::parser::{self, ParseBuffer};
 
-    let wat_contents = read_to_string(wat_file).unwrap();
-    let buf = ParseBuffer::new(&wat_contents).unwrap();
+    let wat_contents = read_to_string(wat_file).map_err(|err| Report::error(
+        format!("Error reading generated WAT file '{}': {}", wat_file, err),
+        ReportCode::ErrorWat2Wasm,
+    ))?;
+    let buf = ParseBuffer::new(&wat_contents).map_err(|err| Report::error(
+        format!("Error translating the circuit from wat to wasm.\n\nException encountered when parsing WAT: {}", err),
+        ReportCode::ErrorWat2Wasm,
+    ))?;
     let result_wasm_contents = parser::parse::<Wat>(&buf);
     match result_wasm_contents {
         Result::Err(error) => {
@@ -167,7 +173,10 @@ fn wat_to_wasm(wat_file: &str, wasm_file: &str) -> Result<(), Report> {
                     ))
                 }
                 Result::Ok(wasm_contents) => {
-                    let file = File::create(wasm_file).unwrap();
+                    let file = File::create(wasm_file).map_err(|err| Report::error(
+                        format!("Error creating WASM file '{}': {}", wasm_file, err),
+                        ReportCode::ErrorWat2Wasm,
+                    ))?;
                     let mut writer = BufWriter::new(file);
                     writer.write_all(&wasm_contents).map_err(|_err| Report::error(
                         format!("Error writing the circuit. Exception generated: {}", _err),
@@ -181,5 +190,89 @@ fn wat_to_wasm(wat_file: &str, wasm_file: &str) -> Result<(), Report> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wat_to_wasm;
+    use program_structure::error_code::ReportCode;
+    use program_structure::error_definition::Report;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct TestDir(PathBuf);
+
+    impl TestDir {
+        fn new() -> Self {
+            static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+            let path = std::env::temp_dir().join(format!(
+                "circom-wat-to-wasm-{}-{}",
+                std::process::id(),
+                NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            ));
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+
+        fn convert(&self) -> Result<(), Report> {
+            wat_to_wasm(
+                self.0.join("input.wat").to_str().unwrap(),
+                self.0.join("output.wasm").to_str().unwrap(),
+            )
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn assert_wat_error(result: Result<(), Report>, message: &str) {
+        let report = result.err().expect("expected a WAT-to-WASM error report");
+        assert!(matches!(report.get_code(), ReportCode::ErrorWat2Wasm));
+        assert!(report.is_error());
+        assert!(
+            report.get_message().contains(message),
+            "{}",
+            report.get_message()
+        );
+    }
+
+    #[test]
+    fn wat_to_wasm_reports_missing_input() {
+        let dir = TestDir::new();
+        assert_wat_error(dir.convert(), "Error reading generated WAT file");
+        assert!(!dir.0.join("output.wasm").exists());
+    }
+
+    #[test]
+    fn wat_to_wasm_reports_lexer_error() {
+        let dir = TestDir::new();
+        fs::write(dir.0.join("input.wat"), "(; unterminated comment").unwrap();
+        assert_wat_error(dir.convert(), "Exception encountered when parsing WAT");
+        assert!(!dir.0.join("output.wasm").exists());
+    }
+
+    #[test]
+    fn wat_to_wasm_reports_output_creation_error() {
+        let dir = TestDir::new();
+        fs::write(dir.0.join("input.wat"), "(module)").unwrap();
+        fs::create_dir(dir.0.join("output.wasm")).unwrap();
+        assert_wat_error(dir.convert(), "Error creating WASM file");
+        assert!(dir.0.join("output.wasm").is_dir());
+    }
+
+    #[test]
+    fn wat_to_wasm_converts_valid_module() {
+        let dir = TestDir::new();
+        fs::write(dir.0.join("input.wat"), "(module)").unwrap();
+        assert!(dir.convert().is_ok());
+        assert_eq!(
+            fs::read(dir.0.join("output.wasm")).unwrap(),
+            b"\0asm\x01\0\0\0"
+        );
     }
 }
