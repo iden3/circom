@@ -541,6 +541,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         relevant
     };
 
+
     let linear_substitutions = if apply_linear {
         let now = SystemTime::now();
         let (subs, mut cons) = linear_simplification(
@@ -695,6 +696,21 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
     }
 
     let _trash = constraint_storage.extract_with(&|c| C::is_empty(c));
+
+
+    let mut num_plonk_constraints = 0;
+    // At this point call to normalize all constraints 
+    // if we are in PLONK mode
+    for i in constraint_storage.get_ids(){
+        let mut c = constraint_storage.read_constraint(i).unwrap();
+        c.normalize_constraint(&field);
+        let is_plonk = c.is_plonk();
+        if is_plonk{
+            num_plonk_constraints += 1;
+        }
+        constraint_storage.replace(i, c);
+        
+    }    
 
 
     let signal_map = {

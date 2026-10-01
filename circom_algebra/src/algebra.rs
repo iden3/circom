@@ -1193,6 +1193,10 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         )
     }
 
+    pub fn is_plonk(&self) -> bool{
+        plonk_constraint(&self.a, &self.b, &self.c)
+    }
+
 }
 
 impl<C: Default + Clone + Display + Hash + Eq + std::cmp::Ord> Constraint<C> {
@@ -1226,6 +1230,11 @@ impl Constraint<usize> {
         let c = apply_vectored_correspondence(&self.c, witness);
         Constraint::new(a, b, c)
     }
+
+    pub fn normalize_constraint(&mut self, field: &BigInt) {
+        normalize(self, field);
+    }
+
 }
 
 // model utils
@@ -1379,7 +1388,17 @@ where
     HashMap::contains_key(expr, &cq) && HashMap::len(expr) == 1
 }
 
-pub fn normalize(c: Constraint<usize>, _field: &BigInt) -> Constraint<usize> {
+
+// Type RawExpr<C> = HashMap<C, BigInt>;
+fn plonk_constraint<C>(a: &RawExpr<C>, b: &RawExpr<C>, c: &RawExpr<C>) -> bool{
+    // To get the constant coefficient you can use 
+    //let cq: C = ArithmeticExpression::constant_coefficient();
+    //HashMap::contains_key(expr, &cq) // true if there is a cq (termino independiente)
+    todo!()
+
+}
+
+pub fn normalize(c: &mut Constraint<usize>, _field: &BigInt) {
     use std::collections::LinkedList;
     let _a: LinkedList<_> = c.a.iter().clone().collect();
     let _b: LinkedList<_> = c.b.iter().clone().collect();
