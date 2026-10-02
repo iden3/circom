@@ -161,7 +161,7 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
             .or_insert_with(|| BigInt::from(0));
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(initial));
     }
-    fn valid_hashmap_for_expression(h: &HashMap<C, BigInt>) -> bool {
+    fn valid_hashmap_for_expression(h: &HashMap<C, BigInt>) -> bool { // Comprueba que el hashmap contiene la clave de la constante, que siempre tiene que estar aunque su valor sea 0
         let cc = ArithmeticExpression::constant_coefficient();
         h.contains_key(&cc)
     }
@@ -1325,14 +1325,14 @@ where
     if HashMap::is_empty(a) || HashMap::is_empty(b) {
         HashMap::clear(a);
         HashMap::clear(b);
-    } else if is_constant_expression(a) {
+    } else if is_constant_expression(a) { // Si A es una constante, se multiplica A por B y se añade a C, dejando A y B a 0
         constant_linear_linear_reduction(a, b, c, field);
-    } else if is_constant_expression(b) {
+    } else if is_constant_expression(b) { // Si B es una constante, se multiplica A por B y se añade a C, dejando A y B a 0
         constant_linear_linear_reduction(b, a, c, field);
     }
 }
 
-fn constant_linear_linear_reduction<C>(
+fn constant_linear_linear_reduction<C>( // Añade el contenido de A * B a C y elimina A y B
     a: &mut RawExpr<C>,
     b: &mut RawExpr<C>,
     c: &mut RawExpr<C>,
@@ -1388,22 +1388,80 @@ where
     HashMap::contains_key(expr, &cq) && HashMap::len(expr) == 1
 }
 
-
 // Type RawExpr<C> = HashMap<C, BigInt>;
 fn plonk_constraint<C>(a: &RawExpr<C>, b: &RawExpr<C>, c: &RawExpr<C>) -> bool{
-    // To get the constant coefficient you can use 
-    //let cq: C = ArithmeticExpression::constant_coefficient();
-    //HashMap::contains_key(expr, &cq) // true if there is a cq (termino independiente)
-    todo!()
+    use std::collections::HashSet;
 
+    // To get the constant coefficient you can use 
+    let cq: C = ArithmeticExpression::constant_coefficient();
+
+    // To check that there are no more than 3 distinct variables in total among A, B, and C
+    let mut vars = HashSet::new();
+    let mut num_vars = 0;
+    
+    if !(a.is_empty() && b.is_empty()){
+        // Both A and B can have at most 1 variable so that their product has at most 2 variables
+        if HashMap::contains_key(a, &cq) && HashMap::len(a) > 2 { return false;}
+        else if !HashMap::contains_key(a, &cq) && HashMap::len(a) > 1 { return false;}
+
+        for k in a.keys() {
+            if *k != cq {
+                vars.insert(*k);
+            }
+        }
+
+        num_vars = vars.len();
+
+        if HashMap::contains_key(b, &cq) && HashMap::len(b) > 2 { return false;}
+        else if !HashMap::contains_key(b, &cq) && HashMap::len(b) > 1 { return false;}
+
+        for k in b.keys() {
+            if *k != cq {
+                vars.insert(*k);
+                // It is added regardless of whether it was already in the set, since repeated variables count as if they were distinct
+                num_vars += 1;
+            }
+        }
+    }
+    
+    // C can have at most 3 variables, regardless of whether A and B are empty or not. If it has a constant term, the hashmap can have at most 4 entries; otherwise, 3.
+    if HashMap::contains_key(c, &cq) && HashMap::len(c) > 4 { return false;}
+    else if !HashMap::contains_key(c, &cq) && HashMap::len(c) > 3 { return false;}
+
+    for k in c.keys() {
+        if *k != cq {
+            // Only count new variables introduced by C
+            if !vars.contains(k) {
+                num_vars += 1;
+            }
+        }
+    }
+    
+    return num_vars <= 3;
 }
 
-pub fn normalize(c: &mut Constraint<usize>, _field: &BigInt) {
-    use std::collections::LinkedList;
-    let _a: LinkedList<_> = c.a.iter().clone().collect();
-    let _b: LinkedList<_> = c.b.iter().clone().collect();
-    let _c: LinkedList<_> = c.c.iter().clone().collect();
-    todo!()
+// The normalization process still needs to be stored for subsequent checks
+pub fn normalize(c: Constraint<usize>, _field: &BigInt) -> Constraint<usize> {
+
+    // Removes zero coefficients from A, B, and C and, if A and B are constants, multiplies them and adds their value to C, leaving A and B empty.
+    fix_raw_constraint(&mut c.a, &mut c.b, &mut c.c, _field);
+
+    // Division by the constant term of C, if it exists
+    let cq: C = ArithmeticExpression::constant_coefficient();
+
+    // Only executed if C has a constant term
+    if let Some(constant) = c.c.get(&cq).cloned() {
+
+        if !constant.is_zero() {
+            if !(c.a.is_empty() && c.b.is_empty()) {
+                // Only divide A because A and B are being multiplied
+                ArithmeticExpression::divide_coefficient_by_constant(&constant, &mut c.a, _field);
+            }
+            ArithmeticExpression::divide_coefficient_by_constant(&constant, &mut c.c, _field);
+        }
+    }
+
+    return c;
 }
 
 #[cfg(test)]
