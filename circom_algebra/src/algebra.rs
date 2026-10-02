@@ -1325,14 +1325,14 @@ where
     if HashMap::is_empty(a) || HashMap::is_empty(b) {
         HashMap::clear(a);
         HashMap::clear(b);
-    } else if is_constant_expression(a) { // Si A es una constante, se multiplica A por B y se añade a C, dejando A y B a 0
+    } else if is_constant_expression(a) {
         constant_linear_linear_reduction(a, b, c, field);
-    } else if is_constant_expression(b) { // Si B es una constante, se multiplica A por B y se añade a C, dejando A y B a 0
+    } else if is_constant_expression(b) {
         constant_linear_linear_reduction(b, a, c, field);
     }
 }
 
-fn constant_linear_linear_reduction<C>( // Añade el contenido de A * B a C y elimina A y B
+fn constant_linear_linear_reduction<C>(
     a: &mut RawExpr<C>,
     b: &mut RawExpr<C>,
     c: &mut RawExpr<C>,
@@ -1389,7 +1389,10 @@ where
 }
 
 // Type RawExpr<C> = HashMap<C, BigInt>;
-fn plonk_constraint<C>(a: &RawExpr<C>, b: &RawExpr<C>, c: &RawExpr<C>) -> bool{
+fn plonk_constraint<C>(a: &RawExpr<C>, b: &RawExpr<C>, c: &RawExpr<C>) -> bool
+where
+    C: Default + Clone + Display + Hash + Eq,
+{
     use std::collections::HashSet;
 
     // To get the constant coefficient you can use 
@@ -1406,7 +1409,7 @@ fn plonk_constraint<C>(a: &RawExpr<C>, b: &RawExpr<C>, c: &RawExpr<C>) -> bool{
 
         for k in a.keys() {
             if *k != cq {
-                vars.insert(*k);
+                vars.insert(k.clone());
             }
         }
 
@@ -1417,7 +1420,7 @@ fn plonk_constraint<C>(a: &RawExpr<C>, b: &RawExpr<C>, c: &RawExpr<C>) -> bool{
 
         for k in b.keys() {
             if *k != cq {
-                vars.insert(*k);
+                vars.insert(k.clone());
                 // It is added regardless of whether it was already in the set, since repeated variables count as if they were distinct
                 num_vars += 1;
             }
@@ -1441,13 +1444,13 @@ fn plonk_constraint<C>(a: &RawExpr<C>, b: &RawExpr<C>, c: &RawExpr<C>) -> bool{
 }
 
 // The normalization process still needs to be stored for subsequent checks
-pub fn normalize(c: Constraint<usize>, _field: &BigInt) -> Constraint<usize> {
+pub fn normalize(c: &mut Constraint<usize>, _field: &BigInt) {
 
     // Removes zero coefficients from A, B, and C and, if A and B are constants, multiplies them and adds their value to C, leaving A and B empty.
     fix_raw_constraint(&mut c.a, &mut c.b, &mut c.c, _field);
 
     // Division by the constant term of C, if it exists
-    let cq: C = ArithmeticExpression::constant_coefficient();
+    let cq: usize = ArithmeticExpression::constant_coefficient();
 
     // Only executed if C has a constant term
     if let Some(constant) = c.c.get(&cq).cloned() {
@@ -1455,13 +1458,11 @@ pub fn normalize(c: Constraint<usize>, _field: &BigInt) -> Constraint<usize> {
         if !constant.is_zero() {
             if !(c.a.is_empty() && c.b.is_empty()) {
                 // Only divide A because A and B are being multiplied
-                ArithmeticExpression::divide_coefficient_by_constant(&constant, &mut c.a, _field);
+                ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.a, _field);
             }
-            ArithmeticExpression::divide_coefficient_by_constant(&constant, &mut c.c, _field);
+            ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.c, _field);
         }
     }
-
-    return c;
 }
 
 #[cfg(test)]
