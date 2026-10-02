@@ -701,6 +701,8 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
     let mut num_plonk_constraints = 0;
     // At this point call to normalize all constraints 
     // if we are in PLONK mode
+    
+    println!("Total number of constraints: {}", constraint_storage.get_ids().len());
     for i in constraint_storage.get_ids(){
         let mut c = constraint_storage.read_constraint(i).unwrap();
         c.normalize_constraint(&field);
@@ -712,6 +714,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         
     }    
 
+    println!("Number of plonk constraints: {}", num_plonk_constraints);
 
     let signal_map = {
         // println!("Rebuild witness");
