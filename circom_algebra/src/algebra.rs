@@ -1235,6 +1235,18 @@ impl Constraint<usize> {
         normalize(self, field);
     }
 
+    pub fn vars_to_solve_plonk(&self) -> Vec<(&RawExpr<usize>, usize)> {
+        let (a, b, c) = vars_to_plonk(self);
+        let mut result = Vec::new();
+
+        // They are only introduced the expressions that must be fixed
+        if a > 0 {result.push((&self.a, a));}
+        if b > 0 {result.push((&self.b, b));}
+        if c > 0 {result.push((&self.c, c));}
+
+        result
+    }
+
 }
 
 // model utils
@@ -1458,11 +1470,84 @@ pub fn normalize(c: &mut Constraint<usize>, _field: &BigInt) {
         if !constant.is_zero() {
             if !(c.a.is_empty() && c.b.is_empty()) {
                 // Only divide A because A and B are being multiplied
+                ArithmeticExpression::initialize_hashmap_for_expression(&mut c.a);
                 ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.a, _field);
             }
+            
+            ArithmeticExpression::initialize_hashmap_for_expression(&mut c.c);
             ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.c, _field);
         }
     }
+}
+
+// This function is just called after normalizing and with constraints that are not plonk
+fn vars_to_plonk(ct: &Constraint<usize>) -> (usize, usize, usize) {
+
+    use std::cmp::max;
+
+    let a = &ct.a; let b = &ct.b; let c = &ct.c;
+
+    let mut res_a = 0; let mut res_b = 0; let mut res_c = 0;
+    let mut vars = HashSet::new(); // To check how many original variables contain C that can be used in the final expression
+    let cq: usize = ArithmeticExpression::constant_coefficient();
+    // A and B at the end can have at most 1 variable each. Each new signal introduced van have at most 2 variables.
+    // The number of variables introduced in A and B is the number of variables they have minus 1, because at most they can have 1 variable
+    
+    let mut signlas_used = 0;
+    
+    let mut vars_a = HashMap::len(a);
+    if HashMap::contains_key(a, &cq) {
+        vars_a -= 1;
+    }
+
+    if vars_a == 1 {
+        for k in a.keys() {
+            if *k != cq {
+                vars.insert(k.clone());
+                signlas_used += 1;
+            }
+        }
+        res_a = 0; // It is not necessary to introduce any variable
+    }
+    else if vars_a > 0 {
+        signlas_used += 1;
+        res_a = max(0, vars_a - 1);
+    } 
+    
+    let mut vars_b = HashMap::len(b);
+    if HashMap::contains_key(b, &cq) {
+        vars_b -= 1;
+    }
+
+    if vars_b == 1 {
+        for k in b.keys() {
+            if *k != cq {
+                vars.insert(k.clone());
+                signlas_used += 1;
+            }
+        }
+        res_b = 0; // It is not necessary to introduce any variable
+    }
+    else if vars_b > 0 {
+        signlas_used += 1;
+        res_b = max(0, vars_b - 1);
+    }  
+
+    let mut vars_c = 0; // Variables used in C that are different from the ones used in A and B
+
+    for k in c.keys() {
+        if *k != cq && !vars.contains(k) { // C uses a new variable not used before in A or B after the transformation
+            println!("Var_k {}", k);
+            vars_c += 1;
+        }
+    }
+
+    let vars_can_use_c = 3 - signlas_used;
+    if vars_c > vars_can_use_c {
+        res_c = vars_c - vars_can_use_c;
+    }
+
+    return (res_a, res_b, res_c);
 }
 
 #[cfg(test)]

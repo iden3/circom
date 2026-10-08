@@ -95,6 +95,68 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
             }
         }
     }
+
+    clusters
+}
+
+fn build_expr_clusters(expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>, no_vars: usize) -> Vec<Vec<usize>> {
+
+    type ClusterPath = Vec<usize>;
+
+    fn shrink_jumps_and_find(c_to_c: &mut ClusterPath, org: usize) -> usize {
+        let mut current = org;
+        let mut jumps = Vec::new();
+        while current != c_to_c[current] {
+            Vec::push(&mut jumps, current);
+            current = c_to_c[current];
+        }
+        while let Some(redirect) = Vec::pop(&mut jumps) {
+            c_to_c[redirect] = current;
+        }
+        current
+    }
+
+    fn arena_merge(c_to_c: &mut ClusterPath, src: usize, dest: usize) {
+        let current_dest = shrink_jumps_and_find(c_to_c, dest);
+        let current_src = shrink_jumps_and_find(c_to_c, src);
+
+        c_to_c[current_src] = current_dest;
+    }
+
+    let no_expressions = expressions.len();
+    let mut cluster_to_current : ClusterPath = Vec::with_capacity(no_expressions);
+    let mut signal_to_cluster = vec![no_expressions; no_vars];
+
+    for expression_id in 0..no_expressions {
+        let (_, expr, _) = &expressions[expression_id];
+
+        let signals: Vec<usize> = expr.keys().cloned().collect();
+
+        let dest = expression_id;
+
+        Vec::push(&mut cluster_to_current, dest);
+
+        for signal in signals {
+            let prev = signal_to_cluster[signal];
+            signal_to_cluster[signal] = dest;
+
+            if prev < no_expressions {
+                arena_merge(&mut cluster_to_current, prev, dest);
+            }
+        }
+    }
+
+    let mut clusters: Vec<Vec<usize>> = Vec::new();
+    for expression_id in 0..no_expressions {
+        let root = shrink_jumps_and_find(&mut cluster_to_current, expression_id);
+
+        while clusters.len() <= root {
+            clusters.push(Vec::new());
+        }
+
+        clusters[root].push(expression_id);
+    }
+
     clusters
 }
 
@@ -703,18 +765,51 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
     // if we are in PLONK mode
     
     println!("Total number of constraints: {}", constraint_storage.get_ids().len());
-    for i in constraint_storage.get_ids(){
+
+    let mut expressions_to_fix = Vec::new();
+    for i in constraint_storage.get_ids() {
         let mut c = constraint_storage.read_constraint(i).unwrap();
+
         c.normalize_constraint(&field);
-        let is_plonk = c.is_plonk();
-        if is_plonk{
+
+        if c.is_plonk() {
             num_plonk_constraints += 1;
+        } else {
+            let vars = c.vars_to_solve_plonk();
+
+            for (expr, num_vars) in vars {
+                println!("Constraint {} -> {} variables to solve", i, num_vars);
+                expressions_to_fix.push((i, expr.clone(), num_vars));
+            }
         }
+
         constraint_storage.replace(i, c);
-        
-    }    
+    }  
 
     println!("Number of plonk constraints: {}", num_plonk_constraints);
+
+    let clusters = build_expr_clusters(&expressions_to_fix, no_labels);
+
+    for (cluster_id, cluster) in clusters.iter().enumerate() {
+        println!("\n========== CLUSTER {} ==========", cluster_id);
+
+        for &expression_id in cluster {
+            let (constraint_id, expr, num_vars) =
+                &expressions_to_fix[expression_id];
+
+            println!(
+                "Expression {} -> Constraint {} -> {} variables",
+                expression_id,
+                constraint_id,
+                num_vars
+            );
+
+            println!(
+                "  Signals: {:?}",
+                expr.keys().cloned().collect::<Vec<_>>()
+            );
+        }
+    }
 
     let signal_map = {
         // println!("Rebuild witness");
