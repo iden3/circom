@@ -130,7 +130,8 @@ fn build_expr_clusters(expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>
     for expression_id in 0..no_expressions {
         let (_, expr, _) = &expressions[expression_id];
 
-        let signals: Vec<usize> = expr.keys().cloned().collect();
+        let constant = C::constant_coefficient();
+        let signals: Vec<usize> = expr.keys().filter(|signal| **signal != constant).cloned().collect();
 
         let dest = expression_id;
 
@@ -159,6 +160,240 @@ fn build_expr_clusters(expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>
 
     clusters
 }
+
+fn count_variable_pairs(cluster: &[usize], expressions: &[(usize, HashMap<usize, BigInt>, usize)]) -> Vec<((usize, usize, BigInt, BigInt), usize)> {
+
+    let mut frequencies : HashMap<(usize, usize, BigInt, BigInt), usize> = HashMap::new();
+
+    for &expression_id in cluster {
+        let (_,expression,_) = &expressions[expression_id];
+
+
+        let mut terms: Vec<(usize, BigInt)> = Vec::new();
+        
+        for (signal, coeff) in expression {
+            if *signal != 0 && coeff != &BigInt::from(0) {
+                terms.push((*signal, coeff.clone()));
+            }
+        }
+
+        terms.sort_by_key(|(signal, _)| *signal);
+
+        for i in 0..terms.len() {
+            for j in (i + 1)..terms.len() {
+                let pair = (terms[i].0, terms[j].0, terms[i].1.clone(), terms[j].1.clone());
+
+                *frequencies.entry(pair).or_insert(0) += 1;
+            }
+        }
+    }
+
+    let mut result: Vec<((usize, usize, BigInt, BigInt), usize)> = frequencies.into_iter().collect();
+
+    result
+}
+
+fn select_most_frequent_pair(cluster: &[usize], expressions: &[(usize, HashMap<usize, BigInt>, usize)], pairs: Vec<((usize, usize, BigInt, BigInt), usize)>)
+-> Option<((usize, usize, BigInt, BigInt), usize)> {
+
+    let mut valid_pairs = Vec::new();
+
+    for (pair, frequency) in pairs {
+        let (signal_a, signal_b, coeff_a, coeff_b) = &pair;
+        let mut can_transform = false;
+
+        for &expression_id in cluster {
+            let (_, expression, _) = &expressions[expression_id];
+
+            if expression.get(signal_a) == Some(coeff_a) && expression.get(signal_b) == Some(coeff_b) {
+                can_transform = true;
+                break;
+            }
+        }
+
+        if can_transform {
+            valid_pairs.push((pair, frequency));
+        }
+    }
+
+    let mut best_pair = None;
+    let mut best_frec = 0;
+
+    for candidate in valid_pairs {
+        if best_pair.is_none() || candidate.1 > best_frec || (candidate.1 == best_frec && candidate.0 < *best_pair.as_ref().unwrap()) {
+            best_pair = Some(candidate.0);
+            best_frec = candidate.1;
+        }
+    }
+
+    if let Some(pair) = best_pair {
+        Some((pair, best_frec))
+    }
+    else {
+        None
+    }
+}
+
+// This function creates the constraint for the new variable introduced
+fn create_aux_constraint(auxiliary:usize, pair: &(usize, usize, BigInt, BigInt), field: &BigInt) -> C {
+    let mut coefficients = HashMap::new();
+
+    coefficients.insert(0, BigInt::from(0));
+    coefficients.insert(pair.0, pair.2.clone());
+    coefficients.insert(pair.1, pair.3.clone());
+
+    let substitution = S::new(auxiliary, A::Linear{ coefficients }).unwrap();
+
+    let mut constraint = S::substitution_into_constraint(substitution, field);
+
+    constraint
+}
+
+fn apply_pair_to_cluster(storage: &mut ConstraintStorage, cluster: &[usize], expressions: &[(usize, HashMap<usize, BigInt>, usize)], pair: (usize, usize, BigInt, BigInt),
+aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>, next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) {
+
+    // If the aux var exists for those variables and coefficients, it is reused
+    let aux = if let Some(existing) = aux_signals.get(&pair) {
+        *existing
+    }
+    // If not, it creates a new variable and introduces the corresponding constraint
+    else { 
+        let new_aux = *next_aux;
+        *next_aux += 1;
+
+        let constraint = create_aux_constraint(new_aux, &pair, field);
+        let constraint_id = storage.add_constraint(constraint);
+
+        non_linear_map.entry(new_aux).or_insert_with(LinkedList::new).push_back(constraint_id);
+        aux_signals.insert(pair.clone(), new_aux);
+
+        new_aux
+    };
+
+    let (s_a, s_b, coeff_a, coeff_b) = pair;
+    let mut processed_constraints = HashSet::new();
+
+    // Replaces each appearance of the pair in the cluster constraints
+    for &expression_id in cluster {
+        let (constraint_id, _, _) = &expressions[expression_id];
+
+        if !processed_constraints.insert(*constraint_id) {
+            continue;
+        }
+
+        let mut constraint = storage.read_constraint(*constraint_id).unwrap();
+        constraint.replace_pair_with_auxiliary(s_a, &coeff_a, s_b, &coeff_b, aux);
+        constraint.normalize_constraint(field);
+
+        storage.replace(*constraint_id, constraint);
+    }
+}
+
+// fn replace_var_in_expr(expr: &mut HashMap<usize, BigInt>, x: usize, y: usize, cx: &BigInt, cy: &BigInt, new_var: usize) -> bool {
+//     if expr.get(&x) == Some(cx) && expr.get(&y) == Some(cy) {
+//         expr.remove(&x);
+//         expr.remove(&y);
+//         expr.insert(new_var, BigInt::from(1));
+//         true
+//     } else {
+//         false
+//     }
+// }
+
+// fn replace_pair_in_constraint(constraint: &mut C, x: usize, y: usize, cx: &BigInt, cy: &BigInt, new_var: usize) -> bool {
+//     let mut replaced = false;
+//     replaced |= replace_var_in_expr(&mut constraint.a, x, y, cx, cy, new_var);
+//     replaced |= replace_var_in_expr(&mut constraint.b, x, y, cx, cy, new_var);
+//     replaced |= replace_var_in_expr(&mut constraint.c, x, y, cx, cy, new_var);
+//     replaced
+// }
+
+
+
+// fn plonkify_constraints(
+//     storage: &mut ConstraintStorage,
+//     non_linear_map: &mut SignalToConstraints,
+//     first_new_signal: usize,
+//     field: &BigInt,
+// ) -> usize {
+//     let mut next_signal = first_new_signal;
+
+//     loop {
+//         let mut expressions_to_fix = Vec::new();
+//         for constraint_id in storage.get_ids() {
+//             let constraint = storage.read_constraint(constraint_id).unwrap();
+//             if !constraint.is_plonk() {
+//                 for (expression, num_vars) in constraint.vars_to_solve_plonk() {
+//                     expressions_to_fix.push((constraint_id, expression.clone(), num_vars));
+//                 }
+//             }
+//         }
+
+//         if expressions_to_fix.is_empty() {
+//             break;
+//         }
+
+//         let clusters = build_expr_clusters(&expressions_to_fix, next_signal);
+//         let mut made_replacement = false;
+
+//         for cluster in clusters {
+//             let expressions: Vec<_> = cluster
+//                 .iter()
+//                 .map(|expression_id| expressions_to_fix[*expression_id].1.clone())
+//                 .collect();
+//             let counts = count_pairs_cluster(&expressions);
+//             let pair = counts.into_iter().max_by(|(pair_a, count_a), (pair_b, count_b)| {
+//                 count_a.cmp(count_b).then_with(|| pair_b.cmp(pair_a))
+//             });
+//             let Some(((x, y, cx, cy), _)) = pair else {
+//                 continue;
+//             };
+
+//             let new_signal = next_signal;
+//             next_signal += 1;
+//             let mut definition = HashMap::new();
+//             definition.insert(new_signal, BigInt::from(1));
+//             definition.insert(x, -cx.clone());
+//             definition.insert(y, -cy.clone());
+//             let mut definition_constraint = C::new(HashMap::new(), HashMap::new(), definition);
+//             definition_constraint.normalize_constraint(field);
+//             assert!(definition_constraint.is_plonk());
+//             let definition_id = storage.add_constraint(definition_constraint);
+//             for signal in [new_signal, x, y] {
+//                 non_linear_map
+//                     .entry(signal)
+//                     .or_insert_with(LinkedList::new)
+//                     .push_back(definition_id);
+//             }
+
+//             let constraint_ids: HashSet<_> = cluster
+//                 .iter()
+//                 .map(|expression_id| expressions_to_fix[*expression_id].0)
+//                 .collect();
+//             let mut replaced = false;
+//             for constraint_id in constraint_ids {
+//                 let mut constraint = storage.read_constraint(constraint_id).unwrap();
+//                 if replace_pair_in_constraint(&mut constraint, x, y, &cx, &cy, new_signal) {
+//                     constraint.normalize_constraint(field);
+//                     storage.replace(constraint_id, constraint);
+//                     replaced = true;
+//                 }
+//             }
+//             assert!(replaced, "El par seleccionado debe aparecer en su cluster");
+//             made_replacement = true;
+//         }
+
+//         assert!(made_replacement, "No se encontraron parejas para hacer PLONK los constraints restantes");
+//     }
+
+//     for constraint_id in storage.get_ids() {
+//         let constraint = storage.read_constraint(constraint_id).unwrap();
+//         assert!(constraint.is_plonk(), "El constraint {} no es PLONK tras las sustituciones", constraint_id);
+//     }
+
+//     next_signal
+// }
+
 
 fn rebuild_witness(
     max_signal: usize, 
@@ -519,7 +754,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
     let forbidden = Arc::new(std::mem::replace(&mut smp.forbidden, HashSet::with_capacity(0)));
     let no_labels = Simplifier::no_labels(smp);
     let equalities = std::mem::replace(&mut smp.equalities, LinkedList::new());
-    let max_signal = smp.max_signal;
+    let mut max_signal = smp.max_signal;
     let mut cons_equalities = std::mem::replace(&mut smp.cons_equalities, LinkedList::new());
     let mut linear = std::mem::replace(&mut smp.linear, LinkedList::new());
     let mut deleted = HashSet::new();
@@ -760,56 +995,165 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
     let _trash = constraint_storage.extract_with(&|c| C::is_empty(c));
 
 
-    let mut num_plonk_constraints = 0;
-    // At this point call to normalize all constraints 
-    // if we are in PLONK mode
+    // let mut num_plonk_constraints = 0;
+    // // At this point call to normalize all constraints 
+    // // if we are in PLONK mode
     
-    println!("Total number of constraints: {}", constraint_storage.get_ids().len());
+    // println!("Total number of constraints: {}", constraint_storage.get_ids().len());
 
-    let mut expressions_to_fix = Vec::new();
-    for i in constraint_storage.get_ids() {
-        let mut c = constraint_storage.read_constraint(i).unwrap();
+    // let mut expressions_to_fix = Vec::new();
+    // for i in constraint_storage.get_ids() {
+    //     let mut c = constraint_storage.read_constraint(i).unwrap();
 
-        c.normalize_constraint(&field);
+    //     c.normalize_constraint(&field);
 
-        if c.is_plonk() {
-            num_plonk_constraints += 1;
-        } else {
-            let vars = c.vars_to_solve_plonk();
+    //     if c.is_plonk() {
+    //         num_plonk_constraints += 1;
+    //     } else {
+    //         let vars = c.vars_to_solve_plonk();
 
-            for (expr, num_vars) in vars {
-                println!("Constraint {} -> {} variables to solve", i, num_vars);
-                expressions_to_fix.push((i, expr.clone(), num_vars));
+    //         for (expr, num_vars) in vars {
+    //             println!("Constraint {} -> {} variables to solve", i, num_vars);
+    //             expressions_to_fix.push((i, expr.clone(), num_vars));
+    //         }
+    //     }
+
+    //     constraint_storage.replace(i, c);
+    // }  
+
+    // println!("Number of plonk constraints: {}", num_plonk_constraints);
+
+    // let clusters = build_expr_clusters(&expressions_to_fix, no_labels);
+
+    // let mut aux_signals = HashMap::new();
+
+    // for (cluster_id, cluster) in clusters.iter().enumerate() {
+    //     println!("\n========== CLUSTER {} ==========", cluster_id);
+        
+    //     for &expression_id in cluster {
+    //         let (constraint_id, expr, num_vars) =
+    //         &expressions_to_fix[expression_id];
+            
+    //         println!(
+    //             "Expression {} -> Constraint {} -> {} variables",
+    //             expression_id,
+    //             constraint_id,
+    //             num_vars
+    //         );
+            
+    //         println!("  Expression: {:?}", expr);
+    //     }
+
+    //     let pairs = count_variable_pairs(cluster, &expressions_to_fix);
+
+    //     if let Some((pair, frec)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
+
+    //         println!("Pareja seleccionada: {} * x{}, {} * x{} ({} apariciones)", pair.2, pair.0, pair.3, pair.1, frec);
+
+    //         apply_pair_to_cluster(&mut constraint_storage, cluster, &expressions_to_fix, pair, &mut aux_signals, &mut max_signal, &mut non_linear_map, &field);
+    //     }
+    //     else {
+    //         println!("There are no valid expressions in this cluster");
+    //     }
+    //     println!("  Parejas de variables:");
+    // }
+
+    let mut auxiliary_signals = HashMap::new();
+    // let mut aux_compositions: HashMap<usize, Vec<(usize, BigInt)>> = HashMap::new();
+
+    loop {
+        let mut num_plonk_constraints = 0;
+        let mut expressions_to_fix = Vec::new();
+        let mut has_plonk = false;
+
+        for i in constraint_storage.get_ids() {
+            let mut c = constraint_storage.read_constraint(i).unwrap();
+
+            c.normalize_constraint(&field);
+
+            if c.is_plonk(){
+                num_plonk_constraints += 1;
+            }
+            else {
+                has_plonk = true;
+
+                let vars = c.vars_to_solve_plonk();
+
+                for (expr, num_vars) in vars {
+                    expressions_to_fix.push((i, expr.clone(), num_vars));
+                }
+            }
+
+            constraint_storage.replace(i, c);
+        }
+
+        if !has_plonk || expressions_to_fix.is_empty() { break; }
+
+        let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+
+        let mut changed = false;
+
+        for cluster in &clusters {
+            let pairs = count_variable_pairs(cluster, &expressions_to_fix);
+            
+            if let Some((pair, frequency)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
+                println!("Pareja seleccionada: {} * x{}, {} * x{} ({} apariciones)", pair.2, pair.0, pair.3, pair.1, frequency);
+                apply_pair_to_cluster(&mut constraint_storage, cluster, &expressions_to_fix, pair, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
+                changed = true;
+                break;
             }
         }
 
-        constraint_storage.replace(i, c);
-    }  
+        if !changed { break; }
+    }
 
-    println!("Number of plonk constraints: {}", num_plonk_constraints);
+    println!("\n========================================");
+    println!("       CONSTRAINTS FINALES");
+    println!("========================================");
 
-    let clusters = build_expr_clusters(&expressions_to_fix, no_labels);
+    let mut final_plonk = 0;
+    let mut final_non_plonk = 0;
 
-    for (cluster_id, cluster) in clusters.iter().enumerate() {
-        println!("\n========== CLUSTER {} ==========", cluster_id);
+    for constraint_id in constraint_storage.get_ids() {
+        let constraint = constraint_storage
+            .read_constraint(constraint_id)
+            .unwrap();
 
-        for &expression_id in cluster {
-            let (constraint_id, expr, num_vars) =
-                &expressions_to_fix[expression_id];
+        println!("\nConstraint {}:", constraint_id);
+        fn print_expression(expr: &HashMap<usize, BigInt>) {
+            print!("{{");
 
-            println!(
-                "Expression {} -> Constraint {} -> {} variables",
-                expression_id,
-                constraint_id,
-                num_vars
-            );
+            for (signal, coefficient) in expr {
+                print!("{} * x{}, ", coefficient, signal);
+            }
 
-            println!(
-                "  Signals: {:?}",
-                expr.keys().cloned().collect::<Vec<_>>()
-            );
+            println!("}}");
+        }
+
+        print!("  A = ");
+        print_expression(&constraint.a());
+
+        print!("  B = ");
+        print_expression(&constraint.b());
+
+        print!("  C = ");
+        print_expression(&constraint.c());
+
+        if constraint.is_plonk() {
+            println!("  Estado: PLONK");
+            final_plonk += 1;
+        } else {
+            println!("  Estado: NO PLONK");
+            final_non_plonk += 1;
         }
     }
+
+    println!("\n========================================");
+    println!("RESUMEN FINAL");
+    println!("Constraints PLONK: {}", final_plonk);
+    println!("Constraints NO PLONK: {}", final_non_plonk);
+    println!("Total: {}", final_plonk + final_non_plonk);
+    println!("========================================\n");
 
     let signal_map = {
         // println!("Rebuild witness");

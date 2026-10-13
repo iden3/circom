@@ -1197,6 +1197,24 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         plonk_constraint(&self.a, &self.b, &self.c)
     }
 
+    pub fn replace_pair_with_auxiliary(&mut self, signal_a: C, coeff_a: &BigInt, signal_b: C, coeff_b: &BigInt, auxiliary: C) {
+        if self.a.get(&signal_a) == Some(coeff_a) && self.a.get(&signal_b) == Some(coeff_b) {
+            self.a.insert(signal_a.clone(), BigInt::from(0));
+            self.a.insert(signal_b.clone(), BigInt::from(0));
+            *self.a.entry(auxiliary.clone()).or_insert(BigInt::from(0)) += BigInt::from(1);
+        }
+        if self.b.get(&signal_a) == Some(coeff_a) && self.b.get(&signal_b) == Some(coeff_b) {
+            self.b.insert(signal_a.clone(), BigInt::from(0));
+            self.b.insert(signal_b.clone(), BigInt::from(0));
+            *self.b.entry(auxiliary.clone()).or_insert(BigInt::from(0)) += BigInt::from(1);
+        }
+        if self.c.get(&signal_a) == Some(coeff_a) && self.c.get(&signal_b) == Some(coeff_b) {
+            self.c.insert(signal_a.clone(), BigInt::from(0));
+            self.c.insert(signal_b.clone(), BigInt::from(0));
+            *self.c.entry(auxiliary.clone()).or_insert(BigInt::from(0)) += BigInt::from(1);
+        }
+    }
+
 }
 
 impl<C: Default + Clone + Display + Hash + Eq + std::cmp::Ord> Constraint<C> {
