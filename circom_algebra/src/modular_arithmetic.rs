@@ -58,7 +58,11 @@ pub fn idiv(left: &BigInt, right: &BigInt, field: &BigInt) -> Result<BigInt, Ari
 pub fn mod_op(left: &BigInt, right: &BigInt, field: &BigInt) -> Result<BigInt, ArithmeticError> {
     let left = modulus(left, field);
     let right = modulus(right, field);
-    Result::Ok(modulus(&left, &right))
+    if right == BigInt::from(0) {
+        Result::Err(ArithmeticError::DivisionByZero)
+    } else {    
+        Result::Ok(modulus(&left, &right))
+    }
 }
 pub fn pow(base: &BigInt, exp: &BigInt, field: &BigInt) -> BigInt {
     base.modpow(exp, field)
