@@ -36,6 +36,7 @@ use std::collections::{HashMap, BTreeMap};
 use crate::FlagsExecution;
 type AExpr = ArithmeticExpressionGen<String>;
 type AnonymousComponentsInfo = BTreeMap<String, (Meta, Vec<Expression>)>;
+use std::collections::HashSet;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 enum BlockType {
@@ -56,6 +57,7 @@ struct RuntimeInformation {
     pub environment: ExecutionEnvironment,
     pub exec_program: ExecutedProgram,
     pub anonymous_components: AnonymousComponentsInfo,
+    pub executed_templates_trace: HashSet<String>,
 }
 impl RuntimeInformation {
     pub fn new(current_file: FileID, id_max: usize, prime: &String) -> RuntimeInformation {
@@ -72,6 +74,7 @@ impl RuntimeInformation {
             anonymous_components: AnonymousComponentsInfo::new(),
             conditions_state: Vec::new(),
             unknown_counter: 0,
+            executed_templates_trace: HashSet::new(),
         }
     }
 }
@@ -154,7 +157,8 @@ enum ExecutionError {
     NonValidTagAssignment,
     FalseAssert,
     ArraySizeTooBig,
-    RepeatedDeclaration
+    RepeatedDeclaration,
+    LoopTemplatesCalls
 }
 
 enum ExecutionWarning {
@@ -176,7 +180,7 @@ pub fn constraint_execution(
     runtime_information.public_inputs = program_archive.get_public_inputs_main_component().clone();
     
     let folded_value_result = 
-        if let Call { id, args, .. } = &program_archive.get_main_expression() {
+        if let Call { meta, id, args, .. } = &program_archive.get_main_expression() {
             let mut arg_values = Vec::new();
             for arg_expression in args.iter() {
                 let f_arg = execute_expression(arg_expression, program_archive, &mut runtime_information, flags);
@@ -184,6 +188,7 @@ pub fn constraint_execution(
                 // improve
             }
             execute_template_call_complete(
+                meta,
                 id,
                 arg_values,
                 HashMap::new(),
@@ -1337,6 +1342,7 @@ fn execute_call(
 }
 
 fn execute_template_call_complete(
+    meta: &Meta,
     id: &String,
     arg_values: Vec<AExpressionSlice>,
     tags: HashMap<String, TagWire>,
@@ -1354,7 +1360,8 @@ fn execute_template_call_complete(
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
 
         runtime.call_trace.push(id.clone());
-        let folded_result = execute_template_call(id, arg_values, tags, program_archive, runtime, flags)?;
+        
+        let folded_result = execute_template_call(meta, id, arg_values, tags, program_archive, runtime, flags)?;
 
         runtime.environment = previous_environment;
         runtime.current_file = previous_id;
@@ -1833,6 +1840,7 @@ fn perform_assign(
                 let pretemplate_info = runtime.exec_program.get_prenode_value(prenode_pointer).unwrap();
                 let inputs_tags = component.inputs_tags.clone();
                 let result = execute_template_call_complete(
+                    meta,
                     pretemplate_info.template_name(),
                     pretemplate_info.parameter_instances().clone(),
                     inputs_tags,
@@ -2074,6 +2082,7 @@ fn perform_assign(
                     let inputs_tags = component.inputs_tags.clone();
     
                     let folded_result = execute_template_call_complete(
+                        meta,
                         pretemplate_info.template_name(),
                         pretemplate_info.parameter_instances().clone(),
                         inputs_tags,
@@ -3388,6 +3397,7 @@ fn execute_function_call(
 
 
 fn execute_template_call(
+    meta: &Meta,
     id: &str,
     parameter_values: Vec<AExpressionSlice>,
     tag_values: HashMap<String, TagWire>,
@@ -3429,6 +3439,21 @@ fn execute_template_call(
         instantiation_name.pop();
     }
     instantiation_name.push(')');
+
+
+    // Check if the node is already in the execution trace
+    if runtime.executed_templates_trace.contains(&instantiation_name) {
+            let err = Result::Err(ExecutionError::LoopTemplatesCalls);
+            treat_result_with_execution_error(
+                err,
+                meta,
+                &mut runtime.runtime_errors,
+                &runtime.call_trace,
+        )?;
+    } else{
+        runtime.executed_templates_trace.insert(instantiation_name.clone());
+    }
+
     let existent_node = runtime.exec_program.identify_node(id, &args_to_values, &tag_values);
     let node_pointer = if let Option::Some(pointer) = existent_node {
         pointer
@@ -3439,7 +3464,7 @@ fn execute_template_call(
         let mut node_wrap = Option::Some(ExecutedTemplate::new(
             is_main,
             id.to_string(),
-            instantiation_name,
+            instantiation_name.clone(),
             args_to_values,
             tag_values,
             code,
@@ -3491,6 +3516,10 @@ fn execute_template_call(
         let node_pointer = runtime.exec_program.add_node_to_scheme(new_node, analysis);
         node_pointer
     };
+
+    // Remove the node from the execution trace
+    runtime.executed_templates_trace.remove(&instantiation_name);
+
     Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(false), ..FoldedValue::default() })
 }
 
@@ -4316,6 +4345,10 @@ fn treat_result_with_execution_error<C>(
                 ),
                 RepeatedDeclaration => Report::error(
                     "The signal and component names must be unique after executing the template. Only variables can be redefined in different blocks".to_string(),
+                    ReportCode::RuntimeError,
+                ),
+                LoopTemplatesCalls => Report::error(
+                    "Found loop in template calls. The template calls must be acyclic.".to_string(),
                     ReportCode::RuntimeError,
                 ),
             };
