@@ -1655,10 +1655,17 @@ fn compute_full_address(
                 message_id: at.get_message_id(),
                 op_aux_no: 0,
                 op: OperatorType::MulAddress,
-                stack: vec![inst, instruction],
+                stack: vec![inst, instruction.clone()],
             }
             .allocate();
             stack.push(jump);
+
+            // TODO: only apply in accesses that might fail -> check that the value is smaller than the size of each index
+            let check = OutBoundsCheck{
+                access: instruction,
+                size: dimension_length,
+            };
+            checks.push(check);
         }
 
         index += 1;
