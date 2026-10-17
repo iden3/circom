@@ -852,7 +852,15 @@ STRING : String = {
 };
 
 SMALL_DECNUMBER: usize = {
-    r"[0-9]+" => usize::from_str(<>).expect("failed to parse number")
+    <s:@L> <s_str:r"[0-9]+"> <e:@L> => {
+        match s_str.parse::<usize>() {
+            Ok(v) => v,
+            Err(_) => {
+                errors.push(produce_report(ReportCode::UnrecognizedVersion, s..e, file_id));
+                0
+            }
+        }
+    }
 };
 
 
