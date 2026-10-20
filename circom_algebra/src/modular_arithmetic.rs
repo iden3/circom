@@ -116,11 +116,17 @@ pub fn shift_l(left: &BigInt, right: &BigInt, field: &BigInt) -> Result<BigInt, 
     let two = BigInt::from(2);
     let top = field / &two;
     if right <= &top {
-        let usize_repr = right
-            .to_usize()
-            .map_or(Result::Err(ArithmeticError::DivisionByZero), |a| Result::Ok(a))?;
-        let value = modulus(&((left * &num_traits::pow(two, usize_repr)) & &mask(field)), field);
-        Result::Ok(value)
+        if right >= &BigInt::from(bit_representation(field).1.len()) {
+            let value = BigInt::from(0);
+            Result::Ok(value)
+        } else{
+            let usize_repr = right
+                .to_usize()
+                .map_or(Result::Err(ArithmeticError::DivisionByZero), |a| Result::Ok(a))?;
+            let value = modulus(&((left * &num_traits::pow(two, usize_repr)) & &mask(field)), field);
+            Result::Ok(value)
+            }
+        
     } else {
         shift_r(left, &(field - right), field)
     }
@@ -129,11 +135,16 @@ pub fn shift_r(left: &BigInt, right: &BigInt, field: &BigInt) -> Result<BigInt, 
     let two = BigInt::from(2);
     let top = field / &two;
     if right <= &top {
-        let usize_repr = right
-            .to_usize()
-            .map_or(Result::Err(ArithmeticError::DivisionByZero), |a| Result::Ok(a))?;
-        let value = left / &num_traits::pow(two, usize_repr);
-        Result::Ok(value)
+        if right >= &BigInt::from(bit_representation(field).1.len()) {
+            let value = BigInt::from(0);
+            Result::Ok(value)
+        } else {
+            let usize_repr = right
+                .to_usize()
+                .map_or(Result::Err(ArithmeticError::DivisionByZero), |a| Result::Ok(a))?;
+            let value = left / &num_traits::pow(two, usize_repr);
+            Result::Ok(value)
+        }
     } else {
         shift_l(left, &(field - right), field)
     }
