@@ -703,7 +703,7 @@ fn execute_statement(
             // We update the conditions state of the execution
             runtime.conditions_state.push((runtime.unknown_counter, true));
             runtime.unknown_counter+=1;
-            loop {
+            let returned = loop {
 
                 let (returned, can_simplify, condition_result) = execute_conditional_statement(
                     cond,
@@ -731,9 +731,13 @@ fn execute_statement(
                 } else if !condition_result.unwrap() {
                     break returned;
                 }
-                // We remove the last conditions_state added
-                runtime.conditions_state.pop();
-            }
+                
+
+            };
+
+            // We remove the last conditions_state added
+            runtime.conditions_state.pop();
+            returned
         },
         Block { stmts, .. } => {
             ExecutionEnvironment::add_variable_block(&mut runtime.environment);
