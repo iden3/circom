@@ -1,15 +1,17 @@
 # Release notes
-## March 16, 2026 circom 2.2.4
+
+## October 20, 2026 circom 2.2.4
 #### Extensions
-- New level for sanity_check option: level 3 adds out-of-bounds checks for any read or write access to an array both in the C and WASM witness generation code.
+- A new level 3 is added to the option —sanity_check: in addition to the checks of level 2, it introduces out of bounds checks (including negative indexes) in every array read/write and division by zero checks (operators / and \\) in the produced wasm and C++ witness generation code. More information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/getting-started/compilation-options.md).
 
 #### Improvements
-- Improving documentation. 
+- Improving documentation.
 
 #### Fixed bugs
-- Fixed several issues in witness generation in C.
+- Fixing issues in the produced C++ witness generation code for assignments of size 0.
 - Fixing minor panic by detecting whether the expression of the main component contains tuples or anonymous component calls.
-- Fixing minor panic in the analysis of variable renaming.
+- Fixing minor panic in the analysis of variable renaming: signal, bus and component names must be unique after executing the template (only variables can be redeclared in different blocks).
+
 
 ## October 24, 2025 circom 2.2.3
 #### Extensions
