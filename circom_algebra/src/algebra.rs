@@ -1254,15 +1254,26 @@ impl Constraint<usize> {
     }
 
     pub fn vars_to_solve_plonk(&self) -> Vec<(&RawExpr<usize>, usize)> {
+        self.vars_to_solve_plonk_with_total().0
+    }
+
+    /// Returns the expressions to fix and the sum of their auxiliary-variable upper bounds.
+    pub fn vars_to_solve_plonk_with_total(&self) -> (Vec<(&RawExpr<usize>, usize)>, usize) {
         let (a, b, c) = vars_to_plonk(self);
         let mut result = Vec::new();
 
         // They are only introduced the expressions that must be fixed
-        if a > 0 {result.push((&self.a, a));}
-        if b > 0 {result.push((&self.b, b));}
-        if c > 0 {result.push((&self.c, c));}
+        if a > 0 {
+            result.push((&self.a, a));
+        }
+        if b > 0 {
+            result.push((&self.b, b));
+        }
+        if c > 0 {
+            result.push((&self.c, c));
+        }
 
-        result
+        (result, a + b + c)
     }
 
 }
@@ -1511,56 +1522,50 @@ fn vars_to_plonk(ct: &Constraint<usize>) -> (usize, usize, usize) {
     // A and B at the end can have at most 1 variable each. Each new signal introduced van have at most 2 variables.
     // The number of variables introduced in A and B is the number of variables they have minus 1, because at most they can have 1 variable
     
-    let mut signlas_used = 0;
+    let mut signals_used = 0;
     
-    let mut vars_a = HashMap::len(a);
-    if HashMap::contains_key(a, &cq) {
-        vars_a -= 1;
-    }
+    let vars_a =
+        a.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
 
     if vars_a == 1 {
-        for k in a.keys() {
-            if *k != cq {
+        for (k, coefficient) in a {
+            if *k != cq && !coefficient.is_zero() {
                 vars.insert(k.clone());
-                signlas_used += 1;
+                signals_used += 1;
             }
         }
         res_a = 0; // It is not necessary to introduce any variable
-    }
-    else if vars_a > 0 {
-        signlas_used += 1;
+    } else if vars_a > 0 {
+        signals_used += 1;
         res_a = max(0, vars_a - 1);
-    } 
-    
-    let mut vars_b = HashMap::len(b);
-    if HashMap::contains_key(b, &cq) {
-        vars_b -= 1;
     }
 
+    let vars_b =
+        b.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
+
     if vars_b == 1 {
-        for k in b.keys() {
-            if *k != cq {
+        for (k, coefficient) in b {
+            if *k != cq && !coefficient.is_zero() {
                 vars.insert(k.clone());
-                signlas_used += 1;
+                signals_used += 1;
             }
         }
         res_b = 0; // It is not necessary to introduce any variable
-    }
-    else if vars_b > 0 {
-        signlas_used += 1;
+    } else if vars_b > 0 {
+        signals_used += 1;
         res_b = max(0, vars_b - 1);
-    }  
+    }
 
     let mut vars_c = 0; // Variables used in C that are different from the ones used in A and B
 
-    for k in c.keys() {
-        if *k != cq && !vars.contains(k) { // C uses a new variable not used before in A or B after the transformation
-            println!("Var_k {}", k);
+    for (k, coefficient) in c {
+        if *k != cq && !coefficient.is_zero() && !vars.contains(k) {
+            // C uses a new variable not used before in A or B after the transformation
             vars_c += 1;
         }
     }
 
-    let vars_can_use_c = 3 - signlas_used;
+    let vars_can_use_c = 3 - signals_used;
     if vars_c > vars_can_use_c {
         res_c = vars_c - vars_can_use_c;
     }
@@ -1598,6 +1603,33 @@ mod test {
         assert!(constraint_with_offset.c.contains_key(&new_x));
         let value = constraint_with_offset.c.get(&new_x).unwrap();
         assert!(value.eq(&BigInt::from(3)));
+    }
+
+    #[test]
+    fn vars_to_solve_plonk_counts_distinct_signals_and_total_auxiliaries() {
+        let mut a = HashMap::new();
+        a.insert(1, BigInt::from(2));
+        a.insert(2, BigInt::from(3));
+        let constraint = C::new(a, HashMap::new(), HashMap::new());
+
+        let (expressions, total_auxiliaries) = constraint.vars_to_solve_plonk_with_total();
+
+        assert_eq!(expressions.len(), 1);
+        assert_eq!(expressions[0].1, 1);
+        assert_eq!(total_auxiliaries, 1);
+    }
+
+    #[test]
+    fn vars_to_solve_plonk_does_not_split_a_merged_signal() {
+        let mut a = HashMap::new();
+        a.insert(1, BigInt::from(2));
+        a.insert(2, BigInt::from(0));
+        let constraint = C::new(a, HashMap::new(), HashMap::new());
+
+        let (expressions, total_auxiliaries) = constraint.vars_to_solve_plonk_with_total();
+
+        assert!(expressions.is_empty());
+        assert_eq!(total_auxiliaries, 0);
     }
 
     #[test]
