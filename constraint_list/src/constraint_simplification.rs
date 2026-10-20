@@ -5,6 +5,9 @@ use circom_algebra::num_bigint::BigInt;
 use constraint_writers::json_writer::SubstitutionJSON;
 use std::collections::{HashMap, HashSet, LinkedList, BTreeSet};
 use std::sync::Arc;
+use z3::ast::{Bool, Int};
+use z3::{Config, Optimize, SatResult, with_z3_config};
+use std::str::FromStr;
 
 fn log_substitutions(substitutions: &LinkedList<S>, writer: &mut Option<SubstitutionJSON>) {
     use super::json_porting::port_substitution;
@@ -250,7 +253,7 @@ fn create_aux_constraint(auxiliary:usize, pair: &(usize, usize, BigInt, BigInt),
 }
 
 fn apply_pair_to_cluster(storage: &mut ConstraintStorage, cluster: &[usize], expressions: &[(usize, HashMap<usize, BigInt>, usize)], pair: (usize, usize, BigInt, BigInt),
-aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>, next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) {
+aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>, next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) -> usize {
 
     // If the aux var exists for those variables and coefficients, it is reused
     let aux = if let Some(existing) = aux_signals.get(&pair) {
@@ -287,6 +290,404 @@ aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>, next_aux: &mut
 
         storage.replace(*constraint_id, constraint);
     }
+
+    aux
+}
+
+// Optimization of the number of new variables introduced, using an SMT solver
+fn variables_optimization(storage: &mut ConstraintStorage, expression: &[(usize, HashMap<usize, BigInt>, usize)], cluster: &[usize], aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
+next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) { // -> bool {
+
+    let mut constraints_ids = Vec::new();
+    let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
+
+    for &expression_id in cluster {
+        let constraint_id = expression[expression_id].0;
+        if !constraints_ids.contains(&constraint_id) { constraints_ids.push(constraint_id); }
+        
+        for (var, coeff) in &expression[expression_id].1 {
+            if *var == 0 || coeff == &BigInt::from(0) { continue; }
+
+            let pair = (*var, coeff.clone());
+            if !coeffs_and_vars.contains(&pair) {
+                coeffs_and_vars.push(pair);
+            }
+        }
+    }
+    
+    // if constraints_ids.is_empty() { return false; }
+    
+    let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
+
+    for &expression_id in cluster {
+        let expression_coeffs = &expression[expression_id].1;
+        let mut v = Vec::new();
+
+        for (var, coeff) in &coeffs_and_vars {
+            let present = expression_coeffs.get(var) == Some(coeff);
+            v.push(present);
+        }
+
+        vars_per_expression.push(v);
+    }
+
+    let mut bound = 0; // Maximum number of variables that are needed to transform all the expressions of the cluster into plonk
+    for &expression_id in cluster {
+        bound += expression[expression_id].2;
+    }
+
+    let config = Config::new();
+    with_z3_config(&config, || {
+        let mut solver = Optimize::new();
+        let zero = Int::from_i64(0);
+        let one = Int::from_i64(1);
+
+        let mut expr_use_vars = Vec::new();
+        let rows_expr = cluster.len();
+        let cols_expr = coeffs_and_vars.len() + bound;
+        
+        for e in 0..rows_expr {
+            for c in 0..cols_expr {
+                let var = Bool::new_const(format!("expr_{}_uses_var_{}", e, c));
+
+                expr_use_vars.push(var);
+            }
+        }
+
+        let get_expr_uses = |r:usize, c: usize| { expr_use_vars[r * cols_expr + c].clone() };
+
+        let mut vars_composition = Vec::new();
+        let rows_vars = bound;
+        let cols_vars = coeffs_and_vars.len() + bound;
+
+        for v in 0..rows_vars {
+            for c in 0..cols_vars {
+                let v = Bool::new_const(format!("var_{}_uses_{}", v, c));
+                vars_composition.push(v);
+            }
+        }
+
+        let get_v_composition = |r:usize, c: usize| { vars_composition[r * cols_vars + c].clone() };
+
+        // Each new variable can be empty or formed with exactly 2 original variables or previous declared new variables
+        for v in 0..rows_vars {
+            let mut num_vars_compose = Int::from_i64(0);
+            for c in 0..cols_vars {
+                let selected = get_v_composition(v, c);
+                let contribution = selected.ite(&one, &zero);
+
+                num_vars_compose = &num_vars_compose + &contribution;
+            }
+
+            let two = Int::from_i64(2);
+            let is_empty = num_vars_compose._eq(&zero);
+            let has_two_terms = num_vars_compose._eq(&two);
+            solver.assert(Bool::or(&[&is_empty, &has_two_terms]));
+
+            // Two terms with the same variables cannot be used in the same variable
+            // for first in 0..coeffs_and_vars.len() {
+            //     for second in (first + 1)..coeffs_and_vars.len() {
+            //         if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
+            //             let both_selected = Bool::and(&[&get_v_composition(v, first), &get_v_composition(v, second)]);
+            //             solver.assert(&both_selected.not());
+            //         }
+            //     }
+            // }
+        }
+
+        // Each new variable can only use previous variables and cannot use itself to create a new variable
+        for v in 0..rows_vars {
+            for c in (coeffs_and_vars.len()+ v)..cols_vars {
+                solver.assert(&get_v_composition(v, c).not());
+            }
+        } 
+        
+        // Empty variables must be at the end of the matrix
+        for v in 0..rows_vars.saturating_sub(1) {
+            let mut num_vars_v = Int::from_i64(0);
+            let mut num_vars_next = Int::from_i64(0);
+
+            for c in 0..cols_vars {
+                let selected_v = get_v_composition(v, c);
+                let contribution_v = selected_v.ite(&one, &zero);
+                num_vars_v = &num_vars_v + &contribution_v;
+
+                let selected_next = get_v_composition(v + 1, c);
+                let contribution_next = selected_next.ite(&one, &zero);
+                num_vars_next = &num_vars_next + &contribution_next;
+            }
+
+            let current_is_empty = num_vars_v._eq(&zero);
+            let next_is_empty = num_vars_next._eq(&zero);
+
+            solver.assert(&current_is_empty.implies(&next_is_empty));
+        }
+        
+        // Each new variable, how much original variables of each type does it have
+        let mut vars_var = Vec::new();
+        for v in 0.. rows_vars {
+            let mut v_vars = Vec::new();
+            for v_orig_id in 0..coeffs_and_vars.len() {
+                let var = Int::new_const(format!("var_{}_contains_x_vars_{}", v, v_orig_id));
+
+                v_vars.push(var);
+            }
+
+            vars_var.push(v_vars);
+        }
+
+        for v in 0..rows_vars {
+            for v_orig_id in 0..coeffs_and_vars.len() {
+                let original_signal = coeffs_and_vars[v_orig_id].0;
+                let mut num_v = Int::from_i64(0);
+
+                for c in 0..cols_vars {
+                    let selected = get_v_composition(v, c);
+
+                    if c < coeffs_and_vars.len() {
+                        if coeffs_and_vars[c].0 == original_signal {
+                            let coeff_str = coeffs_and_vars[c].1.to_string();
+                            let coeff = Int::from_str(&coeff_str).unwrap();
+
+                            let contribution = selected.ite(&coeff, &zero);
+                            num_v = &num_v + &contribution;
+                        }
+                    } else {
+                        let previous_aux_id = c - coeffs_and_vars.len();
+
+                        if previous_aux_id < v {
+                            let previous_count = &vars_var[previous_aux_id][v_orig_id];
+
+                            let contribution = selected.ite(previous_count, &zero);
+                            num_v = &num_v + &contribution;
+                        }
+                    }
+                }
+
+                solver.assert(&vars_var[v][v_orig_id]._eq(&num_v));
+            }
+        }
+
+        // Al sustituir las variables nuevas se obtiene un resultado equivalente
+        for e in 0..rows_expr {
+            let expression_id = cluster[e];
+            let expression_coeffs = &expression[expression_id].1;
+
+            for c in 0..coeffs_and_vars.len() {
+                // If the terms is not in the original expression, it cannot be used.
+                if !vars_per_expression[e][c] {
+                    solver.assert(&get_expr_uses(e, c).not());
+                }
+            }
+
+            for v_orig_id in 0..coeffs_and_vars.len() {
+                let original_signal = coeffs_and_vars[v_orig_id].0;
+
+                let original_coeff = expression_coeffs.get(&original_signal).cloned().unwrap_or_else(|| BigInt::from(0));
+
+                let original_coeff = Int::from_str(&original_coeff.to_string()).unwrap();
+
+                let mut reconstructed_coeff = Int::from_i64(0);
+
+                // Original terms that appear in the final expression
+                for c in 0..coeffs_and_vars.len() {
+                    if coeffs_and_vars[c].0 == original_signal {
+                        let selected = get_expr_uses(e, c).clone();
+
+                        let coeff = Int::from_str(&coeffs_and_vars[c].1.to_string(),).unwrap();
+
+                        let contribution = selected.ite(&coeff, &zero);
+
+                        reconstructed_coeff = &reconstructed_coeff + &contribution;
+                    }
+                }
+
+                // The original variable is used in the new variables introduced
+                for v in 0..rows_vars {
+                    let selected = get_expr_uses(e, coeffs_and_vars.len() + v).clone();
+                    let auxiliary_coeff = &vars_var[v][v_orig_id];
+
+                    let contribution = selected.ite(auxiliary_coeff, &zero);
+
+                    reconstructed_coeff = &reconstructed_coeff + &contribution;
+                }
+
+                solver.assert(&reconstructed_coeff._eq(&original_coeff));
+            }
+        }
+
+        // Each transformed expression must use the required number of variables.
+        // This can check if the expression in plonk???
+
+        let mut vars_used_by_var = Vec::new();
+
+        for v in 0..rows_vars {
+            let mut aux = Int::from_i64(0);
+            for prev_v in coeffs_and_vars.len()..(coeffs_and_vars.len() + v) {
+                let selected = get_v_composition(v, prev_v);
+                let contribution = selected.ite(&(&one + &vars_used_by_var[prev_v - coeffs_and_vars.len()]), &zero);
+
+                aux = &aux + &contribution;
+            }
+            vars_used_by_var.push(aux);
+        }
+
+        for e in 0..rows_expr {
+            let mut aux = Int::from_i64(0);
+            for c in coeffs_and_vars.len()..cols_expr {
+                let selected = get_expr_uses(e, c).clone();
+                let contribution = selected.ite(&(&one + &vars_used_by_var[c - coeffs_and_vars.len()]), &zero);
+
+                aux = &aux + &contribution;
+            }
+
+            let expression_id = cluster[e];
+            let required_vars = Int::from_str(&expression[expression_id].2.to_string()).unwrap();
+            solver.assert(&aux._eq(&required_vars));
+        }
+
+        // An expression just uses non empty variables
+        for e in 0..rows_expr {
+            for v in 0..rows_vars {
+                let mut num_vars_compose = Int::from_i64(0);
+
+                for c in 0..cols_vars {
+                    let selected = get_v_composition(v, c);
+                    let contribution = selected.ite(&one, &zero);
+                    num_vars_compose = &num_vars_compose + &contribution;
+                }
+
+                let is_active = num_vars_compose._eq(&Int::from_i64(2));
+                let expr_uses_aux = get_expr_uses(e, coeffs_and_vars.len() + v);
+
+                solver.assert(&expr_uses_aux.implies(&is_active));
+            }
+        }
+
+        // Check that each expression, after replacing the variables, is plonk
+        // Order constraints
+
+        // Minimize the number of variables introduced
+        let mut active_vars = Int::from_i64(0);
+        
+        for v in 0..rows_vars {
+            let active_positions: Vec<&Bool> = (0..cols_vars).map(|c| &vars_composition[v * cols_vars + c]).collect();
+            let is_active = Bool::or(&active_positions);
+            let contribution = is_active.ite(&one, &zero);
+            active_vars = &active_vars + &contribution;
+        }
+        solver.minimize(&active_vars);
+
+        match solver.check(&[]) {
+            SatResult::Sat => {
+                println!("\nVariable optimization: SAT");
+                let model = solver.get_model().expect("SAT result must have a model");
+                let is_selected = |variable: &Bool| {
+                    model
+                        .eval(variable, true)
+                        .and_then(|value| value.as_bool())
+                        .unwrap_or(false)
+                };
+
+                let mut model_aux_signals = vec![None; rows_vars];
+                for v in 0..rows_vars {
+                    let selected_sources: Vec<usize> = (0..cols_vars)
+                        .filter(|c| is_selected(&vars_composition[v * cols_vars + c]))
+                        .collect();
+                    if selected_sources.is_empty() {
+                        continue;
+                    }
+
+                    let source = |column: usize, model_aux_signals: &[Option<usize>]| {
+                        if column < coeffs_and_vars.len() {
+                            (coeffs_and_vars[column].0, coeffs_and_vars[column].1.clone())
+                        } else {
+                            let previous_aux = column - coeffs_and_vars.len();
+                            (model_aux_signals[previous_aux].unwrap(), BigInt::from(1))
+                        }
+                    };
+                    let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
+                    let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
+                    let pair = (signal_a, signal_b, coeff_a, coeff_b);
+                    let auxiliary = apply_pair_to_cluster(
+                        storage,
+                        cluster,
+                        expression,
+                        pair,
+                        aux_signals,
+                        next_aux,
+                        non_linear_map,
+                        field,
+                    );
+                    model_aux_signals[v] = Some(auxiliary);
+                }
+
+                println!("New constraints:");
+                let mut introduced = 0;
+                for v in 0..rows_vars {
+                    let mut terms = Vec::new();
+                    for c in 0..cols_vars {
+                        if !is_selected(&vars_composition[v * cols_vars + c]) {
+                            continue;
+                        }
+
+                        if c < coeffs_and_vars.len() {
+                            let (signal, coefficient) = &coeffs_and_vars[c];
+                            terms.push(format!("{} * x{}", coefficient, signal));
+                        } else {
+                            let previous_aux = c - coeffs_and_vars.len();
+                            terms.push(format!("x{}", model_aux_signals[previous_aux].unwrap()));
+                        }
+                    }
+
+                    if !terms.is_empty() {
+                        let auxiliary = model_aux_signals[v].unwrap();
+                        println!("  x{} = {}", auxiliary, terms.join(" + "));
+                        introduced += 1;
+                    }
+                }
+
+                println!("Introduced variables ({}):", introduced);
+                for v in 0..rows_vars {
+                    let is_active = (0..cols_vars)
+                        .any(|c| is_selected(&vars_composition[v * cols_vars + c]));
+                    if is_active {
+                        println!("  x{}", model_aux_signals[v].unwrap());
+                    }
+                }
+
+                println!("Transformed expressions:");
+                for e in 0..rows_expr {
+                    let expression_id = cluster[e];
+                    let mut terms = Vec::new();
+                    if let Some(constant) = expression[expression_id].1.get(&0) {
+                        if constant != &BigInt::from(0) {
+                            terms.push(constant.to_string());
+                        }
+                    }
+
+                    for c in 0..coeffs_and_vars.len() {
+                        if is_selected(&expr_use_vars[e * cols_expr + c]) {
+                            let (signal, coefficient) = &coeffs_and_vars[c];
+                            terms.push(format!("{} * x{}", coefficient, signal));
+                        }
+                    }
+
+                    for v in 0..rows_vars {
+                        if is_selected(&expr_use_vars[e * cols_expr + coeffs_and_vars.len() + v]) {
+                            terms.push(format!("x{}", model_aux_signals[v].unwrap()));
+                        }
+                    }
+
+                    println!("  expression {}: {}", expression_id, terms.join(" + "));
+                }
+            }
+            SatResult::Unsat => println!("\nVariable optimization: UNSAT"),
+            SatResult::Unknown => println!("\nVariable optimization: UNKNOWN"),
+        }
+    })
+
+    // Alguna optimizacion de que solo sean parejas de variables validas
 }
 
 fn rebuild_witness(
@@ -894,55 +1295,48 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
     let mut auxiliary_signals = HashMap::new();
     // let mut aux_compositions: HashMap<usize, Vec<(usize, BigInt)>> = HashMap::new();
 
-    loop {
-        let mut num_plonk_constraints = 0;
-        let mut expressions_to_fix = Vec::new();
-        let mut has_plonk = false;
+    let mut expressions_to_fix = Vec::new();
+    let mut estimated_auxiliary_variables = 0;
+    for i in constraint_storage.get_ids() {
+        let mut constraint = constraint_storage.read_constraint(i).unwrap();
+        constraint.normalize_constraint(&field);
 
-        for i in constraint_storage.get_ids() {
-            let mut c = constraint_storage.read_constraint(i).unwrap();
-
-            c.normalize_constraint(&field);
-
-            if c.is_plonk(){
-                num_plonk_constraints += 1;
-            }
-            else {
-                has_plonk = true;
-
-                let vars = c.vars_to_solve_plonk();
-
-                for (expr, num_vars) in vars {
-                    expressions_to_fix.push((i, expr.clone(), num_vars));
-                }
-            }
-
-            constraint_storage.replace(i, c);
-        }
-
-        if !has_plonk || expressions_to_fix.is_empty() { break; }
-
-        let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
-
-        let mut changed = false;
-
-        for cluster in &clusters {
-            let pairs = count_variable_pairs(cluster, &expressions_to_fix);
-            
-            if let Some((pair, frequency)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
-                println!("Chosen pair: {} * x{}, {} * x{} (appears {} times)", pair.2, pair.0, pair.3, pair.1, frequency);
-                apply_pair_to_cluster(&mut constraint_storage, cluster, &expressions_to_fix, pair, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
-                changed = true;
-                break;
+        if !constraint.is_plonk() {
+            let (expressions, total_auxiliaries) = constraint.vars_to_solve_plonk_with_total();
+            estimated_auxiliary_variables += total_auxiliaries;
+            for (expr, num_vars) in expressions {
+                expressions_to_fix.push((i, expr.clone(), num_vars));
             }
         }
 
-        if !changed { break; }
+        constraint_storage.replace(i, constraint);
+    }
+
+    let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+    for cluster in &clusters {
+        // Greedy optimization retained for comparison:
+        // let pairs = count_variable_pairs(cluster, &expressions_to_fix);
+        // if let Some((pair, frequency)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
+        //     println!("Chosen pair: {} * x{}, {} * x{} (appears {} times)", pair.2, pair.0, pair.3, pair.1, frequency);
+        //     apply_pair_to_cluster(&mut constraint_storage, cluster, &expressions_to_fix, pair, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
+        // }
+
+        variables_optimization(
+            &mut constraint_storage,
+            &expressions_to_fix,
+            cluster,
+            &mut auxiliary_signals,
+            &mut max_signal,
+            &mut non_linear_map,
+            &field,
+        );
     }
 
     println!("\n========================================");
     println!("       FINAL CONSTRAINTS");
     println!("========================================");
+    println!("Estimated auxiliary-variable upper bound: {}", estimated_auxiliary_variables);
+    println!("Auxiliary variables introduced by Z3: {}", auxiliary_signals.len());
 
     let mut final_plonk = 0;
     let mut final_non_plonk = 0;
@@ -971,6 +1365,34 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
 
         print!("  C = ");
         print_expression(&constraint.c());
+
+        let constant = C::constant_coefficient();
+        let count_variables = |expression: &HashMap<usize, BigInt>| {
+            expression
+                .iter()
+                .filter(|(signal, coefficient)| {
+                    **signal != constant && **coefficient != BigInt::from(0)
+                })
+                .count()
+        };
+        let mut distinct_variables = HashSet::new();
+        for expression in [&constraint.a(), &constraint.b(), &constraint.c()] {
+            distinct_variables.extend(
+                expression
+                    .iter()
+                    .filter(|(signal, coefficient)| {
+                        **signal != constant && **coefficient != BigInt::from(0)
+                    })
+                    .map(|(signal, _)| *signal),
+            );
+        }
+        println!(
+            "  Remaining variables after reconstruction: A={}, B={}, C={}, distinct in constraint={}",
+            count_variables(constraint.a()),
+            count_variables(constraint.b()),
+            count_variables(constraint.c()),
+            distinct_variables.len()
+        );
 
         if constraint.is_plonk() {
             println!("  State: PLONK");
@@ -1018,6 +1440,3 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
     // println!("NO CONSTANTS: {}", constraint_storage.no_constants());
     (constraint_storage, signal_map, smp.no_private_inputs - deleted_inputs)
 }
-
-
-
