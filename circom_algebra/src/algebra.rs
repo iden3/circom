@@ -2,7 +2,8 @@ use super::modular_arithmetic;
 pub use super::modular_arithmetic::ArithmeticError;
 use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
-use std::collections::{HashMap, HashSet, BTreeSet};
+use std::collections::BTreeSet;
+use crate::fast_hash::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 
@@ -115,9 +116,9 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
         field: &BigInt,
     ) -> Option<Constraint<C>> {
         use ArithmeticExpression::*;
-        let mut a = HashMap::new();
-        let mut b = HashMap::new();
-        let mut c = HashMap::new();
+        let mut a = HashMap::default();
+        let mut b = HashMap::default();
+        let mut c = HashMap::default();
         ArithmeticExpression::initialize_hashmap_for_expression(&mut a);
         ArithmeticExpression::initialize_hashmap_for_expression(&mut b);
         ArithmeticExpression::initialize_hashmap_for_expression(&mut c);
@@ -258,7 +259,7 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 Number { value: modular_arithmetic::add(v_0, v_1, field) }
             }
             (Number { value }, Signal { symbol }) | (Signal { symbol }, Number { value }) => {
-                let mut coefficients = HashMap::new();
+                let mut coefficients = HashMap::default();
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut coefficients);
                 ArithmeticExpression::add_constant_to_coefficients(value, &mut coefficients, field);
                 ArithmeticExpression::add_symbol_to_coefficients(
@@ -286,7 +287,7 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 Quadratic { a: a.clone(), b: b.clone(), c: n_c }
             }
             (Signal { symbol: symbol_0 }, Signal { symbol: symbol_1 }) => {
-                let mut coefficients = HashMap::new();
+                let mut coefficients = HashMap::default();
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut coefficients);
                 ArithmeticExpression::add_symbol_to_coefficients(
                     symbol_0,
@@ -364,7 +365,7 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 Number { value: modular_arithmetic::mul(value_0, value_1, field) }
             }
             (Number { value }, Signal { symbol }) | (Signal { symbol }, Number { value }) => {
-                let mut coefficients = HashMap::new();
+                let mut coefficients = HashMap::default();
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut coefficients);
                 ArithmeticExpression::add_symbol_to_coefficients(
                     symbol,
@@ -394,9 +395,9 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 Quadratic { a: n_a, b: n_b, c: n_c }
             }
             (Signal { symbol: symbol_0 }, Signal { symbol: symbol_1 }) => {
-                let mut a = HashMap::new();
-                let mut b = HashMap::new();
-                let mut c = HashMap::new();
+                let mut a = HashMap::default();
+                let mut b = HashMap::default();
+                let mut c = HashMap::default();
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut a);
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut b);
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut c);
@@ -417,8 +418,8 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
             (Signal { symbol }, Linear { coefficients })
             | (Linear { coefficients }, Signal { symbol }) => {
                 let a = coefficients.clone();
-                let mut b = HashMap::new();
-                let mut c = HashMap::new();
+                let mut b = HashMap::default();
+                let mut c = HashMap::default();
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut b);
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut c);
                 ArithmeticExpression::add_symbol_to_coefficients(
@@ -432,7 +433,7 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
             (Linear { coefficients: coefficients_0 }, Linear { coefficients: coefficients_1 }) => {
                 let a = coefficients_0.clone();
                 let b = coefficients_1.clone();
-                let mut c = HashMap::new();
+                let mut c = HashMap::default();
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut c);
                 Quadratic { a, b, c }
             }
@@ -461,7 +462,7 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 Result::Ok(Number { value })
             }
             (Signal { symbol }, Number { value }) => {
-                let mut coefficients = HashMap::new();
+                let mut coefficients = HashMap::default();
                 ArithmeticExpression::initialize_hashmap_for_expression(&mut coefficients);
                 ArithmeticExpression::add_symbol_to_coefficients(
                     symbol,
@@ -845,12 +846,12 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
         use ArithmeticExpression::*;
         match to {
             Number { value } => {
-                let mut to = HashMap::new();
+                let mut to = HashMap::default();
                 to.insert(ArithmeticExpression::constant_coefficient(), value);
                 Option::Some(Substitution { from, to })
             }
             Signal { symbol } => {
-                let mut to = HashMap::new();
+                let mut to = HashMap::default();
                 to.insert(symbol, BigInt::from(1));
                 Option::Some(Substitution { from, to })
             }
@@ -861,12 +862,13 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
         }
     }
 
-    pub fn apply_correspondence_and_drop<K>(
+    pub fn apply_correspondence_and_drop<K, H>(
         substitution: Substitution<C>,
-        symbol_correspondence: &HashMap<C, K>,
+        symbol_correspondence: &std::collections::HashMap<C, K, H>,
     ) -> Substitution<K>
     where
         K: Default + Clone + Display + Hash + Eq,
+        H: std::hash::BuildHasher,
     {
         Substitution::apply_correspondence(&substitution, symbol_correspondence)
     }
@@ -875,12 +877,13 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
         ArithmeticExpression::constant_coefficient()
     }
 
-    pub fn apply_correspondence<K>(
+    pub fn apply_correspondence<K, H>(
         substitution: &Substitution<C>,
-        symbol_correspondence: &HashMap<C, K>,
+        symbol_correspondence: &std::collections::HashMap<C, K, H>,
     ) -> Substitution<K>
     where
         K: Default + Clone + Display + Hash + Eq,
+        H: std::hash::BuildHasher,
     {
         let from = symbol_correspondence.get(&substitution.from).unwrap().clone();
         let to = apply_raw_correspondence(&substitution.to, symbol_correspondence);
@@ -946,7 +949,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
 
     pub fn take_cloned_signals(&self) -> HashSet<C> {
         let cq: C = ArithmeticExpression::constant_coefficient();
-        let mut signals = HashSet::new();
+        let mut signals = HashSet::default();
         for s in self.to.keys() {
             if cq != *s {
                 signals.insert(s.clone());
@@ -957,7 +960,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
 
     pub fn take_signals(&self) -> HashSet<&C> {
         let cq: C = ArithmeticExpression::constant_coefficient();
-        let mut signals = HashSet::new();
+        let mut signals = HashSet::default();
         for s in self.to.keys() {
             if cq != *s {
                 signals.insert(s);
@@ -1015,31 +1018,33 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
 
     pub fn empty() -> Constraint<C> {
         Constraint::new(
-            HashMap::with_capacity(0),
-            HashMap::with_capacity(0),
-            HashMap::with_capacity(0),
+            crate::fast_hash::map_with_capacity(0),
+            crate::fast_hash::map_with_capacity(0),
+            crate::fast_hash::map_with_capacity(0),
         )
     }
 
     pub fn constant_coefficient() -> C {
         ArithmeticExpression::constant_coefficient()
     }
-    pub fn apply_correspondence_and_drop<K>(
+    pub fn apply_correspondence_and_drop<K, H>(
         constraint: Constraint<C>,
-        symbol_correspondence: &HashMap<C, K>,
+        symbol_correspondence: &std::collections::HashMap<C, K, H>,
     ) -> Constraint<K>
     where
         K: Default + Clone + Display + Hash + Eq,
+        H: std::hash::BuildHasher,
     {
         Constraint::apply_correspondence(&constraint, symbol_correspondence)
     }
 
-    pub fn apply_correspondence<K>(
+    pub fn apply_correspondence<K, H>(
         constraint: &Constraint<C>,
-        symbol_correspondence: &HashMap<C, K>,
+        symbol_correspondence: &std::collections::HashMap<C, K, H>,
     ) -> Constraint<K>
     where
         K: Default + Clone + Display + Hash + Eq,
+        H: std::hash::BuildHasher,
     {
         let a = apply_raw_correspondence(&constraint.a, symbol_correspondence);
         let b = apply_raw_correspondence(&constraint.b, symbol_correspondence);
@@ -1076,7 +1081,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
     }
 
     pub fn take_cloned_signals(&self) -> HashSet<C> {
-        let mut signals = HashSet::new();
+        let mut signals = HashSet::default();
         for signal in self.a().keys() {
             signals.insert(signal.clone());
         }
@@ -1091,7 +1096,7 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
     }
     pub fn take_signals(&self) -> HashSet<&C> {
         let cc: C = Constraint::constant_coefficient();
-        let mut signals = HashSet::new();
+        let mut signals = HashSet::default();
         for signal in self.a().keys() {
             signals.insert(signal);
         }
@@ -1235,23 +1240,24 @@ fn apply_vectored_correspondence(
     symbols: &HashMap<usize, BigInt>,
     map: &Vec<usize>,
 ) -> HashMap<usize, BigInt> {
-    let mut mapped = HashMap::new();
+    let mut mapped = HashMap::default();
     for (s, v) in symbols {
         mapped.insert(map[*s], v.clone());
     }
     mapped
 }
 
-fn apply_raw_correspondence<C, K>(
+fn apply_raw_correspondence<C, K, H>(
     symbols: &HashMap<C, BigInt>,
-    map: &HashMap<C, K>,
+    map: &std::collections::HashMap<C, K, H>,
 ) -> HashMap<K, BigInt>
 where
     K: Default + Clone + Display + Hash + Eq,
     C: Default + Clone + Display + Hash + Eq,
+    H: std::hash::BuildHasher,
 {
     let constant_coefficient: C = ArithmeticExpression::constant_coefficient();
-    let mut coefficients_as_correspondence = HashMap::new();
+    let mut coefficients_as_correspondence = HashMap::default();
     for (key, value) in symbols {
         let id = if key.eq(&constant_coefficient) {
             ArithmeticExpression::constant_coefficient()
@@ -1264,7 +1270,7 @@ where
 }
 
 fn apply_raw_offset(h: &HashMap<usize, BigInt>, offset: usize) -> HashMap<usize, BigInt> {
-    let mut new = HashMap::new();
+    let mut new = HashMap::default();
     let constant: usize = Constraint::constant_coefficient();
     for (k, v) in h {
         if *k == constant {
@@ -1297,7 +1303,7 @@ fn remove_zero_value_coefficients<C>(raw_expression: HashMap<C, BigInt>) -> Hash
 where
     C: Default + Clone + Display + Hash + Eq,
 {
-    let mut clean_raw = HashMap::new();
+    let mut clean_raw = HashMap::default();
     for (key, val) in raw_expression {
         if !val.is_zero() {
             clean_raw.insert(key, val);
@@ -1402,9 +1408,9 @@ mod test {
     fn algebra_constraint_offset() {
         let offset = 7;
         let x = 1;
-        let a = HashMap::new();
-        let b = HashMap::new();
-        let mut c = HashMap::new();
+        let a = HashMap::default();
+        let b = HashMap::default();
+        let mut c = HashMap::default();
         c.insert(C::constant_coefficient(), BigInt::from(12));
         c.insert(x, BigInt::from(3));
         let constraint = C::new(a, b, c);
@@ -1429,9 +1435,9 @@ mod test {
         let x_coefficient = BigInt::from(1);
         let y = 2;
         let y_coefficient = BigInt::from(1);
-        let a = HashMap::new();
-        let b = HashMap::new();
-        let mut c = HashMap::new();
+        let a = HashMap::default();
+        let b = HashMap::default();
+        let mut c = HashMap::default();
         c.insert(x, x_coefficient);
         c.insert(y, y_coefficient);
         c.insert(constant, c_coefficient);
@@ -1462,9 +1468,9 @@ mod test {
         let x_c = BigInt::from(1);
         let y_c = BigInt::from(1);
         let constant_c = BigInt::from(4);
-        let a = HashMap::new();
-        let b = HashMap::new();
-        let mut c = HashMap::new();
+        let a = HashMap::default();
+        let b = HashMap::default();
+        let mut c = HashMap::default();
         c.insert(x, x_c);
         c.insert(y, y_c);
         c.insert(constant, constant_c);
@@ -1474,7 +1480,7 @@ mod test {
         let y_c = BigInt::from(2);
         let constant_c = BigInt::from(3);
         let from = x;
-        let mut to_raw = HashMap::new();
+        let mut to_raw = HashMap::default();
         to_raw.insert(y, y_c);
         to_raw.insert(constant, constant_c);
         let to = A::Linear { coefficients: to_raw };
@@ -1484,6 +1490,12 @@ mod test {
         let expected_y_c = BigInt::from(3);
         let expected_constant_c = BigInt::from(7);
         C::apply_substitution(&mut constraint, &substitution, &field);
+        // `apply_substitution` leaves the constraint in the raw form every
+        // expression uses internally: each side carries an explicit constant
+        // coefficient, zero-valued or not. Callers normalize with
+        // `fix_constraint`, as the simplification pipeline does, before
+        // inspecting the shape of a constraint.
+        C::fix_constraint(&mut constraint, &field);
         let y_c = constraint.c.get(&y).unwrap();
         let constant_c = constraint.c.get(&constant).unwrap();
         assert!(constraint.a.is_empty());

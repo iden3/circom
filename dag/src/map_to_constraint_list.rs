@@ -1,7 +1,8 @@
 use super::{Constraint, Edge, Node, SimplificationFlags, Tree, DAG};
 use constraint_list::{ConstraintList, DAGEncoding, EncodingEdge, EncodingNode, SignalInfo, Simplifier};
 use program_structure::utils::constants::UsefulConstants;
-use std::collections::{HashSet, LinkedList};
+use std::collections::LinkedList;
+use circom_algebra::fast_hash::HashSet;
 #[derive(Default)]
 struct CHolder {
     linear: LinkedList<Constraint>,

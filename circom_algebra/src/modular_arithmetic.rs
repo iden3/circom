@@ -6,8 +6,19 @@ pub enum ArithmeticError {
     BitOverFlowInShift,
 }
 
+// Euclidean remainder for a positive modulus `b`.
+//
+// `a % b` already lies in (-b, b), so at most one correction by `b` is needed;
+// the second division in the previous `((a % b) + b) % b` was always a no-op.
+// The result is bit-identical, one BigInt division cheaper.
 fn modulus(a: &BigInt, b: &BigInt) -> BigInt {
-    ((a % b) + b) % b
+    debug_assert!(b.sign() == Sign::Plus);
+    let r = a % b;
+    if r.sign() == Sign::Minus {
+        r + b
+    } else {
+        r
+    }
 }
 // The maximum number of bits a BigInt can have is 18_446_744_073_709_551_615
 // Returns the LITTLE ENDIAN representation of the bigint
@@ -92,6 +103,11 @@ pub fn multi_inv(values: &Vec<BigInt>, field: &BigInt) -> Vec<BigInt>{
 
 //Bit operations
 pub fn complement(elem: &BigInt, field: &BigInt) -> BigInt {
+    // The operand has to be reduced into [0, field) before its bits are read:
+    // the bit representation below is truncated to the width of the field, so
+    // an out-of-range operand would have its high bits silently dropped rather
+    // than folded back in, and `complement` would stop being an involution.
+    let elem = &modulus(elem, field);
     let (sign, mut bit_repr) = bit_representation(elem);
     let new_sign = if elem == &BigInt::from(0) { Sign::Plus } else { sign};
     let nbits = field.bits();

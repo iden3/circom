@@ -10,7 +10,8 @@ use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::ConstraintExporter;
 use program_structure::constants::UsefulConstants;
 use program_structure::error_definition::ReportCollection;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use circom_algebra::fast_hash::HashSet;
 type Signal = usize;
 type Constraint = circom_algebra::algebra::Constraint<usize>;
 type Substitution = circom_algebra::algebra::Substitution<usize>;
@@ -61,7 +62,7 @@ impl<'a> Tree<'a> {
         let path = format!("{}.{}", current.path, edge.label);
         let offset = current.offset + edge.in_number;
         let mut id_to_name = HashMap::new();
-        let forbidden = HashSet::with_capacity(0);
+        let forbidden = circom_algebra::fast_hash::set_with_capacity(0);
         let mut signals: Vec<_> = Vec::new();
         for (name, id) in node.correspondence() {
             if node.is_local_signal(*id) {

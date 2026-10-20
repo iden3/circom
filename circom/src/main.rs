@@ -9,6 +9,12 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 use ansi_term::Colour;
 use input_user::Input;
+
+// The compiler is allocation-bound (constraint coefficient maps and BigInt
+// digits churn constantly); the system allocator was ~20% of compile time.
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 fn main() {
     let result = start();
     if result.is_err() {

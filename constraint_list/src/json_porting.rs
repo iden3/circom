@@ -3,7 +3,7 @@ use crate::SignalMap;
 use circom_algebra::num_bigint::BigInt;
 use constraint_writers::debug_writer::DebugWriter;
 use json::JsonValue;
-use std::collections::HashMap;
+use circom_algebra::fast_hash::HashMap;
 
 pub fn transform_constraint_to_json(constraint: &C) -> JsonValue {
     JsonValue::Array(vec![

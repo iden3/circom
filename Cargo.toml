@@ -13,3 +13,8 @@ members = [
     "code_producers",
     "dag"
 ]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "abort"

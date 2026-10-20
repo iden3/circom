@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet, LinkedList};
+use std::collections::LinkedList;
+use circom_algebra::fast_hash::{HashMap, HashSet};
 
 use circom_algebra::constraint_storage::ConstraintStorage;
 use circom_algebra::num_bigint::BigInt;

@@ -4,7 +4,7 @@ use circom_algebra::num_bigint::BigInt;
 use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::json_writer::ConstraintJSON;
 use json::JsonValue;
-use std::collections::HashMap;
+use circom_algebra::fast_hash::HashMap;
 
 type C = Constraint<usize>;
 
