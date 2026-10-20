@@ -1154,8 +1154,12 @@ impl ProcessedSymbol {
                     // we need to study all possible sizes and lenghts
                     let mut index = 0;
                     for possible_length in &mut possible_status.possible_lengths{
-                        let aux_length = possible_length.pop();
-                        possible_status.possible_sizes[index] /= aux_length.unwrap();
+                        let aux_length = possible_length.pop().unwrap();
+                        if aux_length == 0{
+                            possible_status.possible_sizes[index] = 0;
+                        } else{
+                            possible_status.possible_sizes[index] /= aux_length;
+                        }
                         index += 1;
                     }
                     

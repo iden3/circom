@@ -499,12 +499,17 @@ fn build_input_output_list(instance: &TemplateInstance, database: &TemplateDB) -
     use program_structure::ast::SignalType::*;
     let mut io_list = vec![];
     for s in &instance.wires {
-        let mut total_array_size = 1;
-        for len in s.lengths(){
-            total_array_size *= len;
-        }
-        let individual_size = s.size() / total_array_size;
         if s.xtype() != Intermediate {
+            let mut total_array_size = 1;
+            for len in s.lengths(){
+                total_array_size *= len;
+            }
+
+            let individual_size = if total_array_size == 0 {
+                0
+            } else {
+                s.size() / total_array_size
+            };
             let def = IODef {
                 code: TemplateDB::get_signal_id(database, &instance.template_name, s.name()),
                 offset: s.local_id(),
