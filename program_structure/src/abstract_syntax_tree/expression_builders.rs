@@ -26,6 +26,8 @@ pub fn build_inline_switch_op(
         cond: Box::new(cond),
         if_true: Box::new(if_true),
         if_false: Box::new(if_false),
+        inits_true : Vec::new(),
+        inits_false : Vec::new(),   
     }
 }
 

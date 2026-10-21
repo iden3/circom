@@ -123,13 +123,18 @@ fn extend_conditional(
 ) -> Vec<Statement> {
     use Statement::IfThenElse;
     if let IfThenElse { cond, if_case, else_case, .. } = stmt {
-        let mut expands = vec![];
-        expands.append(&mut extend_statement(if_case, state, context));
+        let mut expands_if = extend_statement(if_case, state, context);
+        expands_if.push(*if_case.clone());
+        *if_case = Box::new(Statement::Block { meta: if_case.get_meta().clone(), stmts: expands_if });
         if let Option::Some(s) = else_case {
-            expands.append(&mut extend_statement(s, state, context));
+            let mut expands_else = extend_statement(s, state, context);
+            expands_else.push(*s.clone());
+            *else_case = Some(Box::new(Statement::Block { meta: s.get_meta().clone(), stmts: expands_else }));
+
         }
-        let mut cond_extension = extend_expression(cond, state, context);
-        expands.append(&mut cond_extension.initializations);
+
+        let cond_extension = extend_expression(cond, state, context);
+        let mut expands = cond_extension.initializations;
         let mut expr = vec![cond.clone()];
         sugar_filter(&mut expr, state, &mut expands);
         *cond = expr.pop().unwrap();
@@ -368,16 +373,26 @@ fn extend_infix(expr: &mut Expression, state: &mut State, context: &Context) -> 
 
 fn extend_switch(expr: &mut Expression, state: &mut State, context: &Context) -> ExtendedSyntax {
     use Expression::InlineSwitchOp;
-    if let InlineSwitchOp { if_true, if_false, .. } = expr {
+    if let InlineSwitchOp { cond,  if_true, if_false, inits_true, inits_false, .. } = expr {
+        
+        let mut cond_expand = extend_expression(cond, state, context);
+        let mut cond_v = vec![*cond.clone()];
+        sugar_filter(&mut cond_v, state, &mut cond_expand.initializations);
+        *cond = Box::new(cond_v.pop().unwrap());
+        
+       
         let mut true_expand = extend_expression(if_true, state, context);
         let mut false_expand = extend_expression(if_false, state, context);
-        true_expand.initializations.append(&mut false_expand.initializations);
-        let mut extended = true_expand;
-        let mut expr = vec![*if_true.clone(), *if_false.clone()];
-        sugar_filter(&mut expr, state, &mut extended.initializations);
-        *if_false = Box::new(expr.pop().unwrap());
-        *if_true = Box::new(expr.pop().unwrap());
-        extended
+        let mut expr_true = vec![*if_true.clone()];
+        let mut expr_false = vec![*if_false.clone()];
+        sugar_filter(&mut expr_true, state, &mut true_expand.initializations);
+        sugar_filter(&mut expr_false, state, &mut false_expand.initializations);
+        *if_false = Box::new(expr_false.pop().unwrap());
+        *inits_false = false_expand.initializations;
+        *if_true = Box::new(expr_true.pop().unwrap());
+        *inits_true = true_expand.initializations;
+
+        cond_expand
     } else {
         unreachable!()
     }
@@ -630,8 +645,8 @@ fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use Expression::InlineSwitchOp;
     use Statement::{Block, IfThenElse, Substitution};
     if let Substitution { var, access, op, rhe, meta } = stmt {
-        if let InlineSwitchOp { cond, if_true, if_false, .. } = rhe {
-            let mut if_assigns = vec![];
+        if let InlineSwitchOp { cond, if_true, if_false, inits_true, inits_false, .. } = rhe {
+            let mut if_assigns = inits_true.clone();
             let sub_if = Substitution {
                 meta: meta.clone(),
                 var: var.clone(),
@@ -640,7 +655,7 @@ fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                 rhe: *if_true,
             };
             if_assigns.push(sub_if);
-            let mut else_assigns = vec![];
+            let mut else_assigns = inits_false.clone();
             let sub_else = Substitution { op, var, access, meta: meta.clone(), rhe: *if_false };
             else_assigns.push(sub_else);
             let if_body = Block { stmts: if_assigns, meta: meta.clone() };

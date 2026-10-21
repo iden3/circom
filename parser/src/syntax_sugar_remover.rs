@@ -217,7 +217,7 @@ pub fn check_anonymous_components_expression(
                 Result::Ok(())
             }
         },
-        InlineSwitchOp { meta, cond, if_true,  if_false } => {
+        InlineSwitchOp { meta, cond, if_true,  if_false, .. } => {
             if cond.contains_anonymous_comp() || if_true.contains_anonymous_comp() || if_false.contains_anonymous_comp() {
                 Result::Err(anonymous_general_error(meta.clone(),"An anonymous component cannot be used inside an inline switch ".to_string()))
             } else{
@@ -774,7 +774,7 @@ pub fn check_tuples_expression(exp: &Expression) -> Result<(), Report>{
                 Result::Ok(())
             }
         },
-        InlineSwitchOp { meta, cond, if_true,  if_false } => {
+        InlineSwitchOp { meta, cond, if_true,  if_false, .. } => {
             if cond.contains_tuple() || if_true.contains_tuple() || if_false.contains_tuple() {
                 Result::Err(tuple_general_error(meta.clone(),"A tuple cannot be used inside an inline switch".to_string()))      
             } else{

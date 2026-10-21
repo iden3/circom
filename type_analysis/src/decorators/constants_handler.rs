@@ -431,7 +431,7 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
         }
         PrefixOp { meta, prefix_op, rhe } => expand_prefix(meta, prefix_op, *rhe, environment),
         ParallelOp { meta, rhe } => expand_parallel(meta, *rhe, environment),
-        InlineSwitchOp { meta, cond, if_true, if_false } => {
+        InlineSwitchOp { meta, cond, if_true, if_false, .. } => {
             expand_inline_switch_op(meta, *cond, *if_true, *if_false, environment)
         }
         Variable { meta, name, access } => expand_variable(meta, name, access, environment),

@@ -301,6 +301,8 @@ pub enum Expression {
         cond: Box<Expression>,
         if_true: Box<Expression>,
         if_false: Box<Expression>,
+        inits_true: Vec<Statement>,
+        inits_false: Vec<Statement>,
     },
     ParallelOp {
         meta: Meta,

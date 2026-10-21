@@ -313,7 +313,8 @@ fn produce_vcf_variable(expr: &Expression, state: &mut State, environment: &E) {
 
 fn produce_vcf_switch(expr: &Expression, state: &mut State, environment: &E) {
     use Expression::InlineSwitchOp;
-    if let InlineSwitchOp { if_true, if_false, .. } = expr {
+    if let InlineSwitchOp { cond, if_true, if_false, .. } = expr {
+        produce_vcf_expr(cond, state, environment);
         produce_vcf_expr(if_true, state, environment);
         produce_vcf_expr(if_false, state, environment);
     } else {
@@ -580,7 +581,8 @@ fn link_variable(expr: &mut Expression, state: &State, env: &E) {
 
 fn link_switch(expr: &mut Expression, state: &State, env: &E) {
     use Expression::InlineSwitchOp;
-    if let InlineSwitchOp { if_true, if_false, .. } = expr {
+    if let InlineSwitchOp { cond, if_true, if_false, .. } = expr {
+        link_expression(cond, state, env);
         link_expression(if_true, state, env);
         link_expression(if_false, state, env);
     } else {
