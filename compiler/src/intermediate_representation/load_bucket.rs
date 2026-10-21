@@ -277,6 +277,26 @@ impl WriteC for LoadBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
         let mut prologue = vec![];
+
+
+        // Check that the access does not generate an out of bounds exception.
+        if producer.sanity_check_style >= 3{
+            for ob_check in &self.checks{
+                prologue.push(format!("{{"));
+                let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
+                prologue.append(&mut index_prologue);
+                prologue.push(format!("int index = {};", index));
+                let check = format!("index >=0 && index < {}", ob_check.size);         
+                let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));     
+                let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
+                prologue.push(if_condition);
+                prologue.push(assertion);
+                prologue.push(format!("}}"));
+            }
+        }
+
+
+
 	//prologue.push(format!("// start of load line {} bucket {}",self.line.to_string(),self.to_string()));
 	let cmp_index_ref;
         if let AddressType::SubcmpSignal { cmp_address, .. } = &self.address_type {
@@ -352,22 +372,7 @@ impl WriteC for LoadBucket {
         
         
         prologue.append(&mut src_prologue);
-        
-        // Check that the access does not generate an out of bounds exception.
-        if producer.sanity_check_style >= 3{
-            for ob_check in &self.checks{
-                prologue.push(format!("{{"));
-                let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
-                prologue.append(&mut index_prologue);
-                prologue.push(format!("int index = {};", index));
-                let check = format!("index >=0 && index < {}", ob_check.size);         
-                let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));     
-                let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
-                prologue.push(if_condition);
-                prologue.push(assertion);
-                prologue.push(format!("}}"));
-            }
-        }
+    
 
 
         let access = match &self.address_type {

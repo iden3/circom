@@ -475,6 +475,25 @@ impl WriteC for StoreBucket {
         let mut src_index_ref = "".to_string();
 	    let mut aux_dest_index = "".to_string();
 
+
+
+    // Check that the access does not generate an out of bounds exception.
+    if producer.sanity_check_style >= 3{
+        for ob_check in &self.checks{
+            prologue.push(format!("{{"));
+            let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
+            prologue.append(&mut index_prologue);
+            prologue.push(format!("int index = {};", index));
+            let check = format!("index >=0 && index < {}", ob_check.size);         
+            let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));    
+            let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
+            prologue.push(if_condition);
+            prologue.push(assertion);
+            prologue.push(format!("}}"));
+        }
+
+    }
+
 	//prologue.push(format!("// store bucket. Line {}", self.line)); //.to_string()
 
         if let AddressType::SubcmpSignal { cmp_address, .. } = &self.dest_address_type {
@@ -598,22 +617,6 @@ impl WriteC for StoreBucket {
 	    };
 	prologue.append(&mut dest_prologue);
 
-    // Check that the access does not generate an out of bounds exception.
-    if producer.sanity_check_style >= 3{
-        for ob_check in &self.checks{
-            prologue.push(format!("{{"));
-            let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
-            prologue.append(&mut index_prologue);
-            prologue.push(format!("int index = {};", index));
-            let check = format!("index >=0 && index < {}", ob_check.size);         
-            let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));    
-            let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
-            prologue.push(if_condition);
-            prologue.push(assertion);
-            prologue.push(format!("}}"));
-        }
-
-    }
 
         // Build dest
         let dest = match &self.dest_address_type {

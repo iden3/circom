@@ -1,4 +1,4 @@
-use crate::intermediate_representation::ir_interface::*;
+use crate::intermediate_representation::{ir_interface::*, translate::OutBoundsCheck};
 
 pub fn build_list(instructions: &mut InstructionList, fresh: usize) -> usize {
     let mut max_depth = 0;
@@ -35,7 +35,8 @@ pub fn build_branch(bucket: &mut BranchBucket, fresh: usize) -> usize {
 
 pub fn build_call(bucket: &mut CallBucket, mut fresh: usize) -> usize {
     use ReturnType::*;
-    let mut max_stack = fresh;
+    let mut max_stack = build_checks(&mut bucket.checks, fresh);
+
     match &mut bucket.return_info {
         Intermediate { op_aux_no } => {
             *op_aux_no = fresh;
@@ -92,9 +93,20 @@ pub fn build_compute(bucket: &mut ComputeBucket, mut fresh: usize) -> usize {
 
 
 pub fn build_load(bucket: &mut LoadBucket, fresh: usize) -> (usize, usize) {
+    let v_check = build_checks(&mut bucket.checks, fresh);
+
     let (v0, f0) = build_address_type(&mut bucket.address_type, fresh);
     let (v1, f1) = build_location(&mut bucket.src, f0);
-    (std::cmp::max(v0, v1),  f1)
+    (std::cmp::max(v_check, std::cmp::max(v0, v1)),  f1)
+}
+
+pub fn build_checks(checks: &mut Vec<OutBoundsCheck>, fresh: usize) -> usize {
+    let mut max_stack = fresh;
+    for check in checks {
+        let (depth, _) = build_instruction_address(&mut check.access, fresh);
+        max_stack = std::cmp::max(max_stack, depth);
+    }
+    max_stack
 }
 
 pub fn build_create_cmp(bucket: &mut CreateCmpBucket, fresh: usize) -> usize {
@@ -130,10 +142,12 @@ pub fn build_assert(bucket: &mut AssertBucket, fresh: usize) -> usize {
 }
 
 pub fn build_store(bucket: &mut StoreBucket, fresh: usize) -> usize {
+    let v_check = build_checks(&mut bucket.checks, fresh);
+
     let f_0 = build_instruction(&mut bucket.src, fresh);
     let (f_1, _) = build_location(&mut bucket.dest, fresh);
     let (f_2, _) = build_address_type(&mut bucket.dest_address_type, fresh);
-    std::cmp::max(std::cmp::max(f_0, f_1), f_2)
+    std::cmp::max(std::cmp::max(std::cmp::max(f_0, f_1), f_2), v_check)
 }
 
 pub fn build_value(bucket: &mut ValueBucket, fresh: usize) -> usize {

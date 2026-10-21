@@ -1,4 +1,5 @@
 use crate::intermediate_representation::ir_interface::*;
+use crate::intermediate_representation::translate::OutBoundsCheck;
 
 pub fn reduce_list(list: InstructionList) -> InstructionList {
     let mut reduced = InstructionList::with_capacity(InstructionList::len(&list));
@@ -117,13 +118,24 @@ pub fn reduce_branch(mut bucket: BranchBucket) -> Instruction {
     IntoInstruction::into_instruction(bucket)
 }
 
+pub fn reduce_checks(checks: Vec<OutBoundsCheck>) -> Vec<OutBoundsCheck> {
+    let mut new_checks : Vec<OutBoundsCheck> = Vec::new();
+    for check in checks {
+        let access = Allocate::allocate(reduce_instruction(*check.access));
+        new_checks.push(OutBoundsCheck{access, size: check.size});
+    }
+    new_checks
+}
+
 pub fn reduce_load(mut bucket: LoadBucket) -> Instruction {
+    bucket.checks = reduce_checks(bucket.checks);
     bucket.address_type = reduce_address_type(bucket.address_type);
     bucket.src = reduce_location_rule(bucket.src);
     IntoInstruction::into_instruction(bucket)
 }
 
 pub fn reduce_store(mut bucket: StoreBucket) -> Instruction {
+    bucket.checks = reduce_checks(bucket.checks);
     bucket.dest_address_type = reduce_address_type(bucket.dest_address_type);
     bucket.dest = reduce_location_rule(bucket.dest);
     bucket.src = Allocate::allocate(reduce_instruction(*bucket.src));
@@ -131,6 +143,7 @@ pub fn reduce_store(mut bucket: StoreBucket) -> Instruction {
 }
 
 pub fn reduce_call(mut bucket: CallBucket) -> Instruction {
+    bucket.checks = reduce_checks(bucket.checks);
     bucket.arguments = reduce_list(bucket.arguments);
     if let ReturnType::Final(mut data) = bucket.return_info {
         data.dest = reduce_location_rule(data.dest);
