@@ -477,7 +477,7 @@ mod input_processing {
             )
             .arg(
                 Arg::with_name("plonk_simplification")
-                    .long("O1_Plonk")
+                    .long("O1_plonk")
                     .takes_value(false)
                     .hidden(false)
                     .help("Plonk constraint simplification")
