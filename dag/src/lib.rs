@@ -551,4 +551,7 @@ pub struct SimplificationFlags {
     pub json_substitutions: String,
     pub flag_old_heuristics: bool,
     pub prime : String,
+    pub apply_eager_plonk: bool,
+    pub apply_sat_plonk: bool,
+    pub plonk_simplification: bool
 }

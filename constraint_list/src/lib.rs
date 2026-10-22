@@ -122,6 +122,9 @@ pub struct Simplifier {
     // Flags
     pub no_rounds: usize,
     pub parallel_flag: bool,
+    pub plonk_simplification: bool,
+    pub apply_sat_plonk: bool,
+    pub apply_eager_plonk: bool,
     pub flag_s: bool,
     pub flag_old_heuristics: bool,
     pub port_substitution: bool,
