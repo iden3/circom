@@ -29,10 +29,13 @@ fn start() -> Result<(), ()> {
 
     let config = ExecutionConfig {
         no_rounds: user_input.no_rounds(),
-        flag_p: user_input.parallel_simplification_flag(),
+        flag_p: user_input.parallel_simplification_flag(),        
         flag_s: user_input.reduced_simplification_flag(),
         flag_f: user_input.unsimplified_flag(),
         flag_old_heuristics: user_input.flag_old_heuristics(),
+        apply_eager_plonk: user_input.apply_eager_plonk(),
+        apply_sat_plonk: user_input.apply_sat_plonk(),
+        plonk_simplification: user_input.plonk_simplification(),
         flag_verbose: user_input.flag_verbose(),
         inspect_constraints_flag: user_input.inspect_constraints_flag(),
         r1cs_flag: user_input.r1cs_flag(),

@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::input_user::input_processing::{PlonkReduction, SimplificationStyle::O1PLONK};
+
 pub struct Input {
     pub input_program: PathBuf,
     pub out_r1cs: PathBuf,
@@ -28,6 +30,9 @@ pub struct Input {
     pub print_ir_flag: bool,
     pub fast_flag: bool,
     pub reduced_simplification_flag: bool,
+    pub apply_eager_plonk: bool,
+    pub apply_sat_plonk: bool,
+    pub plonk_simplification: bool,
     pub parallel_simplification_flag: bool,
     pub flag_old_heuristics: bool,
     pub inspect_constraints_flag: bool,
@@ -67,6 +72,10 @@ impl Input {
         let output_c_path = Input::build_folder(&output_path, &file_name, CPP);
         let output_js_path = Input::build_folder(&output_path, &file_name, JS);
         let o_style = input_processing::get_simplification_style(&matches)?;
+        let (plonk_style, is_plonk)= match o_style{
+            O1PLONK(value) => (value, true),
+            _ => (PlonkReduction::MIXED, false)
+        };
         let sanity_check_style = input_processing::get_sanity_check_style(&matches)?;
         let link_libraries = input_processing::get_link_libraries(&matches);
         Result::Ok(Input {
@@ -106,6 +115,9 @@ impl Input {
             no_rounds: if let SimplificationStyle::O2(r) = o_style { r } else { 0 },
             fast_flag: o_style == SimplificationStyle::O0,
             reduced_simplification_flag: o_style == SimplificationStyle::O1,
+            apply_eager_plonk: plonk_style == PlonkReduction::EAGER || plonk_style == PlonkReduction::MIXED,
+            apply_sat_plonk: plonk_style == PlonkReduction::SAT || plonk_style == PlonkReduction::MIXED,
+            plonk_simplification: is_plonk,
             parallel_simplification_flag: input_processing::get_parallel_simplification(&matches),
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
             flag_old_heuristics: input_processing::get_flag_old_heuristics(&matches),
@@ -222,6 +234,15 @@ impl Input {
     pub fn reduced_simplification_flag(&self) -> bool {
         self.reduced_simplification_flag
     }
+    pub fn apply_eager_plonk(&self) -> bool {
+        self.apply_eager_plonk
+    }
+        pub fn apply_sat_plonk(&self) -> bool {
+        self.apply_sat_plonk
+    }
+    pub fn plonk_simplification(&self) -> bool {
+        self.plonk_simplification
+    }
     pub fn parallel_simplification_flag(&self) -> bool {
         self.parallel_simplification_flag
     }
@@ -261,17 +282,25 @@ mod input_processing {
     }
 
     #[derive(Copy, Clone, Eq, PartialEq)]
-    pub enum SimplificationStyle { O0, O1, O2(usize) }
+    pub enum PlonkReduction {SAT, EAGER, MIXED}
+    #[derive(Copy, Clone, Eq, PartialEq)]
+    pub enum SimplificationStyle { O0, O1, O2(usize), O1PLONK(PlonkReduction) }
     pub fn get_simplification_style(matches: &ArgMatches) -> Result<SimplificationStyle, ()> {
 
         let o_0 = matches.is_present("no_simplification");
         let o_1 = matches.is_present("reduced_simplification");
         let o_2 = matches.is_present("full_simplification");
+        let o_plonk = matches.is_present("plonk_simplification");
+
+        let only_sat = matches.is_present("sat_simplification");
+        let only_eager = matches.is_present("eager_simplification");
+    
+
         let o_2round = matches.is_present("simplification_rounds");
-        match (o_0, o_1, o_2round, o_2) {
-            (true, _, _, _) => Ok(SimplificationStyle::O0),
-            (_, true, _, _) => Ok(SimplificationStyle::O1),
-            (_, _, true,  _) => {
+        match (o_0, o_1, o_2round, o_2, o_plonk) {
+            (true, _, _, _, _) => Ok(SimplificationStyle::O0),
+            (_, true, _, _, _) => Ok(SimplificationStyle::O1),
+            (_, _, true,  _, _) => {
                 let o_2_argument = matches.value_of("simplification_rounds").unwrap();
                 let rounds_r = usize::from_str_radix(o_2_argument, 10);
                 if let Result::Ok(no_rounds) = rounds_r { 
@@ -279,8 +308,17 @@ mod input_processing {
                     else {Ok(SimplificationStyle::O2(no_rounds))}} 
                 else { Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds"))) }
             },
-            (false, false, false, true) => Ok(SimplificationStyle::O2(usize::MAX)),
-            (false, false, false, false) => Ok(SimplificationStyle::O1),
+            (_, _, _, _ , true) => {
+                let plonk_reduction_type = match (only_sat, only_eager) {
+                    (true, true) => PlonkReduction::MIXED,
+                    (false, true) => PlonkReduction::EAGER,
+                    (true, false) => PlonkReduction::SAT,
+                    _ => PlonkReduction::MIXED,
+                };
+                Ok(SimplificationStyle::O1PLONK(plonk_reduction_type))
+            }
+            (false, false, false, true, false) => Ok(SimplificationStyle::O2(usize::MAX)),
+            (false, false, false, false, false) => Ok(SimplificationStyle::O1),
         }
     }
 
@@ -436,6 +474,30 @@ mod input_processing {
                     .hidden(false)
                     .help("Maximum number of rounds of the simplification process")
                     .display_order(500)
+            )
+            .arg(
+                Arg::with_name("plonk_simplification")
+                    .long("O1_Plonk")
+                    .takes_value(false)
+                    .hidden(false)
+                    .help("Plonk constraint simplification")
+                    .display_order(480)
+            )
+            .arg(
+                Arg::with_name("sat_simplification")
+                    .long("apply_sat_plonk")
+                    .takes_value(false)
+                    .hidden(false)
+                    .help("Applies SAT constraint simplification for Plonk")
+                    .display_order(480)
+            )
+            .arg(
+                Arg::with_name("eager_simplification")
+                    .long("apply_eager_plonk")
+                    .takes_value(false)
+                    .hidden(false)
+                    .help("Applies eager constraint simplification for Plonk")
+                    .display_order(480)
             )
             .arg(
                 Arg::with_name("output")

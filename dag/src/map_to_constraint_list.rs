@@ -142,6 +142,9 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
         flag_old_heuristics: flags.flag_old_heuristics,
         port_substitution: flags.port_substitution,
         json_substitutions: flags.json_substitutions,
+        apply_eager_plonk: flags.apply_eager_plonk,
+        apply_sat_plonk: flags.apply_sat_plonk,
+        plonk_simplification: flags.plonk_simplification
     }
     .simplify_constraints()
 }

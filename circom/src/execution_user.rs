@@ -14,6 +14,9 @@ pub struct ExecutionConfig {
     pub flag_s: bool,
     pub flag_f: bool,
     pub flag_p: bool,
+    pub apply_eager_plonk: bool,
+    pub apply_sat_plonk: bool,
+    pub plonk_simplification: bool,
     pub flag_old_heuristics:bool,
     pub flag_verbose: bool,
     pub inspect_constraints_flag: bool,
@@ -40,6 +43,9 @@ pub fn execute_project(
         flag_verbose: config.flag_verbose,
         inspect_constraints: config.inspect_constraints_flag,
         flag_old_heuristics: config.flag_old_heuristics,
+        apply_eager_plonk: config.apply_eager_plonk,
+        apply_sat_plonk: config.apply_sat_plonk,
+        plonk_simplification: config.plonk_simplification,
         prime : config.prime,
     };
     let custom_gates = program_archive.custom_gates;

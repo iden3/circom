@@ -1289,125 +1289,132 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
 
     let _trash = constraint_storage.extract_with(&|c| C::is_empty(c));
 
-    // At this point call to normalize all constraints 
-    // // if we are in PLONK mode
+    if smp.plonk_simplification{
+        // At this point call to normalize all constraints 
+        // // if we are in PLONK mode
 
-    let mut auxiliary_signals = HashMap::new();
-    // let mut aux_compositions: HashMap<usize, Vec<(usize, BigInt)>> = HashMap::new();
+        let mut auxiliary_signals = HashMap::new();
+        // let mut aux_compositions: HashMap<usize, Vec<(usize, BigInt)>> = HashMap::new();
 
-    let mut expressions_to_fix = Vec::new();
-    let mut estimated_auxiliary_variables = 0;
-    for i in constraint_storage.get_ids() {
-        let mut constraint = constraint_storage.read_constraint(i).unwrap();
-        constraint.normalize_constraint(&field);
+        let mut expressions_to_fix = Vec::new();
+        let mut estimated_auxiliary_variables = 0;
+        for i in constraint_storage.get_ids() {
+            let mut constraint = constraint_storage.read_constraint(i).unwrap();
+            constraint.normalize_constraint(&field);
 
-        if !constraint.is_plonk() {
-            let (expressions, total_auxiliaries) = constraint.vars_to_solve_plonk_with_total();
-            estimated_auxiliary_variables += total_auxiliaries;
-            for (expr, num_vars) in expressions {
-                expressions_to_fix.push((i, expr.clone(), num_vars));
+            if !constraint.is_plonk() {
+                let (expressions, total_auxiliaries) = constraint.vars_to_solve_plonk_with_total();
+                estimated_auxiliary_variables += total_auxiliaries;
+                for (expr, num_vars) in expressions {
+                    expressions_to_fix.push((i, expr.clone(), num_vars));
+                }
+            }
+
+            constraint_storage.replace(i, constraint);
+        }
+
+        let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+        for cluster in &clusters {
+            // Greedy optimization retained for comparison:
+            if smp.apply_eager_plonk{
+                let pairs = count_variable_pairs(cluster, &expressions_to_fix);
+                if let Some((pair, frequency)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
+                    println!("Chosen pair: {} * x{}, {} * x{} (appears {} times)", pair.2, pair.0, pair.3, pair.1, frequency);
+                    apply_pair_to_cluster(&mut constraint_storage, cluster, &expressions_to_fix, pair, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
+                }
+            }
+            if smp.apply_sat_plonk{
+
+                variables_optimization(
+                    &mut constraint_storage,
+                    &expressions_to_fix,
+                    cluster,
+                    &mut auxiliary_signals,
+                    &mut max_signal,
+                    &mut non_linear_map,
+                    &field,
+                );
             }
         }
 
-        constraint_storage.replace(i, constraint);
-    }
+        println!("\n========================================");
+        println!("       FINAL CONSTRAINTS");
+        println!("========================================");
+        println!("Estimated auxiliary-variable upper bound: {}", estimated_auxiliary_variables);
+        println!("Auxiliary variables introduced by Z3: {}", auxiliary_signals.len());
 
-    let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
-    for cluster in &clusters {
-        // Greedy optimization retained for comparison:
-        // let pairs = count_variable_pairs(cluster, &expressions_to_fix);
-        // if let Some((pair, frequency)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
-        //     println!("Chosen pair: {} * x{}, {} * x{} (appears {} times)", pair.2, pair.0, pair.3, pair.1, frequency);
-        //     apply_pair_to_cluster(&mut constraint_storage, cluster, &expressions_to_fix, pair, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
-        // }
+        let mut final_plonk = 0;
+        let mut final_non_plonk = 0;
 
-        variables_optimization(
-            &mut constraint_storage,
-            &expressions_to_fix,
-            cluster,
-            &mut auxiliary_signals,
-            &mut max_signal,
-            &mut non_linear_map,
-            &field,
-        );
-    }
+        for constraint_id in constraint_storage.get_ids() {
+            let constraint = constraint_storage
+                .read_constraint(constraint_id)
+                .unwrap();
 
-    println!("\n========================================");
-    println!("       FINAL CONSTRAINTS");
-    println!("========================================");
-    println!("Estimated auxiliary-variable upper bound: {}", estimated_auxiliary_variables);
-    println!("Auxiliary variables introduced by Z3: {}", auxiliary_signals.len());
+            println!("\nConstraint {}:", constraint_id);
+            fn print_expression(expr: &HashMap<usize, BigInt>) {
+                print!("{{");
 
-    let mut final_plonk = 0;
-    let mut final_non_plonk = 0;
+                for (signal, coefficient) in expr {
+                    print!("{} * x{}, ", coefficient, signal);
+                }
 
-    for constraint_id in constraint_storage.get_ids() {
-        let constraint = constraint_storage
-            .read_constraint(constraint_id)
-            .unwrap();
-
-        println!("\nConstraint {}:", constraint_id);
-        fn print_expression(expr: &HashMap<usize, BigInt>) {
-            print!("{{");
-
-            for (signal, coefficient) in expr {
-                print!("{} * x{}, ", coefficient, signal);
+                println!("}}");
             }
 
-            println!("}}");
-        }
+            print!("  A = ");
+            print_expression(&constraint.a());
 
-        print!("  A = ");
-        print_expression(&constraint.a());
+            print!("  B = ");
+            print_expression(&constraint.b());
 
-        print!("  B = ");
-        print_expression(&constraint.b());
+            print!("  C = ");
+            print_expression(&constraint.c());
 
-        print!("  C = ");
-        print_expression(&constraint.c());
-
-        let constant = C::constant_coefficient();
-        let count_variables = |expression: &HashMap<usize, BigInt>| {
-            expression
-                .iter()
-                .filter(|(signal, coefficient)| {
-                    **signal != constant && **coefficient != BigInt::from(0)
-                })
-                .count()
-        };
-        let mut distinct_variables = HashSet::new();
-        for expression in [&constraint.a(), &constraint.b(), &constraint.c()] {
-            distinct_variables.extend(
+            let constant = C::constant_coefficient();
+            let count_variables = |expression: &HashMap<usize, BigInt>| {
                 expression
                     .iter()
                     .filter(|(signal, coefficient)| {
                         **signal != constant && **coefficient != BigInt::from(0)
                     })
-                    .map(|(signal, _)| *signal),
+                    .count()
+            };
+            let mut distinct_variables = HashSet::new();
+            for expression in [&constraint.a(), &constraint.b(), &constraint.c()] {
+                distinct_variables.extend(
+                    expression
+                        .iter()
+                        .filter(|(signal, coefficient)| {
+                            **signal != constant && **coefficient != BigInt::from(0)
+                        })
+                        .map(|(signal, _)| *signal),
+                );
+            }
+            println!(
+                "  Remaining variables after reconstruction: A={}, B={}, C={}, distinct in constraint={}",
+                count_variables(constraint.a()),
+                count_variables(constraint.b()),
+                count_variables(constraint.c()),
+                distinct_variables.len()
             );
-        }
-        println!(
-            "  Remaining variables after reconstruction: A={}, B={}, C={}, distinct in constraint={}",
-            count_variables(constraint.a()),
-            count_variables(constraint.b()),
-            count_variables(constraint.c()),
-            distinct_variables.len()
-        );
 
-        if constraint.is_plonk() {
-            println!("  State: PLONK");
-            final_plonk += 1;
-        } else {
-            println!("  State: NO PLONK");
-            final_non_plonk += 1;
+            if constraint.is_plonk() {
+                println!("  State: PLONK");
+                final_plonk += 1;
+            } else {
+                println!("  State: NO PLONK");
+                final_non_plonk += 1;
+            }
         }
+
+        println!("\n========================================");
+        println!("Constraints PLONK: {}", final_plonk);
+        println!("Constraints NO PLONK: {}", final_non_plonk);
+        println!("Total: {}", final_plonk + final_non_plonk);
+        println!("========================================\n");
+
     }
-
-    println!("\n========================================");
-    println!("Constraints PLONK: {}", final_plonk);
-    println!("Constraints NO PLONK: {}", final_non_plonk);
-    println!("Total: {}", final_plonk + final_non_plonk);
-    println!("========================================\n");
 
     let signal_map = {
         // println!("Rebuild witness");

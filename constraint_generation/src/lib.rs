@@ -33,6 +33,9 @@ pub struct BuildConfig {
     pub flag_old_heuristics: bool,
     pub inspect_constraints: bool,
     pub prime: String,
+    pub apply_eager_plonk: bool,
+    pub apply_sat_plonk: bool,
+    pub plonk_simplification: bool
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -113,6 +116,9 @@ fn simplification_process(vcp: &mut VCP, dag: DAG, config: &BuildConfig) -> Cons
         no_rounds: config.no_rounds,
         flag_old_heuristics: config.flag_old_heuristics,
         prime : config.prime.clone(),
+        apply_eager_plonk: config.apply_eager_plonk,
+        apply_sat_plonk: config.apply_sat_plonk,
+        plonk_simplification: config.plonk_simplification
     };
     let list = DAG::map_to_list(dag, flags);
     VCP::add_witness_list(vcp, Rc::new(list.get_witness_as_vec()));
