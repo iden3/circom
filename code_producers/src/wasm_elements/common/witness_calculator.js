@@ -34,6 +34,8 @@ module.exports = async function builder(code, options) {
                     err = "Input signal array access exceeds the size.\n";
 		} else if (code == 7) {
                     err = "Out of bounds array access.\n";
+		} else if (code == 8) {
+                    err =  "Division by zero.\n";
 		} else {
 		    err = "Unknown error.\n";
                 }

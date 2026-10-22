@@ -140,7 +140,39 @@ impl WriteWasm for ComputeBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; compute bucket".to_string());
-	}
+	    }
+
+
+        // in case it is a division first check that the divisor is not zero
+        if producer.sanity_check_style >= 3{
+            match &self.op{
+                OperatorType::Div | OperatorType::IntDiv =>{
+                    if producer.needs_comments() {
+                        instructions.push(";; check divisor not zero".to_string());
+	                }
+                    // compute the divisor
+                    let mut instructions_exp = self.stack[1].produce_wasm(producer);
+                    instructions.append(&mut instructions_exp);
+                    // check if it is zero
+                    instructions.push(call("$Fr_isTrue"));
+
+                    instructions.push(add_if()); // in this case no need to do anything
+                    instructions.push(add_else());
+                    instructions.push(set_constant(&self.message_id.to_string()));
+                    instructions.push(set_constant(&self.line.to_string()));
+                    instructions.push(call("$buildBufferMessage"));
+                    instructions.push(call("$printErrorMessage"));
+                    instructions.push(set_constant(&exception_code_division_zero().to_string()));
+                    instructions.push(add_return());
+                    instructions.push(add_end());
+                    if producer.needs_comments() {
+                        instructions.push(";; end check divisor not zero".to_string());
+	                }
+                },
+                _ =>{}
+            }
+        }
+
         match &self.op {
             OperatorType::AddAddress => {}
             OperatorType::MulAddress => {}
@@ -407,6 +439,33 @@ impl WriteC for ComputeBucket {
                     
                     
                 }
+
+                OperatorType::Div |  OperatorType::IntDiv  =>{
+                    if producer.sanity_check_style >= 3{
+                        // ensure that it is a not zero division
+                        compute_c.push(format!("{{"));
+                        let check_zero = 
+                            format!("int not_zero = Fr_isTrue({});", operands[1]);
+                        let if_condition: String = format!("if (!not_zero) {};", build_division_zero_message(self.line));     
+                        let assertion = format!("{};", build_call("assert".to_string(), vec!["not_zero".to_string()]));
+                        compute_c.push(check_zero);
+                        compute_c.push(if_condition);
+                        compute_c.push(assertion);
+                        compute_c.push(format!("}}"));
+                    }
+
+                    let exp_aux_index = self.op_aux_no.to_string();
+                    // build assign
+                    let operator = get_fr_op(&self.op);
+                    let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
+                    let mut arguments = vec![result_ref.clone()];
+                    arguments.append(&mut operands);
+                    compute_c.push(format!("{}; // line circom {}", build_call(operator, arguments),self.line.to_string()));
+
+                    //value address
+                    result = result_ref;
+
+                }
                 _ => {
                     let exp_aux_index = self.op_aux_no.to_string();
                     // build assign
@@ -454,9 +513,27 @@ impl WriteC for ComputeBucket {
                     let operator = get_fr_op(&self.op);
                     result = build_call(operator,operands);                     
                 }
+
+                OperatorType::Div |  OperatorType::IntDiv  =>{
+                    if producer.sanity_check_style >= 3{
+                        // ensure that it is a not zero division
+                        compute_c.push(format!("{{"));
+                        let check_zero = 
+                            format!("int not_zero = Fr_isTrue({});", operands[1]);
+                        let if_condition: String = format!("if (!not_zero) {};", build_division_zero_message(self.line));     
+                        let assertion = format!("{};", build_call("assert".to_string(), vec!["not_zero".to_string()]));
+                        compute_c.push(check_zero);
+                        compute_c.push(if_condition);
+                        compute_c.push(assertion);
+                        compute_c.push(format!("}}"));
+                    }
+                    // build assign
+                    let operator: String = get_fr_op(&self.op);
+                    result = build_call(operator, operands);
+                },
                 _ => {
                     // build assign
-                    let operator = get_fr_op(&self.op);
+                    let operator: String = get_fr_op(&self.op);
                     result = build_call(operator, operands);
                 }
             }
