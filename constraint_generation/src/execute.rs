@@ -31,7 +31,7 @@ use super::execution_data::type_definitions::{AccessingInformationBus, Accessing
 use super::{
     ast::*, ArithmeticError, FileID, ProgramArchive, Report, ReportCode, ReportCollection
 };
-use circom_algebra::num_bigint::BigInt;
+use circom_algebra::{algebra::ArithmeticExpression::NonQuadratic, num_bigint::BigInt};
 use std::collections::{HashMap, BTreeMap};
 use crate::FlagsExecution;
 type AExpr = ArithmeticExpressionGen<String>;
@@ -58,6 +58,7 @@ struct RuntimeInformation {
     pub exec_program: ExecutedProgram,
     pub anonymous_components: AnonymousComponentsInfo,
     pub executed_templates_trace: HashSet<String>,
+    pub inside_unknown_loop: bool,
 }
 impl RuntimeInformation {
     pub fn new(current_file: FileID, id_max: usize, prime: &String) -> RuntimeInformation {
@@ -74,6 +75,7 @@ impl RuntimeInformation {
             anonymous_components: AnonymousComponentsInfo::new(),
             conditions_state: Vec::new(),
             unknown_counter: 0,
+            inside_unknown_loop: false,
             executed_templates_trace: HashSet::new(),
         }
     }
@@ -704,7 +706,8 @@ fn execute_statement(
             runtime.conditions_state.push((runtime.unknown_counter, true));
             runtime.unknown_counter+=1;
             let returned = loop {
-
+                let prev_loop = runtime.inside_unknown_loop;
+                runtime.inside_unknown_loop = true;
                 let (returned, can_simplify, condition_result) = execute_conditional_statement(
                     cond,
                     stmt,
@@ -714,10 +717,14 @@ fn execute_statement(
                     actual_node,
                     flags
                 )?;
+                runtime.inside_unknown_loop = prev_loop;
+
                 can_be_simplified &= can_simplify;
                 if returned.is_some() {
                     break returned;
                 } else if condition_result.is_none() {
+                    let prev_loop = runtime.inside_unknown_loop;
+                    runtime.inside_unknown_loop = true;
                     let (returned, _, _) = execute_conditional_statement(
                         cond,
                         stmt,
@@ -727,6 +734,7 @@ fn execute_statement(
                         actual_node,
                         flags
                     )?;
+                    runtime.inside_unknown_loop = prev_loop;
                     break returned;
                 } else if !condition_result.unwrap() {
                     break returned;
@@ -977,7 +985,7 @@ fn execute_expression(
     flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
     use Expression::*;
-    let mut can_be_simplified = true;
+    let mut can_be_simplified = !runtime.inside_unknown_loop;
     let res = match expr {
         Number(_, value) => {
             let a_value = AExpr::Number { value: value.clone() };
@@ -1256,6 +1264,9 @@ fn execute_expression(
                     execute_expression(if_false, program_archive, runtime, flags)?
                 }
             } else {
+                // Just to ensure that all variables are not in computed and to detect errors
+                execute_expression(if_true, program_archive, runtime, flags)?;
+                execute_expression(if_false, program_archive, runtime, flags)?;
                 let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
                 FoldedValue { arithmetic_slice, ..FoldedValue::default() }
             }
@@ -1283,6 +1294,9 @@ fn execute_expression(
     if let Some(slice) = res_p {
         if slice.is_single() && can_be_simplified{
             let value = AExpressionSlice::unwrap_to_single(slice);
+            Analysis::computed(&mut runtime.analysis, expr_id, value);
+        } else if runtime.inside_unknown_loop{
+            let value = NonQuadratic;
             Analysis::computed(&mut runtime.analysis, expr_id, value);
         }
     }
