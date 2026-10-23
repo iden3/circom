@@ -56,11 +56,12 @@ impl WriteWasm for LoadBucket {
 	    }
 
         // Check that the access does not generate an out of bounds exception.
-        if producer.sanity_check_style >= 3{   
+        if producer.sanity_check_style >= 3{
+            if self.checks.len() > 0 && producer.needs_comments() {
+                instructions.push(";; adding out of bounds check".to_string());
+            }
             for ob_check in &self.checks{    
                 // generate the access
-                instructions.push(";; adding out of bounds check".to_string());
-
                 let mut instructions_access = ob_check.access.produce_wasm(producer);
                 instructions.append(&mut instructions_access);
                 // generate the maximum length
@@ -75,8 +76,9 @@ impl WriteWasm for LoadBucket {
                 instructions.push(set_constant(&exception_code_out_of_bounds().to_string()));
                 instructions.push(add_return());
                 instructions.push(add_end());
-                                instructions.push(";; finished out of bounds check".to_string());
-
+            }
+            if self.checks.len() > 0 && producer.needs_comments() {
+                instructions.push(";; finished out of bounds check".to_string());
             }
         }
 

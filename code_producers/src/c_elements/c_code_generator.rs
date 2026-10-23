@@ -476,6 +476,14 @@ pub fn build_out_of_bounds_message(line: usize) -> String{
      )
 }
 
+pub fn build_division_zero_message(line: usize) -> String{
+    
+    format!("std::cout << \"Division by zero in template/function \" << {} << \" line {}. \" <<  \"Followed trace of components: \" << {} << std::endl" ,
+        MY_TEMPLATE_NAME,
+        line,
+        generate_my_trace()
+     )
+}
 
 pub fn build_conditional(
     cond: Vec<String>,
