@@ -338,7 +338,7 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
     let config = Config::new();
     with_z3_config(&config, || {
 
-        for k in 1..=bound {
+        // for k in 1..=bound {
         // let mut solver = Optimize::new();
         let mut solver = Solver::new();
         let zero = Int::from_i64(0);
@@ -346,7 +346,7 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
 
         let mut expr_use_vars = Vec::new();
         let rows_expr = cluster.len();
-        let cols_expr = coeffs_and_vars.len() + k; // bound;
+        let cols_expr = coeffs_and_vars.len() + bound;
         
         for e in 0..rows_expr {
             for c in 0..cols_expr {
@@ -359,8 +359,8 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
         let get_expr_uses = |r:usize, c: usize| { expr_use_vars[r * cols_expr + c].clone() };
 
         let mut vars_composition = Vec::new();
-        let rows_vars = k; // bound;
-        let cols_vars = coeffs_and_vars.len() + k; // bound;
+        let rows_vars = bound;
+        let cols_vars = coeffs_and_vars.len() + bound;
 
         for v in 0..rows_vars {
             for c in 0..cols_vars {
@@ -382,10 +382,10 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
             }
 
             let two = Int::from_i64(2);
-            // let is_empty = num_vars_compose._eq(&zero);
+            let is_empty = num_vars_compose._eq(&zero);
             let has_two_terms = num_vars_compose._eq(&two);
-            // solver.assert(Bool::or(&[&is_empty, &has_two_terms]));
-            solver.assert(&has_two_terms);
+            solver.assert(Bool::or(&[&is_empty, &has_two_terms]));
+            // solver.assert(&has_two_terms);
 
             // If a variable is not empty it is because it is used by someone. Updated removing the empty part. Each varible must be used by an expression or by another variable
             let mut used_by_another_var = Bool::from_bool(false);
@@ -400,8 +400,8 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                 used_by_final_expr = Bool::or(&[&used_by_final_expr, &uses_v]);
             }
 
-            // solver.assert(&is_empty.not().implies(Bool::or(&[&used_by_another_var, &used_by_final_expr])));
-            solver.assert(Bool::or(&[&used_by_another_var, &used_by_final_expr]));
+            solver.assert(&is_empty.not().implies(Bool::or(&[&used_by_another_var, &used_by_final_expr])));
+            // solver.assert(Bool::or(&[&used_by_another_var, &used_by_final_expr]));
 
             // Cannot exist two variables with the same composition except for the empty variables
             for next in (v + 1)..rows_vars {
@@ -411,8 +411,8 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                     let comp_next = get_v_composition(next, c);
                     different = Bool::or(&[&different, &comp_v._eq(&comp_next).not()]);
                 }
-                // solver.assert(Bool::or(&[&is_empty, &different]));
-                solver.assert(&different);
+                solver.assert(Bool::or(&[&is_empty, &different]));
+                // solver.assert(&different);
             }
 
             // If a variable uses another variable created before, then the next variables must hold the same. First appear the variables that only use factors
@@ -432,8 +432,8 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                     }
                     next_is_empty = Bool::and(&[&next_is_empty, &comp_next.not()]);
                 }
-                // solver.assert(Bool::or(&[&uses_another_var.not(), &next_is_empty, &next_var_uses_another_var]));
-                solver.assert(Bool::or(&[&uses_another_var.not(), &next_var_uses_another_var]));
+                solver.assert(Bool::or(&[&uses_another_var.not(), &next_is_empty, &next_var_uses_another_var]));
+                // solver.assert(Bool::or(&[&uses_another_var.not(), &next_var_uses_another_var]));
             }
 
             // Two terms with the same variables cannot be used in the same variable
@@ -455,42 +455,32 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
         } 
         
         // Empty variables must be at the end of the matrix
-        // for v in 0..rows_vars.saturating_sub(1) {
-        //     // let mut num_vars_v = Int::from_i64(0);
-        //     // let mut num_vars_next = Int::from_i64(0);
-        //     let mut empty_var = Bool::from_bool(true);
-        //     let mut empty_next = Bool::from_bool(true);
+        for v in 0..rows_vars.saturating_sub(1) {
+            // let mut num_vars_v = Int::from_i64(0);
+            // let mut num_vars_next = Int::from_i64(0);
+            let mut empty_var = Bool::from_bool(true);
+            let mut empty_next = Bool::from_bool(true);
 
-        //     for c in 0..cols_vars {
-        //         let selected_v = get_v_composition(v, c);
-        //         empty_var = Bool::and(&[&empty_var, &selected_v.not()]);
-        //         // let contribution_v = selected_v.ite(&one, &zero);
-        //         // num_vars_v = &num_vars_v + &contribution_v;
+            for c in 0..cols_vars {
+                let selected_v = get_v_composition(v, c);
+                empty_var = Bool::and(&[&empty_var, &selected_v.not()]);
+                // let contribution_v = selected_v.ite(&one, &zero);
+                // num_vars_v = &num_vars_v + &contribution_v;
 
-        //         let selected_next = get_v_composition(v + 1, c);
-        //         empty_next = Bool::and(&[&empty_next, &selected_next.not()]);
-        //         // let contribution_next = selected_next.ite(&one, &zero);
-        //         // num_vars_next = &num_vars_next + &contribution_next;
-        //     }
+                let selected_next = get_v_composition(v + 1, c);
+                empty_next = Bool::and(&[&empty_next, &selected_next.not()]);
+                // let contribution_next = selected_next.ite(&one, &zero);
+                // num_vars_next = &num_vars_next + &contribution_next;
+            }
 
-        //     // let current_is_empty = num_vars_v._eq(&zero);
-        //     // let next_is_empty = num_vars_next._eq(&zero);
+            // let current_is_empty = num_vars_v._eq(&zero);
+            // let next_is_empty = num_vars_next._eq(&zero);
 
-        //     solver.assert(Bool::or(&[&empty_var.not(), &empty_next]));
-        // }
+            solver.assert(Bool::or(&[&empty_var.not(), &empty_next]));
+        }
         
         // Each new variable, how much original variables of each type does it have
         let mut vars_var: Vec<Vec<Int>> = Vec::new();
-        // for v in 0.. rows_vars {
-        //     let mut v_vars = Vec::new();
-        //     for v_orig_id in 0..coeffs_and_vars.len() {
-        //         let var = Int::new_const(format!("var_{}_contains_x_vars_{}", v, v_orig_id));
-
-        //         v_vars.push(var);
-        //     }
-
-        //     vars_var.push(v_vars);
-        // }
 
         for v in 0..rows_vars {
             
@@ -522,7 +512,6 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                     }
                 }
 
-                // solver.assert(&vars_var[v][v_orig_id]._eq(&num_v));
                 v_vars.push(num_v);
             }
 
@@ -606,26 +595,26 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
         }
 
         // An expression just uses non empty variables
-        // for e in 0..rows_expr {
-        //     for v in 0..rows_vars {
-        //         // let mut num_vars_compose = Int::from_i64(0);
-        //         let mut empty_var = Bool::from_bool(true);
+        for e in 0..rows_expr {
+            for v in 0..rows_vars {
+                // let mut num_vars_compose = Int::from_i64(0);
+                let mut empty_var = Bool::from_bool(true);
 
-        //         for c in 0..cols_vars {
-        //             let selected = get_v_composition(v, c);
-        //             // let contribution = selected.ite(&one, &zero);
-        //             // num_vars_compose = &num_vars_compose + &contribution;
-        //             empty_var = Bool::and(&[&empty_var, &selected.not()]);
-        //         }
+                for c in 0..cols_vars {
+                    let selected = get_v_composition(v, c);
+                    // let contribution = selected.ite(&one, &zero);
+                    // num_vars_compose = &num_vars_compose + &contribution;
+                    empty_var = Bool::and(&[&empty_var, &selected.not()]);
+                }
 
-        //         // let is_active = num_vars_compose._eq(&Int::from_i64(2));
-        //         let expr_uses_aux = get_expr_uses(e, coeffs_and_vars.len() + v);
+                // let is_active = num_vars_compose._eq(&Int::from_i64(2));
+                let expr_uses_aux = get_expr_uses(e, coeffs_and_vars.len() + v);
 
-        //         // solver.assert(&expr_uses_aux.implies(&is_active));
-        //         // Or it does not use it, or if it uses is because the variable is not empty
-        //         solver.assert(Bool::or(&[&expr_uses_aux.not(), &empty_var.not()]));
-        //     }
-        // }
+                // solver.assert(&expr_uses_aux.implies(&is_active));
+                // Or it does not use it, or if it uses is because the variable is not empty
+                solver.assert(Bool::or(&[&expr_uses_aux.not(), &empty_var.not()]));
+            }
+        }
 
         // Minimize the number of variables introduced
         // let mut active_vars = Int::from_i64(0);
@@ -639,28 +628,30 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
         // solver.minimize(&active_vars);
 
         // Incremental solving
-        // let row_nonempty: Vec<Bool> = (0..rows_vars).map(|v| {
-        //     let lits: Vec<Bool> = (0..cols_vars).map(|c| get_v_composition(v, c)).collect();
-        //     let refs: Vec<&Bool> = lits.iter().collect();
-        //     Bool::or(&refs)
-        // }).collect();
 
         // let mut lower_bound = 1;
         // let mut upper_bound = bound;
 
         // while lower_bound <= upper_bound {
-        // for k in 1..rows_vars + 1 {
+        for k in 1..rows_vars + 1 {
 
-        //     // let k = lower_bound + (upper_bound - lower_bound) / 2;
-        //     solver.push();
+            // let k = lower_bound + (upper_bound - lower_bound) / 2;
+            solver.push();
 
-        //     for v in 0..k {
-        //         solver.assert(&row_nonempty[v]);
-        //     }
+            for v in 0..k {
+                let mut used = Bool::from_bool(false);
+                for col in 0..cols_vars {
+                    used = Bool::or(&[&used, &get_v_composition(v, col)]);
+                }
+                solver.assert(&used);
+            }
 
-        //     for v in k..rows_vars {
-        //         solver.assert(&row_nonempty[v].not());
-        //     }
+            for v in k..rows_vars {
+                // solver.assert(&row_nonempty[v].not());
+                for col in 0..cols_vars {
+                    solver.assert(&get_v_composition(v, col).not());
+                }
+            }
 
             match solver.check() {
                 SatResult::Sat => {
@@ -777,12 +768,12 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                 }
                 SatResult::Unsat => {
                     println!("\nVariable optimization: UNSAT with k = {}", k);
-                    // solver.pop(1);
+                    solver.pop(1);
                     continue;
                 }
                 SatResult::Unknown => {
                     println!("\nVariable optimization: UNKNOWN with k = {}", k);
-                    // solver.pop(1);
+                    solver.pop(1);
                     break;
                 }
             }
