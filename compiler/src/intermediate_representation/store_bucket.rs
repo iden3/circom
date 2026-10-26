@@ -64,14 +64,12 @@ impl WriteWasm for StoreBucket {
                 instructions.push(";; adding out of bounds check".to_string());
             }
             for ob_check in &self.checks{    
-                // generate the access
+                // generate the condition (it holds iff the access is within the bounds)
                 let mut instructions_access = ob_check.access.produce_wasm(producer);
                 instructions.append(&mut instructions_access);
-                // generate the maximum length
-                instructions.push(set_constant(&ob_check.size.to_string()));
-                // check that the access is less than the length
-                instructions.push(ge32_u());
-                instructions.push(add_if());
+                instructions.push(call("$Fr_isTrue"));
+                instructions.push(add_if()); // in this case no need to do anything
+                instructions.push(add_else());
                 instructions.push(set_constant(&self.message_id.to_string()));
                 instructions.push(set_constant(&self.line.to_string()));
                 instructions.push(call("$buildBufferMessage"));
@@ -105,7 +103,11 @@ impl WriteWasm for StoreBucket {
         };
 
         if size_dest == 0 || size_src == 0 {
-            return vec![];
+            // nothing to store, but the source is computed to keep its checks (as in C++)
+            let mut instructions_src = self.src.produce_wasm(producer);
+            instructions.append(&mut instructions_src);
+            instructions.push(drop());
+            return instructions;
         }
         if producer.needs_comments() {
 	    instructions.push(format!(";; store bucket. Line {}", self.line)); //.to_string()
@@ -483,10 +485,11 @@ impl WriteC for StoreBucket {
     if producer.sanity_check_style >= 3{
         for ob_check in &self.checks{
             prologue.push(format!("{{"));
-            let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
-            prologue.append(&mut index_prologue);
-            prologue.push(format!("int index = {};", index));
-            let check = format!("index >=0 && index < {}", ob_check.size);         
+            let (mut check_prologue, check_value) = ob_check.access.produce_c(producer, parallel);
+            prologue.append(&mut check_prologue);
+            // the condition holds iff the access is within the bounds
+            prologue.push(format!("int in_bounds = Fr_isTrue({});", check_value));
+            let check = "in_bounds".to_string();
             let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));    
             let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
             prologue.push(if_condition);
@@ -704,8 +707,13 @@ impl WriteC for StoreBucket {
 		        prologue.push(format!("}}")); // add a close for block 1 (as it's opened
 		    }
 	        }
+        } else if let AddressType::Signal = &self.dest_address_type {
+            // size 0: nothing is copied, but block 1 has to be closed if it was opened
+            if parallel.unwrap() && self.dest_is_output {
+                prologue.push(format!("}}")); // add a close for block 1 (as it's opened)
+            }
         }
-        
+
         if producer.prime_str != "goldilocks" {
 	        prologue.push(format!("}}")); // add a close block 2 if opened // not that since all closing } are at the end it works
         }
@@ -772,7 +780,7 @@ impl WriteC for StoreBucket {
 
                 if let StatusInput::Unknown = status {
                     assert!(needs_decrement);
-                    let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                    let sub_cmp_counter_decrease_andcheck = build_run_condition(&size, &sub_cmp_counter_decrease);
                     let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                     prologue.push("// run sub component if needed".to_string());
                     let else_instructions = vec![];
@@ -833,7 +841,7 @@ impl WriteC for StoreBucket {
                     },
                     StatusInput::Unknown =>{
                         assert!(needs_decrement);
-                        let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                        let sub_cmp_counter_decrease_andcheck = build_run_condition(&size, &sub_cmp_counter_decrease);
                         let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                         prologue.push("// run sub component if needed".to_string());
                         let else_instructions = vec![];
@@ -879,7 +887,7 @@ impl WriteC for StoreBucket {
                         }
                     },
                     StatusInput::Unknown =>{
-                        let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                        let sub_cmp_counter_decrease_andcheck = build_run_condition(&size, &sub_cmp_counter_decrease);
                         let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                         prologue.push("// run sub component if needed".to_string());
                         let else_instructions = vec![];
@@ -907,5 +915,14 @@ impl WriteC for StoreBucket {
 	}
 
         (prologue, "".to_string())
+    }
+}
+
+// Condition to run a subcomponent after decreasing its counter of inputs. An assignment of
+// size 0 never completes the inputs of a subcomponent (it may have already been run)
+pub fn build_run_condition(size: &str, counter_decrease: &str) -> String {
+    match size.parse::<usize>() {
+        Ok(value) if value > 0 => format!("!({})", counter_decrease),
+        _ => format!("({}) > 0 && !({})", size, counter_decrease),
     }
 }

@@ -61,14 +61,12 @@ impl WriteWasm for LoadBucket {
                 instructions.push(";; adding out of bounds check".to_string());
             }
             for ob_check in &self.checks{    
-                // generate the access
+                // generate the condition (it holds iff the access is within the bounds)
                 let mut instructions_access = ob_check.access.produce_wasm(producer);
                 instructions.append(&mut instructions_access);
-                // generate the maximum length
-                instructions.push(set_constant(&ob_check.size.to_string()));
-                // check that the access is less than the length
-                instructions.push(ge32_u());
-                instructions.push(add_if());
+                instructions.push(call("$Fr_isTrue"));
+                instructions.push(add_if()); // in this case no need to do anything
+                instructions.push(add_else());
                 instructions.push(set_constant(&self.message_id.to_string()));
                 instructions.push(set_constant(&self.line.to_string()));
                 instructions.push(call("$buildBufferMessage"));
@@ -285,10 +283,11 @@ impl WriteC for LoadBucket {
         if producer.sanity_check_style >= 3{
             for ob_check in &self.checks{
                 prologue.push(format!("{{"));
-                let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
-                prologue.append(&mut index_prologue);
-                prologue.push(format!("int index = {};", index));
-                let check = format!("index >=0 && index < {}", ob_check.size);         
+                let (mut check_prologue, check_value) = ob_check.access.produce_c(producer, parallel);
+                prologue.append(&mut check_prologue);
+                // the condition holds iff the access is within the bounds
+                prologue.push(format!("int in_bounds = Fr_isTrue({});", check_value));
+                let check = "in_bounds".to_string();
                 let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));     
                 let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
                 prologue.push(if_condition);

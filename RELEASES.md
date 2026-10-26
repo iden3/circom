@@ -2,11 +2,12 @@
 
 ## October 20, 2026 circom 2.2.4
 #### Extensions
-- A new level 3 is added to the option —sanity_check: in addition to the checks of level 2, it introduces out of bounds checks (including negative indexes) in every array read/write and division by zero checks (operators / and \\) in the produced wasm and C++ witness generation code. More information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/getting-started/compilation-options.md).
+- A new level 3 is added to the option —sanity_check: in addition to the checks of level 2, it introduces out of bounds checks (including negative indexes and indexes that do not fit in 32 bits) in every array read/write, also for signals of subcomponents and fields of buses, and division by zero checks (operators /, \\ and %) in the produced wasm and C++ witness generation code. More information [here](https://github.com/iden3/circom/blob/master/mkdocs/docs/getting-started/compilation-options.md).
 
 #### Improvements
 - Improving documentation.
-- Adding an analysis that detects infinite loops in template calls (a template that, directly or indirectly, instantiates itself with same parameters) and reports an error.
+- Adding an analysis that detects infinite loops in template calls (a template that, directly or indirectly, instantiates itself with same parameters and tags) and reports an error.
+- Deeper recursions of template calls are supported (the compiler runs with a bigger stack) and more than 10000 nested template calls are reported as an error instead of overflowing the stack. Long call traces are shortened in the error messages.
 - Returning an error message instead of panicking when computing a modulo by zero (% 0) during constraint generation.
 - Improving the error message when the pragma version is too big.
 
@@ -15,7 +16,13 @@
 - Fixing minor panic by detecting whether the expression of the main component contains tuples or anonymous component calls.
 - Fixing minor panic in the analysis of variable renaming: signal, bus and component names must be unique after executing the template (only variables can be redeclared in different blocks).
 - Better handling of inline switches (`cond ? a : b`) in the produced witness generation code and other edge cases.
-- Improving the computed values analysis: expressions inside loops with unknown conditions are no longer considered as computed  and other minor edge cases.
+- Improving the computed values analysis: the expressions of the branches of an inline switch with unknown condition are no longer considered as computed (they could keep a value computed in a previous iteration of a loop) and other minor edge cases.
+- Fixing panics when an inline switch contains nested inline switches or inline arrays, and when an inline switch or array is used as argument of log or assert.
+- Fixing the evaluation of calls in the condition of while/for loops (they were evaluated only once, before the loop) and in the body of while loops without braces.
+- Fixing assignments of inline arrays that read the assigned variable (e.g. `x = [x[1], x[0]]`).
+- Handling more precisely the variables declared inside if statements with unknown condition: loops that only depend on them are no longer considered unknown.
+- Fixing panics with buses with fields of size 0 and in parallel templates with outputs of size 0 (C++), and the execution of subcomponents twice after assignments of size 0 (C++).
+- Fixing panic when parsing the hexadecimal literal `0x`.
 - Handling more precisely while loops inside if statements during constraint generation.
 - Shifts (<< and >>) by an amount greater than or equal to the bit size of the prime now directly return 0 during constraint generation, instead of computing huge powers of 2.
 

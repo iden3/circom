@@ -14,6 +14,8 @@ type Length = usize;
 pub type E = VarEnvironment<SymbolInfo>;
 pub type FieldTracker = ConstantTracker<String>;
 
+// access is a condition (a field value) that holds iff the index is within the bounds of a
+// dimension of length size
 #[derive(Clone)]
 pub struct OutBoundsCheck{
     pub access: InstructionPointer,
@@ -149,6 +151,7 @@ struct State {
     code: InstructionList,
     // string_table
     string_table: HashMap<String, usize>,
+    out_of_bounds_checks: bool,
 }
 
 impl State {
@@ -174,6 +177,7 @@ impl State {
             max_stack_depth: 0,
             code: vec![],
             string_table : HashMap::new(),
+            out_of_bounds_checks: false,
         }
     }
     fn reserve(fresh: &mut usize, size: usize) -> usize {
@@ -617,7 +621,7 @@ fn translate_call_case(
     use Expression::Call;
     if let Call { id, args, .. } = info.src {
         let args_instr = translate_call_arguments(args, state, context);
-        info.prc_symbol.into_call_assign(id, args_instr, &state, context)
+        info.prc_symbol.into_call_assign(id, args_instr, state, context)
     } else {
         unreachable!()
     }
@@ -1015,11 +1019,12 @@ fn build_signal_location(
     cmp_name: &str,
     indexes: Vec<Vec<InstructionPointer>>,
     context: &Context,
-    state: &State,
+    state: &mut State,
     dimensions: Vec<usize>,
     size: usize,
     bus_accesses: Vec<BusAccessInfo>,
-) -> LocationRule {
+    same_dimensions_in_instances: bool,
+) -> (LocationRule, Vec<OutBoundsCheck>) {
     use ClusterType::*;
     let database = &context.tmp_database;
     let cmp_type = context.cmp_to_type.get(cmp_name).unwrap();
@@ -1028,9 +1033,18 @@ fn build_signal_location(
             let signal_code = TemplateDB::get_signal_id(database, tmp_name, signal);
             
             let mut accesses = Vec::new();
+            let mut checks = Vec::new();
             let mut i = 0;
             let len_indexes = indexes.len();
             for index in indexes{
+                // the lengths are only known if they are the same in all the possible instances
+                if i == 0 && same_dimensions_in_instances {
+                    for (original, dimension_length) in index.iter().zip(dimensions.iter()) {
+                        if let Some(check) = build_out_of_bounds_check(original, *dimension_length, state) {
+                            checks.push(check);
+                        }
+                    }
+                }
                 let filtered = indexing_instructions_filter(index, state);
                 if filtered.len() > 0{
                     let symbol_dim = if i == 0{
@@ -1050,7 +1064,7 @@ fn build_signal_location(
                 }
                 i+=1;
             }
-            LocationRule::Mapped { signal_code, indexes: accesses }
+            (LocationRule::Mapped { signal_code, indexes: accesses }, checks)
         }
         Uniform { instance_id, header, .. } => {
             let env = TemplateDB::get_instance_addresses(database, *instance_id);
@@ -1064,7 +1078,7 @@ fn build_signal_location(
                 indexes,
                 
             );
-            LocationRule::Indexed { location: full_address, template_header: Some(header.clone()) }
+            (LocationRule::Indexed { location: full_address, template_header: Some(header.clone()) }, checks)
         }
     }
 }
@@ -1105,6 +1119,8 @@ struct ProcessedSymbol {
     before_signal: Vec<Vec<InstructionPointer>>,
     // in case it is a bus indicate the bus accesses info
     bus_accesses: Vec<BusAccessInfo>, 
+    // out of bounds checks of the indexes of the accessed signal of a subcomponent
+    signal_checks: Vec<OutBoundsCheck>,
 }
 
 impl ProcessedSymbol {
@@ -1119,6 +1135,7 @@ impl ProcessedSymbol {
         let mut is_bus = symbol_info.is_bus;
         let mut is_component = symbol_info.is_component;
         let mut accessed_component_signal = None;
+        let mut same_dimensions_in_instances = true;
 
         // Initializing the status (single case by now)
         let mut length = symbol_info.dimensions.clone();
@@ -1182,6 +1199,9 @@ impl ProcessedSymbol {
                             // aux contains the info about the accessed wire
                             let aux = context.tmp_database.wire_info[cmp_id].get(&name).unwrap();  
                             signal_type = Some(aux.signal_type);
+                            if aux.bus_id.is_some() || (!is_first && aux.lengths != initial_symbol_dimensions) {
+                                same_dimensions_in_instances = false;
+                            }
                             // update the possible status
                             let mut new_length = aux.lengths.clone();
                             new_length.reverse();
@@ -1315,7 +1335,7 @@ impl ProcessedSymbol {
             };
 
             // Compute the signal location inside the component
-            let signal_location = build_signal_location(
+            let (signal_location, signal_checks) = build_signal_location(
                 &accessed_component_signal.unwrap(),
                 &symbol_name,
                 after_indexes,
@@ -1324,7 +1344,7 @@ impl ProcessedSymbol {
                 initial_symbol_dimensions,
                 initial_symbol_size,
                 accessed_fields_info,
-
+                same_dimensions_in_instances,
             );
 
             // compute the component location
@@ -1340,7 +1360,8 @@ impl ProcessedSymbol {
                 before_signal: vec![before_index],
                 signal: Some(signal_location),
                 signal_type,
-                bus_accesses: Vec::new()
+                bus_accesses: Vec::new(),
+                signal_checks,
             }
         } else{
 
@@ -1359,7 +1380,8 @@ impl ProcessedSymbol {
                 before_signal: after_indexes,
                 signal: None,
                 signal_type,
-                bus_accesses: accessed_fields_info 
+                bus_accesses: accessed_fields_info,
+                signal_checks: Vec::new(),
             }
         }
 
@@ -1369,12 +1391,12 @@ impl ProcessedSymbol {
         self,
         id: String,
         args: ArgData,
-        state: &State,
+        state: &mut State,
         context: &Context
     ) -> InstructionPointer {
         let (data, checks) = if let Option::Some(signal) = self.signal {
 
-            let (address, checks) = compute_full_address(
+            let (address, mut checks) = compute_full_address(
                 state, 
                 self.symbol.access_instruction,
                 self.symbol_dimensions,
@@ -1382,6 +1404,7 @@ impl ProcessedSymbol {
                 self.bus_accesses,
                 self.before_signal, 
             );
+            checks.extend(self.signal_checks);
             let dest_type = AddressType::SubcmpSignal {
                 cmp_address: address,
                 is_output: self.signal_type.unwrap() == SignalType::Output,
@@ -1445,13 +1468,13 @@ impl ProcessedSymbol {
     fn into_store(
         self, src: 
         InstructionPointer, 
-        state: &State, 
+        state: &mut State, 
         src_size: SizeOption,
         src_address: Option<InstructionPointer>,
         context: &Context
     ) -> InstructionPointer {
         if let Option::Some(signal) = self.signal {
-            let (address, checks) = compute_full_address(
+            let (address, mut checks) = compute_full_address(
                 state, 
                 self.symbol.access_instruction,
                 self.symbol_dimensions,
@@ -1459,6 +1482,7 @@ impl ProcessedSymbol {
                 self.bus_accesses,
                 self.before_signal, 
             );
+            checks.extend(self.signal_checks);
             let dest_type = AddressType::SubcmpSignal {
                 cmp_address: address,
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
@@ -1515,9 +1539,9 @@ impl ProcessedSymbol {
         }
     }
 
-    fn into_load(self, state: &State, context: &Context) -> InstructionPointer {
+    fn into_load(self, state: &mut State, context: &Context) -> InstructionPointer {
         if let Option::Some(signal) = self.signal {
-            let (address, checks) = compute_full_address(
+            let (address, mut checks) = compute_full_address(
                 state, 
                 self.symbol.access_instruction,
                 self.symbol_dimensions,
@@ -1525,6 +1549,7 @@ impl ProcessedSymbol {
                 self.bus_accesses,
                 self.before_signal, 
             );
+            checks.extend(self.signal_checks);
             let dest_type = AddressType::SubcmpSignal {
                 cmp_address: address,
                 uniform_parallel_value: state.component_to_parallel.get(&self.name).unwrap().uniform_parallel_value,
@@ -1575,7 +1600,7 @@ impl ProcessedSymbol {
 }
 
 fn compute_full_address(
-    state: &State,
+    state: &mut State,
     symbol_access_instr: InstructionPointer,
     mut dimensions: Vec<usize>, // for each one of the bus accesses one dimensions
     size: usize, // each one of the field sizes
@@ -1594,9 +1619,10 @@ fn compute_full_address(
     dimensions.reverse();
     let mut linear_length = size;
     let index_stack = indexing_instructions_filter(indexed_with[0].clone(), state);
-    for instruction in index_stack {
+    for (instruction, original) in index_stack.into_iter().zip(indexed_with[0].iter()) {
         let dimension_length = dimensions.pop().unwrap();
-        linear_length /= dimension_length;
+        // a dimension of size 0 can only be accessed out of bounds
+        linear_length = linear_length.checked_div(dimension_length).unwrap_or(0);
         let inst = ValueBucket {
             line: at.get_line(),
             message_id: at.get_message_id(),
@@ -1610,18 +1636,14 @@ fn compute_full_address(
             message_id: at.get_message_id(),
             op_aux_no: 0,
             op: OperatorType::MulAddress,
-            stack: vec![inst, instruction.clone()],
+            stack: vec![inst, instruction],
         }
         .allocate();
         stack.push(jump);
 
-        // TODO: only apply in accesses that might fail -> check that the value is smaller than the size of each index
-        let check = OutBoundsCheck{
-            access: instruction,
-            size: dimension_length,
-        };
-        checks.push(check);
-
+        if let Some(check) = build_out_of_bounds_check(original, dimension_length, state) {
+            checks.push(check);
+        }
     }
 
     let mut index = 1;
@@ -1643,9 +1665,10 @@ fn compute_full_address(
         access.lengths.reverse();
         let mut linear_length = access.size;
         let index_stack = indexing_instructions_filter(indexed_with[index].clone(), state);
-        for instruction in index_stack {
+        for (instruction, original) in index_stack.into_iter().zip(indexed_with[index].iter()) {
             let dimension_length = access.lengths.pop().unwrap();
-            linear_length /= dimension_length;
+            // a dimension of size 0 can only be accessed out of bounds
+            linear_length = linear_length.checked_div(dimension_length).unwrap_or(0);
             let inst = ValueBucket {
                 line: at.get_line(),
                 message_id: at.get_message_id(),
@@ -1659,17 +1682,14 @@ fn compute_full_address(
                 message_id: at.get_message_id(),
                 op_aux_no: 0,
                 op: OperatorType::MulAddress,
-                stack: vec![inst, instruction.clone()],
+                stack: vec![inst, instruction],
             }
             .allocate();
             stack.push(jump);
 
-            // TODO: only apply in accesses that might fail -> check that the value is smaller than the size of each index
-            let check = OutBoundsCheck{
-                access: instruction,
-                size: dimension_length,
-            };
-            checks.push(check);
+            if let Some(check) = build_out_of_bounds_check(original, dimension_length, state) {
+                checks.push(check);
+            }
         }
 
         index += 1;
@@ -1677,6 +1697,70 @@ fn compute_full_address(
 
     stack.push(at);
     (fold(OperatorType::AddAddress, stack, state), checks)
+}
+
+// Builds the condition checking that 0 <= index < size. It is computed over the field value of
+// the index (not over its 32 bits address), so big and negative indexes are also detected:
+// taking the index as an integer in [0, p), it is within the bounds iff index \ size == 0.
+// Constant indexes are not checked: they are already checked during the constraint generation.
+fn build_out_of_bounds_check(
+    index: &InstructionPointer,
+    size: usize,
+    state: &mut State,
+) -> Option<OutBoundsCheck> {
+    use Instruction::Value;
+    if !state.out_of_bounds_checks {
+        return None;
+    }
+    if let Value(v) = &**index {
+        let value = if v.parse_as == ValueType::U32 {
+            Some(v.value)
+        } else {
+            state.field_tracker.get_constant(v.value).and_then(|c| usize::from_str_radix(c, 10).ok())
+        };
+        if value.map_or(false, |value| value < size) {
+            return None;
+        }
+    }
+    let line = index.get_line();
+    let message_id = index.get_message_id();
+    let access = if size == 0 {
+        // nothing can be accessed: the condition is always false
+        ValueBucket {
+            line,
+            message_id,
+            parse_as: ValueType::BigInt,
+            op_aux_no: 0,
+            value: bigint_to_cid(&mut state.field_tracker, &BigInt::from(0)),
+        }
+        .allocate()
+    } else {
+        let size_value = ValueBucket {
+            line,
+            message_id,
+            parse_as: ValueType::BigInt,
+            op_aux_no: 0,
+            value: bigint_to_cid(&mut state.field_tracker, &BigInt::from(size)),
+        }
+        .allocate();
+        let quotient = ComputeBucket {
+            line,
+            message_id,
+            op_aux_no: 0,
+            op: OperatorType::IntDiv,
+            stack: vec![index.clone(), size_value],
+        }
+        .allocate();
+        ComputeBucket {
+            line,
+            message_id,
+            op_aux_no: 0,
+            op: OperatorType::BoolNot,
+            stack: vec![quotient],
+        }
+        .allocate()
+    };
+    Some(OutBoundsCheck { access, size })
 }
 
 fn indexing_instructions_filter(
@@ -1964,7 +2048,9 @@ pub struct CodeInfo<'a> {
     pub component_to_parallel: HashMap<String, ParallelClusters>,
     pub string_table: HashMap<String, usize>,
     pub signals_to_tags: HashMap<Vec<String>, BigInt>,
-    pub buses: &'a Vec<BusInstance>
+    pub buses: &'a Vec<BusInstance>,
+    // the out of bounds checks are only produced if they are going to be used (--sanity_check 3)
+    pub out_of_bounds_checks: bool,
 }
 
 pub struct CodeOutput {
@@ -1987,6 +2073,7 @@ pub fn translate_code(body: Statement, code_info: CodeInfo) -> CodeOutput {
         code_info.signals_to_tags,
     );
     state.string_table = code_info.string_table;
+    state.out_of_bounds_checks = code_info.out_of_bounds_checks;
     initialize_components(&mut state, code_info.components);
     initialize_signals(&mut state, code_info.wires);
     initialize_constants(&mut state, code_info.constants);

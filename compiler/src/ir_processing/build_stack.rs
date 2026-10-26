@@ -45,7 +45,7 @@ pub fn build_call(bucket: &mut CallBucket, mut fresh: usize) -> usize {
         Final(data) => {
             let (v_0, _) = build_address_type(&mut data.dest_address_type, fresh);
             let (v_1, _) = build_location(&mut data.dest, fresh);
-            max_stack = std::cmp::max(v_0, v_1);
+            max_stack = std::cmp::max(max_stack, std::cmp::max(v_0, v_1));
         }
     }
     for i in &mut bucket.arguments {
@@ -103,7 +103,8 @@ pub fn build_load(bucket: &mut LoadBucket, fresh: usize) -> (usize, usize) {
 pub fn build_checks(checks: &mut Vec<OutBoundsCheck>, fresh: usize) -> usize {
     let mut max_stack = fresh;
     for check in checks {
-        let (depth, _) = build_instruction_address(&mut check.access, fresh);
+        // the condition of the check is a field value
+        let depth = build_instruction(&mut check.access, fresh);
         max_stack = std::cmp::max(max_stack, depth);
     }
     max_stack

@@ -102,14 +102,26 @@ fn extend_block(stmt: &mut Statement, state: &mut State, context: &Context) -> V
 }
 
 fn extend_while(stmt: &mut Statement, state: &mut State, context: &Context) -> Vec<Statement> {
-    use Statement::While;
+    use Statement::{While, Substitution};
     if let While { cond, stmt, .. } = stmt {
-        let mut expands = extend_statement(stmt, state, context);
-        let mut cond_extension = extend_expression(cond, state, context);
-        expands.append(&mut cond_extension.initializations);
+        // the statements lifted from the body are executed in every iteration
+        let mut expands_body = extend_statement(stmt, state, context);
+        expands_body.push(*stmt.clone());
+
+        // the statements lifted from the condition are executed before the loop and
+        // at the end of every iteration (the condition is evaluated again)
+        let cond_extension = extend_expression(cond, state, context);
+        let mut expands = cond_extension.initializations;
         let mut expr = vec![cond.clone()];
         sugar_filter(&mut expr, state, &mut expands);
         *cond = expr.pop().unwrap();
+        for init in &expands {
+            if let Substitution { .. } = init {
+                expands_body.push(init.clone());
+            }
+        }
+        map_extended_stmts(&mut expands_body, state);
+        *stmt = Box::new(Statement::Block { meta: stmt.get_meta().clone(), stmts: expands_body });
         expands
     } else {
         unreachable!()
@@ -125,10 +137,12 @@ fn extend_conditional(
     if let IfThenElse { cond, if_case, else_case, .. } = stmt {
         let mut expands_if = extend_statement(if_case, state, context);
         expands_if.push(*if_case.clone());
+        map_extended_stmts(&mut expands_if, state);
         *if_case = Box::new(Statement::Block { meta: if_case.get_meta().clone(), stmts: expands_if });
         if let Option::Some(s) = else_case {
             let mut expands_else = extend_statement(s, state, context);
             expands_else.push(*s.clone());
+            map_extended_stmts(&mut expands_else, state);
             *else_case = Some(Box::new(Statement::Block { meta: s.get_meta().clone(), stmts: expands_else }));
 
         }
@@ -202,6 +216,7 @@ fn extend_log_call(stmt: &mut Statement, state: &mut State, context: &Context) -
             if let LogArgument::LogExp(arg) = arglog {
                 let mut exp = extend_expression(arg, state, context);
                 initializations.append(&mut exp.initializations);
+                filter_switch_or_array(arg, state, &mut initializations);
             }
         }
         initializations
@@ -213,7 +228,9 @@ fn extend_log_call(stmt: &mut Statement, state: &mut State, context: &Context) -
 fn extend_assert(stmt: &mut Statement, state: &mut State, context: &Context) -> Vec<Statement> {
     use Statement::Assert;
     if let Assert { arg, .. } = stmt {
-        extend_expression(arg, state, context).initializations
+        let mut initializations = extend_expression(arg, state, context).initializations;
+        filter_switch_or_array(arg, state, &mut initializations);
+        initializations
     } else {
         unreachable!()
     }
@@ -490,6 +507,15 @@ fn sugar_filter(elements: &mut Vec<Expression>, state: &mut State, inits: &mut V
     }
 }
 
+// Inline switches and arrays cannot be translated directly: they are lifted into a variable
+fn filter_switch_or_array(expr: &mut Expression, state: &mut State, inits: &mut Vec<Statement>) {
+    if expr.is_switch() || expr.is_array() {
+        let mut elems = vec![expr.clone()];
+        sugar_filter(&mut elems, state, inits);
+        *expr = elems.pop().unwrap();
+    }
+}
+
 fn rmv_sugar(fresh_variable: &str, expr: Expression, buffer: &mut Vec<Statement>) -> Expression {
     use Expression::Variable;
     use Statement::{Declaration, Substitution};
@@ -522,6 +548,15 @@ fn rmv_sugar(fresh_variable: &str, expr: Expression, buffer: &mut Vec<Statement>
 }
 
 // mappings
+
+// Applies to a list of already extended statements (i.e. the statements lifted from an
+// expression plus the statement that uses them) the mappings applied to the body of a block
+fn map_extended_stmts(stmts: &mut Vec<Statement>, state: &mut State) {
+    map_substitutions(stmts);
+    map_constraint_equalities(stmts);
+    state.fresh_id = map_returns(stmts, state.fresh_id);
+}
+
 fn map_stmts_with_sugar(stmts: &mut Vec<Statement>, state: &mut State, context: &Context) {
     let work = std::mem::take(stmts);
     for mut w in work {
@@ -655,9 +690,11 @@ fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                 rhe: *if_true,
             };
             if_assigns.push(sub_if);
+            map_substitutions(&mut if_assigns);
             let mut else_assigns = inits_false.clone();
             let sub_else = Substitution { op, var, access, meta: meta.clone(), rhe: *if_false };
             else_assigns.push(sub_else);
+            map_substitutions(&mut else_assigns);
             let if_body = Block { stmts: if_assigns, meta: meta.clone() };
             let else_body = Block { stmts: else_assigns, meta: meta.clone() };
             let stmt = IfThenElse {
@@ -675,6 +712,28 @@ fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     }
 }
 
+fn uses_variable(expr: &Expression, name: &str) -> bool {
+    use Expression::*;
+    match expr {
+        Variable { name: var, access, .. } => {
+            var == name
+                || access.iter().any(|acc| matches!(acc, Access::ArrayAccess(index) if uses_variable(index, name)))
+        }
+        InfixOp { lhe, rhe, .. } => uses_variable(lhe, name) || uses_variable(rhe, name),
+        PrefixOp { rhe, .. } | ParallelOp { rhe, .. } => uses_variable(rhe, name),
+        InlineSwitchOp { cond, if_true, if_false, .. } => {
+            uses_variable(cond, name) || uses_variable(if_true, name) || uses_variable(if_false, name)
+        }
+        Call { args, .. } | BusCall { args, .. } => args.iter().any(|a| uses_variable(a, name)),
+        ArrayInLine { values, .. } | Tuple { values, .. } => values.iter().any(|v| uses_variable(v, name)),
+        UniformArray { value, dimension, .. } => uses_variable(value, name) || uses_variable(dimension, name),
+        AnonymousComp { params, signals, .. } => {
+            params.iter().chain(signals.iter()).any(|a| uses_variable(a, name))
+        }
+        Number(..) => false,
+    }
+}
+
 fn cast_dimension(ae_index: &Expression) -> Option<usize> {
     use Expression::Number;
 
@@ -687,10 +746,37 @@ fn cast_dimension(ae_index: &Expression) -> Option<usize> {
 
 fn rhe_array_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use num_bigint_dig::BigInt;
-    use Expression::{ArrayInLine, Number, UniformArray};
-    use Statement::Substitution;
+    use Expression::{ArrayInLine, Number, UniformArray, Variable};
+    use Statement::{Declaration, Substitution};
     if let Substitution { var, access, op, rhe, meta } = stmt {
-        if let ArrayInLine { values, .. } = rhe {
+        let reads_assigned_var = if let ArrayInLine { values, .. } = &rhe {
+            values.iter().any(|v| uses_variable(v, &var))
+        } else {
+            false
+        };
+        if op == AssignOp::AssignVar && reads_assigned_var {
+            // the elements are assigned one by one, so (e.g. x = [x[1], x[0]]) the array is
+            // first stored in an auxiliary variable
+            let lengths = rhe.get_meta().get_memory_knowledge().get_concrete_dimensions().to_vec();
+            let aux = format!("{}_auto_array", rhe.get_meta().elem_id);
+            let mut aux_meta = rhe.get_meta().clone();
+            aux_meta.get_mut_memory_knowledge().set_concrete_dimensions(lengths.clone());
+            aux_meta.get_mut_type_knowledge().set_reduces_to(TypeReduction::Variable);
+            let dimensions = lengths.iter().map(|v| Number(aux_meta.clone(), BigInt::from(*v))).collect();
+            stmts.push(Declaration {
+                meta: aux_meta.clone(),
+                xtype: VariableType::Var,
+                name: aux.clone(),
+                dimensions,
+                is_constant: false,
+                is_anonymous: false,
+            });
+            let aux_assignment =
+                Substitution { meta: aux_meta.clone(), var: aux.clone(), access: vec![], op, rhe };
+            rhe_array_case(aux_assignment, stmts);
+            let aux_variable = Variable { meta: aux_meta, name: aux, access: vec![] };
+            stmts.push(Substitution { meta, var, access, op, rhe: aux_variable });
+        } else if let ArrayInLine { values, .. } = rhe {
             let mut index = 0;
             for v in values {
                 let mut index_meta = meta.clone();

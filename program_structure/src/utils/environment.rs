@@ -159,6 +159,13 @@ where
     pub fn has_variable(&self, symbol: &str) -> bool {
         self.block_with_variable_symbol(symbol).is_some()
     }
+    pub fn number_of_variable_blocks(&self) -> usize {
+        self.variables.len()
+    }
+    // index of the (innermost) block where the variable is declared
+    pub fn variable_block_index(&self, symbol: &str) -> Option<usize> {
+        self.variables.iter().rposition(|block| VariableBlock::contains_variable(block, symbol))
+    }
 
     pub fn get_variable(&self, symbol: &str) -> Option<&VC> {
         let possible_block = self.block_with_variable_symbol(symbol);

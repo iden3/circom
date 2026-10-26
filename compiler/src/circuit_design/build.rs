@@ -100,6 +100,7 @@ fn build_template_instances(
             template_database: &c_info.template_database,
             string_table : string_table,
             signals_to_tags: template.signals_to_tags,
+            out_of_bounds_checks: c_info.out_of_bounds_checks,
         };
         let mut template_info = TemplateCodeInfo {
             name,
@@ -177,7 +178,9 @@ fn build_function_instances(
             template_database: &c_info.template_database,
             string_table : string_table,
             signals_to_tags: HashMap::new(),
-            buses: &c_info.buses        };
+            buses: &c_info.buses,
+            out_of_bounds_checks: c_info.out_of_bounds_checks,
+        };
         let mut function_info = FunctionCodeInfo {
             name,
             params,
@@ -613,7 +616,11 @@ fn get_info_buses(buses: &Vec<BusInstance>)->(usize, FieldMap){
             for len in &field_info.dimensions{
                 total_array_size *= len;
             }
-            let individual_size = field_info.size / total_array_size;
+            let individual_size = if total_array_size == 0 {
+                0
+            } else {
+                field_info.size / total_array_size
+            };
             let data = FieldData{
                 offset: field_info.offset,
                 size: individual_size,
@@ -633,7 +640,8 @@ struct CircuitInfo {
     file_library: FileLibrary,
     functions: HashMap<String, Vec<usize>>,
     template_database: TemplateDB,
-    buses: Vec<BusInstance>
+    buses: Vec<BusInstance>,
+    out_of_bounds_checks: bool,
 }
 
 pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit {
@@ -653,7 +661,8 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
         template_database,
         file_library: vcp.file_library,
         functions: vcp.quick_knowledge,
-        buses: vcp.buses
+        buses: vcp.buses,
+        out_of_bounds_checks: flag.sanity_check_style >= 3,
     };
 
     let (field_tracker, string_table) =

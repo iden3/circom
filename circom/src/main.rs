@@ -9,8 +9,19 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 use ansi_term::Colour;
 use input_user::Input;
+// The execution of the circuit is recursive (e.g. templates that instantiate other templates),
+// so the compiler runs in a thread with a big stack. The memory is only reserved, it is used on demand.
+const STACK_SIZE: usize = 1 << 31;
+
 fn main() {
-    let result = start();
+    let result = match std::thread::Builder::new().stack_size(STACK_SIZE).spawn(start) {
+        Ok(handle) => match handle.join() {
+            Ok(result) => result,
+            // the panic message has already been printed by the thread
+            Err(_) => std::process::exit(101),
+        },
+        Err(_) => start(),
+    };
     if result.is_err() {
         eprintln!("{}", Colour::Red.paint("previous errors were found"));
         std::process::exit(1);

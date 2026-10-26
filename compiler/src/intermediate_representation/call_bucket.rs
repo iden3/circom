@@ -1,5 +1,6 @@
 use super::ir_interface::*;
 use crate::intermediate_representation::translate::OutBoundsCheck;
+use crate::intermediate_representation::store_bucket::build_run_condition;
 use crate::translating_traits::*;
 use code_producers::c_elements::*;
 use code_producers::wasm_elements::*;
@@ -82,14 +83,12 @@ impl WriteWasm for CallBucket {
                 instructions.push(";; adding out of bounds check".to_string());
             }
             for ob_check in &self.checks{    
-                // generate the access
+                // generate the condition (it holds iff the access is within the bounds)
                 let mut instructions_access = ob_check.access.produce_wasm(producer);
                 instructions.append(&mut instructions_access);
-                // generate the maximum length
-                instructions.push(set_constant(&ob_check.size.to_string()));
-                // check that the access is less than the length
-                instructions.push(ge32_u());
-                instructions.push(add_if());
+                instructions.push(call("$Fr_isTrue"));
+                instructions.push(add_if()); // in this case no need to do anything
+                instructions.push(add_else());
                 instructions.push(set_constant(&self.message_id.to_string()));
                 instructions.push(set_constant(&self.line.to_string()));
                 instructions.push(call("$buildBufferMessage"));
@@ -511,10 +510,11 @@ impl WriteC for CallBucket {
         if producer.sanity_check_style >= 3{
             for ob_check in &self.checks{
                 prologue.push(format!("{{"));
-                let (mut index_prologue, index) = ob_check.access.produce_c(producer, parallel);
-                prologue.append(&mut index_prologue);
-                prologue.push(format!("int index = {};", index));
-                let check = format!("index >=0 && index < {}", ob_check.size);         
+                let (mut check_prologue, check_value) = ob_check.access.produce_c(producer, parallel);
+                prologue.append(&mut check_prologue);
+                // the condition holds iff the access is within the bounds
+                prologue.push(format!("int in_bounds = Fr_isTrue({});", check_value));
+                let check = "in_bounds".to_string();
             let if_condition = format!("if (!({})) {};", check, build_out_of_bounds_message(self.line));     
                 let assertion = format!("{};", build_call("assert".to_string(), vec![check]));
                 prologue.push(if_condition);
@@ -718,8 +718,9 @@ impl WriteC for CallBucket {
 		}
 		// if output and parallel send notify
 		if let AddressType::Signal = &data.dest_address_type {
-		    if parallel.unwrap()  && data.dest_is_output {
-			if size != "0" {
+		    // nothing is set when the size is 0
+		    if parallel.unwrap()  && data.dest_is_output && size != "0" {
+			{
 			    prologue.push(format!("{{"));
 			    prologue.push(format!("for (int i = 0; i < {}; i++) {{", size));
 			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}+i].lock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
@@ -728,11 +729,6 @@ impl WriteC for CallBucket {
 			    prologue.push(format!("{}->componentMemory[{}].cvs[{}+i].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			    prologue.push(format!("}}"));
 			    prologue.push(format!("}}"));
-			} else {
-			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}].lock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
-			    prologue.push(format!("{}->componentMemory[{}].outputIsSet[{}]=true;",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
-			    prologue.push(format!("{}->componentMemory[{}].mutexes[{}].unlock();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
-			    prologue.push(format!("{}->componentMemory[{}].cvs[{}].notify_all();",CIRCOM_CALC_WIT,CTX_INDEX,dest_index.clone()));
 			}
 		    }
 		}
@@ -800,7 +796,7 @@ impl WriteC for CallBucket {
                     };
                     if let StatusInput::Unknown = status {
                         assert!(needs_decrement);
-                        let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                        let sub_cmp_counter_decrease_andcheck = build_run_condition(&size, &sub_cmp_counter_decrease);
                         let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                         prologue.push("// run sub component if needed".to_string());
                         let else_instructions = vec![];
@@ -861,7 +857,7 @@ impl WriteC for CallBucket {
                         },
                         StatusInput::Unknown =>{
                             assert!(needs_decrement);
-                            let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                            let sub_cmp_counter_decrease_andcheck = build_run_condition(&size, &sub_cmp_counter_decrease);
                             let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                             prologue.push("// run sub component if needed".to_string());
                             let else_instructions = vec![];
@@ -908,7 +904,7 @@ impl WriteC for CallBucket {
                         },
                         StatusInput::Unknown =>{
                             assert!(needs_decrement);
-                            let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                            let sub_cmp_counter_decrease_andcheck = build_run_condition(&size, &sub_cmp_counter_decrease);
                             let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                             prologue.push("// run sub component if needed".to_string());
                             let else_instructions = vec![];

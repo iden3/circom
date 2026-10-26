@@ -143,10 +143,10 @@ impl WriteWasm for ComputeBucket {
 	    }
 
 
-        // in case it is a division first check that the divisor is not zero
+        // in case it is a division or a modulo first check that the divisor is not zero
         if producer.sanity_check_style >= 3{
             match &self.op{
-                OperatorType::Div | OperatorType::IntDiv =>{
+                OperatorType::Div | OperatorType::IntDiv | OperatorType::Mod =>{
                     if producer.needs_comments() {
                         instructions.push(";; check divisor not zero".to_string());
 	                }
@@ -440,7 +440,7 @@ impl WriteC for ComputeBucket {
                     
                 }
 
-                OperatorType::Div |  OperatorType::IntDiv  =>{
+                OperatorType::Div |  OperatorType::IntDiv | OperatorType::Mod =>{
                     if producer.sanity_check_style >= 3{
                         // ensure that it is a not zero division
                         compute_c.push(format!("{{"));
@@ -514,7 +514,7 @@ impl WriteC for ComputeBucket {
                     result = build_call(operator,operands);                     
                 }
 
-                OperatorType::Div |  OperatorType::IntDiv  =>{
+                OperatorType::Div |  OperatorType::IntDiv | OperatorType::Mod =>{
                     if producer.sanity_check_style >= 3{
                         // ensure that it is a not zero division
                         compute_c.push(format!("{{"));

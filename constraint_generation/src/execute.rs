@@ -35,8 +35,9 @@ use circom_algebra::{algebra::ArithmeticExpression::NonQuadratic, num_bigint::Bi
 use std::collections::{HashMap, BTreeMap};
 use crate::FlagsExecution;
 type AExpr = ArithmeticExpressionGen<String>;
+// maximum depth of nested template calls (the execution is recursive)
+const MAX_NESTED_TEMPLATE_CALLS: usize = 10000;
 type AnonymousComponentsInfo = BTreeMap<String, (Meta, Vec<Expression>)>;
-use std::collections::HashSet;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 enum BlockType {
@@ -57,8 +58,11 @@ struct RuntimeInformation {
     pub environment: ExecutionEnvironment,
     pub exec_program: ExecutedProgram,
     pub anonymous_components: AnonymousComponentsInfo,
-    pub executed_templates_trace: HashSet<String>,
-    pub inside_unknown_loop: bool,
+    // templates (name, parameters and tags of the inputs) whose execution is in progress
+    pub executed_templates_trace: Vec<(String, BTreeMap<String, AExpressionSlice>, HashMap<String, TagWire>)>,
+    // number of blocks of variables when the innermost block with unknown condition started:
+    // the variables declared inside it are local to it, so their values are still known
+    pub unknown_block_start: usize,
 }
 impl RuntimeInformation {
     pub fn new(current_file: FileID, id_max: usize, prime: &String) -> RuntimeInformation {
@@ -75,8 +79,8 @@ impl RuntimeInformation {
             anonymous_components: AnonymousComponentsInfo::new(),
             conditions_state: Vec::new(),
             unknown_counter: 0,
-            inside_unknown_loop: false,
-            executed_templates_trace: HashSet::new(),
+            executed_templates_trace: Vec::new(),
+            unknown_block_start: 0,
         }
     }
 }
@@ -160,7 +164,8 @@ enum ExecutionError {
     FalseAssert,
     ArraySizeTooBig,
     RepeatedDeclaration,
-    LoopTemplatesCalls
+    LoopTemplatesCalls,
+    TooManyNestedTemplateCalls
 }
 
 enum ExecutionWarning {
@@ -706,8 +711,6 @@ fn execute_statement(
             runtime.conditions_state.push((runtime.unknown_counter, true));
             runtime.unknown_counter+=1;
             let returned = loop {
-                let prev_loop = runtime.inside_unknown_loop;
-                runtime.inside_unknown_loop = true;
                 let (returned, can_simplify, condition_result) = execute_conditional_statement(
                     cond,
                     stmt,
@@ -717,14 +720,10 @@ fn execute_statement(
                     actual_node,
                     flags
                 )?;
-                runtime.inside_unknown_loop = prev_loop;
-
                 can_be_simplified &= can_simplify;
                 if returned.is_some() {
                     break returned;
                 } else if condition_result.is_none() {
-                    let prev_loop = runtime.inside_unknown_loop;
-                    runtime.inside_unknown_loop = true;
                     let (returned, _, _) = execute_conditional_statement(
                         cond,
                         stmt,
@@ -734,7 +733,6 @@ fn execute_statement(
                         actual_node,
                         flags
                     )?;
-                    runtime.inside_unknown_loop = prev_loop;
                     break returned;
                 } else if !condition_result.unwrap() {
                     break returned;
@@ -985,7 +983,7 @@ fn execute_expression(
     flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
     use Expression::*;
-    let mut can_be_simplified = !runtime.inside_unknown_loop;
+    let mut can_be_simplified = true;
     let res = match expr {
         Number(_, value) => {
             let a_value = AExpr::Number { value: value.clone() };
@@ -1264,9 +1262,10 @@ fn execute_expression(
                     execute_expression(if_false, program_archive, runtime, flags)?
                 }
             } else {
-                // Just to ensure that all variables are not in computed and to detect errors
-                execute_expression(if_true, program_archive, runtime, flags)?;
-                execute_expression(if_false, program_archive, runtime, flags)?;
+                // The arms are not executed (the one that is not taken may fail or not terminate),
+                // but their expressions may have been computed in a previous execution (loops)
+                mark_as_not_computed(if_true, runtime);
+                mark_as_not_computed(if_false, runtime);
                 let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
                 FoldedValue { arithmetic_slice, ..FoldedValue::default() }
             }
@@ -1295,12 +1294,66 @@ fn execute_expression(
         if slice.is_single() && can_be_simplified{
             let value = AExpressionSlice::unwrap_to_single(slice);
             Analysis::computed(&mut runtime.analysis, expr_id, value);
-        } else if runtime.inside_unknown_loop{
-            let value = NonQuadratic;
-            Analysis::computed(&mut runtime.analysis, expr_id, value);
+        } else {
+            // a previous execution (loops) may have computed a value for it
+            Analysis::computed(&mut runtime.analysis, expr_id, NonQuadratic);
         }
     }
     Result::Ok(res)
+}
+
+// Marks the expression and its subexpressions as not computed. Accesses to tags (and other
+// component accesses) are kept: they do not depend on the execution path and must be folded.
+fn mark_as_not_computed(expr: &Expression, runtime: &mut RuntimeInformation) {
+    use Expression::*;
+    let not_computed = match expr {
+        InfixOp { lhe, rhe, .. } => {
+            mark_as_not_computed(lhe, runtime);
+            mark_as_not_computed(rhe, runtime);
+            true
+        }
+        PrefixOp { rhe, .. } | ParallelOp { rhe, .. } => {
+            mark_as_not_computed(rhe, runtime);
+            true
+        }
+        InlineSwitchOp { cond, if_true, if_false, .. } => {
+            mark_as_not_computed(cond, runtime);
+            mark_as_not_computed(if_true, runtime);
+            mark_as_not_computed(if_false, runtime);
+            true
+        }
+        Variable { access, .. } => {
+            let mut is_component_access = false;
+            for acc in access {
+                match acc {
+                    Access::ArrayAccess(index) => mark_as_not_computed(index, runtime),
+                    Access::ComponentAccess(_) => is_component_access = true,
+                }
+            }
+            !is_component_access
+        }
+        Number(..) => false,
+        Call { args, .. } | BusCall { args, .. } | ArrayInLine { values: args, .. } | Tuple { values: args, .. } => {
+            for arg in args {
+                mark_as_not_computed(arg, runtime);
+            }
+            true
+        }
+        AnonymousComp { params, signals, .. } => {
+            for arg in params.iter().chain(signals.iter()) {
+                mark_as_not_computed(arg, runtime);
+            }
+            true
+        }
+        UniformArray { value, dimension, .. } => {
+            mark_as_not_computed(value, runtime);
+            mark_as_not_computed(dimension, runtime);
+            true
+        }
+    };
+    if not_computed {
+        Analysis::computed(&mut runtime.analysis, expr.get_meta().elem_id, NonQuadratic);
+    }
 }
 
 
@@ -1607,6 +1660,8 @@ fn perform_assign(
         let accessing_information = accessing_information.other_access.as_ref().unwrap();
         debug_assert!(accessing_information.signal_access.is_none());
         debug_assert!(accessing_information.after_signal.is_empty());
+        let declared_outside_unknown_block = ExecutionEnvironment::variable_block_index(&runtime.environment, symbol)
+            .map_or(true, |index| index < runtime.unknown_block_start);
         let environment_result = ExecutionEnvironment::get_mut_variable_mut(&mut runtime.environment, symbol);
         let (symbol_tags, symbol_content) = treat_result_with_environment_error(
             environment_result,
@@ -1620,7 +1675,7 @@ fn perform_assign(
             TagWire::default()
         };
         let mut r_slice = safe_unwrap_to_arithmetic_slice(r_folded, line!());
-        if runtime.block_type == BlockType::Unknown {
+        if runtime.block_type == BlockType::Unknown && declared_outside_unknown_block {
             r_slice = AExpressionSlice::new_with_route(r_slice.route(), &AExpr::NonQuadratic);
             r_tags = TagWire::default();
         }
@@ -2690,6 +2745,8 @@ fn execute_conditional_statement(
     } else {
         let previous_block_type = runtime.block_type;
         runtime.block_type = BlockType::Unknown;
+        let previous_unknown_block_start = runtime.unknown_block_start;
+        runtime.unknown_block_start = ExecutionEnvironment::number_of_variable_blocks(&runtime.environment);
         // TODO: here instead of executing both branches what we do is to store the values
         // that we assign in each one of the branches and assign later: if we assign in both 
         // of them a signal we return an error. If we assign in just one then we dont return error
@@ -2736,6 +2793,7 @@ fn execute_conditional_statement(
         // remove the last condition added
         runtime.conditions_state.pop();
         runtime.block_type = previous_block_type;
+        runtime.unknown_block_start = previous_unknown_block_start;
         return Result::Ok((ret_value, can_simplify, Option::None));
     }
 }
@@ -3440,7 +3498,6 @@ fn execute_template_call(
         args_to_values.insert(name.clone(), value.clone());
     }
     for (_input, input_tags) in &tag_values{
-        // TODO: does not got inside bus
         for (_tag, value) in &input_tags.tags {
             if value.is_none(){
                 instantiation_name.push_str("null,");
@@ -3459,8 +3516,22 @@ fn execute_template_call(
     instantiation_name.push(')');
 
 
-    // Check if the node is already in the execution trace
-    if runtime.executed_templates_trace.contains(&instantiation_name) {
+    // Check if the node is already in the execution trace (same comparison as identify_node,
+    // so the tags of the fields of the input buses are also considered)
+    let in_trace = runtime.executed_templates_trace.iter().any(|(name, params, tags)| {
+        name == id && *params == args_to_values && *tags == tag_values
+    });
+    if runtime.executed_templates_trace.len() >= MAX_NESTED_TEMPLATE_CALLS {
+        // recursions whose parameters never repeat (e.g. A(n) instantiates A(n+1))
+        let err = Result::Err(ExecutionError::TooManyNestedTemplateCalls);
+        treat_result_with_execution_error(
+            err,
+            meta,
+            &mut runtime.runtime_errors,
+            &runtime.call_trace,
+        )?;
+    }
+    if in_trace {
             let err = Result::Err(ExecutionError::LoopTemplatesCalls);
             treat_result_with_execution_error(
                 err,
@@ -3469,7 +3540,7 @@ fn execute_template_call(
                 &runtime.call_trace,
         )?;
     } else{
-        runtime.executed_templates_trace.insert(instantiation_name.clone());
+        runtime.executed_templates_trace.push((id.to_string(), args_to_values.clone(), tag_values.clone()));
     }
 
     let existent_node = runtime.exec_program.identify_node(id, &args_to_values, &tag_values);
@@ -3536,7 +3607,7 @@ fn execute_template_call(
     };
 
     // Remove the node from the execution trace
-    runtime.executed_templates_trace.remove(&instantiation_name);
+    runtime.executed_templates_trace.pop();
 
     Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(false), ..FoldedValue::default() })
 }
@@ -4369,6 +4440,10 @@ fn treat_result_with_execution_error<C>(
                     "Found loop in template calls. The template calls must be acyclic.".to_string(),
                     ReportCode::RuntimeError,
                 ),
+                TooManyNestedTemplateCalls => Report::error(
+                    format!("Too many nested template calls (more than {}). The template calls must terminate.", MAX_NESTED_TEMPLATE_CALLS),
+                    ReportCode::RuntimeError,
+                ),
             };
             add_report_to_runtime(report, meta, runtime_errors, call_trace);
             Result::Err(())
@@ -4429,12 +4504,22 @@ fn add_report_to_runtime(
     let mut report = report;
     report.add_primary(meta.location.clone(), meta.get_file_id(), "found here".to_string());
 
+    // only the first and last calls of very deep traces are shown
+    const SHOWN_CALLS: usize = 10;
     let mut trace = "call trace:\n".to_string();
     let mut spacing = "".to_string();
-    for call in call_trace.iter() {
+    for (index, call) in call_trace.iter().enumerate() {
+        if call_trace.len() > 2 * SHOWN_CALLS && index == SHOWN_CALLS {
+            trace.push_str(&format!("{}... ({} calls omitted)\n", spacing, call_trace.len() - 2 * SHOWN_CALLS));
+        }
+        if call_trace.len() > 2 * SHOWN_CALLS && index >= SHOWN_CALLS && index < call_trace.len() - SHOWN_CALLS {
+            continue;
+        }
         let msg = format!("{}->{}\n", spacing, call);
         trace.push_str(msg.as_str());
-        spacing.push_str(" ");
+        if index < SHOWN_CALLS {
+            spacing.push_str(" ");
+        }
     }
     report.add_note(trace);
     runtime_errors.push(report);

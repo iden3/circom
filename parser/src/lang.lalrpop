@@ -840,7 +840,7 @@ DECNUMBER: BigInt = {
 };
 
 HEXNUMBER : BigInt = {
-    r"0x[0-9A-Fa-f]*" => BigInt::parse_bytes(&(<>.as_bytes()[2..]),16).expect("failed to parse base16")
+    r"0x[0-9A-Fa-f]+" => BigInt::parse_bytes(&(<>.as_bytes()[2..]),16).expect("failed to parse base16")
 };
 
 IDENTIFIER : String = {
