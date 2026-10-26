@@ -258,13 +258,20 @@ fn constant_eq_simplification(
 ) -> (LinkedList<S>, LinkedList<C>) {
     let mut cons = LinkedList::new();
     let mut subs = LinkedList::new();
-    for constraint in c_eq {
+    let mut substituted_signal_values = HashMap::new();
+    for mut constraint in c_eq {
         let mut signals: Vec<_> = C::take_cloned_signals_ordered(&constraint).iter().cloned().collect();
         let signal = signals.pop().unwrap();
         if HashSet::contains(&forbidden, &signal) {
             LinkedList::push_back(&mut cons, constraint);
+        } else if substituted_signal_values.contains_key(&signal){ 
+            let prev_subs = substituted_signal_values.get(&signal).unwrap();
+            C::apply_substitution(&mut constraint, prev_subs, field);
+            C::fix_constraint(&mut constraint, field);
+            LinkedList::push_back(&mut cons, constraint);
         } else {
             let sub = C::clear_signal_from_linear(constraint, &signal, field);
+            substituted_signal_values.insert(signal, sub.clone());
             LinkedList::push_back(&mut subs, sub);
         }
     }
