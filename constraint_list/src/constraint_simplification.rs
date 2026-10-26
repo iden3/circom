@@ -1403,11 +1403,41 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
         for cluster in &clusters {
             // Greedy optimization retained for comparison:
-            if smp.apply_eager_plonk{
-                let pairs = count_variable_pairs(cluster, &expressions_to_fix);
-                if let Some((pair, frequency)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
-                    println!("Chosen pair: {} * x{}, {} * x{} (appears {} times)", pair.2, pair.0, pair.3, pair.1, frequency);
-                    apply_pair_to_cluster(&mut constraint_storage, cluster, &expressions_to_fix, pair, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
+            if smp.apply_eager_plonk {
+                loop {
+                    let mut expressions_to_fix = Vec::new();
+                    for i in constraint_storage.get_ids() {
+                        let constraint = constraint_storage.read_constraint(i).unwrap();
+                        if !constraint.is_plonk() {
+                            let (expressions, _) = constraint.vars_to_solve_plonk_with_total();
+                            for (expr, num_vars) in expressions {
+                                expressions_to_fix.push((i, expr.clone(), num_vars));
+                            }
+                        }
+                    }
+
+                    if expressions_to_fix.is_empty() {
+                        break; // all is PLONK
+                    }
+
+                    // Rebuild the clusters
+                    let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+
+                    let mut progress = false;
+                    for cluster in &clusters {
+                        let pairs = count_variable_pairs(cluster, &expressions_to_fix);
+                        if let Some((pair, _freq)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
+                            apply_pair_to_cluster(
+                                &mut constraint_storage, cluster, &expressions_to_fix, pair,
+                                &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field,
+                            );
+                            progress = true;
+                        }
+                    }
+
+                    if !progress {
+                        break;
+                    }
                 }
             }
             if smp.apply_sat_plonk{
