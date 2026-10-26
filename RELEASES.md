@@ -6,11 +6,18 @@
 
 #### Improvements
 - Improving documentation.
+- Adding an analysis that detects infinite loops in template calls (a template that, directly or indirectly, instantiates itself with same parameters) and reports an error.
+- Returning an error message instead of panicking when computing a modulo by zero (% 0) during constraint generation.
+- Improving the error message when the pragma version is too big.
 
 #### Fixed bugs
 - Fixing issues in the produced C++ witness generation code for assignments of size 0.
 - Fixing minor panic by detecting whether the expression of the main component contains tuples or anonymous component calls.
 - Fixing minor panic in the analysis of variable renaming: signal, bus and component names must be unique after executing the template (only variables can be redeclared in different blocks).
+- Better handling of inline switches (`cond ? a : b`) in the produced witness generation code and other edge cases.
+- Improving the computed values analysis: expressions inside loops with unknown conditions are no longer considered as computed  and other minor edge cases.
+- Handling more precisely while loops inside if statements during constraint generation.
+- Shifts (<< and >>) by an amount greater than or equal to the bit size of the prime now directly return 0 during constraint generation, instead of computing huge powers of 2.
 
 
 ## October 24, 2025 circom 2.2.3
