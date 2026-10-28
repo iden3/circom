@@ -1134,7 +1134,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         } else {
              None 
         };
-    let apply_linear = !smp.flag_s;
+    let apply_linear = !smp.flag_s && !smp.plonk_simplification;
     let use_old_heuristics = smp.flag_old_heuristics;
     let field = smp.field.clone();
     let forbidden = Arc::new(std::mem::replace(&mut smp.forbidden, HashSet::with_capacity(0)));
