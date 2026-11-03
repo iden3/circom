@@ -335,11 +335,11 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
         bound += expression[expression_id].2;
     }
 
-    for (e, row) in vars_per_expression.iter().enumerate() {
-        let k = row.iter().filter(|&&b| b).count();
-        println!("expr {} -> {} términos", e, k);
-    }
-    println!("bound = {}, términos únicos = {}", bound, coeffs_and_vars.len());
+    // for (e, row) in vars_per_expression.iter().enumerate() {
+    //     let k = row.iter().filter(|&&b| b).count();
+    //     println!("expr {} -> {} términos", e, k);
+    // }
+    // println!("bound = {}, términos únicos = {}", bound, coeffs_and_vars.len());
 
     let config = Config::new();
     with_z3_config(&config, || {
@@ -352,7 +352,7 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
 
         let mut expr_use_vars = Vec::new();
         let rows_expr = cluster.len();
-        // Because we are impossing that each expression at the end just has 1 variable and cannot be an original expression because if not, it will plonk originally
+        // Because we are impossing that each expression at the end just has 1 variable, it cannot be an original expression because if not, it will plonk originally
         let cols_expr = bound; // coeffs_and_vars.len() + bound;
         
         for e in 0..rows_expr {
@@ -394,7 +394,7 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
             // solver.assert(Bool::or(&[&is_empty, &has_two_terms]));
             // solver.assert(&has_two_terms);
 
-            // At most 2 positions used for each variable
+            // At most 2 positions are used for each variable
             for c in 0..cols_vars {
                 let c_used = get_v_composition(v, c);
                 for c_next in c + 1..cols_vars {
@@ -408,7 +408,7 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                 }
             }
 
-            // At least 2 positions or 0 used for each variable
+            // At least 2 positions or 0 are used for each variable
             let mut is_empty = Bool::from_bool(true);
             for c in 0..cols_vars {
                 is_empty = Bool::and(&[&is_empty, &&get_v_composition(v, c).not()]);
@@ -427,7 +427,7 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                 solver.assert(Bool::or(&[&is_empty, &current.not(), &another_used]));
             }
 
-            // If a variable is not empty it is because it is used by someone. Updated removing the empty part. Each varible must be used by an expression or by another variable
+            // If a variable is not empty it is because it is used by someone.
             let mut used_by_another_var = Bool::from_bool(false);
             for next_var in (v + 1)..rows_vars {
                 let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
@@ -475,8 +475,9 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
             for first in 0..coeffs_and_vars.len() {
                 for second in (first + 1)..coeffs_and_vars.len() {
                     if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
-                        let both_selected = Bool::and(&[&get_v_composition(v, first), &get_v_composition(v, second)]);
-                        solver.assert(&both_selected.not());
+                        // let both_selected = Bool::and(&[&get_v_composition(v, first), &get_v_composition(v, second)]);
+                        // solver.assert(&both_selected.not());
+                        solver.assert(Bool::or(&[&get_v_composition(v, first).not(), &get_v_composition(v, second).not()]));
                     }
                 }
             }
@@ -621,11 +622,12 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                 for v in 0..rows_vars {
                     used = Bool::or(&[&used, &Bool::and(&[&get_expr_uses(e, v), &subexpressions_var[v][subexpr]])]);
                 }
-
-                // If the initial expression contains this subexpression, it must be used by the the transformed expression directly or by a variable that it uses
+                
+                // If the initial expression contains this subexpression, it must be used by the transformed expression directly or by a variable that it uses
                 if vars_per_expression[e][subexpr] {
                     solver.assert(used);
                 }
+                // Otherwise it must not be used by the transformed expression or any variable that it uses
                 else {
                     solver.assert(used.not());
                 }
@@ -660,18 +662,14 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
         //     solver.assert(&aux._eq(&required_vars));
         // }
 
-        // Substituted by: each expression at the end just has 1 variable
+        // Substituted by: each expression at the end just has 1 variable. If it uses one variable, it cannot use any of the following variables
         for e in 0..rows_expr {
             for c in 0..cols_expr {
                 let used = get_expr_uses(e, c);
 
-                // let mut uses_other = Bool::from_bool(false);
                 for next in c + 1..cols_expr {
-                    // uses_other = Bool::or(&[&uses_other, &get_expr_uses(e, next)]);
                     solver.assert(Bool::or(&[&used.not(), &get_expr_uses(e, next).not()]));
                 }
-
-                // solver.assert(Bool::or(&[&used.not(), &uses_other.not()]));
             }
         }
 
