@@ -1524,8 +1524,7 @@ fn vars_to_plonk(ct: &Constraint<usize>) -> (usize, usize, usize) {
     
     let mut signals_used = 0;
     
-    let vars_a =
-        a.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
+    let vars_a = a.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
 
     if vars_a == 1 {
         for (k, coefficient) in a {
@@ -1540,8 +1539,7 @@ fn vars_to_plonk(ct: &Constraint<usize>) -> (usize, usize, usize) {
         res_a = max(0, vars_a - 1);
     }
 
-    let vars_b =
-        b.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
+    let vars_b = b.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
 
     if vars_b == 1 {
         for (k, coefficient) in b {
@@ -1565,9 +1563,9 @@ fn vars_to_plonk(ct: &Constraint<usize>) -> (usize, usize, usize) {
         }
     }
 
-    let vars_can_use_c = 3 - signals_used;
-    if vars_c > vars_can_use_c {
-        res_c = vars_c - vars_can_use_c;
+    // let vars_can_use_c = 3 - signals_used;
+    if vars_c > 1 { // vars_can_use_c {
+        res_c = vars_c - 1; // vars_can_use_c;
     }
 
     return (res_a, res_b, res_c);
