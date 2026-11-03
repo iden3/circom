@@ -129,8 +129,16 @@ pub fn perform_tag_propagation(tags_values: &mut TagInfo, tags_definitions: &mut
 
 pub fn perform_tag_propagation_bus(tag_data: &mut BusTagInfo, assigned_tags: &TagWire, n_inserts: usize){
     perform_tag_propagation(&mut tag_data.tags, &mut tag_data.definitions, &assigned_tags.tags, tag_data.is_init);
-    tag_data.remaining_inserts -= n_inserts; 
-    tag_data.is_init = true;
+
+    if n_inserts > tag_data.remaining_inserts{
+        tag_data.remaining_inserts = 0;
+    } else {
+        tag_data.remaining_inserts -= n_inserts; 
+    }
+
+    if n_inserts > 0{
+        tag_data.is_init = true;
+    }
 
     for (field_name, field_data) in &mut tag_data.fields{
         // if the field does not appear in the assigned tags we take an empty TagWire
