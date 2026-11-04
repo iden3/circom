@@ -613,7 +613,11 @@ fn get_info_buses(buses: &Vec<BusInstance>)->(usize, FieldMap){
             for len in &field_info.dimensions{
                 total_array_size *= len;
             }
-            let individual_size = field_info.size / total_array_size;
+            let individual_size = if total_array_size == 0 {
+                0
+            } else {
+                field_info.size / total_array_size
+            };
             let data = FieldData{
                 offset: field_info.offset,
                 size: individual_size,
