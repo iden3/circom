@@ -705,9 +705,9 @@ fn execute_statement(
             // We update the conditions state of the execution
             runtime.conditions_state.push((runtime.unknown_counter, true));
             runtime.unknown_counter+=1;
+            let prev_loop = runtime.inside_unknown_loop;
+
             let returned = loop {
-                let prev_loop = runtime.inside_unknown_loop;
-                runtime.inside_unknown_loop = true;
                 let (returned, can_simplify, condition_result) = execute_conditional_statement(
                     cond,
                     stmt,
@@ -717,13 +717,11 @@ fn execute_statement(
                     actual_node,
                     flags
                 )?;
-                runtime.inside_unknown_loop = prev_loop;
 
                 can_be_simplified &= can_simplify;
                 if returned.is_some() {
                     break returned;
                 } else if condition_result.is_none() {
-                    let prev_loop = runtime.inside_unknown_loop;
                     runtime.inside_unknown_loop = true;
                     let (returned, _, _) = execute_conditional_statement(
                         cond,
@@ -744,6 +742,7 @@ fn execute_statement(
             };
 
             // We remove the last conditions_state added
+            runtime.inside_unknown_loop = prev_loop;
             runtime.conditions_state.pop();
             returned
         },
@@ -985,7 +984,7 @@ fn execute_expression(
     flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
     use Expression::*;
-    let mut can_be_simplified = !runtime.inside_unknown_loop;
+    let mut can_be_simplified = true;
     let res = match expr {
         Number(_, value) => {
             let a_value = AExpr::Number { value: value.clone() };
@@ -1270,6 +1269,8 @@ fn execute_expression(
                 let arithmetic_slice = Option::Some(AExpressionSlice::new(&AExpr::NonQuadratic));
                 FoldedValue { arithmetic_slice, ..FoldedValue::default() }
             }
+            
+
         }
         Call { id, args, meta, .. } => {
             let (value, can_simplify) = execute_call(id,meta, args, program_archive, runtime, flags)?;
@@ -1292,13 +1293,10 @@ fn execute_expression(
     let expr_id = expr.get_meta().elem_id;
     let res_p = res.arithmetic_slice.clone();
     if let Some(slice) = res_p {
-        if slice.is_single() && can_be_simplified{
+        if slice.is_single() && can_be_simplified && !runtime.inside_unknown_loop{
             let value = AExpressionSlice::unwrap_to_single(slice);
             Analysis::computed(&mut runtime.analysis, expr_id, value);
-        } else if runtime.inside_unknown_loop{
-            let value = NonQuadratic;
-            Analysis::computed(&mut runtime.analysis, expr_id, value);
-        }
+        } 
     }
     Result::Ok(res)
 }
@@ -1343,7 +1341,9 @@ fn execute_call(
 
         let new_file_id = program_archive.get_function_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
+        let previous_inside_unknown_loop = runtime.inside_unknown_loop;
 
+        runtime.inside_unknown_loop = false;
         runtime.call_trace.push(id.clone());
         let folded_result = execute_function_call(id, program_archive, runtime, flags)?;
 
@@ -1351,6 +1351,7 @@ fn execute_call(
         runtime.current_file = previous_id;
         runtime.block_type = previous_block_type;
         runtime.anonymous_components = previous_anonymous_components;
+        runtime.inside_unknown_loop = previous_inside_unknown_loop;
         runtime.call_trace.pop();
         Ok(folded_result)
     } else { // in this case we preexecute and check if it needs tags
@@ -1376,8 +1377,10 @@ fn execute_template_call_complete(
 
         let new_file_id = program_archive.get_template_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
-
+        let previoys_inside_unknown_loop = runtime.inside_unknown_loop;
+    
         runtime.call_trace.push(id.clone());
+        runtime.inside_unknown_loop = false;
         
         let folded_result = execute_template_call(meta, id, arg_values, tags, program_archive, runtime, flags)?;
 
@@ -1385,6 +1388,7 @@ fn execute_template_call_complete(
         runtime.current_file = previous_id;
         runtime.block_type = previous_block_type;
         runtime.anonymous_components = previous_anonymous_components;
+        runtime.inside_unknown_loop = previoys_inside_unknown_loop;
         runtime.call_trace.pop();
         Ok(folded_result)
     } else { 
