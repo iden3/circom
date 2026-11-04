@@ -655,6 +655,8 @@ impl WriteC for StoreBucket {
 		    aux_dest_index = dest_index.clone();
 	    }
 	}
+
+
         // store src in dest
         let mut aux_dest = "".to_string();
         if producer.prime_str != "goldilocks" {
@@ -704,6 +706,11 @@ impl WriteC for StoreBucket {
 		        prologue.push(format!("}}")); // add a close for block 1 (as it's opened
 		    }
 	        }
+        } else {
+            // case size 0
+            if parallel.unwrap() && self.dest_is_output {
+                prologue.push(format!("}}")); // add a close for block 1 (as it's opened)
+            }
         }
         
         if producer.prime_str != "goldilocks" {
