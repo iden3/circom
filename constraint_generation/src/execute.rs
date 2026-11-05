@@ -20,6 +20,7 @@ use super::environment_utils::{
 use std::cmp;
 use program_structure::wire_data::WireType;
 use crate::{assignment_utils::*, environment_utils::slice_types::AssignmentState};
+use crate::execution_data::type_definitions::ParameterContext;
 
 use crate::environment_utils::slice_types::BusTagInfo;
 use program_structure::constants::UsefulConstants;
@@ -36,7 +37,6 @@ use std::collections::{HashMap, BTreeMap};
 use crate::FlagsExecution;
 type AExpr = ArithmeticExpressionGen<String>;
 type AnonymousComponentsInfo = BTreeMap<String, (Meta, Vec<Expression>)>;
-use std::collections::HashSet;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 enum BlockType {
@@ -57,7 +57,7 @@ struct RuntimeInformation {
     pub environment: ExecutionEnvironment,
     pub exec_program: ExecutedProgram,
     pub anonymous_components: AnonymousComponentsInfo,
-    pub executed_templates_trace: HashSet<String>,
+    pub executed_templates_trace: Vec<(String, ParameterContext, HashMap<String, TagWire>)>,
     pub inside_unknown_loop: bool,
 }
 impl RuntimeInformation {
@@ -76,7 +76,7 @@ impl RuntimeInformation {
             conditions_state: Vec::new(),
             unknown_counter: 0,
             inside_unknown_loop: false,
-            executed_templates_trace: HashSet::new(),
+            executed_templates_trace: Vec::new(),
         }
     }
 }
@@ -703,8 +703,8 @@ fn execute_statement(
         }
         While { cond, stmt, .. } => {
             // We update the conditions state of the execution
-            runtime.conditions_state.push((runtime.unknown_counter, true));
-            runtime.unknown_counter+=1;
+            //runtime.conditions_state.push((runtime.unknown_counter, true));
+            //runtime.unknown_counter+=1;
             let prev_loop = runtime.inside_unknown_loop;
 
             let returned = loop {
@@ -742,8 +742,8 @@ fn execute_statement(
             };
 
             // We remove the last conditions_state added
-            runtime.inside_unknown_loop = prev_loop;
-            runtime.conditions_state.pop();
+            //runtime.inside_unknown_loop = prev_loop;
+            //runtime.conditions_state.pop();
             returned
         },
         Block { stmts, .. } => {
@@ -2679,7 +2679,7 @@ fn execute_conditional_statement(
     flags: FlagsExecution,
 ) -> Result<(Option<FoldedValue>, bool, Option<bool>), ()> {
     let f_cond = execute_expression(condition, program_archive, runtime, flags)?;
-    let ae_cond = safe_unwrap_to_single_arithmetic_expression(f_cond, line!());
+    let ae_cond: ArithmeticExpressionGen<String> = safe_unwrap_to_single_arithmetic_expression(f_cond, line!());
     let possible_cond_bool_value =
         AExpr::get_boolean_equivalence(&ae_cond, runtime.constants.get_p());
     if let Some(cond_bool_value) = possible_cond_bool_value {
@@ -3427,6 +3427,7 @@ fn execute_template_call(
     runtime: &mut RuntimeInformation,
     flags: FlagsExecution
 ) -> Result<FoldedValue, ()> {
+
     debug_assert!(runtime.block_type == BlockType::Known);
     let is_main = std::mem::replace(&mut runtime.public_inputs, vec![]);
     let is_parallel = program_archive.get_template_data(id).is_parallel();
@@ -3455,6 +3456,7 @@ fn execute_template_call(
             }
             not_empty_name = true;
         }
+        
     }
 
     if not_empty_name  {
@@ -3462,21 +3464,23 @@ fn execute_template_call(
     }
     instantiation_name.push(')');
 
+    let info_template = (id.to_string(), args_to_values, tag_values);
+
 
     // Check if the node is already in the execution trace
-    if runtime.executed_templates_trace.contains(&instantiation_name) {
-            let err = Result::Err(ExecutionError::LoopTemplatesCalls);
+    if runtime.executed_templates_trace.contains(&info_template) {
+            let err: Result<(), ExecutionError> = Result::Err(ExecutionError::LoopTemplatesCalls);
             treat_result_with_execution_error(
                 err,
                 meta,
                 &mut runtime.runtime_errors,
                 &runtime.call_trace,
-        )?;
-    } else{
-        runtime.executed_templates_trace.insert(instantiation_name.clone());
+            )?;
+        
     }
+    runtime.executed_templates_trace.push(info_template.clone());
 
-    let existent_node = runtime.exec_program.identify_node(id, &args_to_values, &tag_values);
+    let existent_node = runtime.exec_program.identify_node(id, &info_template.1, &info_template.2);
     let node_pointer = if let Option::Some(pointer) = existent_node {
         pointer
     } else {
@@ -3487,8 +3491,8 @@ fn execute_template_call(
             is_main,
             id.to_string(),
             instantiation_name.clone(),
-            args_to_values,
-            tag_values,
+            info_template.1,
+            info_template.2,
             code,
             is_parallel,
             is_custom_gate,
@@ -3540,7 +3544,7 @@ fn execute_template_call(
     };
 
     // Remove the node from the execution trace
-    runtime.executed_templates_trace.remove(&instantiation_name);
+    runtime.executed_templates_trace.pop();
 
     Result::Ok(FoldedValue { node_pointer: Option::Some(node_pointer), is_parallel: Option::Some(false), ..FoldedValue::default() })
 }
