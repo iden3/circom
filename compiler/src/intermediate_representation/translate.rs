@@ -1019,7 +1019,7 @@ fn build_signal_location(
     dimensions: Vec<usize>,
     size: usize,
     bus_accesses: Vec<BusAccessInfo>,
-) -> LocationRule {
+) -> (LocationRule, Vec<OutBoundsCheck>) {
     use ClusterType::*;
     let database = &context.tmp_database;
     let cmp_type = context.cmp_to_type.get(cmp_name).unwrap();
@@ -1050,7 +1050,7 @@ fn build_signal_location(
                 }
                 i+=1;
             }
-            LocationRule::Mapped { signal_code, indexes: accesses }
+            (LocationRule::Mapped { signal_code, indexes: accesses }, Vec::new())
         }
         Uniform { instance_id, header, .. } => {
             let env = TemplateDB::get_instance_addresses(database, *instance_id);
@@ -1064,7 +1064,7 @@ fn build_signal_location(
                 indexes,
                 
             );
-            LocationRule::Indexed { location: full_address, template_header: Some(header.clone()) }
+            (LocationRule::Indexed { location: full_address, template_header: Some(header.clone()) }, checks)
         }
     }
 }
@@ -1105,6 +1105,8 @@ struct ProcessedSymbol {
     before_signal: Vec<Vec<InstructionPointer>>,
     // in case it is a bus indicate the bus accesses info
     bus_accesses: Vec<BusAccessInfo>, 
+    // the checks needed to ensure that the indexes are in bounds
+    comp_access_checks: Vec<OutBoundsCheck>,
 }
 
 impl ProcessedSymbol {
@@ -1315,7 +1317,7 @@ impl ProcessedSymbol {
             };
 
             // Compute the signal location inside the component
-            let signal_location = build_signal_location(
+            let (signal_location, comp_access_checks) = build_signal_location(
                 &accessed_component_signal.unwrap(),
                 &symbol_name,
                 after_indexes,
@@ -1340,7 +1342,8 @@ impl ProcessedSymbol {
                 before_signal: vec![before_index],
                 signal: Some(signal_location),
                 signal_type,
-                bus_accesses: Vec::new()
+                bus_accesses: Vec::new(),
+                comp_access_checks
             }
         } else{
 
@@ -1359,14 +1362,15 @@ impl ProcessedSymbol {
                 before_signal: after_indexes,
                 signal: None,
                 signal_type,
-                bus_accesses: accessed_fields_info 
+                bus_accesses: accessed_fields_info,
+                comp_access_checks: Vec::new()
             }
         }
 
     }
 
     fn into_call_assign(
-        self,
+        mut self,
         id: String,
         args: ArgData,
         state: &State,
@@ -1429,6 +1433,8 @@ impl ProcessedSymbol {
                 checks
             )
         };
+
+        self.comp_access_checks.extend(checks);
         CallBucket {
             line: self.line,
             message_id: self.message_id,
@@ -1437,13 +1443,13 @@ impl ProcessedSymbol {
             arguments: args.arguments,
             arena_size: 200,
             return_info: ReturnType::Final(data),
-            checks
+            checks: self.comp_access_checks
         }
         .allocate()
     }
 
     fn into_store(
-        self, src: 
+        mut self, src: 
         InstructionPointer, 
         state: &State, 
         src_size: SizeOption,
@@ -1473,6 +1479,8 @@ impl ProcessedSymbol {
                 is_anonymous: context.tmp_database.anonymous.contains(&self.name),
                 cmp_name: self.name.clone()
             };
+            self.comp_access_checks.extend(checks);
+
             StoreBucket {
                 src,
                 dest: signal,
@@ -1483,7 +1491,7 @@ impl ProcessedSymbol {
                 dest_is_output: false,
                 dest_address_type: dest_type,
                 src_address_type: src_address,
-                checks
+                checks: self.comp_access_checks
             }
             .allocate()
         } else {
@@ -1499,6 +1507,8 @@ impl ProcessedSymbol {
                 TypeReduction::Variable => AddressType::Variable,
                 _ => AddressType::Signal,
             };
+            self.comp_access_checks.extend(checks);
+
             StoreBucket {
                 src,
                 line: self.line,
@@ -1509,13 +1519,13 @@ impl ProcessedSymbol {
                 context: InstrContext { size: self.length },
                 src_context: InstrContext {size: src_size},
                 src_address_type: src_address,
-                checks
+                checks: self.comp_access_checks
             }
             .allocate()
         }
     }
 
-    fn into_load(self, state: &State, context: &Context) -> InstructionPointer {
+    fn into_load(mut self, state: &State, context: &Context) -> InstructionPointer {
         if let Option::Some(signal) = self.signal {
             let (address, checks) = compute_full_address(
                 state, 
@@ -1539,13 +1549,15 @@ impl ProcessedSymbol {
                 is_anonymous: context.tmp_database.anonymous.contains(&self.name),
                 cmp_name: self.name.clone()
             };
+            self.comp_access_checks.extend(checks);
+
             LoadBucket {
                 src: signal,
                 line: self.line,
                 message_id: self.message_id,
                 address_type: dest_type,
                 context: InstrContext { size: self.length },
-                checks
+                checks: self.comp_access_checks
             }
             .allocate()
         } else {
