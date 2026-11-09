@@ -1,0 +1,4458 @@
+{
+  "metadata": {
+    "number_of_clusters": 67,
+    "number_of_expressions": 103,
+    "number_of_constraints": 103,
+    "number_of_distinct_variables": 506,
+    "total_terms": 721,
+    "min_cluster_size": 1,
+    "max_cluster_size": 7
+  },
+  "clusters": [
+    {
+      "cluster_id": 0,
+      "number_of_expressions": 6,
+      "number_of_constraints": 6,
+      "number_of_distinct_variables": 12,
+      "total_terms": 42,
+      "constraint_ids": [432, 433, 434, 435, 436, 437],
+      "variables": [26, 27, 28, 29, 30, 31, 110, 111, 112, 113, 114, 115],
+      "expressions": [
+        {
+          "expression_id": 0,
+          "constraint_id": 432,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 26,
+              "coefficient": "9032989931805188395"
+            },
+            {
+              "signal": 27,
+              "coefficient": "18303414590495882261"
+            },
+            {
+              "signal": 28,
+              "coefficient": "11212680483626133373"
+            },
+            {
+              "signal": 29,
+              "coefficient": "15312072105665559554"
+            },
+            {
+              "signal": 30,
+              "coefficient": "14074077067429596685"
+            },
+            {
+              "signal": 31,
+              "coefficient": "14509095955263382283"
+            },
+            {
+              "signal": 110,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 1,
+          "constraint_id": 433,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 26,
+              "coefficient": "664997811187116659"
+            },
+            {
+              "signal": 27,
+              "coefficient": "9361200734432397860"
+            },
+            {
+              "signal": 28,
+              "coefficient": "14266690294215795659"
+            },
+            {
+              "signal": 29,
+              "coefficient": "4973456958145645782"
+            },
+            {
+              "signal": 30,
+              "coefficient": "17844697019968818233"
+            },
+            {
+              "signal": 31,
+              "coefficient": "5530050661260820896"
+            },
+            {
+              "signal": 111,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 2,
+          "constraint_id": 434,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 26,
+              "coefficient": "11811196872098296190"
+            },
+            {
+              "signal": 27,
+              "coefficient": "5031758567785304571"
+            },
+            {
+              "signal": 28,
+              "coefficient": "14630714629882257492"
+            },
+            {
+              "signal": 29,
+              "coefficient": "359259706233369602"
+            },
+            {
+              "signal": 30,
+              "coefficient": "10158488906361231706"
+            },
+            {
+              "signal": 31,
+              "coefficient": "4541567053091607163"
+            },
+            {
+              "signal": 112,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 3,
+          "constraint_id": 435,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 26,
+              "coefficient": "9691565715236198431"
+            },
+            {
+              "signal": 27,
+              "coefficient": "7490308282361244748"
+            },
+            {
+              "signal": 28,
+              "coefficient": "4691625694385896350"
+            },
+            {
+              "signal": 29,
+              "coefficient": "6460772813612647804"
+            },
+            {
+              "signal": 30,
+              "coefficient": "9407798495112015348"
+            },
+            {
+              "signal": 31,
+              "coefficient": "7857132800203535256"
+            },
+            {
+              "signal": 113,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 4,
+          "constraint_id": 436,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 26,
+              "coefficient": "3435543029904184112"
+            },
+            {
+              "signal": 27,
+              "coefficient": "17432104678980387796"
+            },
+            {
+              "signal": 28,
+              "coefficient": "10961963534781243137"
+            },
+            {
+              "signal": 29,
+              "coefficient": "645949498940662050"
+            },
+            {
+              "signal": 30,
+              "coefficient": "9250729047273826932"
+            },
+            {
+              "signal": 31,
+              "coefficient": "7355327304391080967"
+            },
+            {
+              "signal": 114,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 5,
+          "constraint_id": 437,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 26,
+              "coefficient": "9705430691677191843"
+            },
+            {
+              "signal": 27,
+              "coefficient": "4474794723763718453"
+            },
+            {
+              "signal": 28,
+              "coefficient": "12094558032203659319"
+            },
+            {
+              "signal": 29,
+              "coefficient": "12262087048306418294"
+            },
+            {
+              "signal": 30,
+              "coefficient": "2359800510822092317"
+            },
+            {
+              "signal": 31,
+              "coefficient": "1385470030660981512"
+            },
+            {
+              "signal": 115,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 1,
+      "number_of_expressions": 6,
+      "number_of_constraints": 6,
+      "number_of_distinct_variables": 12,
+      "total_terms": 42,
+      "constraint_ids": [438, 439, 440, 441, 442, 443],
+      "variables": [38, 39, 40, 41, 42, 43, 122, 123, 124, 125, 126, 127],
+      "expressions": [
+        {
+          "expression_id": 6,
+          "constraint_id": 438,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 38,
+              "coefficient": "9032989931805188395"
+            },
+            {
+              "signal": 39,
+              "coefficient": "18303414590495882261"
+            },
+            {
+              "signal": 40,
+              "coefficient": "11212680483626133373"
+            },
+            {
+              "signal": 41,
+              "coefficient": "15312072105665559554"
+            },
+            {
+              "signal": 42,
+              "coefficient": "14074077067429596685"
+            },
+            {
+              "signal": 43,
+              "coefficient": "14509095955263382283"
+            },
+            {
+              "signal": 122,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 7,
+          "constraint_id": 439,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 38,
+              "coefficient": "664997811187116659"
+            },
+            {
+              "signal": 39,
+              "coefficient": "9361200734432397860"
+            },
+            {
+              "signal": 40,
+              "coefficient": "14266690294215795659"
+            },
+            {
+              "signal": 41,
+              "coefficient": "4973456958145645782"
+            },
+            {
+              "signal": 42,
+              "coefficient": "17844697019968818233"
+            },
+            {
+              "signal": 43,
+              "coefficient": "5530050661260820896"
+            },
+            {
+              "signal": 123,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 8,
+          "constraint_id": 440,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 38,
+              "coefficient": "11811196872098296190"
+            },
+            {
+              "signal": 39,
+              "coefficient": "5031758567785304571"
+            },
+            {
+              "signal": 40,
+              "coefficient": "14630714629882257492"
+            },
+            {
+              "signal": 41,
+              "coefficient": "359259706233369602"
+            },
+            {
+              "signal": 42,
+              "coefficient": "10158488906361231706"
+            },
+            {
+              "signal": 43,
+              "coefficient": "4541567053091607163"
+            },
+            {
+              "signal": 124,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 9,
+          "constraint_id": 441,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 38,
+              "coefficient": "9691565715236198431"
+            },
+            {
+              "signal": 39,
+              "coefficient": "7490308282361244748"
+            },
+            {
+              "signal": 40,
+              "coefficient": "4691625694385896350"
+            },
+            {
+              "signal": 41,
+              "coefficient": "6460772813612647804"
+            },
+            {
+              "signal": 42,
+              "coefficient": "9407798495112015348"
+            },
+            {
+              "signal": 43,
+              "coefficient": "7857132800203535256"
+            },
+            {
+              "signal": 125,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 10,
+          "constraint_id": 442,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 38,
+              "coefficient": "3435543029904184112"
+            },
+            {
+              "signal": 39,
+              "coefficient": "17432104678980387796"
+            },
+            {
+              "signal": 40,
+              "coefficient": "10961963534781243137"
+            },
+            {
+              "signal": 41,
+              "coefficient": "645949498940662050"
+            },
+            {
+              "signal": 42,
+              "coefficient": "9250729047273826932"
+            },
+            {
+              "signal": 43,
+              "coefficient": "7355327304391080967"
+            },
+            {
+              "signal": 126,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 11,
+          "constraint_id": 443,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 38,
+              "coefficient": "9705430691677191843"
+            },
+            {
+              "signal": 39,
+              "coefficient": "4474794723763718453"
+            },
+            {
+              "signal": 40,
+              "coefficient": "12094558032203659319"
+            },
+            {
+              "signal": 41,
+              "coefficient": "12262087048306418294"
+            },
+            {
+              "signal": 42,
+              "coefficient": "2359800510822092317"
+            },
+            {
+              "signal": 43,
+              "coefficient": "1385470030660981512"
+            },
+            {
+              "signal": 127,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 2,
+      "number_of_expressions": 6,
+      "number_of_constraints": 6,
+      "number_of_distinct_variables": 12,
+      "total_terms": 42,
+      "constraint_ids": [444, 445, 446, 447, 448, 449],
+      "variables": [50, 51, 52, 53, 54, 55, 134, 135, 136, 137, 138, 139],
+      "expressions": [
+        {
+          "expression_id": 12,
+          "constraint_id": 444,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 50,
+              "coefficient": "9032989931805188395"
+            },
+            {
+              "signal": 51,
+              "coefficient": "18303414590495882261"
+            },
+            {
+              "signal": 52,
+              "coefficient": "11212680483626133373"
+            },
+            {
+              "signal": 53,
+              "coefficient": "15312072105665559554"
+            },
+            {
+              "signal": 54,
+              "coefficient": "14074077067429596685"
+            },
+            {
+              "signal": 55,
+              "coefficient": "14509095955263382283"
+            },
+            {
+              "signal": 134,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 13,
+          "constraint_id": 445,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 50,
+              "coefficient": "664997811187116659"
+            },
+            {
+              "signal": 51,
+              "coefficient": "9361200734432397860"
+            },
+            {
+              "signal": 52,
+              "coefficient": "14266690294215795659"
+            },
+            {
+              "signal": 53,
+              "coefficient": "4973456958145645782"
+            },
+            {
+              "signal": 54,
+              "coefficient": "17844697019968818233"
+            },
+            {
+              "signal": 55,
+              "coefficient": "5530050661260820896"
+            },
+            {
+              "signal": 135,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 14,
+          "constraint_id": 446,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 50,
+              "coefficient": "11811196872098296190"
+            },
+            {
+              "signal": 51,
+              "coefficient": "5031758567785304571"
+            },
+            {
+              "signal": 52,
+              "coefficient": "14630714629882257492"
+            },
+            {
+              "signal": 53,
+              "coefficient": "359259706233369602"
+            },
+            {
+              "signal": 54,
+              "coefficient": "10158488906361231706"
+            },
+            {
+              "signal": 55,
+              "coefficient": "4541567053091607163"
+            },
+            {
+              "signal": 136,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 15,
+          "constraint_id": 447,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 50,
+              "coefficient": "9691565715236198431"
+            },
+            {
+              "signal": 51,
+              "coefficient": "7490308282361244748"
+            },
+            {
+              "signal": 52,
+              "coefficient": "4691625694385896350"
+            },
+            {
+              "signal": 53,
+              "coefficient": "6460772813612647804"
+            },
+            {
+              "signal": 54,
+              "coefficient": "9407798495112015348"
+            },
+            {
+              "signal": 55,
+              "coefficient": "7857132800203535256"
+            },
+            {
+              "signal": 137,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 16,
+          "constraint_id": 448,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 50,
+              "coefficient": "3435543029904184112"
+            },
+            {
+              "signal": 51,
+              "coefficient": "17432104678980387796"
+            },
+            {
+              "signal": 52,
+              "coefficient": "10961963534781243137"
+            },
+            {
+              "signal": 53,
+              "coefficient": "645949498940662050"
+            },
+            {
+              "signal": 54,
+              "coefficient": "9250729047273826932"
+            },
+            {
+              "signal": 55,
+              "coefficient": "7355327304391080967"
+            },
+            {
+              "signal": 138,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 17,
+          "constraint_id": 449,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 50,
+              "coefficient": "9705430691677191843"
+            },
+            {
+              "signal": 51,
+              "coefficient": "4474794723763718453"
+            },
+            {
+              "signal": 52,
+              "coefficient": "12094558032203659319"
+            },
+            {
+              "signal": 53,
+              "coefficient": "12262087048306418294"
+            },
+            {
+              "signal": 54,
+              "coefficient": "2359800510822092317"
+            },
+            {
+              "signal": 55,
+              "coefficient": "1385470030660981512"
+            },
+            {
+              "signal": 139,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 3,
+      "number_of_expressions": 6,
+      "number_of_constraints": 6,
+      "number_of_distinct_variables": 12,
+      "total_terms": 42,
+      "constraint_ids": [456, 457, 458, 459, 460, 461],
+      "variables": [74, 75, 76, 77, 78, 79, 158, 159, 160, 161, 162, 163],
+      "expressions": [
+        {
+          "expression_id": 24,
+          "constraint_id": 456,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 74,
+              "coefficient": "9032989931805188395"
+            },
+            {
+              "signal": 75,
+              "coefficient": "18303414590495882261"
+            },
+            {
+              "signal": 76,
+              "coefficient": "11212680483626133373"
+            },
+            {
+              "signal": 77,
+              "coefficient": "15312072105665559554"
+            },
+            {
+              "signal": 78,
+              "coefficient": "14074077067429596685"
+            },
+            {
+              "signal": 79,
+              "coefficient": "14509095955263382283"
+            },
+            {
+              "signal": 158,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 25,
+          "constraint_id": 457,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 74,
+              "coefficient": "664997811187116659"
+            },
+            {
+              "signal": 75,
+              "coefficient": "9361200734432397860"
+            },
+            {
+              "signal": 76,
+              "coefficient": "14266690294215795659"
+            },
+            {
+              "signal": 77,
+              "coefficient": "4973456958145645782"
+            },
+            {
+              "signal": 78,
+              "coefficient": "17844697019968818233"
+            },
+            {
+              "signal": 79,
+              "coefficient": "5530050661260820896"
+            },
+            {
+              "signal": 159,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 26,
+          "constraint_id": 458,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 74,
+              "coefficient": "11811196872098296190"
+            },
+            {
+              "signal": 75,
+              "coefficient": "5031758567785304571"
+            },
+            {
+              "signal": 76,
+              "coefficient": "14630714629882257492"
+            },
+            {
+              "signal": 77,
+              "coefficient": "359259706233369602"
+            },
+            {
+              "signal": 78,
+              "coefficient": "10158488906361231706"
+            },
+            {
+              "signal": 79,
+              "coefficient": "4541567053091607163"
+            },
+            {
+              "signal": 160,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 27,
+          "constraint_id": 459,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 74,
+              "coefficient": "9691565715236198431"
+            },
+            {
+              "signal": 75,
+              "coefficient": "7490308282361244748"
+            },
+            {
+              "signal": 76,
+              "coefficient": "4691625694385896350"
+            },
+            {
+              "signal": 77,
+              "coefficient": "6460772813612647804"
+            },
+            {
+              "signal": 78,
+              "coefficient": "9407798495112015348"
+            },
+            {
+              "signal": 79,
+              "coefficient": "7857132800203535256"
+            },
+            {
+              "signal": 161,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 28,
+          "constraint_id": 460,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 74,
+              "coefficient": "3435543029904184112"
+            },
+            {
+              "signal": 75,
+              "coefficient": "17432104678980387796"
+            },
+            {
+              "signal": 76,
+              "coefficient": "10961963534781243137"
+            },
+            {
+              "signal": 77,
+              "coefficient": "645949498940662050"
+            },
+            {
+              "signal": 78,
+              "coefficient": "9250729047273826932"
+            },
+            {
+              "signal": 79,
+              "coefficient": "7355327304391080967"
+            },
+            {
+              "signal": 162,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 29,
+          "constraint_id": 461,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 74,
+              "coefficient": "9705430691677191843"
+            },
+            {
+              "signal": 75,
+              "coefficient": "4474794723763718453"
+            },
+            {
+              "signal": 76,
+              "coefficient": "12094558032203659319"
+            },
+            {
+              "signal": 77,
+              "coefficient": "12262087048306418294"
+            },
+            {
+              "signal": 78,
+              "coefficient": "2359800510822092317"
+            },
+            {
+              "signal": 79,
+              "coefficient": "1385470030660981512"
+            },
+            {
+              "signal": 163,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 4,
+      "number_of_expressions": 6,
+      "number_of_constraints": 6,
+      "number_of_distinct_variables": 12,
+      "total_terms": 42,
+      "constraint_ids": [462, 463, 464, 465, 466, 467],
+      "variables": [86, 87, 88, 89, 90, 91, 170, 171, 172, 173, 174, 175],
+      "expressions": [
+        {
+          "expression_id": 30,
+          "constraint_id": 462,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 86,
+              "coefficient": "9032989931805188395"
+            },
+            {
+              "signal": 87,
+              "coefficient": "18303414590495882261"
+            },
+            {
+              "signal": 88,
+              "coefficient": "11212680483626133373"
+            },
+            {
+              "signal": 89,
+              "coefficient": "15312072105665559554"
+            },
+            {
+              "signal": 90,
+              "coefficient": "14074077067429596685"
+            },
+            {
+              "signal": 91,
+              "coefficient": "14509095955263382283"
+            },
+            {
+              "signal": 170,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 31,
+          "constraint_id": 463,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 86,
+              "coefficient": "664997811187116659"
+            },
+            {
+              "signal": 87,
+              "coefficient": "9361200734432397860"
+            },
+            {
+              "signal": 88,
+              "coefficient": "14266690294215795659"
+            },
+            {
+              "signal": 89,
+              "coefficient": "4973456958145645782"
+            },
+            {
+              "signal": 90,
+              "coefficient": "17844697019968818233"
+            },
+            {
+              "signal": 91,
+              "coefficient": "5530050661260820896"
+            },
+            {
+              "signal": 171,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 32,
+          "constraint_id": 464,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 86,
+              "coefficient": "11811196872098296190"
+            },
+            {
+              "signal": 87,
+              "coefficient": "5031758567785304571"
+            },
+            {
+              "signal": 88,
+              "coefficient": "14630714629882257492"
+            },
+            {
+              "signal": 89,
+              "coefficient": "359259706233369602"
+            },
+            {
+              "signal": 90,
+              "coefficient": "10158488906361231706"
+            },
+            {
+              "signal": 91,
+              "coefficient": "4541567053091607163"
+            },
+            {
+              "signal": 172,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 33,
+          "constraint_id": 465,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 86,
+              "coefficient": "9691565715236198431"
+            },
+            {
+              "signal": 87,
+              "coefficient": "7490308282361244748"
+            },
+            {
+              "signal": 88,
+              "coefficient": "4691625694385896350"
+            },
+            {
+              "signal": 89,
+              "coefficient": "6460772813612647804"
+            },
+            {
+              "signal": 90,
+              "coefficient": "9407798495112015348"
+            },
+            {
+              "signal": 91,
+              "coefficient": "7857132800203535256"
+            },
+            {
+              "signal": 173,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 34,
+          "constraint_id": 466,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 86,
+              "coefficient": "3435543029904184112"
+            },
+            {
+              "signal": 87,
+              "coefficient": "17432104678980387796"
+            },
+            {
+              "signal": 88,
+              "coefficient": "10961963534781243137"
+            },
+            {
+              "signal": 89,
+              "coefficient": "645949498940662050"
+            },
+            {
+              "signal": 90,
+              "coefficient": "9250729047273826932"
+            },
+            {
+              "signal": 91,
+              "coefficient": "7355327304391080967"
+            },
+            {
+              "signal": 174,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 35,
+          "constraint_id": 467,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 86,
+              "coefficient": "9705430691677191843"
+            },
+            {
+              "signal": 87,
+              "coefficient": "4474794723763718453"
+            },
+            {
+              "signal": 88,
+              "coefficient": "12094558032203659319"
+            },
+            {
+              "signal": 89,
+              "coefficient": "12262087048306418294"
+            },
+            {
+              "signal": 90,
+              "coefficient": "2359800510822092317"
+            },
+            {
+              "signal": 91,
+              "coefficient": "1385470030660981512"
+            },
+            {
+              "signal": 175,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 5,
+      "number_of_expressions": 6,
+      "number_of_constraints": 6,
+      "number_of_distinct_variables": 12,
+      "total_terms": 42,
+      "constraint_ids": [468, 469, 470, 471, 472, 473],
+      "variables": [98, 99, 100, 101, 102, 103, 182, 183, 184, 185, 186, 187],
+      "expressions": [
+        {
+          "expression_id": 36,
+          "constraint_id": 468,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 98,
+              "coefficient": "9032989931805188395"
+            },
+            {
+              "signal": 99,
+              "coefficient": "18303414590495882261"
+            },
+            {
+              "signal": 100,
+              "coefficient": "11212680483626133373"
+            },
+            {
+              "signal": 101,
+              "coefficient": "15312072105665559554"
+            },
+            {
+              "signal": 102,
+              "coefficient": "14074077067429596685"
+            },
+            {
+              "signal": 103,
+              "coefficient": "14509095955263382283"
+            },
+            {
+              "signal": 182,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 37,
+          "constraint_id": 469,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 98,
+              "coefficient": "664997811187116659"
+            },
+            {
+              "signal": 99,
+              "coefficient": "9361200734432397860"
+            },
+            {
+              "signal": 100,
+              "coefficient": "14266690294215795659"
+            },
+            {
+              "signal": 101,
+              "coefficient": "4973456958145645782"
+            },
+            {
+              "signal": 102,
+              "coefficient": "17844697019968818233"
+            },
+            {
+              "signal": 103,
+              "coefficient": "5530050661260820896"
+            },
+            {
+              "signal": 183,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 38,
+          "constraint_id": 470,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 98,
+              "coefficient": "11811196872098296190"
+            },
+            {
+              "signal": 99,
+              "coefficient": "5031758567785304571"
+            },
+            {
+              "signal": 100,
+              "coefficient": "14630714629882257492"
+            },
+            {
+              "signal": 101,
+              "coefficient": "359259706233369602"
+            },
+            {
+              "signal": 102,
+              "coefficient": "10158488906361231706"
+            },
+            {
+              "signal": 103,
+              "coefficient": "4541567053091607163"
+            },
+            {
+              "signal": 184,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 39,
+          "constraint_id": 471,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 98,
+              "coefficient": "9691565715236198431"
+            },
+            {
+              "signal": 99,
+              "coefficient": "7490308282361244748"
+            },
+            {
+              "signal": 100,
+              "coefficient": "4691625694385896350"
+            },
+            {
+              "signal": 101,
+              "coefficient": "6460772813612647804"
+            },
+            {
+              "signal": 102,
+              "coefficient": "9407798495112015348"
+            },
+            {
+              "signal": 103,
+              "coefficient": "7857132800203535256"
+            },
+            {
+              "signal": 185,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 40,
+          "constraint_id": 472,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 98,
+              "coefficient": "3435543029904184112"
+            },
+            {
+              "signal": 99,
+              "coefficient": "17432104678980387796"
+            },
+            {
+              "signal": 100,
+              "coefficient": "10961963534781243137"
+            },
+            {
+              "signal": 101,
+              "coefficient": "645949498940662050"
+            },
+            {
+              "signal": 102,
+              "coefficient": "9250729047273826932"
+            },
+            {
+              "signal": 103,
+              "coefficient": "7355327304391080967"
+            },
+            {
+              "signal": 186,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 41,
+          "constraint_id": 473,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 98,
+              "coefficient": "9705430691677191843"
+            },
+            {
+              "signal": 99,
+              "coefficient": "4474794723763718453"
+            },
+            {
+              "signal": 100,
+              "coefficient": "12094558032203659319"
+            },
+            {
+              "signal": 101,
+              "coefficient": "12262087048306418294"
+            },
+            {
+              "signal": 102,
+              "coefficient": "2359800510822092317"
+            },
+            {
+              "signal": 103,
+              "coefficient": "1385470030660981512"
+            },
+            {
+              "signal": 187,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 6,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [474],
+      "variables": [1, 195, 196, 197, 198, 199, 200],
+      "expressions": [
+        {
+          "expression_id": 42,
+          "constraint_id": 474,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 1,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 195,
+              "coefficient": "9032989931805188395"
+            },
+            {
+              "signal": 196,
+              "coefficient": "18303414590495882261"
+            },
+            {
+              "signal": 197,
+              "coefficient": "11212680483626133373"
+            },
+            {
+              "signal": 198,
+              "coefficient": "15312072105665559554"
+            },
+            {
+              "signal": 199,
+              "coefficient": "14074077067429596685"
+            },
+            {
+              "signal": 200,
+              "coefficient": "14509095955263382283"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 7,
+      "number_of_expressions": 7,
+      "number_of_constraints": 7,
+      "number_of_distinct_variables": 14,
+      "total_terms": 49,
+      "constraint_ids": [450, 451, 452, 453, 454, 455, 475],
+      "variables": [62, 63, 64, 65, 66, 67, 146, 147, 148, 149, 150, 151, 201, 207],
+      "expressions": [
+        {
+          "expression_id": 18,
+          "constraint_id": 450,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 62,
+              "coefficient": "9032989931805188395"
+            },
+            {
+              "signal": 63,
+              "coefficient": "18303414590495882261"
+            },
+            {
+              "signal": 64,
+              "coefficient": "11212680483626133373"
+            },
+            {
+              "signal": 65,
+              "coefficient": "15312072105665559554"
+            },
+            {
+              "signal": 66,
+              "coefficient": "14074077067429596685"
+            },
+            {
+              "signal": 67,
+              "coefficient": "14509095955263382283"
+            },
+            {
+              "signal": 146,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 19,
+          "constraint_id": 451,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 62,
+              "coefficient": "6627412731432554202"
+            },
+            {
+              "signal": 63,
+              "coefficient": "8435729940696965031"
+            },
+            {
+              "signal": 64,
+              "coefficient": "16839405167413973910"
+            },
+            {
+              "signal": 65,
+              "coefficient": "1493332866008098334"
+            },
+            {
+              "signal": 66,
+              "coefficient": "13824733992930392921"
+            },
+            {
+              "signal": 67,
+              "coefficient": "9536428326492186855"
+            },
+            {
+              "signal": 147,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 20,
+          "constraint_id": 452,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 62,
+              "coefficient": "17971648175899579652"
+            },
+            {
+              "signal": 63,
+              "coefficient": "17308817029228938611"
+            },
+            {
+              "signal": 64,
+              "coefficient": "305294070455002196"
+            },
+            {
+              "signal": 65,
+              "coefficient": "25721343770062944"
+            },
+            {
+              "signal": 66,
+              "coefficient": "16286090643351960654"
+            },
+            {
+              "signal": 67,
+              "coefficient": "13328284479874152259"
+            },
+            {
+              "signal": 148,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 21,
+          "constraint_id": 453,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 62,
+              "coefficient": "14866635870685115002"
+            },
+            {
+              "signal": 63,
+              "coefficient": "14377118790668357192"
+            },
+            {
+              "signal": 64,
+              "coefficient": "4558578089474208639"
+            },
+            {
+              "signal": 65,
+              "coefficient": "206147254998498870"
+            },
+            {
+              "signal": 66,
+              "coefficient": "1647390356044293178"
+            },
+            {
+              "signal": 67,
+              "coefficient": "3238007245654367882"
+            },
+            {
+              "signal": 149,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 22,
+          "constraint_id": 454,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 62,
+              "coefficient": "1905563363953231512"
+            },
+            {
+              "signal": 63,
+              "coefficient": "3509509215689125582"
+            },
+            {
+              "signal": 64,
+              "coefficient": "5566352683245596960"
+            },
+            {
+              "signal": 65,
+              "coefficient": "14141355879279970620"
+            },
+            {
+              "signal": 66,
+              "coefficient": "13106611106031299154"
+            },
+            {
+              "signal": 67,
+              "coefficient": "6654120630240845750"
+            },
+            {
+              "signal": 150,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 23,
+          "constraint_id": 455,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 62,
+              "coefficient": "1945898895979646885"
+            },
+            {
+              "signal": 63,
+              "coefficient": "17874032531279360488"
+            },
+            {
+              "signal": 64,
+              "coefficient": "14885300302477896855"
+            },
+            {
+              "signal": 65,
+              "coefficient": "13671408451005955359"
+            },
+            {
+              "signal": 66,
+              "coefficient": "9322321918640216176"
+            },
+            {
+              "signal": 67,
+              "coefficient": "10573863055872028405"
+            },
+            {
+              "signal": 151,
+              "coefficient": "18446744069414584320"
+            }
+          ]
+        },
+        {
+          "expression_id": 43,
+          "constraint_id": 475,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 147,
+              "coefficient": "11857266130719584126"
+            },
+            {
+              "signal": 148,
+              "coefficient": "16778568328708456270"
+            },
+            {
+              "signal": 149,
+              "coefficient": "16102827170924212263"
+            },
+            {
+              "signal": 150,
+              "coefficient": "12510385050237258049"
+            },
+            {
+              "signal": 151,
+              "coefficient": "1522835167240166781"
+            },
+            {
+              "signal": 201,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 207,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 8,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [481],
+      "variables": [202, 203, 204, 205, 206, 213, 219],
+      "expressions": [
+        {
+          "expression_id": 44,
+          "constraint_id": 481,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 202,
+              "coefficient": "2624639843420748598"
+            },
+            {
+              "signal": 203,
+              "coefficient": "6812685532761966379"
+            },
+            {
+              "signal": 204,
+              "coefficient": "11209888623462712784"
+            },
+            {
+              "signal": 205,
+              "coefficient": "5248224477538391468"
+            },
+            {
+              "signal": 206,
+              "coefficient": "2898077263060276403"
+            },
+            {
+              "signal": 213,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 219,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 9,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [487],
+      "variables": [214, 215, 216, 217, 218, 225, 231],
+      "expressions": [
+        {
+          "expression_id": 45,
+          "constraint_id": 487,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 214,
+              "coefficient": "12410755710495740727"
+            },
+            {
+              "signal": 215,
+              "coefficient": "2384113422271459134"
+            },
+            {
+              "signal": 216,
+              "coefficient": "4763579848686595047"
+            },
+            {
+              "signal": 217,
+              "coefficient": "4676583207332310374"
+            },
+            {
+              "signal": 218,
+              "coefficient": "13115718361831858383"
+            },
+            {
+              "signal": 225,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 231,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 10,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [493],
+      "variables": [226, 227, 228, 229, 230, 237, 243],
+      "expressions": [
+        {
+          "expression_id": 46,
+          "constraint_id": 493,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 226,
+              "coefficient": "2977657457361874248"
+            },
+            {
+              "signal": 227,
+              "coefficient": "15166124383782936498"
+            },
+            {
+              "signal": 228,
+              "coefficient": "4942189520099953610"
+            },
+            {
+              "signal": 229,
+              "coefficient": "5871773565313121507"
+            },
+            {
+              "signal": 230,
+              "coefficient": "11887781845739615467"
+            },
+            {
+              "signal": 237,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 243,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 11,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [499],
+      "variables": [238, 239, 240, 241, 242, 249, 255],
+      "expressions": [
+        {
+          "expression_id": 47,
+          "constraint_id": 499,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 238,
+              "coefficient": "1730419854790133264"
+            },
+            {
+              "signal": 239,
+              "coefficient": "3161820564811162585"
+            },
+            {
+              "signal": 240,
+              "coefficient": "17536383062127528680"
+            },
+            {
+              "signal": 241,
+              "coefficient": "14639390247429566293"
+            },
+            {
+              "signal": 242,
+              "coefficient": "12783160490800254640"
+            },
+            {
+              "signal": 249,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 255,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 12,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [505],
+      "variables": [250, 251, 252, 253, 254, 261, 267],
+      "expressions": [
+        {
+          "expression_id": 48,
+          "constraint_id": 505,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 250,
+              "coefficient": "18014206545049877079"
+            },
+            {
+              "signal": 251,
+              "coefficient": "17984584383883308818"
+            },
+            {
+              "signal": 252,
+              "coefficient": "2837373410014803258"
+            },
+            {
+              "signal": 253,
+              "coefficient": "4192329814068773972"
+            },
+            {
+              "signal": 254,
+              "coefficient": "5909866531466534389"
+            },
+            {
+              "signal": 261,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 267,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 13,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [511],
+      "variables": [262, 263, 264, 265, 266, 273, 279],
+      "expressions": [
+        {
+          "expression_id": 49,
+          "constraint_id": 511,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 262,
+              "coefficient": "2900880924911733165"
+            },
+            {
+              "signal": 263,
+              "coefficient": "11141727344856457609"
+            },
+            {
+              "signal": 264,
+              "coefficient": "543358126911234387"
+            },
+            {
+              "signal": 265,
+              "coefficient": "5183085932332523246"
+            },
+            {
+              "signal": 266,
+              "coefficient": "299675602607087244"
+            },
+            {
+              "signal": 273,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 279,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 14,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [517],
+      "variables": [274, 275, 276, 277, 278, 285, 291],
+      "expressions": [
+        {
+          "expression_id": 50,
+          "constraint_id": 517,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 274,
+              "coefficient": "11428105825600030566"
+            },
+            {
+              "signal": 275,
+              "coefficient": "6064985854936644707"
+            },
+            {
+              "signal": 276,
+              "coefficient": "12781126460085924417"
+            },
+            {
+              "signal": 277,
+              "coefficient": "10086780764373243734"
+            },
+            {
+              "signal": 278,
+              "coefficient": "9514849070738829784"
+            },
+            {
+              "signal": 285,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 291,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 15,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [523],
+      "variables": [286, 287, 288, 289, 290, 297, 303],
+      "expressions": [
+        {
+          "expression_id": 51,
+          "constraint_id": 523,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 286,
+              "coefficient": "6217101250453383794"
+            },
+            {
+              "signal": 287,
+              "coefficient": "8856173167543977199"
+            },
+            {
+              "signal": 288,
+              "coefficient": "17990150601447069350"
+            },
+            {
+              "signal": 289,
+              "coefficient": "14049522243931006680"
+            },
+            {
+              "signal": 290,
+              "coefficient": "14456945253579487547"
+            },
+            {
+              "signal": 297,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 303,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 16,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [529],
+      "variables": [298, 299, 300, 301, 302, 309, 315],
+      "expressions": [
+        {
+          "expression_id": 52,
+          "constraint_id": 529,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 298,
+              "coefficient": "4287821738658624361"
+            },
+            {
+              "signal": 299,
+              "coefficient": "6088580436947692970"
+            },
+            {
+              "signal": 300,
+              "coefficient": "14441563708556078905"
+            },
+            {
+              "signal": 301,
+              "coefficient": "8596723868017151218"
+            },
+            {
+              "signal": 302,
+              "coefficient": "11507419569621911033"
+            },
+            {
+              "signal": 309,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 315,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 17,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [535],
+      "variables": [310, 311, 312, 313, 314, 321, 327],
+      "expressions": [
+        {
+          "expression_id": 53,
+          "constraint_id": 535,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 310,
+              "coefficient": "3625696099694692531"
+            },
+            {
+              "signal": 311,
+              "coefficient": "16138519253148144529"
+            },
+            {
+              "signal": 312,
+              "coefficient": "1968851094947029518"
+            },
+            {
+              "signal": 313,
+              "coefficient": "2879007861142474441"
+            },
+            {
+              "signal": 314,
+              "coefficient": "13471524411681026344"
+            },
+            {
+              "signal": 321,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 327,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 18,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [541],
+      "variables": [322, 323, 324, 325, 326, 333, 339],
+      "expressions": [
+        {
+          "expression_id": 54,
+          "constraint_id": 541,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 322,
+              "coefficient": "279492862008301923"
+            },
+            {
+              "signal": 323,
+              "coefficient": "14884090402747545611"
+            },
+            {
+              "signal": 324,
+              "coefficient": "6911566274478235151"
+            },
+            {
+              "signal": 325,
+              "coefficient": "11971154453083505403"
+            },
+            {
+              "signal": 326,
+              "coefficient": "5277609943475811121"
+            },
+            {
+              "signal": 333,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 339,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 19,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [547],
+      "variables": [334, 335, 336, 337, 338, 345, 351],
+      "expressions": [
+        {
+          "expression_id": 55,
+          "constraint_id": 547,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 334,
+              "coefficient": "8367805131466808874"
+            },
+            {
+              "signal": 335,
+              "coefficient": "6924746148730867992"
+            },
+            {
+              "signal": 336,
+              "coefficient": "4684761489166902022"
+            },
+            {
+              "signal": 337,
+              "coefficient": "6144915974820039337"
+            },
+            {
+              "signal": 338,
+              "coefficient": "17005629206017358501"
+            },
+            {
+              "signal": 345,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 351,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 20,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [553],
+      "variables": [346, 347, 348, 349, 350, 357, 363],
+      "expressions": [
+        {
+          "expression_id": 56,
+          "constraint_id": 553,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 346,
+              "coefficient": "13394431756850062325"
+            },
+            {
+              "signal": 347,
+              "coefficient": "18059046035375235534"
+            },
+            {
+              "signal": 348,
+              "coefficient": "16104526329338189836"
+            },
+            {
+              "signal": 349,
+              "coefficient": "17293264734273104492"
+            },
+            {
+              "signal": 350,
+              "coefficient": "7479408115683366492"
+            },
+            {
+              "signal": 357,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 363,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 21,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [559],
+      "variables": [358, 359, 360, 361, 362, 369, 375],
+      "expressions": [
+        {
+          "expression_id": 57,
+          "constraint_id": 559,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 358,
+              "coefficient": "17630910126970303760"
+            },
+            {
+              "signal": 359,
+              "coefficient": "11718846375118532410"
+            },
+            {
+              "signal": 360,
+              "coefficient": "9460356522205640589"
+            },
+            {
+              "signal": 361,
+              "coefficient": "1388991306643830414"
+            },
+            {
+              "signal": 362,
+              "coefficient": "9468647369255170218"
+            },
+            {
+              "signal": 369,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 375,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 22,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [565],
+      "variables": [370, 371, 372, 373, 374, 381, 387],
+      "expressions": [
+        {
+          "expression_id": 58,
+          "constraint_id": 565,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 370,
+              "coefficient": "11236720948631044090"
+            },
+            {
+              "signal": 371,
+              "coefficient": "1040693778653776046"
+            },
+            {
+              "signal": 372,
+              "coefficient": "10348849133994699658"
+            },
+            {
+              "signal": 373,
+              "coefficient": "5347545076471417925"
+            },
+            {
+              "signal": 374,
+              "coefficient": "88460673617218268"
+            },
+            {
+              "signal": 381,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 387,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 23,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [571],
+      "variables": [382, 383, 384, 385, 386, 393, 399],
+      "expressions": [
+        {
+          "expression_id": 59,
+          "constraint_id": 571,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 382,
+              "coefficient": "16160304431117507516"
+            },
+            {
+              "signal": 383,
+              "coefficient": "11681826794542319846"
+            },
+            {
+              "signal": 384,
+              "coefficient": "6668680337522541969"
+            },
+            {
+              "signal": 385,
+              "coefficient": "10876502647766095940"
+            },
+            {
+              "signal": 386,
+              "coefficient": "9572680883375788631"
+            },
+            {
+              "signal": 393,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 399,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 24,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [577],
+      "variables": [394, 395, 396, 397, 398, 405, 411],
+      "expressions": [
+        {
+          "expression_id": 60,
+          "constraint_id": 577,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 394,
+              "coefficient": "16232779667933473516"
+            },
+            {
+              "signal": 395,
+              "coefficient": "2080550818026687595"
+            },
+            {
+              "signal": 396,
+              "coefficient": "6321875089574198277"
+            },
+            {
+              "signal": 397,
+              "coefficient": "14782810170742847934"
+            },
+            {
+              "signal": 398,
+              "coefficient": "15363939255961873228"
+            },
+            {
+              "signal": 405,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 411,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 25,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [583],
+      "variables": [406, 407, 408, 409, 410, 417, 423],
+      "expressions": [
+        {
+          "expression_id": 61,
+          "constraint_id": 583,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 406,
+              "coefficient": "17429996767050798088"
+            },
+            {
+              "signal": 407,
+              "coefficient": "4711149045211072969"
+            },
+            {
+              "signal": 408,
+              "coefficient": "1121414615304344397"
+            },
+            {
+              "signal": 409,
+              "coefficient": "12956340559531811793"
+            },
+            {
+              "signal": 410,
+              "coefficient": "820513491016356788"
+            },
+            {
+              "signal": 417,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 423,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 26,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [589],
+      "variables": [418, 419, 420, 421, 422, 429, 435],
+      "expressions": [
+        {
+          "expression_id": 62,
+          "constraint_id": 589,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 418,
+              "coefficient": "1276129197720752172"
+            },
+            {
+              "signal": 419,
+              "coefficient": "11893232561154712962"
+            },
+            {
+              "signal": 420,
+              "coefficient": "17646887944736350231"
+            },
+            {
+              "signal": 421,
+              "coefficient": "4701458080658599802"
+            },
+            {
+              "signal": 422,
+              "coefficient": "7771930236653584114"
+            },
+            {
+              "signal": 429,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 435,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 27,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [595],
+      "variables": [430, 431, 432, 433, 434, 441, 447],
+      "expressions": [
+        {
+          "expression_id": 63,
+          "constraint_id": 595,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 430,
+              "coefficient": "5341756688025190568"
+            },
+            {
+              "signal": 431,
+              "coefficient": "12230686291782383730"
+            },
+            {
+              "signal": 432,
+              "coefficient": "134153953488688096"
+            },
+            {
+              "signal": 433,
+              "coefficient": "16897416466665141949"
+            },
+            {
+              "signal": 434,
+              "coefficient": "319416739343035211"
+            },
+            {
+              "signal": 441,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 447,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 28,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [601],
+      "variables": [442, 443, 444, 445, 446, 453, 459],
+      "expressions": [
+        {
+          "expression_id": 64,
+          "constraint_id": 601,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 442,
+              "coefficient": "2037553320967053273"
+            },
+            {
+              "signal": 443,
+              "coefficient": "5054616504741736205"
+            },
+            {
+              "signal": 444,
+              "coefficient": "1339963068461825498"
+            },
+            {
+              "signal": 445,
+              "coefficient": "7414725146922284436"
+            },
+            {
+              "signal": 446,
+              "coefficient": "17029176277847091689"
+            },
+            {
+              "signal": 453,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 459,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 29,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [607],
+      "variables": [454, 455, 456, 457, 458, 465, 471],
+      "expressions": [
+        {
+          "expression_id": 65,
+          "constraint_id": 607,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 454,
+              "coefficient": "8214306705490605769"
+            },
+            {
+              "signal": 455,
+              "coefficient": "13938417533771349156"
+            },
+            {
+              "signal": 456,
+              "coefficient": "16723143019125303140"
+            },
+            {
+              "signal": 457,
+              "coefficient": "1579929305875609094"
+            },
+            {
+              "signal": 458,
+              "coefficient": "6782865102733925936"
+            },
+            {
+              "signal": 465,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 471,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 30,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [613],
+      "variables": [466, 467, 468, 469, 470, 477, 483],
+      "expressions": [
+        {
+          "expression_id": 66,
+          "constraint_id": 613,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 466,
+              "coefficient": "12889416095658746492"
+            },
+            {
+              "signal": 467,
+              "coefficient": "14656420097362503463"
+            },
+            {
+              "signal": 468,
+              "coefficient": "10720967518381975129"
+            },
+            {
+              "signal": 469,
+              "coefficient": "17356368831372390943"
+            },
+            {
+              "signal": 470,
+              "coefficient": "5337386392236591527"
+            },
+            {
+              "signal": 477,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 483,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 31,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [619],
+      "variables": [478, 479, 480, 481, 482, 489, 495],
+      "expressions": [
+        {
+          "expression_id": 67,
+          "constraint_id": 619,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 478,
+              "coefficient": "13412595530025735169"
+            },
+            {
+              "signal": 479,
+              "coefficient": "12086694382966507290"
+            },
+            {
+              "signal": 480,
+              "coefficient": "14740130274676803918"
+            },
+            {
+              "signal": 481,
+              "coefficient": "8746796962880700165"
+            },
+            {
+              "signal": 482,
+              "coefficient": "12805956546680889970"
+            },
+            {
+              "signal": 489,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 495,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 32,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [625],
+      "variables": [490, 491, 492, 493, 494, 501, 507],
+      "expressions": [
+        {
+          "expression_id": 68,
+          "constraint_id": 625,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 490,
+              "coefficient": "5570486272623757739"
+            },
+            {
+              "signal": 491,
+              "coefficient": "13660467379795941305"
+            },
+            {
+              "signal": 492,
+              "coefficient": "7354369725565355429"
+            },
+            {
+              "signal": 493,
+              "coefficient": "15860777643193398769"
+            },
+            {
+              "signal": 494,
+              "coefficient": "11920068650928547167"
+            },
+            {
+              "signal": 501,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 507,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 33,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [631],
+      "variables": [502, 503, 504, 505, 506, 513, 519],
+      "expressions": [
+        {
+          "expression_id": 69,
+          "constraint_id": 631,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 502,
+              "coefficient": "10561846658605281389"
+            },
+            {
+              "signal": 503,
+              "coefficient": "9017582105918257120"
+            },
+            {
+              "signal": 504,
+              "coefficient": "13382686383416309902"
+            },
+            {
+              "signal": 505,
+              "coefficient": "1649039507741960787"
+            },
+            {
+              "signal": 506,
+              "coefficient": "6144952743712465470"
+            },
+            {
+              "signal": 513,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 519,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 34,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [637],
+      "variables": [514, 515, 516, 517, 518, 525, 531],
+      "expressions": [
+        {
+          "expression_id": 70,
+          "constraint_id": 637,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 514,
+              "coefficient": "1441028382937355424"
+            },
+            {
+              "signal": 515,
+              "coefficient": "5350337116264302375"
+            },
+            {
+              "signal": 516,
+              "coefficient": "16698057846917381536"
+            },
+            {
+              "signal": 517,
+              "coefficient": "5472183568196219753"
+            },
+            {
+              "signal": 518,
+              "coefficient": "4327948358882354216"
+            },
+            {
+              "signal": 525,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 531,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 35,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [643],
+      "variables": [526, 527, 528, 529, 530, 537, 543],
+      "expressions": [
+        {
+          "expression_id": 71,
+          "constraint_id": 643,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 526,
+              "coefficient": "14952760440349408994"
+            },
+            {
+              "signal": 527,
+              "coefficient": "18381310952748842664"
+            },
+            {
+              "signal": 528,
+              "coefficient": "18333354037733508779"
+            },
+            {
+              "signal": 529,
+              "coefficient": "5433781236648367385"
+            },
+            {
+              "signal": 530,
+              "coefficient": "7960487663688324180"
+            },
+            {
+              "signal": 537,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 543,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 36,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [649],
+      "variables": [538, 539, 540, 541, 542, 549, 555],
+      "expressions": [
+        {
+          "expression_id": 72,
+          "constraint_id": 649,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 538,
+              "coefficient": "479114446706381671"
+            },
+            {
+              "signal": 539,
+              "coefficient": "3054610781368695886"
+            },
+            {
+              "signal": 540,
+              "coefficient": "2285372291947169235"
+            },
+            {
+              "signal": 541,
+              "coefficient": "699498029981220472"
+            },
+            {
+              "signal": 542,
+              "coefficient": "5520901756058864462"
+            },
+            {
+              "signal": 549,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 555,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 37,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [655],
+      "variables": [550, 551, 552, 553, 554, 561, 567],
+      "expressions": [
+        {
+          "expression_id": 73,
+          "constraint_id": 655,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 550,
+              "coefficient": "14786015138909167411"
+            },
+            {
+              "signal": 551,
+              "coefficient": "3255219796618844550"
+            },
+            {
+              "signal": 552,
+              "coefficient": "9855649806409359701"
+            },
+            {
+              "signal": 553,
+              "coefficient": "6867469547020294685"
+            },
+            {
+              "signal": 554,
+              "coefficient": "15782458530517286007"
+            },
+            {
+              "signal": 561,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 567,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 38,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [661],
+      "variables": [562, 563, 564, 565, 566, 573, 579],
+      "expressions": [
+        {
+          "expression_id": 74,
+          "constraint_id": 661,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 562,
+              "coefficient": "694325876050274368"
+            },
+            {
+              "signal": 563,
+              "coefficient": "3446437345998358315"
+            },
+            {
+              "signal": 564,
+              "coefficient": "12214659635991213951"
+            },
+            {
+              "signal": 565,
+              "coefficient": "9372319222754765568"
+            },
+            {
+              "signal": 566,
+              "coefficient": "7073626061568012795"
+            },
+            {
+              "signal": 573,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 579,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 39,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [667],
+      "variables": [574, 575, 576, 577, 578, 585, 591],
+      "expressions": [
+        {
+          "expression_id": 75,
+          "constraint_id": 667,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 574,
+              "coefficient": "16340020516494647711"
+            },
+            {
+              "signal": 575,
+              "coefficient": "12798088695021220965"
+            },
+            {
+              "signal": 576,
+              "coefficient": "13880400507740724998"
+            },
+            {
+              "signal": 577,
+              "coefficient": "1468076785191789723"
+            },
+            {
+              "signal": 578,
+              "coefficient": "5838201385032055297"
+            },
+            {
+              "signal": 585,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 591,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 40,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [673],
+      "variables": [586, 587, 588, 589, 590, 597, 603],
+      "expressions": [
+        {
+          "expression_id": 76,
+          "constraint_id": 673,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 586,
+              "coefficient": "16776006225321674977"
+            },
+            {
+              "signal": 587,
+              "coefficient": "8587707633943812776"
+            },
+            {
+              "signal": 588,
+              "coefficient": "16037470391240034221"
+            },
+            {
+              "signal": 589,
+              "coefficient": "203138273547696487"
+            },
+            {
+              "signal": 590,
+              "coefficient": "2032896006075283251"
+            },
+            {
+              "signal": 597,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 603,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 41,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [679],
+      "variables": [598, 599, 600, 601, 602, 609, 615],
+      "expressions": [
+        {
+          "expression_id": 77,
+          "constraint_id": 679,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 598,
+              "coefficient": "8160466487426641143"
+            },
+            {
+              "signal": 599,
+              "coefficient": "11210397401234486230"
+            },
+            {
+              "signal": 600,
+              "coefficient": "5181407873148228421"
+            },
+            {
+              "signal": 601,
+              "coefficient": "8781923373721504660"
+            },
+            {
+              "signal": 602,
+              "coefficient": "5670823262036562196"
+            },
+            {
+              "signal": 609,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 615,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 42,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [685],
+      "variables": [610, 611, 612, 613, 614, 621, 627],
+      "expressions": [
+        {
+          "expression_id": 78,
+          "constraint_id": 685,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 610,
+              "coefficient": "8141251079261075803"
+            },
+            {
+              "signal": 611,
+              "coefficient": "11490569559741432065"
+            },
+            {
+              "signal": 612,
+              "coefficient": "661082207653362649"
+            },
+            {
+              "signal": 613,
+              "coefficient": "452694732678886199"
+            },
+            {
+              "signal": 614,
+              "coefficient": "6379053804210295132"
+            },
+            {
+              "signal": 621,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 627,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 43,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [691],
+      "variables": [622, 623, 624, 625, 626, 633, 639],
+      "expressions": [
+        {
+          "expression_id": 79,
+          "constraint_id": 691,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 622,
+              "coefficient": "12697832815655186809"
+            },
+            {
+              "signal": 623,
+              "coefficient": "16791104673127707545"
+            },
+            {
+              "signal": 624,
+              "coefficient": "2032470288124903528"
+            },
+            {
+              "signal": 625,
+              "coefficient": "6424624606927716791"
+            },
+            {
+              "signal": 626,
+              "coefficient": "14494489895083055826"
+            },
+            {
+              "signal": 633,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 639,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 44,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [697],
+      "variables": [634, 635, 636, 637, 638, 645, 651],
+      "expressions": [
+        {
+          "expression_id": 80,
+          "constraint_id": 697,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 634,
+              "coefficient": "15520977491775794515"
+            },
+            {
+              "signal": 635,
+              "coefficient": "9250870692975000401"
+            },
+            {
+              "signal": 636,
+              "coefficient": "10753242846308254359"
+            },
+            {
+              "signal": 637,
+              "coefficient": "12863368408248331463"
+            },
+            {
+              "signal": 638,
+              "coefficient": "7867198537307310136"
+            },
+            {
+              "signal": 645,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 651,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 45,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [703],
+      "variables": [646, 647, 648, 649, 650, 657, 663],
+      "expressions": [
+        {
+          "expression_id": 81,
+          "constraint_id": 703,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 646,
+              "coefficient": "1448192978142151977"
+            },
+            {
+              "signal": 647,
+              "coefficient": "8927840006181683254"
+            },
+            {
+              "signal": 648,
+              "coefficient": "13398641135652558631"
+            },
+            {
+              "signal": 649,
+              "coefficient": "1729325373559304605"
+            },
+            {
+              "signal": 650,
+              "coefficient": "317545562866534010"
+            },
+            {
+              "signal": 657,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 663,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 46,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [709],
+      "variables": [658, 659, 660, 661, 662, 669, 675],
+      "expressions": [
+        {
+          "expression_id": 82,
+          "constraint_id": 709,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 658,
+              "coefficient": "15347339559675723279"
+            },
+            {
+              "signal": 659,
+              "coefficient": "9931258654569830556"
+            },
+            {
+              "signal": 660,
+              "coefficient": "5059375417833723113"
+            },
+            {
+              "signal": 661,
+              "coefficient": "1629861490002793381"
+            },
+            {
+              "signal": 662,
+              "coefficient": "6414667299901904372"
+            },
+            {
+              "signal": 669,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 675,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 47,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [715],
+      "variables": [670, 671, 672, 673, 674, 681, 687],
+      "expressions": [
+        {
+          "expression_id": 83,
+          "constraint_id": 715,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 670,
+              "coefficient": "15182733865525527252"
+            },
+            {
+              "signal": 671,
+              "coefficient": "18207723507562589508"
+            },
+            {
+              "signal": 672,
+              "coefficient": "4908535108221492249"
+            },
+            {
+              "signal": 673,
+              "coefficient": "8187356066120049272"
+            },
+            {
+              "signal": 674,
+              "coefficient": "8250351747787977550"
+            },
+            {
+              "signal": 681,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 687,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 48,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [721],
+      "variables": [682, 683, 684, 685, 686, 693, 699],
+      "expressions": [
+        {
+          "expression_id": 84,
+          "constraint_id": 721,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 682,
+              "coefficient": "17091827628798790591"
+            },
+            {
+              "signal": 683,
+              "coefficient": "16614297334454632528"
+            },
+            {
+              "signal": 684,
+              "coefficient": "2362324676429662985"
+            },
+            {
+              "signal": 685,
+              "coefficient": "9752098857484310616"
+            },
+            {
+              "signal": 686,
+              "coefficient": "13894687213457279192"
+            },
+            {
+              "signal": 693,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 699,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 49,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [727],
+      "variables": [694, 695, 696, 697, 698, 705, 711],
+      "expressions": [
+        {
+          "expression_id": 85,
+          "constraint_id": 727,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 694,
+              "coefficient": "11058005465675602492"
+            },
+            {
+              "signal": 695,
+              "coefficient": "18395621132974643653"
+            },
+            {
+              "signal": 696,
+              "coefficient": "7179138746050944724"
+            },
+            {
+              "signal": 697,
+              "coefficient": "3197001219928043608"
+            },
+            {
+              "signal": 698,
+              "coefficient": "9548452257522582242"
+            },
+            {
+              "signal": 705,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 711,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 50,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [733],
+      "variables": [706, 707, 708, 709, 710, 717, 723],
+      "expressions": [
+        {
+          "expression_id": 86,
+          "constraint_id": 733,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 706,
+              "coefficient": "6317276430664997142"
+            },
+            {
+              "signal": 707,
+              "coefficient": "5057322583706898351"
+            },
+            {
+              "signal": 708,
+              "coefficient": "10834841440316949542"
+            },
+            {
+              "signal": 709,
+              "coefficient": "6475964750182325365"
+            },
+            {
+              "signal": 710,
+              "coefficient": "15386261584431573387"
+            },
+            {
+              "signal": 717,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 723,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 51,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [739],
+      "variables": [718, 719, 720, 721, 722, 729, 735],
+      "expressions": [
+        {
+          "expression_id": 87,
+          "constraint_id": 739,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 718,
+              "coefficient": "13387768510382057496"
+            },
+            {
+              "signal": 719,
+              "coefficient": "999174709954969867"
+            },
+            {
+              "signal": 720,
+              "coefficient": "2940934566968360199"
+            },
+            {
+              "signal": 721,
+              "coefficient": "6034617899763485804"
+            },
+            {
+              "signal": 722,
+              "coefficient": "8323983517813713569"
+            },
+            {
+              "signal": 729,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 735,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 52,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [745],
+      "variables": [730, 731, 732, 733, 734, 741, 747],
+      "expressions": [
+        {
+          "expression_id": 88,
+          "constraint_id": 745,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 730,
+              "coefficient": "13307728009761098095"
+            },
+            {
+              "signal": 731,
+              "coefficient": "4148204089717425648"
+            },
+            {
+              "signal": 732,
+              "coefficient": "12765177880734434809"
+            },
+            {
+              "signal": 733,
+              "coefficient": "1889451165081258780"
+            },
+            {
+              "signal": 734,
+              "coefficient": "14386541745469925103"
+            },
+            {
+              "signal": 741,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 747,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 53,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [751],
+      "variables": [742, 743, 744, 745, 746, 753, 759],
+      "expressions": [
+        {
+          "expression_id": 89,
+          "constraint_id": 751,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 742,
+              "coefficient": "10293652303327359951"
+            },
+            {
+              "signal": 743,
+              "coefficient": "8586441190376665513"
+            },
+            {
+              "signal": 744,
+              "coefficient": "13364513452467146291"
+            },
+            {
+              "signal": 745,
+              "coefficient": "10043590854870986384"
+            },
+            {
+              "signal": 746,
+              "coefficient": "13979980587603651189"
+            },
+            {
+              "signal": 753,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 759,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 54,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [757],
+      "variables": [754, 755, 756, 757, 758, 765, 771],
+      "expressions": [
+        {
+          "expression_id": 90,
+          "constraint_id": 757,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 754,
+              "coefficient": "16489165033060044003"
+            },
+            {
+              "signal": 755,
+              "coefficient": "14711376254022077231"
+            },
+            {
+              "signal": 756,
+              "coefficient": "1920568288514820536"
+            },
+            {
+              "signal": 757,
+              "coefficient": "3964983134161104708"
+            },
+            {
+              "signal": 758,
+              "coefficient": "1996707223753601213"
+            },
+            {
+              "signal": 765,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 771,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 55,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [763],
+      "variables": [766, 767, 768, 769, 770, 777, 783],
+      "expressions": [
+        {
+          "expression_id": 91,
+          "constraint_id": 763,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 766,
+              "coefficient": "7588655411768554114"
+            },
+            {
+              "signal": 767,
+              "coefficient": "17574721242949813880"
+            },
+            {
+              "signal": 768,
+              "coefficient": "12365837436867323507"
+            },
+            {
+              "signal": 769,
+              "coefficient": "7453227555212409964"
+            },
+            {
+              "signal": 770,
+              "coefficient": "5070977908203754703"
+            },
+            {
+              "signal": 777,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 783,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 56,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [769],
+      "variables": [778, 779, 780, 781, 782, 789, 795],
+      "expressions": [
+        {
+          "expression_id": 92,
+          "constraint_id": 769,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 778,
+              "coefficient": "6753387201787662285"
+            },
+            {
+              "signal": 779,
+              "coefficient": "18211306607757645973"
+            },
+            {
+              "signal": 780,
+              "coefficient": "3982915893505545872"
+            },
+            {
+              "signal": 781,
+              "coefficient": "10995272591084226589"
+            },
+            {
+              "signal": 782,
+              "coefficient": "12192496181838707722"
+            },
+            {
+              "signal": 789,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 795,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 57,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [775],
+      "variables": [790, 791, 792, 793, 794, 801, 807],
+      "expressions": [
+        {
+          "expression_id": 93,
+          "constraint_id": 775,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 790,
+              "coefficient": "1132733547004447773"
+            },
+            {
+              "signal": 791,
+              "coefficient": "3444241912968814990"
+            },
+            {
+              "signal": 792,
+              "coefficient": "9766336424458734291"
+            },
+            {
+              "signal": 793,
+              "coefficient": "865530680607375757"
+            },
+            {
+              "signal": 794,
+              "coefficient": "949431142598422959"
+            },
+            {
+              "signal": 801,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 807,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 58,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [781],
+      "variables": [802, 803, 804, 805, 806, 813, 819],
+      "expressions": [
+        {
+          "expression_id": 94,
+          "constraint_id": 781,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 802,
+              "coefficient": "13719218663883626588"
+            },
+            {
+              "signal": 803,
+              "coefficient": "11095297905882418960"
+            },
+            {
+              "signal": 804,
+              "coefficient": "13693428696851748101"
+            },
+            {
+              "signal": 805,
+              "coefficient": "7410422132284923541"
+            },
+            {
+              "signal": 806,
+              "coefficient": "10703718341438534182"
+            },
+            {
+              "signal": 813,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 819,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 59,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [787],
+      "variables": [814, 815, 816, 817, 818, 825, 831],
+      "expressions": [
+        {
+          "expression_id": 95,
+          "constraint_id": 787,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 814,
+              "coefficient": "2653698909907867091"
+            },
+            {
+              "signal": 815,
+              "coefficient": "1917793185915374311"
+            },
+            {
+              "signal": 816,
+              "coefficient": "61843708939275404"
+            },
+            {
+              "signal": 817,
+              "coefficient": "5968669230024824569"
+            },
+            {
+              "signal": 818,
+              "coefficient": "12819259554676644170"
+            },
+            {
+              "signal": 825,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 831,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 60,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [793],
+      "variables": [826, 827, 828, 829, 830, 837, 843],
+      "expressions": [
+        {
+          "expression_id": 96,
+          "constraint_id": 793,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 826,
+              "coefficient": "8856789049775796395"
+            },
+            {
+              "signal": 827,
+              "coefficient": "16744123757633850069"
+            },
+            {
+              "signal": 828,
+              "coefficient": "437278982689188038"
+            },
+            {
+              "signal": 829,
+              "coefficient": "7920886790312955611"
+            },
+            {
+              "signal": 830,
+              "coefficient": "8101770351277732348"
+            },
+            {
+              "signal": 837,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 843,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 61,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [799],
+      "variables": [838, 839, 840, 841, 842, 849, 855],
+      "expressions": [
+        {
+          "expression_id": 97,
+          "constraint_id": 799,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 838,
+              "coefficient": "127549561547306978"
+            },
+            {
+              "signal": 839,
+              "coefficient": "1418441502515894941"
+            },
+            {
+              "signal": 840,
+              "coefficient": "11641378160109451368"
+            },
+            {
+              "signal": 841,
+              "coefficient": "16663794292836116156"
+            },
+            {
+              "signal": 842,
+              "coefficient": "15023570443041215978"
+            },
+            {
+              "signal": 849,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 855,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 62,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [805],
+      "variables": [850, 851, 852, 853, 854, 861, 867],
+      "expressions": [
+        {
+          "expression_id": 98,
+          "constraint_id": 805,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 850,
+              "coefficient": "9811591018798878146"
+            },
+            {
+              "signal": 851,
+              "coefficient": "4399846360290250133"
+            },
+            {
+              "signal": 852,
+              "coefficient": "6104349862457273416"
+            },
+            {
+              "signal": 853,
+              "coefficient": "7942714725075393788"
+            },
+            {
+              "signal": 854,
+              "coefficient": "7678128351552311710"
+            },
+            {
+              "signal": 861,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 867,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 63,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [811],
+      "variables": [862, 863, 864, 865, 866, 873, 879],
+      "expressions": [
+        {
+          "expression_id": 99,
+          "constraint_id": 811,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 862,
+              "coefficient": "17986840305702957441"
+            },
+            {
+              "signal": 863,
+              "coefficient": "18117114142987525427"
+            },
+            {
+              "signal": 864,
+              "coefficient": "11492007582783485523"
+            },
+            {
+              "signal": 865,
+              "coefficient": "5297431996468899368"
+            },
+            {
+              "signal": 866,
+              "coefficient": "11226530485149452030"
+            },
+            {
+              "signal": 873,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 879,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 64,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [817],
+      "variables": [874, 875, 876, 877, 878, 885, 891],
+      "expressions": [
+        {
+          "expression_id": 100,
+          "constraint_id": 817,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 874,
+              "coefficient": "15379269315289786828"
+            },
+            {
+              "signal": 875,
+              "coefficient": "9320655488964197808"
+            },
+            {
+              "signal": 876,
+              "coefficient": "16168440816410304499"
+            },
+            {
+              "signal": 877,
+              "coefficient": "3697737020121340654"
+            },
+            {
+              "signal": 878,
+              "coefficient": "3324731603560554617"
+            },
+            {
+              "signal": 885,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 891,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 65,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [823],
+      "variables": [886, 887, 888, 889, 890, 897, 903],
+      "expressions": [
+        {
+          "expression_id": 101,
+          "constraint_id": 823,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 886,
+              "coefficient": "2625994327161580037"
+            },
+            {
+              "signal": 887,
+              "coefficient": "3712502285090673306"
+            },
+            {
+              "signal": 888,
+              "coefficient": "12221958200660982128"
+            },
+            {
+              "signal": 889,
+              "coefficient": "7730570845978614991"
+            },
+            {
+              "signal": 890,
+              "coefficient": "17346680277019077842"
+            },
+            {
+              "signal": 897,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 903,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cluster_id": 66,
+      "number_of_expressions": 1,
+      "number_of_constraints": 1,
+      "number_of_distinct_variables": 7,
+      "total_terms": 7,
+      "constraint_ids": [829],
+      "variables": [898, 899, 900, 901, 902, 909, 915],
+      "expressions": [
+        {
+          "expression_id": 102,
+          "constraint_id": 829,
+          "number_of_variables": 7,
+          "required_auxiliary_variables": 6,
+          "terms": [
+            {
+              "signal": 898,
+              "coefficient": "13821268796511473272"
+            },
+            {
+              "signal": 899,
+              "coefficient": "10004593075691893519"
+            },
+            {
+              "signal": 900,
+              "coefficient": "16786301189775960021"
+            },
+            {
+              "signal": 901,
+              "coefficient": "361784765532375704"
+            },
+            {
+              "signal": 902,
+              "coefficient": "13083149102789781798"
+            },
+            {
+              "signal": 909,
+              "coefficient": "18446744069414584320"
+            },
+            {
+              "signal": 915,
+              "coefficient": "9032989931805188395"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

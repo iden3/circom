@@ -2,12 +2,15 @@
 use super::{ConstraintStorage, EncodingIterator, SEncoded, Simplifier, A, C, S};
 use crate::SignalMap;
 use circom_algebra::num_bigint::BigInt;
+// use circom_algebra::algebra::ArithmeticExpression;
 use constraint_writers::json_writer::SubstitutionJSON;
-use std::collections::{HashMap, HashSet, LinkedList, BTreeSet};
+use std::collections::{HashMap, HashSet, LinkedList, BTreeSet, VecDeque};
 use std::sync::Arc;
 use z3::ast::{Bool, Int};
 use z3::{Config, Optimize, Solver, SatResult, with_z3_config};
 use std::str::FromStr;
+use std::fmt::Write as FmtWrite;
+use std::fs;
 
 fn log_substitutions(substitutions: &LinkedList<S>, writer: &mut Option<SubstitutionJSON>) {
     use super::json_porting::port_substitution;
@@ -301,10 +304,17 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
 
     let mut constraints_ids = Vec::new();
     let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
+    // let mut zero_product_c_constraints = HashSet::new();
 
     for &expression_id in cluster {
         let constraint_id = expression[expression_id].0;
         if !constraints_ids.contains(&constraint_id) { constraints_ids.push(constraint_id); }
+        // let constraint = storage.read_constraint(constraint_id).unwrap();
+        // let a_is_zero = constraint.a().values().all(|coefficient| coefficient == &BigInt::from(0));
+        // let b_is_zero = constraint.b().values().all(|coefficient| coefficient == &BigInt::from(0));
+        // if a_is_zero && b_is_zero {
+        //     zero_product_c_constraints.insert(constraint_id);
+        // }
         
         for (var, coeff) in &expression[expression_id].1 {
             if *var == 0 || coeff == &BigInt::from(0) { continue; }
@@ -469,6 +479,20 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                     next_is_empty = Bool::and(&[&next_is_empty, &comp_next.not()]);
                 }
                 solver.assert(Bool::or(&[&uses_another_var.not(), &next_is_empty, &next_var_uses_another_var]));
+            }
+
+            let empty: Vec<Bool> = (0..rows_vars).map(|v| {
+                let nots: Vec<Bool> = (0..cols_vars).map(|c| get_v_composition(v, c).not()).collect();
+                Bool::and(&nots.iter().collect::<Vec<_>>())
+            }).collect();
+
+            // Ordered by its maximum column
+            for var in 0..rows_vars.saturating_sub(1) {
+                for c in 0..cols_vars {
+                    let mut lits: Vec<Bool> = (c..cols_vars).map(|k| get_v_composition(var + 1, k)).collect();
+                    lits.push(empty[var + 1].clone());
+                    solver.assert(&get_v_composition(var, c).implies(&Bool::or(&lits.iter().collect::<Vec<_>>())));
+                }
             }
 
             // Two terms with the same variables cannot be used in the same variable
@@ -826,6 +850,46 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
                     model_aux_signals[v] = Some(auxiliary);
                 }
 
+                // if !zero_product_c_constraints.is_empty() {
+                //     let auxiliary_compositions: HashMap<_, _> = aux_signals
+                //         .iter()
+                //         .map(|((signal_a, signal_b, coefficient_a, coefficient_b), auxiliary)| {
+                //             (
+                //                 *auxiliary,
+                //                 (*signal_a, *signal_b, coefficient_a.clone(), coefficient_b.clone()),
+                //             )
+                //         })
+                //         .collect();
+
+                //     for constraint_id in &zero_product_c_constraints {
+                //         let mut constraint = storage.read_constraint(*constraint_id).unwrap();
+                //         let expansions = find_expansions_to_three_variables(
+                //             constraint.c(),
+                //             &auxiliary_compositions,
+                //             field,
+                //         );
+                //         if let Some(expansions) = expansions {
+                //             for auxiliary in expansions {
+                //                 let (signal_a, signal_b, coefficient_a, coefficient_b) =
+                //                     auxiliary_compositions.get(&auxiliary).unwrap();
+                //                 let mut coefficients = HashMap::new();
+                //                 coefficients.insert(*signal_a, coefficient_a.clone());
+                //                 coefficients.insert(*signal_b, coefficient_b.clone());
+                //                 let substitution = S::new(
+                //                     auxiliary,
+                //                     A::Linear {
+                //                         coefficients,
+                //                     },
+                //                 )
+                //                 .unwrap();
+                //                 C::apply_substitution(&mut constraint, &substitution, field);
+                //             }
+                //             // constraint.normalize_constraint(field);
+                //             storage.replace(*constraint_id, constraint);
+                //         }
+                //     }
+                // }
+
                 if created_variables > 0 {
                     println!("New constraints:");
                     let mut introduced = 0;
@@ -887,6 +951,181 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
             }
         }
     })
+}
+
+
+fn export_expr_clusters_json(
+    path: &str,
+    expressions: &[(usize, HashMap<usize, BigInt>, usize)],
+    clusters: &[Vec<usize>],
+) -> std::io::Result<()> {
+
+    let constant = C::constant_coefficient();
+
+    let mut all_variables = BTreeSet::new();
+    let mut all_constraints = BTreeSet::new();
+
+    let mut total_terms = 0usize;
+    let mut max_cluster_size = 0usize;
+    let mut min_cluster_size = usize::MAX;
+
+    // First pass: global statistics
+    for cluster in clusters {
+        max_cluster_size = max_cluster_size.max(cluster.len());
+        min_cluster_size = min_cluster_size.min(cluster.len());
+
+        for &expression_id in cluster {
+            let (constraint_id, expression, _) = &expressions[expression_id];
+
+            all_constraints.insert(*constraint_id);
+
+            for (signal, coeff) in expression {
+                if *signal != constant && coeff != &BigInt::from(0) {
+                    all_variables.insert(*signal);
+                    total_terms += 1;
+                }
+            }
+        }
+    }
+
+    let num_expressions = expressions.len();
+
+    let mut json = String::new();
+
+    // Global metadata
+    writeln!(&mut json, "{{").unwrap();
+    writeln!(&mut json, "  \"metadata\": {{").unwrap();
+    writeln!(&mut json, "    \"number_of_clusters\": {},", clusters.len()).unwrap();
+    writeln!(&mut json, "    \"number_of_expressions\": {},", num_expressions).unwrap();
+    writeln!(&mut json, "    \"number_of_constraints\": {},", all_constraints.len()).unwrap();
+    writeln!(&mut json, "    \"number_of_distinct_variables\": {},", all_variables.len()).unwrap();
+    writeln!(&mut json, "    \"total_terms\": {},", total_terms).unwrap();
+    writeln!(
+        &mut json,
+        "    \"min_cluster_size\": {},",
+        if clusters.is_empty() { 0 } else { min_cluster_size }
+    ).unwrap();
+    writeln!(&mut json, "    \"max_cluster_size\": {}", max_cluster_size).unwrap();
+    writeln!(&mut json, "  }},").unwrap();
+
+    writeln!(&mut json, "  \"clusters\": [").unwrap();
+
+    // Each cluster
+    for (cluster_id, cluster) in clusters.iter().enumerate() {
+
+        let mut cluster_variables = BTreeSet::new();
+        let mut cluster_constraints = BTreeSet::new();
+        let mut cluster_total_terms = 0usize;
+
+        for &expression_id in cluster {
+            let (constraint_id, expression, _) = &expressions[expression_id];
+
+            cluster_constraints.insert(*constraint_id);
+
+            for (signal, coeff) in expression {
+                if *signal != constant && coeff != &BigInt::from(0) {
+                    cluster_variables.insert(*signal);
+                    cluster_total_terms += 1;
+                }
+            }
+        }
+
+        writeln!(&mut json, "    {{").unwrap();
+        writeln!(&mut json, "      \"cluster_id\": {},", cluster_id).unwrap();
+        writeln!(&mut json, "      \"number_of_expressions\": {},", cluster.len()).unwrap();
+        writeln!(&mut json, "      \"number_of_constraints\": {},", cluster_constraints.len()).unwrap();
+        writeln!(&mut json, "      \"number_of_distinct_variables\": {},", cluster_variables.len()).unwrap();
+        writeln!(&mut json, "      \"total_terms\": {},", cluster_total_terms).unwrap();
+
+        // Constraint identifiers
+        write!(&mut json, "      \"constraint_ids\": [").unwrap();
+
+        for (i, id) in cluster_constraints.iter().enumerate() {
+            if i > 0 {
+                write!(&mut json, ", ").unwrap();
+            }
+            write!(&mut json, "{}", id).unwrap();
+        }
+
+        writeln!(&mut json, "],").unwrap();
+
+        // Variables used by this cluster
+        write!(&mut json, "      \"variables\": [").unwrap();
+
+        for (i, signal) in cluster_variables.iter().enumerate() {
+            if i > 0 {
+                write!(&mut json, ", ").unwrap();
+            }
+            write!(&mut json, "{}", signal).unwrap();
+        }
+
+        writeln!(&mut json, "],").unwrap();
+
+        // Expressions
+        writeln!(&mut json, "      \"expressions\": [").unwrap();
+
+        for (position, &expression_id) in cluster.iter().enumerate() {
+
+            let (constraint_id, expression, required_aux) =
+                &expressions[expression_id];
+
+            let mut terms: Vec<(usize, BigInt)> = expression
+                .iter()
+                .filter(|(signal, coeff)| {
+                    **signal != constant && **coeff != BigInt::from(0)
+                })
+                .map(|(signal, coeff)| (*signal, coeff.clone()))
+                .collect();
+
+            terms.sort_by_key(|(signal, _)| *signal);
+
+            writeln!(&mut json, "        {{").unwrap();
+            writeln!(&mut json, "          \"expression_id\": {},", expression_id).unwrap();
+            writeln!(&mut json, "          \"constraint_id\": {},", constraint_id).unwrap();
+            writeln!(&mut json, "          \"number_of_variables\": {},", terms.len()).unwrap();
+            writeln!(&mut json, "          \"required_auxiliary_variables\": {},", required_aux).unwrap();
+
+            writeln!(&mut json, "          \"terms\": [").unwrap();
+
+            for (term_position, (signal, coeff)) in terms.iter().enumerate() {
+
+                writeln!(&mut json, "            {{").unwrap();
+                writeln!(&mut json, "              \"signal\": {},", signal).unwrap();
+                writeln!(
+                    &mut json,
+                    "              \"coefficient\": \"{}\"",
+                    coeff
+                ).unwrap();
+
+                if term_position + 1 == terms.len() {
+                    writeln!(&mut json, "            }}").unwrap();
+                } else {
+                    writeln!(&mut json, "            }},").unwrap();
+                }
+            }
+
+            writeln!(&mut json, "          ]").unwrap();
+
+            if position + 1 == cluster.len() {
+                writeln!(&mut json, "        }}").unwrap();
+            } else {
+                writeln!(&mut json, "        }},").unwrap();
+            }
+        }
+
+        writeln!(&mut json, "      ]").unwrap();
+
+        if cluster_id + 1 == clusters.len() {
+            writeln!(&mut json, "    }}").unwrap();
+        } else {
+            writeln!(&mut json, "    }},").unwrap();
+        }
+    }
+
+    writeln!(&mut json, "  ]").unwrap();
+    writeln!(&mut json, "}}").unwrap();
+
+    fs::write(path, json)
 }
 
 fn rebuild_witness(
@@ -1493,7 +1732,6 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         // // if we are in PLONK mode
 
         let mut auxiliary_signals = HashMap::new();
-        // let mut aux_compositions: HashMap<usize, Vec<(usize, BigInt)>> = HashMap::new();
 
         let mut expressions_to_fix = Vec::new();
         let mut estimated_auxiliary_variables = 0;
@@ -1512,57 +1750,76 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
             constraint_storage.replace(i, constraint);
         }
 
-        let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
-        for cluster in &clusters {
-            // Greedy optimization retained for comparison:
-            if smp.apply_eager_plonk {
-                loop {
-                    let mut expressions_to_fix = Vec::new();
-                    for i in constraint_storage.get_ids() {
-                        let constraint = constraint_storage.read_constraint(i).unwrap();
-                        if !constraint.is_plonk() {
-                            let (expressions, _) = constraint.vars_to_solve_plonk_with_total();
-                            for (expr, num_vars) in expressions {
-                                expressions_to_fix.push((i, expr.clone(), num_vars));
+        // Export the initial clusters before applying any optimization.
+        let initial_clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+
+        if let Err(error) = export_expr_clusters_json("clusters.json", &expressions_to_fix, &initial_clusters) {
+            eprintln!("Error exporting clusters.json: {}", error);
+        }
+
+        // Greedy optimization retained for comparison:
+        if smp.apply_eager_plonk {
+            loop {
+                let mut expressions_to_fix = Vec::new();
+                for i in constraint_storage.get_ids() {
+                    let constraint = constraint_storage.read_constraint(i).unwrap();
+                    if !constraint.is_plonk() {
+                        let (expressions, _) = constraint.vars_to_solve_plonk_with_total();
+                        for (expr, num_vars) in expressions {
+                            expressions_to_fix.push((i, expr.clone(), num_vars));
+                        }
+                    }
+                }
+
+                if expressions_to_fix.is_empty() {
+                    break; // all is PLONK
+                }
+
+                // Rebuild the clusters
+                let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+
+                let mut best_candidate: Option<((usize, usize, BigInt, BigInt), usize, Vec<usize>)> = None;
+                for cluster in &clusters {
+                    let pairs = count_variable_pairs(cluster, &expressions_to_fix);
+                    if let Some((pair, frec)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
+                        let replace = match &best_candidate {
+                            None => true,
+                            Some((best_pair, best_frec, _)) => {
+                                frec > *best_frec ||(frec == *best_frec && pair < *best_pair)
                             }
+                        };
+
+                        if replace {
+                            best_candidate = Some((pair, frec, cluster.clone()));
                         }
                     }
+                }
 
-                    if expressions_to_fix.is_empty() {
-                        break; // all is PLONK
-                    }
+                let (pair, _frec, cluster) = match best_candidate {
+                    Some(candidate) => candidate,
+                    None => break
+                };
 
-                    // Rebuild the clusters
-                    let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+                apply_pair_to_cluster(&mut constraint_storage, &cluster, &expressions_to_fix, pair, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
+            }
+        }
+        else if smp.apply_sat_plonk {
 
-                    let mut progress = false;
-                    for cluster in &clusters {
-                        let pairs = count_variable_pairs(cluster, &expressions_to_fix);
-                        if let Some((pair, _freq)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs) {
-                            apply_pair_to_cluster(
-                                &mut constraint_storage, cluster, &expressions_to_fix, pair,
-                                &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field,
-                            );
-                            progress = true;
-                        }
-                    }
-
-                    if !progress {
-                        break;
+            let mut expressions_to_fix = Vec::new();
+            for i in constraint_storage.get_ids() {
+                let constraint = constraint_storage.read_constraint(i).unwrap();
+                if !constraint.is_plonk() {
+                    let (expressions, _) = constraint.vars_to_solve_plonk_with_total();
+                    for (expr, num_vars) in expressions {
+                        expressions_to_fix.push((i, expr.clone(), num_vars));
                     }
                 }
             }
-            if smp.apply_sat_plonk{
 
-                variables_optimization(
-                    &mut constraint_storage,
-                    &expressions_to_fix,
-                    cluster,
-                    &mut auxiliary_signals,
-                    &mut max_signal,
-                    &mut non_linear_map,
-                    &field,
-                );
+            let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+
+            for cluster in &clusters {
+                variables_optimization(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
             }
         }
 
