@@ -91,6 +91,8 @@ fn extend_block(stmt: &mut Statement, state: &mut State, context: &Context) -> V
         let checkpoint_id = state.fresh_id;
         map_init_blocks(stmts);
         map_stmts_with_sugar(stmts, state, context);
+        state.fresh_id = map_asserts(stmts, state.fresh_id);
+        state.fresh_id = map_logs(stmts, state.fresh_id);
         map_substitutions(stmts);
         map_constraint_equalities(stmts);
         state.fresh_id = map_returns(stmts, state.fresh_id);
@@ -631,6 +633,84 @@ fn split_return(stmt: Statement, id: usize) -> ReturnSplit {
         unreachable!()
     }
 }
+
+fn map_asserts(stmts: &mut Vec<Statement>,mut fresh_id: usize) -> usize  {
+    let work = std::mem::take(stmts);
+    for w in work {
+        if w.is_assert() {
+            fresh_id = into_single_assert(w, stmts, fresh_id);
+        } else {
+            stmts.push(w);
+        }
+    }
+    fresh_id
+}
+
+fn into_single_assert(stmt: Statement, stmts: &mut Vec<Statement>, mut fresh_id: usize) -> usize{
+        use Statement::Assert;
+        if let Assert { arg, meta } = stmt {
+            
+            let new_arg = if arg.is_switch() || arg.is_array() || arg.is_call(){
+                let id = fresh_id.to_string();
+                fresh_id += 1;
+                let new_arg = rmv_sugar(&id, arg, stmts);
+                new_arg
+            } else {
+                arg
+            };
+            stmts.push(Statement::Assert { arg: new_arg   , meta });
+        }
+        else{
+            stmts.push(stmt);
+        }
+        fresh_id
+}
+
+
+
+fn map_logs(stmts: &mut Vec<Statement>,mut fresh_id: usize) -> usize  {
+    let work = std::mem::take(stmts);
+    for w in work {
+        if w.is_log_call() {
+            fresh_id = into_single_log(w, stmts, fresh_id);
+        } else {
+            stmts.push(w);
+        }
+    }
+    fresh_id
+}
+
+fn into_single_log(stmt: Statement, stmts: &mut Vec<Statement>, mut fresh_id: usize) -> usize{
+        use Statement::LogCall;
+        if let LogCall {args, meta } = stmt {
+            let mut new_args = Vec::new();
+            for arg in args{
+                match arg{
+                    LogArgument::LogExp(expr) =>{
+                        if expr.is_switch() || expr.is_array() || expr.is_call(){
+                            let id = fresh_id.to_string();
+                            fresh_id += 1;
+
+                            let new_expr = rmv_sugar(&id, expr, stmts);
+                            new_args.push(LogArgument::LogExp(new_expr));
+                        }
+                        else{
+                            new_args.push(LogArgument::LogExp(expr));
+                        }
+                    }
+                    LogArgument::LogStr(v) =>{
+                        new_args.push(LogArgument::LogStr(v));
+                    }
+                }
+            }
+            stmts.push(Statement::LogCall { args: new_args, meta });
+        }
+        else{
+            stmts.push(stmt);
+        } 
+        fresh_id
+}
+
 
 fn into_single_substitution(stmt: Statement, stmts: &mut Vec<Statement>) {
     use Statement::Substitution;
