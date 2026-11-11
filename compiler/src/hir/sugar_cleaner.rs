@@ -379,8 +379,6 @@ fn extend_switch(expr: &mut Expression, state: &mut State, context: &Context) ->
         let mut cond_v = vec![*cond.clone()];
         sugar_filter(&mut cond_v, state, &mut cond_expand.initializations);
         *cond = Box::new(cond_v.pop().unwrap());
-        
-       
         let mut true_expand = extend_expression(if_true, state, context);
         let mut false_expand = extend_expression(if_false, state, context);
         let mut expr_true = vec![*if_true.clone()];
@@ -388,6 +386,7 @@ fn extend_switch(expr: &mut Expression, state: &mut State, context: &Context) ->
         sugar_filter(&mut expr_true, state, &mut true_expand.initializations);
         sugar_filter(&mut expr_false, state, &mut false_expand.initializations);
         *if_false = Box::new(expr_false.pop().unwrap());
+        
         *inits_false = false_expand.initializations;
         *if_true = Box::new(expr_true.pop().unwrap());
         *inits_true = true_expand.initializations;
@@ -479,7 +478,8 @@ fn extend_call(expr: &mut Expression, state: &mut State, context: &Context) -> E
 fn sugar_filter(elements: &mut Vec<Expression>, state: &mut State, inits: &mut Vec<Statement>) {
     let work = std::mem::replace(elements, Vec::with_capacity(elements.len()));
     for elem in work {
-        let should_be_extracted = elem.is_call() || elem.is_switch() || elem.is_array();
+        let should_be_extracted: bool = elem.is_call() || elem.is_switch() || elem.is_array();
+
         if should_be_extracted {
             let id = state.produce_id();
             let expr = rmv_sugar(&id, elem, inits);
@@ -645,7 +645,9 @@ fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
     use Expression::InlineSwitchOp;
     use Statement::{Block, IfThenElse, Substitution};
     if let Substitution { var, access, op, rhe, meta } = stmt {
-        if let InlineSwitchOp { cond, if_true, if_false, inits_true, inits_false, .. } = rhe {
+        if let InlineSwitchOp { cond, if_true, if_false, mut inits_true, mut inits_false, .. } = rhe {
+            
+            map_substitutions(&mut inits_true);
             let mut if_assigns = inits_true.clone();
             let sub_if = Substitution {
                 meta: meta.clone(),
@@ -654,10 +656,15 @@ fn rhe_switch_case(stmt: Statement, stmts: &mut Vec<Statement>) {
                 op: op.clone(),
                 rhe: *if_true,
             };
-            if_assigns.push(sub_if);
+
+            into_single_substitution(sub_if, &mut if_assigns);
+            //if_assigns.push(sub_if);
+            map_substitutions(&mut inits_false);
             let mut else_assigns = inits_false.clone();
             let sub_else = Substitution { op, var, access, meta: meta.clone(), rhe: *if_false };
-            else_assigns.push(sub_else);
+            //else_assigns.push(sub_else);
+            into_single_substitution(sub_else, &mut else_assigns);
+
             let if_body = Block { stmts: if_assigns, meta: meta.clone() };
             let else_body = Block { stmts: else_assigns, meta: meta.clone() };
             let stmt = IfThenElse {
