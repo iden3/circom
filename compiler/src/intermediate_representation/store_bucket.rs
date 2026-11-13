@@ -779,7 +779,8 @@ impl WriteC for StoreBucket {
 
                 if let StatusInput::Unknown = status {
                     assert!(needs_decrement);
-                    let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                    
+                    let sub_cmp_counter_decrease_andcheck = format!("{} &&!({})",sub_cmp_counter, sub_cmp_counter_decrease);
                     let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                     prologue.push("// run sub component if needed".to_string());
                     let else_instructions = vec![];
@@ -840,7 +841,7 @@ impl WriteC for StoreBucket {
                     },
                     StatusInput::Unknown =>{
                         assert!(needs_decrement);
-                        let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                        let sub_cmp_counter_decrease_andcheck = format!("{} &&!({})",sub_cmp_counter, sub_cmp_counter_decrease);
                         let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                         prologue.push("// run sub component if needed".to_string());
                         let else_instructions = vec![];
@@ -886,7 +887,7 @@ impl WriteC for StoreBucket {
                         }
                     },
                     StatusInput::Unknown =>{
-                        let sub_cmp_counter_decrease_andcheck = format!("!({})",sub_cmp_counter_decrease);
+                        let sub_cmp_counter_decrease_andcheck = format!("{} &&!({})",sub_cmp_counter, sub_cmp_counter_decrease);
                         let if_condition = vec![sub_cmp_counter_decrease_andcheck];
                         prologue.push("// run sub component if needed".to_string());
                         let else_instructions = vec![];
