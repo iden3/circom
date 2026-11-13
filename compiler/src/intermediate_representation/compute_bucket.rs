@@ -391,7 +391,36 @@ impl WriteC for ComputeBucket {
                     result = format!("({} * {})", operands[0], operands[1]);
                 }
                 OperatorType::ToAddress => {
+                    // in case sanity_check_style >= 3 we need to check that the value is in the range of u32
+                    if producer.sanity_check_style >= 3 {
+                        compute_c.push(format!("{{"));
+                        let fr_check = "aux_check";
+
+                        compute_c.push(format!("FrElement {};", fr_check));
+
+
+                        let min_u32 = circuit_min_u32();
+                        let max_u32 = circuit_max_u32();
+
+                        let check_ge_0 = format!("Fr_geq(&{}, {}, &{});", fr_check, operands[0], min_u32);
+                        let res_ge_0 = format!("int ge_zero = Fr_isTrue(&{});", fr_check);
+
+                        let check_le_32 = format!("Fr_leq(&{}, {}, &{});", fr_check, operands[0], max_u32);
+                        let res_le_32 = format!("int le_u32 = Fr_isTrue(&{});", fr_check);
+                        
+                        let if_condition: String = format!("if (!(ge_zero * le_u32)) {};", build_out_of_bounds_message(self.line));     
+                        let assertion = format!("{};", build_call("assert".to_string(), vec!["ge_zero * le_u32".to_string()]));
+                        compute_c.push(check_ge_0);
+                        compute_c.push(res_ge_0);
+                        compute_c.push(check_le_32);
+                        compute_c.push(res_le_32);
+
+                        compute_c.push(if_condition);
+                        compute_c.push(assertion);
+                        compute_c.push(format!("}}"));
+                    }
                     result = build_call("Fr_toInt".to_string(), operands);
+
                 }
                 
                 OperatorType::Eq(n) => {

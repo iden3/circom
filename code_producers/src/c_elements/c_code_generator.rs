@@ -333,6 +333,28 @@ pub fn my_subcomponents_parallel() -> CInstruction {
     format!("{}", MY_SUBCOMPONENTS_PARALLEL)
 }
 
+pub const CONSTANT_MAX_U32: &str = "max_size_u32";
+pub fn declare_constant_max_u32() -> CInstruction {
+    format!(
+        "FrElement {} = {}->{}",
+        CONSTANT_MAX_U32, CIRCOM_CALC_WIT, CONSTANT_MAX_U32
+    )
+}
+pub fn circuit_max_u32() -> CInstruction {
+    format!("{}->{}", CIRCOM_CALC_WIT, CONSTANT_MAX_U32)
+}
+
+pub const CONSTANT_MIN_U32: &str = "min_size_u32";
+pub fn declare_constant_min_u32() -> CInstruction {
+    format!(
+        "FrElement {} = {}->{}",
+        CONSTANT_MIN_U32, CIRCOM_CALC_WIT, CONSTANT_MIN_U32
+    )
+}
+pub fn circuit_min_u32() -> CInstruction {
+    format!("{}->{}", CIRCOM_CALC_WIT, CONSTANT_MIN_U32)
+}
+
 pub const CIRCUIT_CONSTANTS: &str = "circuitConstants";
 pub fn declare_circuit_constants() -> CInstruction {
     format!("FrElement* {} = {}->{}", CIRCUIT_CONSTANTS, CIRCOM_CALC_WIT, CIRCUIT_CONSTANTS)
@@ -343,6 +365,7 @@ pub fn circuit_constants(at: CInstruction) -> CInstruction {
 pub fn store_circuit_constants(at: CInstruction, value: CInstruction) -> CInstruction {
     format!("{} = {}", circuit_constants(at), value)
 }
+
 pub const FREE_IN_COMPONENT_MEM_MUTEX: &str = "freePositionInComponentMemoryMutex"; // type u32
 pub const FREE_IN_COMPONENT_MEM: &str = "freePositionInComponentMemory"; // type u32
 pub fn declare_free_position_in_component_memory() -> CInstruction {
