@@ -1491,22 +1491,22 @@ pub fn normalize(c: &mut Constraint<usize>, _field: &BigInt) {
     fix_raw_constraint(&mut c.a, &mut c.b, &mut c.c, _field);
 
     // Division by the constant term of C, if it exists
-    let cq: usize = ArithmeticExpression::constant_coefficient();
+    // let cq: usize = ArithmeticExpression::constant_coefficient();
 
     // Only executed if C has a constant term
-    if let Some(constant) = c.c.get(&cq).cloned() {
+    // if let Some(constant) = c.c.get(&cq).cloned() {
 
-        if !constant.is_zero() {
-            if !(c.a.is_empty() && c.b.is_empty()) {
-                // Only divide A because A and B are being multiplied
-                ArithmeticExpression::initialize_hashmap_for_expression(&mut c.a);
-                ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.a, _field);
-            }
+    //     if !constant.is_zero() {
+    //         if !(c.a.is_empty() && c.b.is_empty()) {
+    //             // Only divide A because A and B are being multiplied
+    //             ArithmeticExpression::initialize_hashmap_for_expression(&mut c.a);
+    //             ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.a, _field);
+    //         }
             
-            ArithmeticExpression::initialize_hashmap_for_expression(&mut c.c);
-            ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.c, _field);
-        }
-    }
+    //         ArithmeticExpression::initialize_hashmap_for_expression(&mut c.c);
+    //         ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.c, _field);
+    //     }
+    // }
 }
 
 // This function is just called after normalizing and with constraints that are not plonk
