@@ -105,7 +105,6 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
     clusters
 }
 
-
 fn build_expr_clusters(expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>, no_vars: usize) -> Vec<Vec<usize>> {
 
     type ClusterPath = Vec<usize>;
@@ -131,45 +130,30 @@ fn build_expr_clusters(expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>
     }
 
     let no_expressions = expressions.len();
-    let mut cluster_to_current: ClusterPath = Vec::with_capacity(no_expressions);
-
-    // For each variable, which expressions contain it
-    let mut signal_to_expressions: Vec<Vec<usize>> = vec![Vec::new(); no_vars];
+    let mut cluster_to_current : ClusterPath = Vec::with_capacity(no_expressions);
+    let mut signal_to_cluster = vec![no_expressions; no_vars];
 
     for expression_id in 0..no_expressions {
         let (_, expr, _) = &expressions[expression_id];
 
         let constant = C::constant_coefficient();
+        let signals: Vec<usize> = expr.keys().filter(|signal| **signal != constant).cloned().collect();
 
-        let signals: Vec<usize> = expr.keys()
-            .filter(|signal| **signal != constant)
-            .cloned()
-            .collect();
+        let dest = expression_id;
 
-        Vec::push(&mut cluster_to_current, expression_id);
-
-        // How much variables are shared between the previous expression and the actual one
-        let mut shared_signals: HashMap<usize, usize> = HashMap::new();
+        Vec::push(&mut cluster_to_current, dest);
 
         for signal in signals {
-            for previous_expression in &signal_to_expressions[signal] {
-                let count = shared_signals.entry(*previous_expression).or_insert(0);
-                *count += 1;
-            }
+            let prev = signal_to_cluster[signal];
+            signal_to_cluster[signal] = dest;
 
-            signal_to_expressions[signal].push(expression_id);
-        }
-
-        // Two expressions belong to the same cluster if they share at least 2 variables
-        for (previous_expression, count) in shared_signals {
-            if count >= 2 {
-                arena_merge(&mut cluster_to_current, previous_expression, expression_id);
+            if prev < no_expressions {
+                arena_merge(&mut cluster_to_current, prev, dest);
             }
         }
     }
 
     let mut clusters: Vec<Vec<usize>> = Vec::new();
-
     for expression_id in 0..no_expressions {
         let root = shrink_jumps_and_find(&mut cluster_to_current, expression_id);
 
@@ -1137,188 +1121,170 @@ auxiliary_constraint_ids: &mut HashMap<usize, usize>) {
         //     }
         // }
 
-        match solver.check() {
-            SatResult::Sat => {
-                let mut model = solver.get_model().expect("SAT result must have a model");
-                let mut created_variables = (0..rows_vars)
-                    .filter(|v| {
-                        (0..cols_vars).any(|c| {
-                            model
-                                .eval(&vars_composition[v * cols_vars + c], true)
-                                .and_then(|value| value.as_bool())
-                                .unwrap_or(false)
-                        })
-                    })
-                    .count();
-                println!("\nSolution found with {} variables", created_variables);
-
-                // Active variables form a prefix, so disabling the last one tests whether
-                // the same constraints can be represented with fewer auxiliaries.
-                loop {
-                    if created_variables == 0 {
-                        break;
-                    }
-                    for col in 0..cols_vars {
-                        assert_tracked!(solver, &get_v_composition(created_variables - 1, col).not(), format!("Var not used: v{}", created_variables - 1));
-                    }
-
-                    for e in 0..rows_expr {
-                        assert_tracked!(solver, &get_expr_uses(e, created_variables - 1).not(), format!("Expr not used var: e{} v{}", e, created_variables - 1));
-                    }
-
-                    match solver.check() {
-                        SatResult::Sat => {
-                            model = solver.get_model().expect("SAT result must have a model");
-                            created_variables = (0..rows_vars)
-                                .filter(|v| {
-                                    (0..cols_vars).any(|c| {
-                                        model
-                                            .eval(&vars_composition[v * cols_vars + c], true)
-                                            .and_then(|value| value.as_bool())
-                                            .unwrap_or(false)
-                                    })
-                                })
-                                .count();
-                            println!(
-                                "\nSolution found with {} variables",
-                                created_variables
-                            );
-                        }
-                        SatResult::Unsat => break,
-                        SatResult::Unknown => {
-                            println!(
-                                "\nVariable minimization: UNKNOWN; keeping the last SAT solution"
-                            );
-                            break;
-                        }
-                    }
+        for k in 1..rows_vars + 1 {
+            solver.push();
+            
+            for v in 0..k {
+                let mut used = Bool::from_bool(false);
+                for col in 0..cols_vars {
+                    used = Bool::or(&[&used, &get_v_composition(v, col)]);
                 }
+                solver.assert(&used);
+            }
 
-                println!("\nFinal solution found with {} variables", created_variables);
+            for v in k..rows_vars {
+                // solver.assert(&row_nonempty[v].not());
+                for col in 0..cols_vars {
+                    solver.assert(&get_v_composition(v, col).not());
+                }
+            }
 
-                let is_selected = |variable: &Bool| {
-                    model
-                        .eval(variable, true)
-                        .and_then(|value| value.as_bool())
-                        .unwrap_or(false)
-                };
-
-                let mut model_aux_signals = vec![None; rows_vars];
-                for v in 0..created_variables {
-                    let selected_sources: Vec<usize> = (0..cols_vars)
-                        .filter(|c| is_selected(&vars_composition[v * cols_vars + c]))
-                        .collect();
-                    if selected_sources.is_empty() {
-                        continue;
-                    }
-
-                    let source = |column: usize, model_aux_signals: &[Option<usize>]| {
-                        if column < coeffs_and_vars.len() {
-                            (coeffs_and_vars[column].0, coeffs_and_vars[column].1.clone())
-                        } else {
-                            let previous_aux = column - coeffs_and_vars.len();
-                            (model_aux_signals[previous_aux].unwrap(), BigInt::from(1))
-                        }
+            match solver.check() {
+                SatResult::Sat => {
+                    let mut model = solver.get_model().expect("SAT result must have a model");
+                    let is_selected = |variable: &Bool| {
+                        model
+                            .eval(variable, true)
+                            .and_then(|value| value.as_bool())
+                            .unwrap_or(false)
                     };
-                    let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
-                    let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
-                    let pair = (signal_a, signal_b, coeff_a, coeff_b);
-                    let is_new_auxiliary = !aux_signals.contains_key(&pair);
-                    let auxiliary = apply_pair_to_cluster(
-                        storage,
-                        cluster,
-                        expression,
-                        pair,
-                        aux_signals,
-                        next_aux,
-                        non_linear_map,
-                        field,
-                    );
-                    if is_new_auxiliary {
-                        let definition_id = storage
-                            .get_ids()
-                            .last()
-                            .copied()
-                            .expect("new auxiliary must have a defining constraint");
-                        auxiliary_constraint_ids.insert(auxiliary, definition_id);
-                    }
-                    model_aux_signals[v] = Some(auxiliary);
-                }
+                    let mut created_variables = (0..rows_vars)
+                        .filter(|v| {
+                            (0..cols_vars).any(|c| {
+                                model
+                                    .eval(&vars_composition[v * cols_vars + c], true)
+                                    .and_then(|value| value.as_bool())
+                                    .unwrap_or(false)
+                            })
+                        })
+                        .count();
 
-                if created_variables > 0 {
-                    println!("New constraints:");
-                    let mut introduced = 0;
-                    for v in 0..created_variables {
-                        let mut terms = Vec::new();
-                        for c in 0..cols_vars {
-                            if !is_selected(&vars_composition[v * cols_vars + c]) {
-                                continue;
-                            }
+                    let mut model_aux_signals = vec![None; rows_vars];
+                    for v in 0..rows_vars {
+                        let selected_sources: Vec<usize> = (0..cols_vars)
+                            .filter(|c| is_selected(&vars_composition[v * cols_vars + c]))
+                            .collect();
+                        if selected_sources.is_empty() {
+                            continue;
+                        }
 
-                            if c < coeffs_and_vars.len() {
-                                let (signal, coefficient) = &coeffs_and_vars[c];
-                                terms.push(format!("{} * x{}", coefficient, signal));
+                        let source = |column: usize, model_aux_signals: &[Option<usize>]| {
+                            if column < coeffs_and_vars.len() {
+                                (coeffs_and_vars[column].0, coeffs_and_vars[column].1.clone())
                             } else {
-                                let previous_aux = c - coeffs_and_vars.len();
-                                terms.push(format!("x{}", model_aux_signals[previous_aux].unwrap()));
+                                let previous_aux = column - coeffs_and_vars.len();
+                                (model_aux_signals[previous_aux].unwrap(), BigInt::from(1))
                             }
+                        };
+                        let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
+                        let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
+                        let pair = (signal_a, signal_b, coeff_a, coeff_b);
+                        let is_new_auxiliary = !aux_signals.contains_key(&pair);
+                        let auxiliary = apply_pair_to_cluster(
+                            storage,
+                            cluster,
+                            expression,
+                            pair,
+                            aux_signals,
+                            next_aux,
+                            non_linear_map,
+                            field,
+                        );
+                        if is_new_auxiliary {
+                            let definition_id = storage
+                                .get_ids()
+                                .last()
+                                .copied()
+                                .expect("new auxiliary must have a defining constraint");
+                            auxiliary_constraint_ids.insert(auxiliary, definition_id);
                         }
-
-                        if !terms.is_empty() {
-                            let auxiliary = model_aux_signals[v].unwrap();
-                            println!("  x{} = {}", auxiliary, terms.join(" + "));
-                            introduced += 1;
-                        }
+                        model_aux_signals[v] = Some(auxiliary);
                     }
 
-                    println!("Introduced variables ({}):", introduced);
-                    for v in 0..created_variables {
-                        println!("  x{}", model_aux_signals[v].unwrap());
-                    }
-
-                    println!("Transformed expressions:");
-                    for e in 0..rows_expr {
-                        let expression_id = cluster[e];
-                        let mut terms = Vec::new();
-                        if let Some(constant) = expression[expression_id].1.get(&0) {
-                            if constant != &BigInt::from(0) {
-                                terms.push(constant.to_string());
-                            }
-                        }
-
+                    if created_variables > 0 {
+                        println!("New constraints:");
+                        let mut introduced = 0;
                         for v in 0..created_variables {
-                            if is_selected(&expr_use_vars[e * cols_expr + v]) {
-                                terms.push(format!("x{}", model_aux_signals[v].unwrap()));
+                            let mut terms = Vec::new();
+                            for c in 0..cols_vars {
+                                if !is_selected(&vars_composition[v * cols_vars + c]) {
+                                    continue;
+                                }
+
+                                if c < coeffs_and_vars.len() {
+                                    let (signal, coefficient) = &coeffs_and_vars[c];
+                                    terms.push(format!("{} * x{}", coefficient, signal));
+                                } else {
+                                    let previous_aux = c - coeffs_and_vars.len();
+                                    terms.push(format!("x{}", model_aux_signals[previous_aux].unwrap()));
+                                }
+                            }
+
+                            if !terms.is_empty() {
+                                let auxiliary = model_aux_signals[v].unwrap();
+                                println!("  x{} = {}", auxiliary, terms.join(" + "));
+                                introduced += 1;
                             }
                         }
 
-                        println!("  expression {}: {}", expression_id, terms.join(" + "));
-                    }
-                }
-            }
-            SatResult::Unsat => {
-                println!("\nVariable optimization: UNSAT");
+                        println!("Introduced variables ({}):", introduced);
+                        for v in 0..created_variables {
+                            println!("  x{}", model_aux_signals[v].unwrap());
+                        }
 
-                let unsat_core = solver.get_unsat_core();
+                        println!("Transformed expressions:");
+                        for e in 0..rows_expr {
+                            let expression_id = cluster[e];
+                            let mut terms = Vec::new();
+                            if let Some(constant) = expression[expression_id].1.get(&0) {
+                                if constant != &BigInt::from(0) {
+                                    terms.push(constant.to_string());
+                                }
+                            }
 
-                println!(
-                    "\nUnsatisfiable Core ({} constraints):",
-                    unsat_core.len()
-                );
+                            for v in 0..rows_vars {
+                                if is_selected(&expr_use_vars[e * cols_expr + v]) {
+                                    terms.push(format!("x{}", model_aux_signals[v].unwrap()));
+                                }
+                            }
 
-                for core_constraint in &unsat_core {
-                    let core_name = core_constraint.to_string();
-
-                    for (tracking_name, description) in &tracked_assertions {
-                        if tracking_name == &core_name {
-                            println!("  - {}", description);
-                            break;
+                            println!("  expression {}: {}", expression_id, terms.join(" + "));
                         }
                     }
+
+                    break;
                 }
-            }
-            SatResult::Unknown => {
-                println!("\nVariable optimization: UNKNOWN");
+                SatResult::Unsat => {
+                    println!("\nVariable optimization: UNSAT with k = {}", k);
+                    // println!("\nVariable optimization: UNSAT");
+
+                    // let unsat_core = solver.get_unsat_core();
+
+                    // println!(
+                    //     "\nUnsatisfiable Core ({} constraints):",
+                    //     unsat_core.len()
+                    // );
+
+                    // for core_constraint in &unsat_core {
+                    //     let core_name = core_constraint.to_string();
+
+                    //     for (tracking_name, description) in &tracked_assertions {
+                    //         if tracking_name == &core_name {
+                    //             println!("  - {}", description);
+                    //             break;
+                    //         }
+                    //     }
+                    // }
+
+                    solver.pop(1);
+                    continue;
+                }
+                SatResult::Unknown => {
+                    println!("\nVariable optimization: UNKNOWN with k = {}", k);
+                    // println!("\nVariable optimization: UNKNOWN");
+                    solver.pop(1);
+                    break;
+                }
             }
         }
     })
@@ -2190,8 +2156,8 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
             let mut auxiliary_constraint_ids = HashMap::new();
             let mut i = 0;
             for cluster in &clusters {
-                // variables_optimization(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
-                variables_optimization_unsat_core(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field, i, &mut auxiliary_constraint_ids);
+                variables_optimization(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
+                // variables_optimization_unsat_core(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field, i, &mut auxiliary_constraint_ids);
                 i += 1;
             }
             restore_plonk_constraints(&mut constraint_storage, &auxiliary_signals, &auxiliary_constraint_ids, &mut non_linear_map, &mut deleted, &field);
