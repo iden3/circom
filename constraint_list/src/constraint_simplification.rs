@@ -131,7 +131,8 @@ fn build_expr_clusters(expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>
 
     let no_expressions = expressions.len();
     let mut cluster_to_current : ClusterPath = Vec::with_capacity(no_expressions);
-    let mut signal_to_cluster = vec![no_expressions; no_vars];
+    // For each variable, which expressions contain it
+    let mut signal_to_expressions: Vec<Vec<usize>> = vec![Vec::new(); no_vars];
 
     for expression_id in 0..no_expressions {
         let (_, expr, _) = &expressions[expression_id];
@@ -139,16 +140,24 @@ fn build_expr_clusters(expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>
         let constant = C::constant_coefficient();
         let signals: Vec<usize> = expr.keys().filter(|signal| **signal != constant).cloned().collect();
 
-        let dest = expression_id;
+        Vec::push(&mut cluster_to_current, expression_id);
 
-        Vec::push(&mut cluster_to_current, dest);
+        // How much variables are shared between the previous expression and the actual one
+        let mut shared_signals: HashMap<usize, usize> = HashMap::new();
 
         for signal in signals {
-            let prev = signal_to_cluster[signal];
-            signal_to_cluster[signal] = dest;
+            for previous_expression in &signal_to_expressions[signal] {
+                let count = shared_signals.entry(*previous_expression).or_insert(0);
+                *count += 1;
+            }
 
-            if prev < no_expressions {
-                arena_merge(&mut cluster_to_current, prev, dest);
+            signal_to_expressions[signal].push(expression_id);
+        }
+
+        // Two expressions belong to the same cluster if they share at least 2 variables
+        for (previous_expression, count) in shared_signals {
+            if count >= 2 {
+                arena_merge(&mut cluster_to_current, previous_expression, expression_id);
             }
         }
     }
