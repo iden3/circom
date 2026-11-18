@@ -74,6 +74,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
+name = "bitwuzla-sys"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff63cfc9ecd7406fbe2c008bd51091562e88c7b845b29df99679adb4a0e8bad2"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "cc"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -203,6 +212,7 @@ dependencies = [
 name = "constraint_list"
 version = "2.2.3"
 dependencies = [
+ "bitwuzla-sys",
  "circom_algebra",
  "constraint_writers",
  "json",
