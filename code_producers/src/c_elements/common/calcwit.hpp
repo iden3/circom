@@ -26,8 +26,8 @@ public:
   FrElement *signalValues;
   Circom_Component* componentMemory;
   FrElement* circuitConstants; 
-  FrElement max_size_u32;
-  FrElement min_size_u32;
+  FrElement max_size_i32;
+  FrElement min_size_i32;
   std::map<u32,IOFieldDefPair> templateInsId2IOSignalInfo; 
   IOFieldDefPair* busInsId2FieldInfo;
   std::string* listOfTemplateMessages; 

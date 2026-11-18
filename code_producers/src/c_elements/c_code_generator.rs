@@ -333,26 +333,26 @@ pub fn my_subcomponents_parallel() -> CInstruction {
     format!("{}", MY_SUBCOMPONENTS_PARALLEL)
 }
 
-pub const CONSTANT_MAX_U32: &str = "max_size_u32";
-pub fn declare_constant_max_u32() -> CInstruction {
+pub const CONSTANT_MAX_I32: &str = "max_size_i32";
+pub fn declare_constant_max_i32() -> CInstruction {
     format!(
         "FrElement {} = {}->{}",
-        CONSTANT_MAX_U32, CIRCOM_CALC_WIT, CONSTANT_MAX_U32
+        CONSTANT_MAX_I32, CIRCOM_CALC_WIT, CONSTANT_MAX_I32
     )
 }
-pub fn circuit_max_u32() -> CInstruction {
-    format!("{}->{}", CIRCOM_CALC_WIT, CONSTANT_MAX_U32)
+pub fn circuit_max_i32() -> CInstruction {
+    format!("{}->{}", CIRCOM_CALC_WIT, CONSTANT_MAX_I32)
 }
 
-pub const CONSTANT_MIN_U32: &str = "min_size_u32";
-pub fn declare_constant_min_u32() -> CInstruction {
+pub const CONSTANT_MIN_I32: &str = "min_size_i32";
+pub fn declare_constant_min_i32() -> CInstruction {
     format!(
         "FrElement {} = {}->{}",
-        CONSTANT_MIN_U32, CIRCOM_CALC_WIT, CONSTANT_MIN_U32
+        CONSTANT_MIN_I32, CIRCOM_CALC_WIT, CONSTANT_MIN_I32
     )
 }
-pub fn circuit_min_u32() -> CInstruction {
-    format!("{}->{}", CIRCOM_CALC_WIT, CONSTANT_MIN_U32)
+pub fn circuit_min_i32() -> CInstruction {
+    format!("{}->{}", CIRCOM_CALC_WIT, CONSTANT_MIN_I32)
 }
 
 pub const CIRCUIT_CONSTANTS: &str = "circuitConstants";

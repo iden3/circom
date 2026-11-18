@@ -399,17 +399,17 @@ impl WriteC for ComputeBucket {
                         compute_c.push(format!("FrElement {};", fr_check));
 
 
-                        let min_u32 = circuit_min_u32();
-                        let max_u32 = circuit_max_u32();
+                        let min_u32 = circuit_min_i32();
+                        let max_u32 = circuit_max_i32();
 
                         let check_ge_0 = format!("Fr_geq(&{}, {}, &{});", fr_check, operands[0], min_u32);
-                        let res_ge_0 = format!("int ge_zero = Fr_isTrue(&{});", fr_check);
+                        let res_ge_0 = format!("int ge_i32 = Fr_isTrue(&{});", fr_check);
 
                         let check_le_32 = format!("Fr_leq(&{}, {}, &{});", fr_check, operands[0], max_u32);
-                        let res_le_32 = format!("int le_u32 = Fr_isTrue(&{});", fr_check);
+                        let res_le_32 = format!("int le_i32 = Fr_isTrue(&{});", fr_check);
                         
-                        let if_condition: String = format!("if (!(ge_zero * le_u32)) {};", build_out_of_bounds_message(self.line));     
-                        let assertion = format!("{};", build_call("assert".to_string(), vec!["ge_zero * le_u32".to_string()]));
+                        let if_condition: String = format!("if (!(ge_i32 * le_i32)) {};", build_out_of_bounds_message(self.line));     
+                        let assertion = format!("{};", build_call("assert".to_string(), vec!["ge_i32 * le_i32".to_string()]));
                         compute_c.push(check_ge_0);
                         compute_c.push(res_ge_0);
                         compute_c.push(check_le_32);
