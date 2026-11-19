@@ -353,6 +353,32 @@ fn restore_plonk_constraints(storage: &mut ConstraintStorage, aux_signals: &Hash
         }
     }
 
+    // for constraint_id in storage.get_ids() {
+    //     if definition_ids.contains(&constraint_id) {
+    //         continue;
+    //     }
+
+    //     let original = storage.read_constraint(constraint_id).unwrap();
+    //     let mut candidate = original.clone();
+
+    //     for (auxiliary, substitution) in &substitutions {
+    //         if !candidate.a().contains_key(auxiliary)
+    //             && !candidate.b().contains_key(auxiliary)
+    //             && !candidate.c().contains_key(auxiliary)
+    //         {
+    //             continue;
+    //         }
+
+    //         C::apply_substitution(&mut candidate, substitution, field);
+    //     }
+
+    //     if candidate.is_plonk() {
+    //         storage.replace(constraint_id, candidate);
+    //     } else {
+    //         storage.replace(constraint_id, original);
+    //     }
+    // }
+
     // Checks which variables are not necessary and deletes them
     let mut used_auxiliaries = HashSet::new();
     let mut pending = Vec::new();
@@ -1359,7 +1385,7 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, 
                     false_term
                 };
             }
-            if args.len() == 1 {
+            if args.len() == 1 && kind != BITWUZLA_KIND_NOT {
                 return args[0];
             }
             bitwuzla_mk_term(tm, kind, args.len() as u32, args.as_mut_ptr())
@@ -1416,7 +1442,7 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, 
         }
 
         let get_expr_uses = |r: usize, c: usize| {
-            expr_use_vars[r * cols_expr + r]
+            expr_use_vars[r * cols_expr + c]
         };
 
         let rows_vars = bound;
@@ -1662,6 +1688,8 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, 
 
             match bitwuzla_check_sat(solver) {
                 BITWUZLA_SAT => {
+
+                    println!("[Bitwuzla] Cluster {} -> SAT with k = {}", cluster_id, k);
                     let mut created_variables = 0usize;
 
                     for v in 0..rows_vars {
@@ -1758,7 +1786,7 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, 
                     }
 
                     if created_variables > 0 {
-                        println!("New constraints:");
+                        // println!("New constraints:");
 
                         let mut introduced = 0;
 
@@ -1797,29 +1825,29 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, 
                                 let auxiliary =
                                     model_aux_signals[v].unwrap();
 
-                                println!(
-                                    "  x{} = {}",
-                                    auxiliary,
-                                    terms.join(" + ")
-                                );
+                                // println!(
+                                //     "  x{} = {}",
+                                //     auxiliary,
+                                //     terms.join(" + ")
+                                // );
 
                                 introduced += 1;
                             }
                         }
 
-                        println!(
-                            "Introduced variables ({}):",
-                            introduced
-                        );
+                        // println!(
+                        //     "Introduced variables ({}):",
+                        //     introduced
+                        // );
 
                         for v in 0..created_variables {
-                            println!(
-                                "  x{}",
-                                model_aux_signals[v].unwrap()
-                            );
+                            // println!(
+                            //     "  x{}",
+                            //     model_aux_signals[v].unwrap()
+                            // );
                         }
 
-                        println!("Transformed expressions:");
+                        // println!("Transformed expressions:");
 
                         for e in 0..rows_expr {
                             let expression_id = cluster[e];
@@ -1842,11 +1870,11 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, 
                                 }
                             }
 
-                            println!(
-                                "  expression {}: {}",
-                                expression_id,
-                                terms.join(" + ")
-                            );
+                            // println!(
+                            //     "  expression {}: {}",
+                            //     expression_id,
+                            //     terms.join(" + ")
+                            // );
                         }
                     }
 
