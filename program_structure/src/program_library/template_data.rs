@@ -35,14 +35,20 @@ impl TemplateData {
         elem_id: &mut usize,
         is_parallel: bool,
         is_custom_gate: bool,
-        is_extern_c: bool
+        is_extern_c: bool,
     ) -> TemplateData {
         body.fill(file_id, elem_id);
         let mut input_wires = WireInfo::new();
         let mut output_wires = WireInfo::new();
         let mut input_declarations = WireDeclarationOrder::new();
         let mut output_declarations = WireDeclarationOrder::new();
-        fill_inputs_and_outputs(&body, &mut input_wires, &mut output_wires, &mut input_declarations, &mut output_declarations);
+        fill_inputs_and_outputs(
+            &body,
+            &mut input_wires,
+            &mut output_wires,
+            &mut input_declarations,
+            &mut output_declarations,
+        );
         TemplateData {
             name,
             file_id,
@@ -56,7 +62,7 @@ impl TemplateData {
             is_custom_gate,
             is_extern_c,
             input_declarations,
-            output_declarations
+            output_declarations,
         }
     }
 
@@ -73,7 +79,7 @@ impl TemplateData {
         is_custom_gate: bool,
         is_extern_c: bool,
         input_declarations: WireDeclarationOrder,
-        output_declarations: WireDeclarationOrder
+        output_declarations: WireDeclarationOrder,
     ) -> TemplateData {
         TemplateData {
             name,
@@ -88,13 +94,13 @@ impl TemplateData {
             is_custom_gate,
             is_extern_c,
             input_declarations,
-            output_declarations
+            output_declarations,
         }
     }
     pub fn get_file_id(&self) -> FileID {
         self.file_id
     }
-    
+
     pub fn get_body(&self) -> &Statement {
         &self.body
     }
@@ -113,7 +119,7 @@ impl TemplateData {
             _ => panic!("Function body should be a block"),
         }
     }
-    pub fn set_body(&mut self, body: Statement){
+    pub fn set_body(&mut self, body: Statement) {
         self.body = body;
     }
     pub fn get_num_of_params(&self) -> usize {
@@ -162,27 +168,57 @@ fn fill_inputs_and_outputs(
     input_wires: &mut WireInfo,
     output_wires: &mut WireInfo,
     input_declarations: &mut WireDeclarationOrder,
-    output_declarations: &mut WireDeclarationOrder
+    output_declarations: &mut WireDeclarationOrder,
 ) {
     use Statement::*;
     match template_statement {
         IfThenElse { if_case, else_case, .. } => {
-            fill_inputs_and_outputs(if_case, input_wires, output_wires, input_declarations, output_declarations);
+            fill_inputs_and_outputs(
+                if_case,
+                input_wires,
+                output_wires,
+                input_declarations,
+                output_declarations,
+            );
             if let Option::Some(else_value) = else_case {
-                fill_inputs_and_outputs(else_value, input_wires, output_wires, input_declarations, output_declarations);
+                fill_inputs_and_outputs(
+                    else_value,
+                    input_wires,
+                    output_wires,
+                    input_declarations,
+                    output_declarations,
+                );
             }
         }
         Block { stmts, .. } => {
             for stmt in stmts.iter() {
-                fill_inputs_and_outputs(stmt, input_wires, output_wires, input_declarations, output_declarations);
+                fill_inputs_and_outputs(
+                    stmt,
+                    input_wires,
+                    output_wires,
+                    input_declarations,
+                    output_declarations,
+                );
             }
         }
         While { stmt, .. } => {
-            fill_inputs_and_outputs(stmt, input_wires, output_wires, input_declarations, output_declarations);
+            fill_inputs_and_outputs(
+                stmt,
+                input_wires,
+                output_wires,
+                input_declarations,
+                output_declarations,
+            );
         }
         InitializationBlock { initializations, .. } => {
             for initialization in initializations.iter() {
-                fill_inputs_and_outputs(initialization, input_wires, output_wires, input_declarations, output_declarations);
+                fill_inputs_and_outputs(
+                    initialization,
+                    input_wires,
+                    output_wires,
+                    input_declarations,
+                    output_declarations,
+                );
             }
         }
         Declaration { xtype, name, dimensions, .. } => {
@@ -191,46 +227,46 @@ fn fill_inputs_and_outputs(
                     let wire_name = name.clone();
                     let dim = dimensions.len();
                     let mut tag_info = TagInfo::new();
-                    for tag in tag_list{
+                    for tag in tag_list {
                         tag_info.insert(tag.clone());
                     }
-                    let wire_data = WireData::new(WireType::Signal,dim,tag_info);
+                    let wire_data = WireData::new(WireType::Signal, dim, tag_info);
 
                     match stype {
                         ast::SignalType::Input => {
                             input_wires.insert(wire_name.clone(), wire_data);
-                            input_declarations.push((wire_name,dim));
+                            input_declarations.push((wire_name, dim));
                         }
                         ast::SignalType::Output => {
                             output_wires.insert(wire_name.clone(), wire_data);
-                            output_declarations.push((wire_name,dim));
+                            output_declarations.push((wire_name, dim));
                         }
                         _ => {} //no need to deal with intermediate signals
                     }
-                },
+                }
                 ast::VariableType::Bus(tname, stype, tag_list) => {
                     let wire_name = name.clone();
                     let dim = dimensions.len();
                     let type_name = tname.clone();
                     let mut tag_info = TagInfo::new();
-                    for tag in tag_list{
+                    for tag in tag_list {
                         tag_info.insert(tag.clone());
                     }
-                    let wire_data = WireData::new(WireType::Bus(type_name),dim,tag_info);
+                    let wire_data = WireData::new(WireType::Bus(type_name), dim, tag_info);
 
                     match stype {
                         ast::SignalType::Input => {
                             input_wires.insert(wire_name.clone(), wire_data);
-                            input_declarations.push((wire_name,dim));
+                            input_declarations.push((wire_name, dim));
                         }
                         ast::SignalType::Output => {
                             output_wires.insert(wire_name.clone(), wire_data);
-                            output_declarations.push((wire_name,dim));
+                            output_declarations.push((wire_name, dim));
                         }
                         _ => {} //no need to deal with intermediate signals
                     }
-                },
-                _ => {},
+                }
+                _ => {}
             }
         }
         _ => {}

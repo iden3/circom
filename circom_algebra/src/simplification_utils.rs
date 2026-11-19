@@ -62,18 +62,21 @@ struct SignalsInformation {
 }
 
 impl SignalsInformation {
-
-    pub fn new(constraints: &Vec<C>, signals: &SignalDefinition4, num_signals: usize) -> (SignalsInformation, BTreeMap<usize, usize>) {
+    pub fn new(
+        constraints: &Vec<C>,
+        signals: &SignalDefinition4,
+        num_signals: usize,
+    ) -> (SignalsInformation, BTreeMap<usize, usize>) {
         let mut signal_to_ocurrences: HashMap<usize, usize> = HashMap::with_capacity(num_signals);
         let mut signal_to_rep: HashMap<usize, usize> = HashMap::with_capacity(num_signals);
         let mut uniques: BTreeMap<usize, usize> = BTreeMap::new();
-        for pos in 0..constraints.len(){
+        for pos in 0..constraints.len() {
             for k in constraints[pos].c().keys() {
                 if signals.can_be_taken(*k) {
-                    match signal_to_ocurrences.get_mut(k){
-                        Some(prev_ocu) =>{
+                    match signal_to_ocurrences.get_mut(k) {
+                        Some(prev_ocu) => {
                             *prev_ocu = *prev_ocu + 1;
-                        },
+                        }
                         None => {
                             signal_to_ocurrences.insert(*k, 1);
                             signal_to_rep.insert(*k, pos);
@@ -83,33 +86,30 @@ impl SignalsInformation {
             }
         }
 
-        for (k, ocu) in &signal_to_ocurrences{
-            if *ocu == 1{
+        for (k, ocu) in &signal_to_ocurrences {
+            if *ocu == 1 {
                 uniques.insert(*k, *signal_to_rep.get(k).unwrap());
             }
         }
-        (SignalsInformation{signal_to_ocurrences}, uniques)
+        (SignalsInformation { signal_to_ocurrences }, uniques)
     }
 
-    pub fn remove_constraint(&mut self, constraint: &C, signals: &SignalDefinition4){
-        for signal in constraint.c().keys(){
-            if signals.can_be_taken(*signal){
-                match self.signal_to_ocurrences.get_mut(&signal){
-                    Some(ocurrences) =>{
+    pub fn remove_constraint(&mut self, constraint: &C, signals: &SignalDefinition4) {
+        for signal in constraint.c().keys() {
+            if signals.can_be_taken(*signal) {
+                match self.signal_to_ocurrences.get_mut(&signal) {
+                    Some(ocurrences) => {
                         *ocurrences = *ocurrences - 1;
-                    },
-                    None => {},
+                    }
+                    None => {}
                 }
             }
         }
-        
     }
 
-
-    pub fn remove_signal(&mut self, signal: usize){
+    pub fn remove_signal(&mut self, signal: usize) {
         self.signal_to_ocurrences.remove(&signal);
     }
-
 }
 
 #[allow(dead_code)]
@@ -162,23 +162,39 @@ fn substitution_process_4(
 ) {
     let mut lconst = LinkedList::new();
     let mut vec_constraints = Vec::new();
-    for c in &mut *constraints{
+    for c in &mut *constraints {
         vec_constraints.push(c.clone());
     }
 
-    let (mut info_ocurrences, uniques) = SignalsInformation::new(&vec_constraints, signals, num_signals);
-    for (signal, index) in uniques{
-        if !vec_constraints[index].is_empty(){
+    let (mut info_ocurrences, uniques) =
+        SignalsInformation::new(&vec_constraints, signals, num_signals);
+    for (signal, index) in uniques {
+        if !vec_constraints[index].is_empty() {
             let actual_constraint = replace(&mut vec_constraints[index], C::empty());
-            info_ocurrences.remove_constraint(&actual_constraint, signals);  
-            treat_unique_constraint_4(signals, substitutions, &mut lconst, actual_constraint, &mut info_ocurrences, signal, field);
+            info_ocurrences.remove_constraint(&actual_constraint, signals);
+            treat_unique_constraint_4(
+                signals,
+                substitutions,
+                &mut lconst,
+                actual_constraint,
+                &mut info_ocurrences,
+                signal,
+                field,
+            );
         }
     }
 
-    while !vec_constraints.is_empty(){
+    while !vec_constraints.is_empty() {
         if let Option::Some(actual_constraint) = Vec::pop(&mut vec_constraints) {
-            info_ocurrences.remove_constraint(&actual_constraint, signals);    
-            treat_constraint_4(signals, substitutions, &mut lconst, actual_constraint, &mut info_ocurrences, field);
+            info_ocurrences.remove_constraint(&actual_constraint, signals);
+            treat_constraint_4(
+                signals,
+                substitutions,
+                &mut lconst,
+                actual_constraint,
+                &mut info_ocurrences,
+                field,
+            );
         }
     }
     *constraints = lconst;
@@ -237,7 +253,8 @@ fn treat_constraint_2(
         }
         let out = out.unwrap();
         signals.delete(out);
-        let (coefficient, substitution) = C::clear_signal_from_linear_not_normalized(work, &out, field);
+        let (coefficient, substitution) =
+            C::clear_signal_from_linear_not_normalized(work, &out, field);
         let in_conflict = substitutions.get(&substitution.from()).cloned();
         if in_conflict.is_none() {
             substitutions.insert(*substitution.from(), (coefficient, substitution));
@@ -246,10 +263,10 @@ fn treat_constraint_2(
         let (in_conflict_coef, in_conflict_subs) = in_conflict.unwrap();
         let right = S::decompose(in_conflict_subs).1;
         let left = S::decompose(substitution).1;
-        let exp_coef_right = A::Number {value : in_conflict_coef};
-        let exp_coef_left = A::Number {value : coefficient};
-        let new_left  = A::mul(&exp_coef_right,&left,field);
-        let new_right  = A::mul(&exp_coef_left,&right,field);
+        let exp_coef_right = A::Number { value: in_conflict_coef };
+        let exp_coef_left = A::Number { value: coefficient };
+        let new_left = A::mul(&exp_coef_right, &left, field);
+        let new_right = A::mul(&exp_coef_left, &right, field);
         let merge = A::sub(&new_left, &new_right, field);
         work = A::transform_expression_to_constraint_form(merge, field).unwrap();
         C::remove_zero_value_coefficients(&mut work);
@@ -274,7 +291,8 @@ fn treat_constraint_3(
         }
         let out = out.unwrap();
         signals.delete(out);
-        let (coefficient, substitution) = C::clear_signal_from_linear_not_normalized(work, &out, field);
+        let (coefficient, substitution) =
+            C::clear_signal_from_linear_not_normalized(work, &out, field);
         let in_conflict = substitutions.get(&substitution.from()).cloned();
         if in_conflict.is_none() {
             substitutions.insert(*substitution.from(), (coefficient, substitution));
@@ -283,10 +301,10 @@ fn treat_constraint_3(
         let (in_conflict_coef, in_conflict_subs) = in_conflict.unwrap();
         let right = S::decompose(in_conflict_subs).1;
         let left = S::decompose(substitution).1;
-        let exp_coef_right = A::Number {value : in_conflict_coef};
-        let exp_coef_left = A::Number {value : coefficient};
-        let new_left  = A::mul(&exp_coef_right,&left,field);
-        let new_right  = A::mul(&exp_coef_left,&right,field);
+        let exp_coef_right = A::Number { value: in_conflict_coef };
+        let exp_coef_left = A::Number { value: coefficient };
+        let new_left = A::mul(&exp_coef_right, &left, field);
+        let new_right = A::mul(&exp_coef_left, &right, field);
         let merge = A::sub(&new_left, &new_right, field);
         work = A::transform_expression_to_constraint_form(merge, field).unwrap();
         C::remove_zero_value_coefficients(&mut work);
@@ -302,8 +320,8 @@ fn treat_unique_constraint_4(
     signal: usize,
     field: &BigInt,
 ) {
-
-    let (coefficient, substitution) = C::clear_signal_from_linear_not_normalized(work, &signal, field);
+    let (coefficient, substitution) =
+        C::clear_signal_from_linear_not_normalized(work, &signal, field);
     substitutions.insert(*substitution.from(), (coefficient, substitution));
     info_ocurrences.remove_signal(signal);
     signals.delete(signal);
@@ -327,7 +345,8 @@ fn treat_constraint_4(
             break;
         }
         let out = out.unwrap();
-        let (coefficient, substitution) = C::clear_signal_from_linear_not_normalized(work, &out, field);
+        let (coefficient, substitution) =
+            C::clear_signal_from_linear_not_normalized(work, &out, field);
         let in_conflict = substitutions.get(&substitution.from()).cloned();
         if in_conflict.is_none() {
             signals.delete(out);
@@ -338,10 +357,10 @@ fn treat_constraint_4(
         let (in_conflict_coef, in_conflict_subs) = in_conflict.unwrap();
         let right = S::decompose(in_conflict_subs).1;
         let left = S::decompose(substitution).1;
-        let exp_coef_right = A::Number {value : in_conflict_coef};
-        let exp_coef_left = A::Number {value : coefficient};
-        let new_left  = A::mul(&exp_coef_right,&left,field);
-        let new_right  = A::mul(&exp_coef_left,&right,field);
+        let exp_coef_right = A::Number { value: in_conflict_coef };
+        let exp_coef_left = A::Number { value: coefficient };
+        let new_left = A::mul(&exp_coef_right, &left, field);
+        let new_right = A::mul(&exp_coef_left, &right, field);
         let merge = A::sub(&new_left, &new_right, field);
         work = A::transform_expression_to_constraint_form(merge, field).unwrap();
         C::remove_zero_value_coefficients(&mut work);
@@ -376,7 +395,11 @@ fn take_signal_3(signals: &SignalDefinition, constraint: &C) -> Option<usize> {
     ret
 }
 
-fn take_signal_4(signals: &SignalDefinition4, info_ocurrences: &SignalsInformation, constraint: &C) -> Option<usize> {
+fn take_signal_4(
+    signals: &SignalDefinition4,
+    info_ocurrences: &SignalsInformation,
+    constraint: &C,
+) -> Option<usize> {
     let mut ret = Option::None;
     let mut ocurrences_ret: Option<usize> = Option::None;
     for k in constraint.c().keys() {
@@ -384,52 +407,45 @@ fn take_signal_4(signals: &SignalDefinition4, info_ocurrences: &SignalsInformati
             if signals.is_deleted(*k) {
                 ret = Some(*k);
                 break;
-            }
-            else {
+            } else {
                 let new_ocurrences = info_ocurrences.signal_to_ocurrences.get(k).unwrap();
-                match ocurrences_ret{
+                match ocurrences_ret {
                     Some(val_ant) => {
-                        if *new_ocurrences < val_ant{
+                        if *new_ocurrences < val_ant {
                             ret = Some(*k);
                             ocurrences_ret = Some(*new_ocurrences);
-                        }
-                        else if *new_ocurrences == val_ant{
-                            if ret.unwrap() < *k{
+                        } else if *new_ocurrences == val_ant {
+                            if ret.unwrap() < *k {
                                 ret = Some(*k);
                             }
                         }
-                    },
+                    }
                     None => {
                         ret = Some(*k);
                         ocurrences_ret = Some(*new_ocurrences);
                     }
-                } 
+                }
             }
         }
     }
     ret
 }
 
+fn normalize_substitutions(substitutions: SHNotNormalized, field: &BigInt) -> SH {
+    let mut coeffs: Vec<BigInt> = Vec::new();
 
-fn normalize_substitutions(substitutions: SHNotNormalized, field: &BigInt) -> SH{
-    let mut coeffs : Vec<BigInt> = Vec::new();
-
-    for (_signal, (coeff, _sub)) in &substitutions{
+    for (_signal, (coeff, _sub)) in &substitutions {
         coeffs.push(coeff.clone());
     }
-    
+
     let inverses = modular_arithmetic::multi_inv(&coeffs, field);
-    let mut tree : BTreeMap<usize,S> = BTreeMap::new();
+    let mut tree: BTreeMap<usize, S> = BTreeMap::new();
     let mut i = 0;
-    for (signal, (_coeff, sub)) in substitutions{
+    for (signal, (_coeff, sub)) in substitutions {
         let inv = inverses.get(i).unwrap();
         let arith_sub = A::hashmap_into_arith(sub.to().clone());
-        let mult_by_inverse = A::mul(
-            &arith_sub, 
-            &A::Number {value : inv.clone()}, 
-            field
-        );
-        let new_sub = S::new(signal.clone(), mult_by_inverse).unwrap(); 
+        let mult_by_inverse = A::mul(&arith_sub, &A::Number { value: inv.clone() }, field);
+        let new_sub = S::new(signal.clone(), mult_by_inverse).unwrap();
         tree.insert(signal, new_sub);
         i = i + 1;
     }
@@ -462,11 +478,15 @@ fn create_nonoverlapping_substitutions(possible_overlap: SH, field: &BigInt) -> 
     no_overlap
 }
 
-fn create_nonoverlapping_substitutions_4(mut possible_overlap: SH, signals: &SignalDefinition4,field: &BigInt) -> HashMap<usize, S> {
+fn create_nonoverlapping_substitutions_4(
+    mut possible_overlap: SH,
+    signals: &SignalDefinition4,
+    field: &BigInt,
+) -> HashMap<usize, S> {
     debug_assert!(debug_check_keys_in_order(&possible_overlap));
 
     let mut no_overlap = HashMap::with_capacity(possible_overlap.len());
-    for s in &signals.order_signals{
+    for s in &signals.order_signals {
         let mut substitution = possible_overlap.remove(s).unwrap();
         let to_be_applied = take_substitutions_to_be_applied(&no_overlap, &substitution);
         for sub in to_be_applied {
@@ -493,7 +513,11 @@ pub fn debug_substitution_check(substitutions: &HashMap<usize, S>) -> bool {
     result
 }
 
-pub fn fast_encoded_constraint_substitution(c: &mut C, enc: &HashMap<usize, A>, field: &BigInt)-> bool {
+pub fn fast_encoded_constraint_substitution(
+    c: &mut C,
+    enc: &HashMap<usize, A>,
+    field: &BigInt,
+) -> bool {
     let signals = C::take_cloned_signals(c);
     let mut applied_substitution = false;
     for signal in signals {
@@ -547,10 +571,9 @@ where
     //debug_new_substitutions(&config);
     let min = 350;
     let max = 1000000;
-    let apply_less_ocurrences = 
-        config.constraints.len() >= min && 
-        config.constraints.len() < max && 
-        !config.use_old_heuristics;
+    let apply_less_ocurrences = config.constraints.len() >= min
+        && config.constraints.len() < max
+        && !config.use_old_heuristics;
 
     let field = config.field;
     let mut constraints = config.constraints;
@@ -558,14 +581,27 @@ where
     let normalized_holder: SH;
     let non_overlapping: HashMap<usize, S>;
 
-    if apply_less_ocurrences{
-        let mut signals = SignalDefinition4 { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new(),  order_signals: LinkedList::new() };
-        substitution_process_4(&mut signals, &mut constraints, &mut holder, config.num_signals, &field);
+    if apply_less_ocurrences {
+        let mut signals = SignalDefinition4 {
+            forbidden: config.forbidden.as_ref(),
+            deleted_symbols: HashSet::new(),
+            order_signals: LinkedList::new(),
+        };
+        substitution_process_4(
+            &mut signals,
+            &mut constraints,
+            &mut holder,
+            config.num_signals,
+            &field,
+        );
         normalized_holder = normalize_substitutions(holder, &field);
-        non_overlapping = create_nonoverlapping_substitutions_4(normalized_holder, &signals, &field);
-    }
-    else{
-        let mut signals = SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new() };
+        non_overlapping =
+            create_nonoverlapping_substitutions_4(normalized_holder, &signals, &field);
+    } else {
+        let mut signals = SignalDefinition {
+            forbidden: config.forbidden.as_ref(),
+            deleted_symbols: HashSet::new(),
+        };
         substitution_process_3(&mut signals, &mut constraints, &mut holder, &field);
         normalized_holder = normalize_substitutions(holder, &field);
         non_overlapping = create_nonoverlapping_substitutions(normalized_holder, &field);
@@ -586,12 +622,23 @@ where
 {
     let field = config.field.clone();
     // build the subs using always the complete new version
-    let mut signals_4 = SignalDefinition4 { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new(),  order_signals: LinkedList::new() };
+    let mut signals_4 = SignalDefinition4 {
+        forbidden: config.forbidden.as_ref(),
+        deleted_symbols: HashSet::new(),
+        order_signals: LinkedList::new(),
+    };
     let mut constraints_4 = config.constraints.clone();
     let mut holder_4 = SHNotNormalized::new();
-    substitution_process_4(&mut signals_4, &mut constraints_4, &mut holder_4, config.num_signals, &field);
+    substitution_process_4(
+        &mut signals_4,
+        &mut constraints_4,
+        &mut holder_4,
+        config.num_signals,
+        &field,
+    );
     let normalized_holder_4 = normalize_substitutions(holder_4, &field);
-    let non_overlapping_4 = create_nonoverlapping_substitutions_4(normalized_holder_4, &signals_4, &field);
+    let non_overlapping_4 =
+        create_nonoverlapping_substitutions_4(normalized_holder_4, &signals_4, &field);
     let mut substitutions_4 = LinkedList::new();
     let mut removed_4 = LinkedList::new();
     for (s, v) in non_overlapping_4 {
@@ -599,7 +646,7 @@ where
         LinkedList::push_back(&mut substitutions_4, v);
     }
 
-    // build the subs using the multi-inv and taking the bigger signal 
+    // build the subs using the multi-inv and taking the bigger signal
     let mut signals_3 =
         SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new() };
     let mut constraints_3 = config.constraints.clone();
@@ -650,40 +697,35 @@ where
 }
 
 #[allow(dead_code)]
-pub fn check_substitutions(
-    subs_1: &LinkedList<S>, 
-    subs_2: &LinkedList<S>,
-    field: &BigInt,
-){
+pub fn check_substitutions(subs_1: &LinkedList<S>, subs_2: &LinkedList<S>, field: &BigInt) {
     // First consider the constraints of the first substitution and apply on them the second substitution.
     // The result should be the identity
-    for s in subs_1{
+    for s in subs_1 {
         let mut cons = S::substitution_into_constraint(s.clone(), field);
-        for s_2 in subs_2{
+        for s_2 in subs_2 {
             C::apply_substitution(&mut cons, s_2, field);
             C::fix_constraint(&mut cons, field);
         }
-        if !cons.is_empty(){
+        if !cons.is_empty() {
             println!("ERROR: FOUND NOT EMPTY SUBS");
-            for (s, v) in &cons.c{
+            for (s, v) in &cons.c {
                 println!("Signal {} value {}", s, v)
             }
         }
     }
 
     // Consider the second substitution and apply on it the first one, the result should be the identity again.
-    for s in subs_2{
+    for s in subs_2 {
         let mut cons = S::substitution_into_constraint(s.clone(), field);
-        for s_2 in subs_1{
+        for s_2 in subs_1 {
             C::apply_substitution(&mut cons, s_2, field);
             C::fix_constraint(&mut cons, field);
         }
-        if !cons.is_empty(){
+        if !cons.is_empty() {
             println!("ERROR: FOUND NOT EMPTY SUBS");
-            for (s, v) in &cons.c{
+            for (s, v) in &cons.c {
                 println!("Signal {} value {}", s, v)
             }
         }
     }
-
 }

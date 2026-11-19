@@ -27,18 +27,14 @@ impl Log {
         println!("non-linear constraints: {}", log.no_non_linear);
         println!("linear constraints: {}", log.no_linear);
         println!("public inputs: {}", log.no_public_inputs);
-        if log.no_private_inputs == log.no_private_inputs_witness{
-            println!("private inputs: {}", 
-                log.no_private_inputs
-            );
-        } else if log.no_private_inputs_witness == 0{
-            println!("private inputs: {} (none belong to witness)", 
-                log.no_private_inputs
-            );
-        } else{
-            println!("private inputs: {} ({} belong to witness)", 
-                log.no_private_inputs,
-                log.no_private_inputs_witness,
+        if log.no_private_inputs == log.no_private_inputs_witness {
+            println!("private inputs: {}", log.no_private_inputs);
+        } else if log.no_private_inputs_witness == 0 {
+            println!("private inputs: {} (none belong to witness)", log.no_private_inputs);
+        } else {
+            println!(
+                "private inputs: {} ({} belong to witness)",
+                log.no_private_inputs, log.no_private_inputs_witness,
             );
         }
         println!("public outputs: {}", log.no_public_outputs);

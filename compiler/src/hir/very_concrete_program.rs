@@ -25,80 +25,51 @@ impl PartialEq for Argument {
 }
 
 #[derive(Clone)]
-pub enum Wire{
+pub enum Wire {
     TSignal(Signal),
-    TBus(Bus)
+    TBus(Bus),
 }
 impl Wire {
-
     pub fn xtype(&self) -> SignalType {
-        match self{
-            Wire::TSignal(s) => {
-                s.xtype
-            },
-            Wire::TBus(s) => {
-                s.xtype
-            },
+        match self {
+            Wire::TSignal(s) => s.xtype,
+            Wire::TBus(s) => s.xtype,
         }
     }
     pub fn name(&self) -> &String {
-        match self{
-            Wire::TSignal(s) => {
-                &s.name
-            },
-            Wire::TBus(s) => {
-                &s.name
-            },
+        match self {
+            Wire::TSignal(s) => &s.name,
+            Wire::TBus(s) => &s.name,
         }
     }
     pub fn lengths(&self) -> &Vec<usize> {
-        match self{
-            Wire::TSignal(s) => {
-                &s.lengths
-            },
-            Wire::TBus(s) => {
-                &s.lengths
-            },
+        match self {
+            Wire::TSignal(s) => &s.lengths,
+            Wire::TBus(s) => &s.lengths,
         }
     }
     pub fn local_id(&self) -> usize {
-        match self{
-            Wire::TSignal(s) => {
-                s.local_id
-            },
-            Wire::TBus(s) => {
-                s.local_id
-            },
+        match self {
+            Wire::TSignal(s) => s.local_id,
+            Wire::TBus(s) => s.local_id,
         }
     }
     pub fn dag_local_id(&self) -> usize {
-        match self{
-            Wire::TSignal(s) => {
-                s.dag_local_id
-            },
-            Wire::TBus(s) => {
-                s.dag_local_id
-            },
+        match self {
+            Wire::TSignal(s) => s.dag_local_id,
+            Wire::TBus(s) => s.dag_local_id,
         }
     }
     pub fn size(&self) -> usize {
-        match self{
-            Wire::TSignal(s) => {
-                s.size
-            },
-            Wire::TBus(s) => {
-                s.size
-            },
+        match self {
+            Wire::TSignal(s) => s.size,
+            Wire::TBus(s) => s.size,
         }
     }
     pub fn bus_id(&self) -> Option<usize> {
-        match self{
-            Wire::TSignal(_s) => {
-                None
-            },
-            Wire::TBus(s) => {
-                Some(s.bus_id)
-            },
+        match self {
+            Wire::TSignal(_s) => None,
+            Wire::TBus(s) => Some(s.bus_id),
         }
     }
 }
@@ -113,9 +84,8 @@ pub struct Signal {
     pub size: usize,
 }
 
-
 #[derive(Clone)]
-pub struct Bus{
+pub struct Bus {
     pub name: String,
     pub lengths: Vec<Length>,
     pub xtype: SignalType,
@@ -126,18 +96,16 @@ pub struct Bus{
 }
 
 #[derive(Clone, Debug)]
-pub struct FieldInfo{
+pub struct FieldInfo {
     pub field_id: usize,
     pub offset: usize,
     pub dimensions: Vec<usize>,
     pub size: usize,
-    pub bus_id: Option<usize>, // indicates the position of the bus in the table    
+    pub bus_id: Option<usize>, // indicates the position of the bus in the table
 }
 
-
-
 #[derive(Clone, Debug)]
-pub struct BusInstance{
+pub struct BusInstance {
     pub name: String,
     pub size: usize,
     pub fields: BTreeMap<String, FieldInfo>,
@@ -172,7 +140,7 @@ pub struct Trigger {
 #[derive(Clone)]
 pub enum ClusterType {
     Mixed { tmp_name: String },
-    Uniform { offset_jump: usize, component_offset_jump:usize, instance_id: usize, header: String },
+    Uniform { offset_jump: usize, component_offset_jump: usize, instance_id: usize, header: String },
 }
 #[derive(Clone)]
 pub struct TriggerCluster {
@@ -242,7 +210,7 @@ impl TemplateInstance {
             triggers: config.triggers,
             clusters: config.clusters,
             signals_to_tags: config.signals_to_tags,
-            is_extern_c: config.is_extern_c
+            is_extern_c: config.is_extern_c,
         }
     }
 
@@ -311,8 +279,7 @@ pub struct VCP {
     pub templates_in_mixed: Vec<usize>,
     pub prime: String,
     pub buses: Vec<BusInstance>,
-    pub has_extern_c: bool
-
+    pub has_extern_c: bool,
 }
 impl VCP {
     pub fn new(config: VCPConfig) -> VCP {
@@ -327,7 +294,7 @@ impl VCP {
             quick_knowledge: HashMap::new(),
             prime: config.prime,
             buses: config.buses,
-            has_extern_c: config.has_extern_c
+            has_extern_c: config.has_extern_c,
         };
         super::merger::run_preprocessing(&mut vcp, config.program);
         vcp

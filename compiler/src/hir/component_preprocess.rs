@@ -16,17 +16,17 @@ fn rm_statement(stmt: &mut Statement) {
         rm_block(stmt);
     } else if stmt.is_initialization_block() {
         rm_init(stmt);
-    } else if stmt.is_substitution(){ 
+    } else if stmt.is_substitution() {
         rm_substitution(stmt);
-    } else if stmt.is_underscore_substitution(){ 
+    } else if stmt.is_underscore_substitution() {
         rm_underscore_substitution(stmt);
     }
 }
 
-fn rm_underscore_substitution(stmt: &mut Statement){
+fn rm_underscore_substitution(stmt: &mut Statement) {
     use Statement::{Block, UnderscoreSubstitution};
-    if let UnderscoreSubstitution { meta, .. } = stmt{
-        *stmt = Block{ meta: meta.clone(), stmts: Vec::new() };
+    if let UnderscoreSubstitution { meta, .. } = stmt {
+        *stmt = Block { meta: meta.clone(), stmts: Vec::new() };
     }
 }
 
@@ -70,30 +70,29 @@ fn rm_init(stmt: &mut Statement) {
     use Statement::InitializationBlock;
     use VariableType::*;
     if let InitializationBlock { initializations, xtype, .. } = stmt {
-
-        if let Signal(..) = xtype  {
+        if let Signal(..) = xtype {
             let work = std::mem::take(initializations);
             for mut i in work {
                 if i.is_substitution() {
                     initializations.push(i);
-                } else if i.is_block(){
+                } else if i.is_block() {
                     rm_block(&mut i);
                     initializations.push(i);
                 }
             }
-        } else if let Bus(..) = xtype{
+        } else if let Bus(..) = xtype {
             let work = std::mem::take(initializations);
             for mut i in work {
                 if i.is_substitution() {
                     if !should_be_removed(&i) {
                         initializations.push(i);
                     }
-                } else if i.is_block(){
+                } else if i.is_block() {
                     rm_block(&mut i);
                     initializations.push(i);
                 }
             }
-        }else {
+        } else {
             let filter = std::mem::take(initializations);
             for mut s in filter {
                 rm_statement(&mut s);
@@ -107,11 +106,11 @@ fn rm_init(stmt: &mut Statement) {
     }
 }
 
-fn rm_substitution(stmt: &mut Statement){
+fn rm_substitution(stmt: &mut Statement) {
     use Statement::{Block, Substitution};
-    if should_be_removed(stmt){
-        if let Substitution { meta, .. } = stmt{
-            *stmt = Block{ meta: meta.clone(), stmts: Vec::new() };
+    if should_be_removed(stmt) {
+        if let Substitution { meta, .. } = stmt {
+            *stmt = Block { meta: meta.clone(), stmts: Vec::new() };
         }
     }
 }
@@ -122,9 +121,10 @@ fn should_be_removed(stmt: &Statement) -> bool {
     if let InitializationBlock { xtype, .. } = stmt {
         Component == *xtype || AnonymousComponent == *xtype
     } else if let Substitution { meta, rhe, .. } = stmt {
-            meta.get_type_knowledge().is_component() 
+        meta.get_type_knowledge().is_component()
             || meta.get_type_knowledge().is_tag()
-            || rhe.is_bus_call() || rhe.is_bus_call_array()
+            || rhe.is_bus_call()
+            || rhe.is_bus_call_array()
     } else {
         false
     }

@@ -1,13 +1,13 @@
 use core::fmt;
 use std::fmt::Formatter;
 
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 pub enum ReportCode {
     //Parse Errors
     UnclosedComment,
     FileOs,
     NoMainFoundInProject,
-    MultipleMain, 
+    MultipleMain,
     MissingSemicolon,
     UnrecognizedInclude,
     UnrecognizedVersion,
@@ -16,7 +16,7 @@ pub enum ReportCode {
     IncludeNotFound,
     IllegalExpression,
     MultiplePragma,
-    NoCompilerVersionWarning, 
+    NoCompilerVersionWarning,
     CompilerVersionError,
     WrongTypesInAssignOperationOperatorSignal,
     WrongTypesInAssignOperationOperatorNoSignal,
@@ -139,7 +139,7 @@ impl fmt::Display for ReportCode {
             CompilerVersionError => "P1003",
             NoCompilerVersionWarning => "P1004",
             UnclosedComment => "P1005",
-            FileOs  => "P1006",
+            FileOs => "P1006",
             MissingSemicolon => "P1008",
             UnrecognizedInclude => "P1009",
             UnrecognizedVersion => "P1010",
@@ -191,7 +191,7 @@ impl fmt::Display for ReportCode {
             InvalidArrayType => "T2034",
             InvalidArrayTypeB => "T2034",
             InvalidArrayTypeBandSignal => "T2034",
-            InvalidArrayTypeDifferentBuses => "T2034",  
+            InvalidArrayTypeDifferentBuses => "T2034",
             ForStatementIllConstructed => "T2035",
             BadArrayAccess => "T2035",
             AssigningAComponentTwice => "T2036",

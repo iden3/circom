@@ -51,7 +51,7 @@ impl WriteWasm for LoopBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(format!(";; loop bucket. Line {}", self.line)); //.to_string()
-	}
+        }
         instructions.push(add_block());
         instructions.push(add_loop());
         let mut instructions_continue = self.continue_condition.produce_wasm(producer);
@@ -68,7 +68,7 @@ impl WriteWasm for LoopBucket {
         instructions.push(add_end());
         if producer.needs_comments() {
             instructions.push(";; end of loop bucket".to_string());
-	}
+        }
         instructions
     }
 }
@@ -76,7 +76,8 @@ impl WriteWasm for LoopBucket {
 impl WriteC for LoopBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::merge_code;
-        let (continue_code, continue_result) = self.continue_condition.produce_c(producer, parallel);
+        let (continue_code, continue_result) =
+            self.continue_condition.produce_c(producer, parallel);
         let continue_result = format!("Fr_isTrue({})", continue_result);
         let mut body = vec![];
         for instr in &self.body {

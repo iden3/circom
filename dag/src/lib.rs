@@ -91,11 +91,18 @@ pub struct Edge {
     in_number: usize,
     out_number: usize,
     in_component_number: usize,
-    out_component_number: usize
+    out_component_number: usize,
 }
 impl Edge {
     fn new_entry(id: usize) -> Edge {
-        Edge { label: "main".to_string(), goes_to: id, in_number: 0, out_number: 0, in_component_number: 0, out_component_number: 0  }
+        Edge {
+            label: "main".to_string(),
+            goes_to: id,
+            in_number: 0,
+            out_number: 0,
+            in_component_number: 0,
+            out_component_number: 0,
+        }
     }
 
     pub fn get_goes_to(&self) -> usize {
@@ -162,10 +169,11 @@ impl Node {
         template_name: String,
         parameters: Vec<BigInt>,
         is_parallel: bool,
-        is_custom_gate: bool
+        is_custom_gate: bool,
     ) -> Node {
         Node {
-            template_name, entry: Edge::new_entry(id),
+            template_name,
+            entry: Edge::new_entry(id),
             parameters,
             number_of_components: 1,
             is_parallel,
@@ -213,7 +221,7 @@ impl Node {
         self.intermediates_length += 1;
     }
 
-    fn add_ordered_signal(&mut self, name: String){
+    fn add_ordered_signal(&mut self, name: String) {
         self.ordered_signals.push(name);
     }
 
@@ -317,12 +325,7 @@ impl ConstraintExporter for DAG {
 
 impl DAG {
     pub fn new(prime: &String) -> DAG {
-        DAG{
-            prime : prime.clone(),
-            one_signal: 0,
-            nodes: Vec::new(),
-            adjacency: Vec::new(),
-        }
+        DAG { prime: prime.clone(), one_signal: 0, nodes: Vec::new(), adjacency: Vec::new() }
     }
 
     pub fn add_edge(&mut self, to: usize, label: &str, is_parallel: bool) -> Option<&Edge> {
@@ -354,7 +357,7 @@ impl DAG {
                     let concrete_name = format!("{}.{}", label, signal);
                     let concrete_value = with.in_number + *id;
                     correspondence.insert(concrete_name, concrete_value);
-                    if *id <= self.nodes[to].inputs_length + self.nodes[to].outputs_length{
+                    if *id <= self.nodes[to].inputs_length + self.nodes[to].outputs_length {
                         // in case it is an input/output signal
                         reachables.insert(concrete_value);
                     }
@@ -375,12 +378,10 @@ impl DAG {
         template_name: String,
         parameters: Vec<BigInt>,
         is_parallel: bool,
-        is_custom_gate: bool
+        is_custom_gate: bool,
     ) -> usize {
         let id = self.nodes.len();
-        self.nodes.push(
-            Node::new(id, template_name, parameters, is_parallel, is_custom_gate)
-        );
+        self.nodes.push(Node::new(id, template_name, parameters, is_parallel, is_custom_gate));
         self.adjacency.push(vec![]);
         id
     }
@@ -421,7 +422,7 @@ impl DAG {
         }
     }
 
-    pub fn set_number_of_subcomponents_indexes(&mut self, number_scmp: usize){
+    pub fn set_number_of_subcomponents_indexes(&mut self, number_scmp: usize) {
         if let Option::Some(node) = self.get_mut_main() {
             node.set_number_of_subcomponents_indexes(number_scmp);
         }
@@ -550,8 +551,8 @@ pub struct SimplificationFlags {
     pub port_substitution: bool,
     pub json_substitutions: String,
     pub flag_old_heuristics: bool,
-    pub prime : String,
+    pub prime: String,
     pub apply_eager_plonk: bool,
     pub apply_sat_plonk: bool,
-    pub plonk_simplification: bool
+    pub plonk_simplification: bool,
 }

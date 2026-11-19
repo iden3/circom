@@ -18,7 +18,7 @@ impl Default for Merger {
             fresh_id: 0,
             function_info: FunctionInfo::new(),
             template_info: TemplateInfo::new(),
-            bus_info: BusInfo::new()
+            bus_info: BusInfo::new(),
         }
     }
 }
@@ -28,12 +28,28 @@ impl Merger {
         Merger::default()
     }
 
-    pub fn add_definitions(&mut self, file_id: FileID, definitions: Vec<Definition>)  -> Result<(), Vec<Report>> {
+    pub fn add_definitions(
+        &mut self,
+        file_id: FileID,
+        definitions: Vec<Definition>,
+    ) -> Result<(), Vec<Report>> {
         let mut reports = vec![];
         for definition in definitions {
             let (name, meta) = match definition {
-                Definition::Template { name, args, arg_location, body, meta, parallel, is_custom_gate,is_extern_c} => {
-                    if self.contains_function(&name) || self.contains_template(&name) || self.contains_bus(&name) {
+                Definition::Template {
+                    name,
+                    args,
+                    arg_location,
+                    body,
+                    meta,
+                    parallel,
+                    is_custom_gate,
+                    is_extern_c,
+                } => {
+                    if self.contains_function(&name)
+                        || self.contains_template(&name)
+                        || self.contains_bus(&name)
+                    {
                         (Option::Some(name), meta)
                     } else {
                         let new_data = TemplateData::new(
@@ -46,14 +62,17 @@ impl Merger {
                             &mut self.fresh_id,
                             parallel,
                             is_custom_gate,
-                            is_extern_c
+                            is_extern_c,
                         );
                         self.get_mut_template_info().insert(name.clone(), new_data);
                         (Option::None, meta)
                     }
                 }
                 Definition::Function { name, body, args, arg_location, meta } => {
-                    if self.contains_function(&name) || self.contains_template(&name) || self.contains_bus(&name) {
+                    if self.contains_function(&name)
+                        || self.contains_template(&name)
+                        || self.contains_bus(&name)
+                    {
                         (Option::Some(name), meta)
                     } else {
                         let new_data = FunctionData::new(
@@ -69,8 +88,11 @@ impl Merger {
                         (Option::None, meta)
                     }
                 }
-                Definition::Bus { name, body, args, arg_location, meta  } => {
-                    if self.contains_function(&name) || self.contains_template(&name) || self.contains_bus(&name) {
+                Definition::Bus { name, body, args, arg_location, meta } => {
+                    if self.contains_function(&name)
+                        || self.contains_template(&name)
+                        || self.contains_bus(&name)
+                    {
                         (Option::Some(name), meta)
                     } else {
                         let new_data = BusData::new(
@@ -100,7 +122,11 @@ impl Merger {
                 reports.push(report);
             }
         }
-        if reports.is_empty() { Ok(()) } else { Err(reports) }
+        if reports.is_empty() {
+            Ok(())
+        } else {
+            Err(reports)
+        }
     }
     pub fn contains_function(&self, function_name: &str) -> bool {
         self.get_function_info().contains_key(function_name)
@@ -131,7 +157,6 @@ impl Merger {
     fn get_mut_bus_info(&mut self) -> &mut BusInfo {
         &mut self.bus_info
     }
-
 
     pub fn decompose(self) -> (usize, FunctionInfo, TemplateInfo, BusInfo) {
         (self.fresh_id, self.function_info, self.template_info, self.bus_info)

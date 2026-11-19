@@ -78,11 +78,10 @@ pub fn visit_return(bucket: &mut ReturnBucket, function_to_arena_size: &HashMap<
 
 pub fn visit_log(bucket: &mut LogBucket, function_to_arena_size: &HashMap<String, usize>) {
     for print in bucket.argsprint.clone() {
-        if let LogBucketArg::LogExp(mut exp) = print { 
+        if let LogBucketArg::LogExp(mut exp) = print {
             visit_instruction(&mut exp, function_to_arena_size);
         }
     }
-    
 }
 
 pub fn visit_assert(bucket: &mut AssertBucket, function_to_arena_size: &HashMap<String, usize>) {
@@ -98,18 +97,17 @@ pub fn visit_store(bucket: &mut StoreBucket, function_to_arena_size: &HashMap<St
 pub fn visit_value(_: &mut ValueBucket, _: &HashMap<String, usize>) {}
 
 pub fn visit_location(bucket: &mut LocationRule, function_to_arena_size: &HashMap<String, usize>) {
-
     match bucket {
-        LocationRule::Indexed { location, .. } => visit_instruction(location, function_to_arena_size),
+        LocationRule::Indexed { location, .. } => {
+            visit_instruction(location, function_to_arena_size)
+        }
         LocationRule::Mapped { indexes, .. } => {
-            for access in indexes{
-                match access{
-                    AccessType::Indexed(instr) =>{
+            for access in indexes {
+                match access {
+                    AccessType::Indexed(instr) => {
                         visit_list(&mut instr.indexes, function_to_arena_size)
-                    },
-                    AccessType::Qualified(_) =>{
-
                     }
+                    AccessType::Qualified(_) => {}
                 }
             }
         }

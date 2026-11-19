@@ -24,7 +24,7 @@ pub struct ExecutedProgram {
 
 impl ExecutedProgram {
     pub fn new(prime: &String) -> ExecutedProgram {
-        ExecutedProgram{
+        ExecutedProgram {
             model: Vec::new(),
             template_to_nodes: HashMap::new(),
             prime: prime.clone(),
@@ -34,7 +34,12 @@ impl ExecutedProgram {
         }
     }
 
-    pub fn identify_node(&self, name: &str, context: &ParameterContext, tag_context: &HashMap<String, TagWire>) -> Option<NodePointer> {
+    pub fn identify_node(
+        &self,
+        name: &str,
+        context: &ParameterContext,
+        tag_context: &HashMap<String, TagWire>,
+    ) -> Option<NodePointer> {
         if !self.template_to_nodes.contains_key(name) {
             return Option::None;
         }
@@ -91,10 +96,7 @@ impl ExecutedProgram {
         Option::Some(&self.model_buses[node_pointer])
     }
 
-    pub fn add_prenode_to_scheme(
-        &mut self,
-        node: PreExecutedTemplate,
-    ) -> NodePointer {
+    pub fn add_prenode_to_scheme(&mut self, node: PreExecutedTemplate) -> NodePointer {
         // Insert pretemplate
         let node_index = self.model_pretemplates.len();
         self.model_pretemplates.push(node);
@@ -112,7 +114,7 @@ impl ExecutedProgram {
         apply_computed(&mut node.code, &analysis);
         // Insert template
         let possible_index = self.identify_node(
-            node.template_name(), 
+            node.template_name(),
             node.parameter_instances(),
             node.tag_instances(),
         );
@@ -127,7 +129,6 @@ impl ExecutedProgram {
         node_index
     }
 
-
     pub fn add_bus_node_to_scheme(
         &mut self,
         node: ExecutedBus,
@@ -138,10 +139,7 @@ impl ExecutedProgram {
         //apply_unused(&mut node.code, &analysis, &self.prime);
         //apply_computed(&mut node.code, &analysis);
         // Insert template
-        let possible_index = self.identify_bus_node(
-            node.bus_name(), 
-            node.parameter_instances(),
-        );
+        let possible_index = self.identify_bus_node(node.bus_name(), node.parameter_instances());
         if let Option::Some(index) = possible_index {
             return index;
         }
@@ -181,13 +179,13 @@ impl ExecutedProgram {
 
         let mut wrapped_buses_table = vec![None; self.model_buses.len()];
         let mut index = 0;
-        for exe_bus in &self.model_buses{
+        for exe_bus in &self.model_buses {
             exe_bus.build_bus_info(index, &mut wrapped_buses_table, &self.model_buses);
             index += 1;
         }
 
         let mut buses_table = Vec::new();
-        for info in wrapped_buses_table{
+        for info in wrapped_buses_table {
             buses_table.push(info.unwrap());
         }
 
@@ -200,7 +198,7 @@ impl ExecutedProgram {
 
         temp_instances[dag.main_id()].is_not_parallel_component = true;
         dag.clean_constraints();
-        if flags.inspect{
+        if flags.inspect {
             let mut w = dag.constraint_analysis()?;
             warnings.append(&mut w);
         }
@@ -225,7 +223,7 @@ impl ExecutedProgram {
             program,
             prime: self.prime,
             buses: buses_table,
-            has_extern_c
+            has_extern_c,
         };
         let vcp = VCP::new(config);
         Result::Ok((dag, vcp, warnings))
@@ -247,7 +245,8 @@ fn produce_dags_stats(dag: &DAG) -> Stats {
         all_needed_subcomponents_indexes[index] += node.number_of_subcomponents_indexes();
         for c in dag.get_edges(index).unwrap() {
             all_created_cmp[index] += all_created_cmp[c.get_goes_to()];
-            all_needed_subcomponents_indexes[index] += all_needed_subcomponents_indexes[c.get_goes_to()];
+            all_needed_subcomponents_indexes[index] +=
+                all_needed_subcomponents_indexes[c.get_goes_to()];
             all_signals[index] += all_signals[c.get_goes_to()];
             all_io[index] += all_io[c.get_goes_to()];
         }

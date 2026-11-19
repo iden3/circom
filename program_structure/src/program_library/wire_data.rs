@@ -1,17 +1,14 @@
 use std::collections::{HashSet, HashMap};
 
-
 pub type TagInfo = HashSet<String>;
 pub type WireInfo = HashMap<String, WireData>;
 pub type WireDeclarationOrder = Vec<(String, usize)>;
-
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum WireType {
     Signal,
     Bus(String),
 }
-
 
 #[derive(Clone)]
 pub struct WireData {
@@ -21,16 +18,8 @@ pub struct WireData {
 }
 
 impl WireData {
-    pub fn new(
-        wire_type: WireType,
-        dimension: usize,
-        tag_info: TagInfo,
-    ) -> WireData {
-        WireData {
-            wire_type,
-            dimension,
-            tag_info
-        }
+    pub fn new(wire_type: WireType, dimension: usize, tag_info: TagInfo) -> WireData {
+        WireData { wire_type, dimension, tag_info }
     }
     pub fn get_type(&self) -> WireType {
         self.wire_type.clone()

@@ -12,7 +12,7 @@ pub struct Config {
 }
 
 pub fn run_compiler(vcp: VCP, config: Config, version: &str) -> Result<Circuit, ()> {
-    let flags = CompilationFlags { 
+    let flags = CompilationFlags {
         main_inputs_log: config.produce_input_log,
         wat_flag: config.wat_flag,
         sanity_check_style: config.sanity_check_style,
@@ -25,7 +25,12 @@ pub fn run_compiler(vcp: VCP, config: Config, version: &str) -> Result<Circuit, 
     Ok(circuit)
 }
 
-pub fn write_wasm(circuit: &Circuit, js_folder: &str, wasm_name: &str, file: &str) -> Result<(), ()> {
+pub fn write_wasm(
+    circuit: &Circuit,
+    js_folder: &str,
+    wasm_name: &str,
+    file: &str,
+) -> Result<(), ()> {
     use std::path::Path;
     if Path::new(js_folder).is_dir() {
         std::fs::remove_dir_all(js_folder).map_err(|_err| {})?;
@@ -36,7 +41,13 @@ pub fn write_wasm(circuit: &Circuit, js_folder: &str, wasm_name: &str, file: &st
     circuit.produce_wasm(js_folder, wasm_name, &mut writer)
 }
 
-pub fn write_c(circuit: &Circuit, c_folder: &str, c_run_name: &str, c_file: &str, dat_file: &str) -> Result<(), ()> {
+pub fn write_c(
+    circuit: &Circuit,
+    c_folder: &str,
+    c_run_name: &str,
+    c_file: &str,
+    dat_file: &str,
+) -> Result<(), ()> {
     use std::path::Path;
     if Path::new(c_folder).is_dir() {
         std::fs::remove_dir_all(c_folder).map_err(|_err| {})?;

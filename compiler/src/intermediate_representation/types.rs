@@ -15,9 +15,9 @@ impl ToString for ValueType {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub enum SizeOption{
+pub enum SizeOption {
     Single(usize),
-    Multiple(Vec<(usize, usize)>) // The first value indicates the cmp_id, the second the size
+    Multiple(Vec<(usize, usize)>), // The first value indicates the cmp_id, the second the size
 }
 
 #[derive(Clone, PartialEq, Eq)]

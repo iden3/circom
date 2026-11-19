@@ -40,7 +40,7 @@ fn infer_type_stmt(stmt: &Statement, state: &State, context: &mut SearchInfo) ->
         Option::None
     } else if stmt.is_assert() {
         Option::None
-    } else{
+    } else {
         unreachable!()
     }
 }
@@ -75,12 +75,12 @@ fn infer_type_block(stmt: &Statement, state: &State, context: &mut SearchInfo) -
         let mut returns = Option::None;
         let mut index = 0;
         context.environment.add_variable_block();
-        while index < stmts.len(){
+        while index < stmts.len() {
             let new_value = infer_type_stmt(&stmts[index], state, context);
-            if new_value.is_some(){
-                if returns.is_none(){
+            if new_value.is_some() {
+                if returns.is_none() {
                     returns = new_value;
-                } else{
+                } else {
                     let max = std::cmp::max(new_value.unwrap(), returns.unwrap());
                     returns = Some(max);
                 }
@@ -118,10 +118,10 @@ fn infer_type_conditional(
         let mut returns = infer_type_stmt(if_case, state, context);
         if let Option::Some(s) = else_case {
             let else_returns = infer_type_stmt(s, state, context);
-            if else_returns.is_some(){
-                if returns.is_none(){
+            if else_returns.is_some() {
+                if returns.is_none() {
                     returns = else_returns;
-                } else{
+                } else {
                     let max = std::cmp::max(returns.unwrap(), else_returns.unwrap());
                     returns = Some(max);
                 }
@@ -130,7 +130,7 @@ fn infer_type_conditional(
         returns
     } else {
         unreachable!();
-    }        
+    }
 }
 
 fn infer_type_while(stmt: &Statement, state: &State, context: &mut SearchInfo) -> Option<VCT> {
@@ -155,7 +155,7 @@ fn infer_type_expresion(expr: &Expression, state: &State, context: &mut SearchIn
         Option::Some(VCT::with_capacity(0))
     } else if expr.is_prefix() {
         Option::Some(VCT::with_capacity(0))
-    } else if expr.is_parallel(){
+    } else if expr.is_parallel() {
         infer_type_parallel(expr, state, context)
     } else if expr.is_number() {
         Option::Some(VCT::with_capacity(0))
@@ -212,23 +212,22 @@ fn infer_type_array(expr: &Expression, state: &State, context: &mut SearchInfo) 
     if let ArrayInLine { values, .. } = expr {
         let mut lengths = vec![values.len()];
         let with_type = infer_type_expresion(&values[0], state, context);
-        if with_type.is_none(){
+        if with_type.is_none() {
             None
-        } else{
+        } else {
             let mut with_type = with_type.unwrap();
-            for index in 1..values.len(){
+            for index in 1..values.len() {
                 let aux_type = infer_type_expresion(&values[index], state, context);
-                if aux_type.is_none(){
+                if aux_type.is_none() {
                     return None;
-                } 
-                for d in 0..with_type.len(){
+                }
+                for d in 0..with_type.len() {
                     with_type[d] = std::cmp::max(with_type[d], aux_type.as_ref().unwrap()[d]);
                 }
             }
             lengths.append(&mut with_type);
             Some(lengths)
         }
-        
     } else if let UniformArray { value, dimension, .. } = expr {
         let usable_dimension = if let Option::Some(dimension) = cast_dimension(&dimension) {
             dimension

@@ -33,14 +33,14 @@ impl BusData {
         let mut field_declarations = WireDeclarationOrder::new();
         fill_fields(&body, &mut fields, &mut field_declarations);
         BusData {
-             file_id,
-             name,
-             body,
-             num_of_params,
-             name_of_params,
-             param_location,
-             fields,
-             field_declarations
+            file_id,
+            name,
+            body,
+            num_of_params,
+            name_of_params,
+            param_location,
+            fields,
+            field_declarations,
         }
     }
     pub fn copy(
@@ -51,7 +51,7 @@ impl BusData {
         name_of_params: Vec<String>,
         param_location: FileLocation,
         fields: WireInfo,
-        field_declarations: WireDeclarationOrder
+        field_declarations: WireDeclarationOrder,
     ) -> BusData {
         BusData {
             file_id,
@@ -61,7 +61,7 @@ impl BusData {
             name_of_params,
             param_location,
             fields,
-            field_declarations
+            field_declarations,
         }
     }
     pub fn get_file_id(&self) -> FileID {
@@ -79,7 +79,7 @@ impl BusData {
     pub fn get_mut_body(&mut self) -> &mut Statement {
         &mut self.body
     }
-    pub fn set_body(&mut self, body: Statement){
+    pub fn set_body(&mut self, body: Statement) {
         self.body = body;
     }
     pub fn replace_body(&mut self, new: Statement) -> Statement {
@@ -114,51 +114,48 @@ impl BusData {
     }
 }
 
-
 fn fill_fields(
     bus_statement: &Statement,
     fields: &mut WireInfo,
-    field_declarations: &mut WireDeclarationOrder
+    field_declarations: &mut WireDeclarationOrder,
 ) {
     use Statement::*;
     match bus_statement {
-        Block { stmts, .. } | InitializationBlock { initializations : stmts, .. } => {
+        Block { stmts, .. } | InitializationBlock { initializations: stmts, .. } => {
             for stmt in stmts.iter() {
                 fill_fields(stmt, fields, field_declarations);
             }
         }
-        Declaration { xtype, name, dimensions, .. } => {
-            match xtype {
-                VariableType::Signal(stype, tag_list) => {
-                    if *stype == SignalType::Intermediate {
-                        let wire_name = name.clone();
-                        let dim = dimensions.len();
-                        let mut tag_info = TagInfo::new();
-                        for tag in tag_list {
-                            tag_info.insert(tag.clone());
-                        }
-                        let field_data = WireData::new(WireType::Signal,dim,tag_info);
-                        fields.insert(wire_name.clone(), field_data);
-                        field_declarations.push((wire_name,dim));
+        Declaration { xtype, name, dimensions, .. } => match xtype {
+            VariableType::Signal(stype, tag_list) => {
+                if *stype == SignalType::Intermediate {
+                    let wire_name = name.clone();
+                    let dim = dimensions.len();
+                    let mut tag_info = TagInfo::new();
+                    for tag in tag_list {
+                        tag_info.insert(tag.clone());
                     }
-                },
-                VariableType::Bus(tname, stype, tag_list) => {
-                    if *stype == SignalType::Intermediate {
-                        let wire_name = name.clone();
-                        let dim = dimensions.len();
-                        let type_name = tname.clone();
-                        let mut tag_info = TagInfo::new();
-                        for tag in tag_list {
-                            tag_info.insert(tag.clone());
-                        }
-                        let field_data = WireData::new(WireType::Bus(type_name),dim,tag_info);
-                        fields.insert(wire_name.clone(), field_data);
-                        field_declarations.push((wire_name,dim));
-                    }
-                },
-                _ => {},
+                    let field_data = WireData::new(WireType::Signal, dim, tag_info);
+                    fields.insert(wire_name.clone(), field_data);
+                    field_declarations.push((wire_name, dim));
+                }
             }
-        }
+            VariableType::Bus(tname, stype, tag_list) => {
+                if *stype == SignalType::Intermediate {
+                    let wire_name = name.clone();
+                    let dim = dimensions.len();
+                    let type_name = tname.clone();
+                    let mut tag_info = TagInfo::new();
+                    for tag in tag_list {
+                        tag_info.insert(tag.clone());
+                    }
+                    let field_data = WireData::new(WireType::Bus(type_name), dim, tag_info);
+                    fields.insert(wire_name.clone(), field_data);
+                    field_declarations.push((wire_name, dim));
+                }
+            }
+            _ => {}
+        },
         _ => {}
     }
 }

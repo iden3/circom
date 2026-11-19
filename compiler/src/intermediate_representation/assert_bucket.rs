@@ -47,7 +47,7 @@ impl WriteWasm for AssertBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; assert bucket".to_string());
-	}
+        }
         let mut instructions_eval = self.evaluate.produce_wasm(producer);
         instructions.append(&mut instructions_eval);
         instructions.push(call("$Fr_isTrue"));
@@ -62,7 +62,7 @@ impl WriteWasm for AssertBucket {
         instructions.push(add_end());
         if producer.needs_comments() {
             instructions.push(";; end of assert bucket".to_string());
-	}
+        }
         instructions
     }
 }
@@ -70,10 +70,11 @@ impl WriteWasm for AssertBucket {
 impl WriteC for AssertBucket {
     fn produce_c(&self, producer: &CProducer, parallel: Option<bool>) -> (Vec<String>, String) {
         use c_code_generator::*;
-        if !self.is_constraint_equality || producer.sanity_check_style >= 1{
+        if !self.is_constraint_equality || producer.sanity_check_style >= 1 {
             let (mut prologue, value) = self.evaluate.produce_c(producer, parallel);
             let is_true = build_call("Fr_isTrue".to_string(), vec![value]);
-            let if_condition = format!("if (!{}) {};", is_true, build_failed_assert_message(self.line));    
+            let if_condition =
+                format!("if (!{}) {};", is_true, build_failed_assert_message(self.line));
             let assertion = format!("{};", build_call("assert".to_string(), vec![is_true]));
             let mut assert_c = vec![];
             assert_c.push(format!("{{"));
@@ -82,7 +83,7 @@ impl WriteC for AssertBucket {
             assert_c.push(assertion);
             assert_c.push(format!("}}"));
             (assert_c, "".to_string())
-        } else{
+        } else {
             (Vec::new(), "".to_string())
         }
     }

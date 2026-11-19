@@ -47,7 +47,7 @@ impl WriteWasm for ReturnBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; return bucket".to_string());
-	}
+        }
         if self.with_size == 1 {
             instructions.push(get_local(producer.get_result_address_tag())); //result address
             let mut instructions_value = self.value.produce_wasm(producer);
@@ -84,11 +84,11 @@ impl WriteWasm for ReturnBucket {
         }
         let mut free_stack_code = free_stack(producer);
         instructions.append(&mut free_stack_code);
-        instructions.push(set_constant("0"));	
+        instructions.push(set_constant("0"));
         instructions.push(add_return());
         if producer.needs_comments() {
             instructions.push(";; end of return bucket".to_string());
-	}
+        }
         instructions
     }
 }
@@ -100,14 +100,14 @@ impl WriteC for ReturnBucket {
         instructions.push("// return bucket".to_string());
         let (mut instructions_value, src) = self.value.produce_c(producer, parallel);
         instructions.append(&mut instructions_value);
-                
+
         if self.with_size > 1 {
             let final_size = format!("std::min({},{})", self.with_size, FUNCTION_DESTINATION_SIZE);
 
             let copy_arguments = if producer.prime_str != "goldilocks" {
                 vec![FUNCTION_DESTINATION.to_string(), src, final_size]
             } else {
-                vec![format!("&{}",FUNCTION_DESTINATION), format!("&{}",src), final_size]
+                vec![format!("&{}", FUNCTION_DESTINATION), format!("&{}", src), final_size]
             };
             instructions.push(format!("{};", build_call("Fr_copyn".to_string(), copy_arguments)));
         } else {

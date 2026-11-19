@@ -6,7 +6,6 @@ use program_structure::ast::*;
 use program_structure::program_archive::ProgramArchive;
 use num_traits::ToPrimitive;
 
-
 pub fn run_preprocessing(vcp: &mut VCP, program_archive: ProgramArchive) {
     let mut state = build_function_knowledge(program_archive);
     produce_vcf(vcp, &mut state);
@@ -119,7 +118,6 @@ fn produce_vcf_stmt(stmt: &Statement, state: &mut State, environment: &mut E) {
 }
 
 fn produce_vcf_expr(expr: &Expression, state: &mut State, environment: &E) {
-
     if expr.is_infix() {
         produce_vcf_infix(expr, state, environment);
     } else if expr.is_prefix() {
@@ -134,9 +132,9 @@ fn produce_vcf_expr(expr: &Expression, state: &mut State, environment: &E) {
         produce_vcf_call(expr, state, environment);
     } else if expr.is_array() {
         produce_vcf_array(expr, state, environment);
-    } else if expr.is_parallel(){
+    } else if expr.is_parallel() {
         produce_vcf_parallel(expr, state, environment);
-    } else if expr.is_bus_call(){
+    } else if expr.is_bus_call() {
         produce_vcf_bus_call(expr, state, environment);
     } else {
         unreachable!();
@@ -167,8 +165,8 @@ fn produce_vcf_log_call(stmt: &Statement, state: &mut State, environment: &E) {
         for arglog in args {
             if let LogArgument::LogExp(arg) = arglog {
                 produce_vcf_expr(arg, state, environment);
-            }
-            else {}// unimplemented!(); }
+            } else {
+            } // unimplemented!(); }
         }
     } else {
         unreachable!();
@@ -194,7 +192,6 @@ fn produce_vcf_substitution(stmt: &Statement, state: &mut State, environment: &E
                 produce_vcf_expr(index, state, environment);
             }
         }
-        
     } else {
         unreachable!();
     }
@@ -288,7 +285,7 @@ fn produce_vcf_call(expr: &Expression, state: &mut State, environment: &E) {
 
 fn produce_vcf_bus_call(expr: &Expression, state: &mut State, environment: &E) {
     use Expression::BusCall;
-    if let BusCall {  args, .. } = expr {
+    if let BusCall { args, .. } = expr {
         for arg in args {
             produce_vcf_expr(arg, state, environment);
         }
@@ -436,10 +433,10 @@ fn link_log_call(stmt: &mut Statement, state: &State, env: &mut E) {
     use Statement::LogCall;
     if let LogCall { args, .. } = stmt {
         for arglog in args {
-            if let LogArgument::LogExp(arg) = arglog{
+            if let LogArgument::LogExp(arg) = arglog {
                 link_expression(arg, state, env);
             }
-        }   
+        }
     } else {
         unreachable!();
     }
@@ -513,9 +510,9 @@ fn link_expression(expr: &mut Expression, state: &State, env: &E) {
         link_infix(expr, state, env);
     } else if expr.is_prefix() {
         link_prefix(expr, state, env);
-    } else if expr.is_parallel(){
+    } else if expr.is_parallel() {
         link_parallel(expr, state, env);
-    } else if expr.is_bus_call(){
+    } else if expr.is_bus_call() {
         link_bus_call(expr, state, env);
     } else {
         unreachable!();
@@ -639,9 +636,9 @@ fn cast_type_variable(expr: &Expression, state: &State, environment: &E) -> VCT 
     if let Variable { name, access, .. } = expr {
         let mut xtype = environment.get_variable(name).unwrap().clone();
         xtype.reverse();
-        let mut possible_bus_info = if state.buses_info.contains_key(name){
+        let mut possible_bus_info = if state.buses_info.contains_key(name) {
             Some(state.buses_info.get(name).unwrap())
-        } else{
+        } else {
             None
         };
         for acc in access {
@@ -650,30 +647,30 @@ fn cast_type_variable(expr: &Expression, state: &State, environment: &E) -> VCT 
                     xtype.pop();
                 }
                 Access::ComponentAccess(signal) => {
-                    if possible_bus_info.is_some(){
+                    if possible_bus_info.is_some() {
                         // case buses
                         let bus = possible_bus_info.unwrap();
-                        if bus.signals.contains_key(signal){
+                        if bus.signals.contains_key(signal) {
                             xtype = bus.signals.get(signal).unwrap().clone();
                             xtype.reverse();
                             possible_bus_info = None;
-                        } else{
-                            let aux_info =  bus.buses.get(signal).unwrap();
+                        } else {
+                            let aux_info = bus.buses.get(signal).unwrap();
                             xtype = aux_info.0.clone();
                             xtype.reverse();
                             possible_bus_info = Some(&aux_info.1);
                         }
-                    } else{
+                    } else {
                         // case io component
                         let (signals, buses) = state.external_signals.get(name).unwrap();
-                        if signals.contains_key(signal){
+                        if signals.contains_key(signal) {
                             // case io signal
                             xtype = signals.get(signal).unwrap().clone();
                             xtype.reverse();
                             possible_bus_info = None;
-                        } else{
+                        } else {
                             // case io bus
-                            let aux_info =  buses.get(signal).unwrap();
+                            let aux_info = buses.get(signal).unwrap();
                             xtype = aux_info.0.clone();
                             xtype.reverse();
                             possible_bus_info = Some(&aux_info.1);
@@ -683,7 +680,7 @@ fn cast_type_variable(expr: &Expression, state: &State, environment: &E) -> VCT 
             }
         }
         xtype.reverse();
-        if possible_bus_info.is_some(){
+        if possible_bus_info.is_some() {
             xtype.push(possible_bus_info.unwrap().size);
         }
         xtype
@@ -702,15 +699,14 @@ fn cast_dimension(ae_index: &Expression) -> Option<usize> {
     }
 }
 
-
 fn cast_type_array(expr: &Expression, state: &State, environment: &E) -> VCT {
     use Expression::{ArrayInLine, UniformArray};
     if let ArrayInLine { values, .. } = expr {
         let mut result = vec![values.len()];
         let mut max_size = cast_type_expression(&values[0], state, environment);
-        for i in 1..values.len(){
+        for i in 1..values.len() {
             let new_size = cast_type_expression(&values[i], state, environment);
-            for d in 0..new_size.len(){
+            for d in 0..new_size.len() {
                 max_size[d] = std::cmp::max(max_size[d], new_size[d]);
             }
         }

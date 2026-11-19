@@ -244,7 +244,9 @@ fn has_constant_value(expr: &Expression, environment: &Constants) -> bool {
         ArrayInLine { .. } => array_inline(),
         UniformArray { .. } => uniform_array(),
         BusCall { args, .. } => call(args, environment),
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }
 
@@ -383,10 +385,7 @@ fn expand_substitution(
     }
 }
 
-fn expand_underscore_substitution(
-    rhe: &mut Expression,
-    environment: &ExpressionHolder,
-) {
+fn expand_underscore_substitution(rhe: &mut Expression, environment: &ExpressionHolder) {
     *rhe = expand_expression(rhe.clone(), environment);
 }
 
@@ -424,7 +423,9 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
     match expr {
         Number(meta, value) => expand_number(meta, value),
         ArrayInLine { meta, values } => expand_array(meta, values, environment),
-        UniformArray { meta, value, dimension} => expand_uniform_array(meta, *value, *dimension, environment),
+        UniformArray { meta, value, dimension } => {
+            expand_uniform_array(meta, *value, *dimension, environment)
+        }
         Call { id, meta, args } => expand_call(id, meta, args, environment),
         InfixOp { meta, lhe, rhe, infix_op } => {
             expand_infix(meta, *lhe, infix_op, *rhe, environment)
@@ -435,12 +436,19 @@ fn expand_expression(expr: Expression, environment: &ExpressionHolder) -> Expres
             expand_inline_switch_op(meta, *cond, *if_true, *if_false, environment)
         }
         Variable { meta, name, access } => expand_variable(meta, name, access, environment),
-        BusCall { meta, id, args } => expand_bus_call(meta,id,args,environment),
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        BusCall { meta, id, args } => expand_bus_call(meta, id, args, environment),
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }
 
-fn expand_bus_call(meta: Meta, id: String, old_args: Vec<Expression>, environment: &ExpressionHolder,) -> Expression {
+fn expand_bus_call(
+    meta: Meta,
+    id: String,
+    old_args: Vec<Expression>,
+    environment: &ExpressionHolder,
+) -> Expression {
     let mut args = Vec::new();
     for expr in old_args {
         let new_expression = expand_expression(expr, environment);
@@ -513,11 +521,7 @@ fn expand_prefix(
     build_prefix(meta, prefix_op, rhe)
 }
 
-fn expand_parallel(
-    meta: Meta,
-    old_rhe: Expression,
-    environment: &ExpressionHolder,
-) -> Expression {
+fn expand_parallel(meta: Meta, old_rhe: Expression, environment: &ExpressionHolder) -> Expression {
     let rhe = expand_expression(old_rhe, environment);
     build_parallel_op(meta, rhe)
 }

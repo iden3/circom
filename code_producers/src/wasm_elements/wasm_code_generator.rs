@@ -193,26 +193,22 @@ pub fn add_return() -> WasmInstruction {
     "return".to_string()
 }
 
-pub fn create_if_selection(
-    values: &Vec<(usize, usize)>,
-    local: &str
-) -> Vec<WasmInstruction> {
+pub fn create_if_selection(values: &Vec<(usize, usize)>, local: &str) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
     for i in 0..values.len() {
-	instructions.push(get_local(local));
-	instructions.push(set_constant(&values[i].0.to_string())); //Add id in list	
-	instructions.push(eq32());
-	instructions.push(format!("{} (result i32)", add_if()));
-	instructions.push(set_constant(&values[i].1.to_string())); //Add corresponding size in list
-	instructions.push(add_else());
+        instructions.push(get_local(local));
+        instructions.push(set_constant(&values[i].0.to_string())); //Add id in list
+        instructions.push(eq32());
+        instructions.push(format!("{} (result i32)", add_if()));
+        instructions.push(set_constant(&values[i].1.to_string())); //Add corresponding size in list
+        instructions.push(add_else());
     }
     instructions.push(set_constant("0")); //default o complete the last else
     for _i in 0..values.len() {
-	instructions.push(add_end());
+        instructions.push(add_end());
     }
     instructions
 }
-
 
 // ----- exception codes and other constants -----------------
 
@@ -257,12 +253,15 @@ pub fn get_initial_size_of_memory(producer: &WASMProducer) -> usize {
 
 //------------------- generate all kinds of Data ------------------
 
-pub fn generate_hash_map(signal_name_list: &Vec<InputInfo>, size: usize) -> Vec<(u64, usize, usize)> {
+pub fn generate_hash_map(
+    signal_name_list: &Vec<InputInfo>,
+    size: usize,
+) -> Vec<(u64, usize, usize)> {
     assert!(signal_name_list.len() <= size);
     let mut hash_map = vec![(0, 0, 0); size];
     for i in 0..signal_name_list.len() {
         let h = hasher(&signal_name_list[i].name);
-        let mut p = h as usize %  size;
+        let mut p = h as usize % size;
         while hash_map[p].1 != 0 {
             p = (p + 1) % size;
         }
@@ -321,14 +320,16 @@ pub fn generate_data_io_signals_to_info(
                     assert_eq!(s.code, n);
                     io_signals.push_str(&&wasm_hexa(4, &BigInt::from(pos)));
                     //do not store code and the first one of lengths (offset + size + length-1(if >0)
-                    if s.lengths.len() == 0 { //only offset
+                    if s.lengths.len() == 0 {
+                        //only offset
                         pos += 4;
-                    } else { // offest + length -1 + size
+                    } else {
+                        // offest + length -1 + size
                         pos += s.lengths.len() * 4 + 4;
                     }
-		    if let Some(_) = s.bus_id {
-			pos += 4;
-		    }
+                    if let Some(_) = s.bus_id {
+                        pos += 4;
+                    }
                     n += 1;
                 }
             }
@@ -346,8 +347,8 @@ pub fn generate_data_io_signals_info(
     for c in 0..producer.get_number_of_template_instances() {
         match io_map.get(&c) {
             Some(value) => {
- 	       //println!("Template Instance: {}", c);
-               for s in value {
+                //println!("Template Instance: {}", c);
+                for s in value {
                     // add the actual offset in memory, taking into account the size of field nums
                     //println!("Offset: {}", s.offset);
                     io_signals_info.push_str(&&wasm_hexa(
@@ -355,8 +356,9 @@ pub fn generate_data_io_signals_info(
                         &BigInt::from(s.offset * producer.get_size_32_bits_in_memory() * 4),
                     ));
                     //println!("Length: {}", s.lengths.len());
-		    if s.lengths.len() > 0 { // if it is an array
-                        // add the dimensions except the first one		    
+                    if s.lengths.len() > 0 {
+                        // if it is an array
+                        // add the dimensions except the first one
                         for i in 1..s.lengths.len() {
                             //println!("Index: {}, {}", i, s.lengths[i]);
                             io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(s.lengths[i])));
@@ -368,12 +370,12 @@ pub fn generate_data_io_signals_info(
                             &BigInt::from(s.size),
                             //&BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
                         ));
-		    }
-		    // add the busid if it is a  bus
-		    if let Some(value) = s.bus_id {
-                            //println!("Bus_id: {}", value);
-			    io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
-		    }
+                    }
+                    // add the busid if it is a  bus
+                    if let Some(value) = s.bus_id {
+                        //println!("Bus_id: {}", value);
+                        io_signals_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
+                    }
                 }
             }
             None => (),
@@ -381,7 +383,6 @@ pub fn generate_data_io_signals_info(
     }
     io_signals_info
 }
-
 
 pub fn generate_data_bus_instance_to_field(
     producer: &WASMProducer,
@@ -396,10 +397,7 @@ pub fn generate_data_bus_instance_to_field(
     field_map_data
 }
 
-pub fn generate_data_field_to_info(
-    producer: &WASMProducer,
-    field_map: &FieldMap,
-) -> String {
+pub fn generate_data_field_to_info(producer: &WASMProducer, field_map: &FieldMap) -> String {
     let mut bus_fields = "".to_string();
     let mut pos = producer.get_field_info_start();
     for c in 0..producer.get_number_of_bus_instances() {
@@ -412,20 +410,17 @@ pub fn generate_data_field_to_info(
                 pos += s.dimensions.len() * 4 + 4;
             }
             if let Some(_) = s.bus_id {
-               pos += 4;
-	   }
+                pos += 4;
+            }
         }
     }
     bus_fields
 }
 
-pub fn generate_data_field_info(
-    producer: &WASMProducer,
-    field_map: &FieldMap,
-) -> String {
+pub fn generate_data_field_info(producer: &WASMProducer, field_map: &FieldMap) -> String {
     let mut field_info = "".to_string();
     for c in 0..producer.get_number_of_bus_instances() {
- 	//println!("Bus Instance: {}", c);
+        //println!("Bus Instance: {}", c);
         for s in &field_map[c] {
             // add the actual offset in memory, taking into account the size of field nums
             //println!("Offset: {}", s.offset);
@@ -434,25 +429,26 @@ pub fn generate_data_field_info(
                 &BigInt::from(s.offset * producer.get_size_32_bits_in_memory() * 4),
             ));
             //println!("Length: {}", s.dimensions.len());
-	    if s.dimensions.len() > 0 { // if it is an array
-		// add all dimensions but first one	    
-		for i in 1..s.dimensions.len() {
+            if s.dimensions.len() > 0 {
+                // if it is an array
+                // add all dimensions but first one
+                for i in 1..s.dimensions.len() {
                     //println!("Index: {}, {}", i, s.dimensions[i]);
                     field_info.push_str(&&wasm_hexa(4, &BigInt::from(s.dimensions[i])));
-		}
-		// add the actual size in memory, if array
+                }
+                // add the actual size in memory, if array
                 //println!("Size: {}", s.size);
-		field_info.push_str(&&wasm_hexa(
+                field_info.push_str(&&wasm_hexa(
                     4,
                     &BigInt::from(s.size),
                     //&BigInt::from(s.size * producer.get_size_32_bits_in_memory() * 4),
-		));
-	    }
+                ));
+            }
             // add the busid if it contains buses
-	    if let Some(value) = s.bus_id {
+            if let Some(value) = s.bus_id {
                 //println!("Bus_id: {}", value);
-		field_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
-	    }
+                field_info.push_str(&&wasm_hexa(4, &BigInt::from(value)));
+            }
         }
     }
     field_info
@@ -688,14 +684,17 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_raw_prime_start(),
-        wasm_hexa(producer.get_size_32_bit()*4, &p)
+        wasm_hexa(producer.get_size_32_bit() * 4, &p)
     ));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
         producer.get_shared_rw_memory_start() - 8,
         "\\00\\00\\00\\00\\00\\00\\00\\80"
     ));
-    let map = generate_hash_map(&producer.get_main_input_list(),producer.get_input_hash_map_entry_size());
+    let map = generate_hash_map(
+        &producer.get_main_input_list(),
+        producer.get_input_hash_map_entry_size(),
+    );
     wdata.push(format!(";; hash_map"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
@@ -710,7 +709,12 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
         s
     ));
     wdata.push(format!(";; signal memory"));
-    wdata.push(format!("(data (i32.const {}) \"{}{}\")",producer.get_signal_memory_start(),"\\00\\00\\00\\00\\00\\00\\00\\80",wasm_hexa(producer.get_size_32_bit()*4, &BigInt::from(1)))); //setting 'one' as long normal 1
+    wdata.push(format!(
+        "(data (i32.const {}) \"{}{}\")",
+        producer.get_signal_memory_start(),
+        "\\00\\00\\00\\00\\00\\00\\00\\80",
+        wasm_hexa(producer.get_size_32_bit() * 4, &BigInt::from(1))
+    )); //setting 'one' as long normal 1
     wdata.push(format!(";; template_instance_to_io_signal"));
     wdata.push(format!(
         "(data (i32.const {}) \"{}\")",
@@ -761,7 +765,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
             wdata.push(format!(
                 "(data (i32.const {}) \"{}\\00\")",
                 m + i * producer.get_size_of_message_in_bytes(),
-                &ml[i][..producer.get_size_of_message_in_bytes()-1]
+                &ml[i][..producer.get_size_of_message_in_bytes() - 1]
             ));
         }
     }
@@ -778,7 +782,7 @@ pub fn generate_data_list(producer: &WASMProducer) -> Vec<WasmInstruction> {
             wdata.push(format!(
                 "(data (i32.const {}) \"{}\\00\")",
                 s + i * producer.get_size_of_message_in_bytes(),
-                &st[i][..producer.get_size_of_message_in_bytes()-1]
+                &st[i][..producer.get_size_of_message_in_bytes() - 1]
             ));
         }
     }
@@ -987,17 +991,17 @@ pub fn init_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     //    instructions.push(store32(None));
     instructions.push(set_constant(&next_to_one.to_string()));
     let funcname = format!("${}_create", producer.get_main_header());
-    instructions.push(call(&funcname));    
+    instructions.push(call(&funcname));
     instructions.push(drop());
     if producer.get_number_of_main_inputs() == 0 {
-    instructions.push(set_constant(&producer.get_component_tree_start().to_string()));
-    let funcname = format!("${}_run", producer.get_main_header());
-    instructions.push(call(&funcname));
-    instructions.push(tee_local(producer.get_merror_tag()));
-    instructions.push(add_if()); 
-    instructions.push(get_local("$merror"));    
-    instructions.push(call("$exceptionHandler"));
-    instructions.push(add_end());
+        instructions.push(set_constant(&producer.get_component_tree_start().to_string()));
+        let funcname = format!("${}_run", producer.get_main_header());
+        instructions.push(call(&funcname));
+        instructions.push(tee_local(producer.get_merror_tag()));
+        instructions.push(add_if());
+        instructions.push(get_local("$merror"));
+        instructions.push(call("$exceptionHandler"));
+        instructions.push(add_end());
     }
     instructions.push(")".to_string());
     instructions
@@ -1006,7 +1010,7 @@ pub fn init_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
 pub fn get_input_signal_map_position_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
     let header = "(func $getInputSignalMapPosition (type $_t_i64ri32)".to_string();
-    let sizeones = producer.get_input_hash_map_entry_size()-1;
+    let sizeones = producer.get_input_hash_map_entry_size() - 1;
     instructions.push(header);
     instructions.push(" (param $hn i64)".to_string());
     instructions.push("(result i32)".to_string());
@@ -1125,7 +1129,7 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(add_if()); // if 3
     instructions.push(set_constant(&exception_code_input_array_access_exeeds_size().to_string()));
     instructions.push(call("$exceptionHandler"));
-    instructions.push(add_else()); // else if 3    
+    instructions.push(add_else()); // else if 3
     instructions.push(get_local("$mp"));
     instructions.push(load32(Some("8"))); // load the first component (signal position)
     instructions.push(get_local("$pos"));
@@ -1194,7 +1198,7 @@ pub fn set_input_signal_generator(producer: &WASMProducer) -> Vec<WasmInstructio
     instructions.push(call(&funcname));
     instructions.push(tee_local(producer.get_merror_tag()));
     instructions.push(add_if()); // if 7
-    instructions.push(get_local("$merror"));    
+    instructions.push(get_local("$merror"));
     instructions.push(call("$exceptionHandler"));
     instructions.push(add_end()); // end if 7
     instructions.push(add_end()); // end if 6
@@ -1278,11 +1282,11 @@ pub fn copy_32_in_shared_rw_memory_generator(producer: &WASMProducer) -> Vec<Was
     instructions.push(set_constant(&producer.get_shared_rw_memory_start().to_string()));
     instructions.push(set_constant("0"));
     instructions.push(store32(Some("4")));
-    for i in 1..producer.get_size_32_bit()/2 {
-	let pos = 8*i;
-	instructions.push(set_constant(&producer.get_shared_rw_memory_start().to_string()));
-	instructions.push(set_constant_64("0"));
-	instructions.push(store64(Some(&pos.to_string())));
+    for i in 1..producer.get_size_32_bit() / 2 {
+        let pos = 8 * i;
+        instructions.push(set_constant(&producer.get_shared_rw_memory_start().to_string()));
+        instructions.push(set_constant_64("0"));
+        instructions.push(store64(Some(&pos.to_string())));
     }
     instructions.push(")".to_string());
     instructions
@@ -1315,7 +1319,7 @@ pub fn get_witness_generator(producer: &WASMProducer) -> Vec<WasmInstruction> {
     instructions.push(shl32());
     instructions.push(add32()); // address of the witness in the witness list
     instructions.push(load32(None)); // number of the signal in the signal Memory
-    instructions.push(set_constant(&format!("{}",producer.get_size_32_bit()*4+8)));//40
+    instructions.push(set_constant(&format!("{}", producer.get_size_32_bit() * 4 + 8))); //40
     instructions.push(mul32());
     instructions.push(set_constant(&producer.get_signal_memory_start().to_string()));
     instructions.push(add32()); // address of the signal in the signal Memory
@@ -1714,7 +1718,7 @@ fn get_file_instructions(name: &str) -> Vec<WasmInstruction> {
 
 pub fn fr_types(prime: &String) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
-    let file = match prime.as_ref(){
+    let file = match prime.as_ref() {
         "bn128" => include_str!("bn128/fr-types.wat"),
         "bls12381" => include_str!("bls12381/fr-types.wat"),
         "goldilocks" => include_str!("goldilocks/fr-types.wat"),
@@ -1724,7 +1728,7 @@ pub fn fr_types(prime: &String) -> Vec<WasmInstruction> {
         "secq256r1" => include_str!("secq256r1/fr-types.wat"),
         "bls12377" => include_str!("bls12377/fr-types.wat"),
         _ => unreachable!(),
-    };    
+    };
     for line in file.lines() {
         instructions.push(line.to_string());
     }
@@ -1733,7 +1737,7 @@ pub fn fr_types(prime: &String) -> Vec<WasmInstruction> {
 
 pub fn fr_data(prime: &String) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
-    let file = match prime.as_ref(){
+    let file = match prime.as_ref() {
         "bn128" => include_str!("bn128/fr-data.wat"),
         "bls12381" => include_str!("bls12381/fr-data.wat"),
         "goldilocks" => include_str!("goldilocks/fr-data.wat"),
@@ -1743,7 +1747,7 @@ pub fn fr_data(prime: &String) -> Vec<WasmInstruction> {
         "secq256r1" => include_str!("secq256r1/fr-data.wat"),
         "bls12377" => include_str!("bls12377/fr-data.wat"),
         _ => unreachable!(),
-    };    
+    };
     for line in file.lines() {
         instructions.push(line.to_string());
     }
@@ -1751,7 +1755,7 @@ pub fn fr_data(prime: &String) -> Vec<WasmInstruction> {
 }
 pub fn fr_code(prime: &String) -> Vec<WasmInstruction> {
     let mut instructions = vec![];
-    let file = match prime.as_ref(){
+    let file = match prime.as_ref() {
         "bn128" => include_str!("bn128/fr-code.wat"),
         "bls12381" => include_str!("bls12381/fr-code.wat"),
         "goldilocks" => include_str!("goldilocks/fr-code.wat"),
@@ -1761,7 +1765,7 @@ pub fn fr_code(prime: &String) -> Vec<WasmInstruction> {
         "secq256r1" => include_str!("secq256r1/fr-code.wat"),
         "bls12377" => include_str!("bls12377/fr-code.wat"),
         _ => unreachable!(),
-    };    
+    };
     for line in file.lines() {
         instructions.push(line.to_string());
     }
@@ -1789,7 +1793,7 @@ pub fn generate_utils_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
 
 pub fn generate_generate_witness_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut file_path  = js_folder.clone();
+    let mut file_path = js_folder.clone();
     file_path.push("generate_witness");
     file_path.set_extension("js");
     let file_name = file_path.to_str().unwrap();
@@ -1806,7 +1810,7 @@ pub fn generate_generate_witness_js_file(js_folder: &PathBuf) -> std::io::Result
 
 pub fn generate_witness_calculator_js_file(js_folder: &PathBuf) -> std::io::Result<()> {
     use std::io::BufWriter;
-    let mut file_path  = js_folder.clone();
+    let mut file_path = js_folder.clone();
     file_path.push("witness_calculator");
     file_path.set_extension("js");
     let file_name = file_path.to_str().unwrap();
@@ -1951,7 +1955,7 @@ mod tests {
 
         code_aux = build_log_message_generator(&producer);
         code.append(&mut code_aux);
-	
+
         //code_aux = main_sample_generator(&producer);
         //code.append(&mut code_aux);
 

@@ -94,14 +94,11 @@ fn program_level_analyses(program_archive: &ProgramArchive, reports: &mut Report
 fn template_level_analyses(program_archive: &ProgramArchive, reports: &mut ReportCollection) {
     use program_structure::error_code::ReportCode;
     use program_structure::error_definition::Report;
-    
+
     for template_data in program_archive.get_templates().values() {
         // check that extern_c only if custom gate
-        if template_data.is_extern_c() && !template_data.is_custom_gate(){
-            let mut report = Report::error(
-                format!(""),
-                ReportCode::BusWrongNumberOfArguments,
-            );
+        if template_data.is_extern_c() && !template_data.is_custom_gate() {
+            let mut report = Report::error(format!(""), ReportCode::BusWrongNumberOfArguments);
             report.add_primary(
                 template_data.get_param_location(),
                 template_data.get_file_id(),
@@ -120,23 +117,23 @@ fn template_level_analyses(program_archive: &ProgramArchive, reports: &mut Repor
     }
 }
 
-fn template_level_decorators(
-    program_archive: &mut ProgramArchive,
-    reports: &mut ReportCollection,
-) {
+fn template_level_decorators(program_archive: &mut ProgramArchive, reports: &mut ReportCollection) {
     component_type_inference::inference(program_archive);
     let program_archive2 = program_archive.clone();
     for template_data in program_archive.get_mut_templates().values_mut() {
-        reports.append(&mut type_reduction::reduce_template(template_data,&program_archive2));
+        reports.append(&mut type_reduction::reduce_template(template_data, &program_archive2));
     }
 }
 
 fn function_level_analyses(program_archive: &ProgramArchive, reports: &mut ReportCollection) {
     let function_names = program_archive.get_function_names();
     for function_data in program_archive.get_functions().values() {
-        let free_of_template_elements_result = free_of_template_elements(function_data, function_names);
+        let free_of_template_elements_result =
+            free_of_template_elements(function_data, function_names);
         let return_check_result = all_paths_with_return_check(function_data);
-        if let Result::Err(mut functions_free_of_template_elements_reports) = free_of_template_elements_result {
+        if let Result::Err(mut functions_free_of_template_elements_reports) =
+            free_of_template_elements_result
+        {
             reports.append(&mut functions_free_of_template_elements_reports);
         }
         if let Result::Err(functions_all_paths_with_return_statement_report) = return_check_result {
@@ -150,7 +147,7 @@ fn function_level_decorators(program_archive: &mut ProgramArchive, reports: &mut
     for function_data in program_archive.get_mut_functions().values_mut() {
         let mut constant_handler_reports =
             constants_handler::handle_function_constants(function_data);
-        reports.append(&mut type_reduction::reduce_function(function_data,&program_archive2));
+        reports.append(&mut type_reduction::reduce_function(function_data, &program_archive2));
         reports.append(&mut constant_handler_reports);
     }
 }
@@ -158,8 +155,11 @@ fn function_level_decorators(program_archive: &mut ProgramArchive, reports: &mut
 fn bus_level_analyses(program_archive: &ProgramArchive, reports: &mut ReportCollection) {
     let function_names = program_archive.get_function_names();
     for bus_data in program_archive.get_buses().values() {
-        let free_of_invalid_statements_result = free_of_invalid_statements(bus_data, function_names);
-        if let Result::Err(mut free_of_invalid_statements_reports) = free_of_invalid_statements_result {
+        let free_of_invalid_statements_result =
+            free_of_invalid_statements(bus_data, function_names);
+        if let Result::Err(mut free_of_invalid_statements_reports) =
+            free_of_invalid_statements_result
+        {
             reports.append(&mut free_of_invalid_statements_reports);
         }
     }
@@ -168,9 +168,8 @@ fn bus_level_analyses(program_archive: &ProgramArchive, reports: &mut ReportColl
 fn bus_level_decorators(program_archive: &mut ProgramArchive, reports: &mut ReportCollection) {
     let program_archive2 = program_archive.clone();
     for bus_data in program_archive.get_mut_buses().values_mut() {
-        let mut constant_handler_reports =
-            constants_handler::handle_bus_constants(bus_data);
-        reports.append(&mut type_reduction::reduce_bus(bus_data,&program_archive2));
+        let mut constant_handler_reports = constants_handler::handle_bus_constants(bus_data);
+        reports.append(&mut type_reduction::reduce_bus(bus_data, &program_archive2));
         reports.append(&mut constant_handler_reports);
     }
 }
@@ -182,20 +181,22 @@ fn semantic_analyses(
 ) {
     for bus_name in program_archive.get_bus_names().iter() {
         if let Result::Err(mut unknown_known_report) =
-            unknown_known_analysis(&bus_name, program_archive) {
-                errors.append(&mut unknown_known_report);
-            }
+            unknown_known_analysis(&bus_name, program_archive)
+        {
+            errors.append(&mut unknown_known_report);
+        }
     }
     for template_name in program_archive.get_template_names().iter() {
         if let Result::Err(mut unknown_known_report) =
-            unknown_known_analysis(template_name, program_archive) {
-                errors.append(&mut unknown_known_report);
-            }
+            unknown_known_analysis(template_name, program_archive)
+        {
+            errors.append(&mut unknown_known_report);
+        }
         if program_archive.get_template_data(template_name).is_custom_gate() {
             let body = program_archive.get_template_data(template_name).get_body();
             match custom_gate_analysis(template_name, body) {
                 Result::Ok(mut custom_gate_report) => warnings.append(&mut custom_gate_report),
-                Result::Err(mut custom_gate_report) => errors.append(&mut custom_gate_report)
+                Result::Err(mut custom_gate_report) => errors.append(&mut custom_gate_report),
             }
         }
     }

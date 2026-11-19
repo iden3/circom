@@ -6,7 +6,6 @@ mod type_analysis_user;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-
 use ansi_term::Colour;
 use input_user::Input;
 fn main() {
@@ -29,7 +28,7 @@ fn start() -> Result<(), ()> {
 
     let config = ExecutionConfig {
         no_rounds: user_input.no_rounds(),
-        flag_p: user_input.parallel_simplification_flag(),        
+        flag_p: user_input.parallel_simplification_flag(),
         flag_s: user_input.reduced_simplification_flag(),
         flag_f: user_input.unsimplified_flag(),
         flag_old_heuristics: user_input.flag_old_heuristics(),
@@ -46,7 +45,7 @@ fn start() -> Result<(), ()> {
         r1cs: user_input.r1cs_file().to_string(),
         json_constraints: user_input.json_constraints_file().to_string(),
         json_substitutions: user_input.json_substitutions_file().to_string(),
-        prime: user_input.prime(),        
+        prime: user_input.prime(),
     };
     let circuit = execution_user::execute_project(program_archive, config)?;
     let compilation_config = CompilerConfig {
@@ -55,10 +54,10 @@ fn start() -> Result<(), ()> {
         c_flag: user_input.c_flag(),
         wasm_flag: user_input.wasm_flag(),
         wat_flag: user_input.wat_flag(),
-	    js_folder: user_input.js_folder().to_string(),
-	    wasm_name: user_input.wasm_name().to_string(),
-	    c_folder: user_input.c_folder().to_string(),
-	    c_run_name: user_input.c_run_name().to_string(),
+        js_folder: user_input.js_folder().to_string(),
+        wasm_name: user_input.wasm_name().to_string(),
+        c_folder: user_input.c_folder().to_string(),
+        c_run_name: user_input.c_run_name().to_string(),
         c_file: user_input.c_file().to_string(),
         dat_file: user_input.dat_file().to_string(),
         wat_file: user_input.wat_file().to_string(),
@@ -66,7 +65,7 @@ fn start() -> Result<(), ()> {
         produce_input_log: user_input.main_inputs_flag(),
         sanity_check_style: user_input.sanity_check_style(),
         no_asm_flag: user_input.no_asm_flag(),
-        prime: user_input.prime(),        
+        prime: user_input.prime(),
     };
     compilation_user::compile(compilation_config)?;
     Result::Ok(())
