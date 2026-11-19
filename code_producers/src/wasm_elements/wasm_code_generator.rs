@@ -252,6 +252,9 @@ pub fn exception_code_division_zero() -> usize {
     8
 }
 
+pub fn exception_code_toInt_fail() -> usize {
+    9
+}
 
 //------------------ compute initial size of memory ---------------
 

@@ -35,7 +35,9 @@ module.exports = async function builder(code, options) {
 		} else if (code == 7) {
                     err = "Out of bounds array access.\n";
 		} else if (code == 8) {
-                    err =  "Division by zero.\n";
+                    err =  "Division by zero error.\n";
+		} else if (code == 9) {
+                    err =  "Failed to convert field number to int32 in an array access.\n";
 		} else {
 		    err = "Unknown error.\n";
                 }

@@ -673,6 +673,10 @@ pub fn build_circuit(vcp: VCP, flag: CompilationFlags, version: &str) -> Circuit
         circuit.wasm_producer.field_tracking.push(constant.clone());
         circuit.c_producer.field_tracking.push(constant);
     }
+    // we add the min and max int32 to wasm producer
+    circuit.wasm_producer.field_tracking.push("-2147483648".to_string());
+    circuit.wasm_producer.field_tracking.push("2147483647".to_string());
+    //end-up adding -
     for fun in &mut circuit.functions {
         set_arena_size_in_calls(&mut fun.body, &function_to_arena_size);
     }

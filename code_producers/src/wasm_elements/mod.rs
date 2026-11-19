@@ -47,6 +47,7 @@ pub struct WASMProducer {
     call_lvar_tag: String,
     expaux_tag: String,
     temp_tag: String,
+    temp1_tag: String,
     aux_0_tag: String,
     aux_1_tag: String,
     aux_2_tag: String,
@@ -130,6 +131,7 @@ impl Default for WASMProducer {
             call_lvar_tag: "$calllvar".to_string(),
             expaux_tag: "$expaux".to_string(),
             temp_tag: "$temp".to_string(),
+            temp1_tag: "$temp1".to_string(),
             aux_0_tag: "$aux0".to_string(),
             aux_1_tag: "$aux1".to_string(),
             aux_2_tag: "$aux2".to_string(),
@@ -409,10 +411,20 @@ impl WASMProducer {
     pub fn get_constant_numbers_start(&self) -> usize {
         self.get_string_list_start() + self.size_of_message_in_bytes * self.string_table.len()
     }
-    
+
+    pub fn get_min_int32_position(&self) -> usize {
+        self.get_constant_numbers_start() + (self.size_32_bit + 2) * 4 * (self.field_tracking.len()-2)
+    }
+	
+    pub fn get_max_int32_position(&self) -> usize {
+        self.get_constant_numbers_start() + (self.size_32_bit + 2) * 4 * (self.field_tracking.len()-1)
+    }
+	
     pub fn get_var_stack_memory_start(&self) -> usize {
         self.get_constant_numbers_start() + (self.size_32_bit + 2) * 4 * self.field_tracking.len()
     }
+    
+    
     pub fn get_size_32_bits_in_memory(&self) -> usize {
         self.size_32_bit + 2
     }
@@ -457,6 +469,9 @@ impl WASMProducer {
     }
     pub fn get_temp_tag(&self) -> &str {
         &self.temp_tag
+    }
+    pub fn get_temp1_tag(&self) -> &str {
+        &self.temp1_tag
     }
     pub fn get_aux_0_tag(&self) -> &str {
         &self.aux_0_tag

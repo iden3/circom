@@ -227,6 +227,7 @@ pub fn build_compute_address(bucket: &mut ComputeBucket, mut fresh: usize) -> (u
             let (depth, new_fresh) = build_instruction_compute(i, fresh);
             max_stack = std::cmp::max(max_stack, depth);
             fresh = new_fresh;
+	    bucket.op_aux_no = fresh; // just in case there is i32 check
         }
     } else{
         unreachable!() // just to check that fr do not enter here

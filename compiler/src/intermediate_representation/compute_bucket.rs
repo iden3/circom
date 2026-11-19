@@ -200,6 +200,46 @@ impl WriteWasm for ComputeBucket {
                 instructions.push(mul32());
             }
             OperatorType::ToAddress => {
+	        if producer.sanity_check_style >= 3{
+            	    if producer.needs_comments() {
+                        instructions.push(";; check conversion to int32".to_string());
+	            }
+		    //here we use $temp to keep the address in memory of the Fr to convert to 32 bit
+		    instructions.push(set_local(producer.get_temp_tag()));
+		    //address of the result for the Fr operations
+                    instructions.push(get_local(producer.get_expaux_tag()));
+                    let size = self.op_aux_no * producer.get_size_32_bits_in_memory() * 4;
+                    instructions.push(set_constant(&size.to_string()));
+                    instructions.push(add32());
+		    instructions.push(tee_local(producer.get_temp1_tag()));
+		    instructions.push(get_local(producer.get_temp_tag()));
+		    instructions.push(set_constant(&producer.get_min_int32_position().to_string()));
+		    instructions.push(call("$Fr_geq"));
+		    instructions.push(get_local(producer.get_temp1_tag()));
+		    instructions.push(call("$Fr_isTrue"));
+            	    instructions.push(eqz32());
+            	    instructions.push(add_if());
+                    instructions.push(set_constant(&self.message_id.to_string()));
+                    instructions.push(set_constant(&self.line.to_string()));
+                    instructions.push(call("$buildBufferMessage"));
+                    instructions.push(call("$printErrorMessage"));
+		    instructions.push(set_constant(&exception_code_toInt_fail().to_string()));
+            	    instructions.push(add_return());
+            	    instructions.push(add_end());
+		    //address of the result for the Fr operations
+		    instructions.push(get_local(producer.get_temp1_tag()));
+		    instructions.push(get_local(producer.get_temp_tag()));
+		    instructions.push(set_constant(&producer.get_max_int32_position().to_string()));
+		    instructions.push(call("$Fr_leq"));
+		    instructions.push(get_local(producer.get_temp1_tag()));
+		    instructions.push(call("$Fr_isTrue"));
+            	    instructions.push(eqz32());
+            	    instructions.push(add_if());
+		    instructions.push(set_constant(&exception_code_toInt_fail().to_string()));
+            	    instructions.push(add_return());
+            	    instructions.push(add_end());
+		    instructions.push(get_local(producer.get_temp_tag()));
+		}
                 instructions.push(call("$Fr_toInt"));
             }
             _ => {
