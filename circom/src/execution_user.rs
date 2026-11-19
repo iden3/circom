@@ -4,7 +4,6 @@ use constraint_writers::debug_writer::DebugWriter;
 use constraint_writers::ConstraintExporter;
 use program_structure::program_archive::ProgramArchive;
 
-
 pub struct ExecutionConfig {
     pub r1cs: String,
     pub sym: String,
@@ -17,7 +16,7 @@ pub struct ExecutionConfig {
     pub apply_eager_plonk: bool,
     pub apply_sat_plonk: bool,
     pub plonk_simplification: bool,
-    pub flag_old_heuristics:bool,
+    pub flag_old_heuristics: bool,
     pub flag_verbose: bool,
     pub inspect_constraints_flag: bool,
     pub sym_flag: bool,
@@ -46,7 +45,7 @@ pub fn execute_project(
         apply_eager_plonk: config.apply_eager_plonk,
         apply_sat_plonk: config.apply_sat_plonk,
         plonk_simplification: config.plonk_simplification,
-        prime : config.prime,
+        prime: config.prime,
     };
     let custom_gates = program_archive.custom_gates;
     let (exporter, vcp) = build_circuit(program_archive, build_config)?;
@@ -62,7 +61,11 @@ pub fn execute_project(
     Result::Ok(vcp)
 }
 
-fn generate_output_r1cs(file: &str, exporter: &dyn ConstraintExporter, custom_gates: bool) -> Result<(), ()> {
+fn generate_output_r1cs(
+    file: &str,
+    exporter: &dyn ConstraintExporter,
+    custom_gates: bool,
+) -> Result<(), ()> {
     if let Result::Ok(()) = exporter.r1cs(file, custom_gates) {
         println!("{} {}", Colour::Green.paint("Written successfully:"), file);
         Result::Ok(())

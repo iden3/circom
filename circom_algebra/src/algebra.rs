@@ -161,7 +161,8 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
             .or_insert_with(|| BigInt::from(0));
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(initial));
     }
-    fn valid_hashmap_for_expression(h: &HashMap<C, BigInt>) -> bool { // Comprueba que el hashmap contiene la clave de la constante, que siempre tiene que estar aunque su valor sea 0
+    fn valid_hashmap_for_expression(h: &HashMap<C, BigInt>) -> bool {
+        // Comprueba que el hashmap contiene la clave de la constante, que siempre tiene que estar aunque su valor sea 0
         let cc = ArithmeticExpression::constant_coefficient();
         h.contains_key(&cc)
     }
@@ -234,12 +235,12 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
         field: &BigInt,
     ) -> Result<(), ArithmeticError> {
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
-        let inverse_constant = modular_arithmetic::div(
-            &BigInt::from(1),
-            constant,
-            &field
-        )?;
-        ArithmeticExpression::multiply_coefficients_by_constant(&inverse_constant, coefficients, field);
+        let inverse_constant = modular_arithmetic::div(&BigInt::from(1), constant, &field)?;
+        ArithmeticExpression::multiply_coefficients_by_constant(
+            &inverse_constant,
+            coefficients,
+            field,
+        );
         debug_assert!(ArithmeticExpression::valid_hashmap_for_expression(coefficients));
         Result::Ok(())
     }
@@ -534,12 +535,12 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
                 let value = modular_arithmetic::pow(value_0, value_1, field);
                 Number { value }
             }
-            (Signal { symbol }, Number { value }) if *value == BigInt::from(2) => {      
+            (Signal { symbol }, Number { value }) if *value == BigInt::from(2) => {
                 let left = Signal { symbol: symbol.clone() };
                 let right = Signal { symbol: symbol.clone() };
                 ArithmeticExpression::mul(&left, &right, field)
             }
-            (Linear { coefficients }, Number {value}) if *value == BigInt::from(2) => {
+            (Linear { coefficients }, Number { value }) if *value == BigInt::from(2) => {
                 let left = Linear { coefficients: coefficients.clone() };
                 let right = Linear { coefficients: coefficients.clone() };
                 ArithmeticExpression::mul(&left, &right, field)
@@ -554,10 +555,7 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
     }
 
     // Bit operations
-    pub fn complement(
-        elem: &ArithmeticExpression<C>,
-        field: &BigInt,
-    ) -> ArithmeticExpression<C> {
+    pub fn complement(elem: &ArithmeticExpression<C>, field: &BigInt) -> ArithmeticExpression<C> {
         use ArithmeticExpression::*;
         if let Number { value } = elem {
             Number { value: modular_arithmetic::complement(value, field) }
@@ -763,8 +761,8 @@ impl<C: Default + Clone + Display + Hash + Eq> ArithmeticExpression<C> {
         use ArithmeticExpression::*;
         match expr {
             Linear { coefficients } => {
-               raw_substitution(coefficients, substitution, field);
-               *coefficients = remove_zero_value_coefficients(std::mem::take(coefficients));
+                raw_substitution(coefficients, substitution, field);
+                *coefficients = remove_zero_value_coefficients(std::mem::take(coefficients));
             }
             Signal { symbol } if *symbol == substitution.from => {
                 *expr = Linear { coefficients: substitution.to.clone() };
@@ -1071,8 +1069,9 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
     ) -> (BigInt, Substitution<C>) {
         debug_assert!(Constraint::is_linear(&constraint));
         debug_assert!(constraint.c.contains_key(signal));
-        let (coefficient, raw_expression) = Constraint::clear_signal_not_normalized(constraint.c, &signal, field);
-        (coefficient, Substitution {from: signal.clone(), to: raw_expression})
+        let (coefficient, raw_expression) =
+            Constraint::clear_signal_not_normalized(constraint.c, &signal, field);
+        (coefficient, Substitution { from: signal.clone(), to: raw_expression })
     }
 
     pub fn take_cloned_signals(&self) -> HashSet<C> {
@@ -1185,19 +1184,28 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
         signal_equals_constant(&self.a, &self.b, &self.c)
     }
 
-    pub fn into_arithmetic_expressions(self) -> (ArithmeticExpression<C>, ArithmeticExpression<C>, ArithmeticExpression<C>) {
+    pub fn into_arithmetic_expressions(
+        self,
+    ) -> (ArithmeticExpression<C>, ArithmeticExpression<C>, ArithmeticExpression<C>) {
         (
             ArithmeticExpression::Linear { coefficients: self.a },
             ArithmeticExpression::Linear { coefficients: self.b },
-            ArithmeticExpression::Linear { coefficients: self.c }
+            ArithmeticExpression::Linear { coefficients: self.c },
         )
     }
 
-    pub fn is_plonk(&self) -> bool{
+    pub fn is_plonk(&self) -> bool {
         plonk_constraint(&self.a, &self.b, &self.c)
     }
 
-    pub fn replace_pair_with_auxiliary(&mut self, signal_a: C, coeff_a: &BigInt, signal_b: C, coeff_b: &BigInt, auxiliary: C) {
+    pub fn replace_pair_with_auxiliary(
+        &mut self,
+        signal_a: C,
+        coeff_a: &BigInt,
+        signal_b: C,
+        coeff_b: &BigInt,
+        auxiliary: C,
+    ) {
         if self.a.get(&signal_a) == Some(coeff_a) && self.a.get(&signal_b) == Some(coeff_b) {
             self.a.insert(signal_a.clone(), BigInt::from(0));
             self.a.insert(signal_b.clone(), BigInt::from(0));
@@ -1214,7 +1222,6 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
             *self.c.entry(auxiliary.clone()).or_insert(BigInt::from(0)) += BigInt::from(1);
         }
     }
-
 }
 
 impl<C: Default + Clone + Display + Hash + Eq + std::cmp::Ord> Constraint<C> {
@@ -1232,7 +1239,6 @@ impl<C: Default + Clone + Display + Hash + Eq + std::cmp::Ord> Constraint<C> {
         signals.remove(&Constraint::constant_coefficient());
         signals
     }
-
 }
 
 impl Constraint<usize> {
@@ -1275,7 +1281,6 @@ impl Constraint<usize> {
 
         (result, a + b + c)
     }
-
 }
 
 // model utils
@@ -1416,9 +1421,8 @@ where
     let cq: C = ArithmeticExpression::constant_coefficient();
     HashMap::is_empty(a)
         && HashMap::is_empty(b)
-        && 
-        	((HashMap::contains_key(c, &cq) && HashMap::len(c) == 2) ||
-        	(!HashMap::contains_key(c, &cq) && HashMap::len(c) == 1))
+        && ((HashMap::contains_key(c, &cq) && HashMap::len(c) == 2)
+            || (!HashMap::contains_key(c, &cq) && HashMap::len(c) == 1))
 }
 
 fn is_constant_expression<C>(expr: &RawExpr<C>) -> bool
@@ -1436,17 +1440,20 @@ where
 {
     use std::collections::HashSet;
 
-    // To get the constant coefficient you can use 
+    // To get the constant coefficient you can use
     let cq: C = ArithmeticExpression::constant_coefficient();
 
     // To check that there are no more than 3 distinct variables in total among A, B, and C
     let mut vars = HashSet::new();
     let mut num_vars = 0;
-    
-    if !(a.is_empty() && b.is_empty()){
+
+    if !(a.is_empty() && b.is_empty()) {
         // Both A and B can have at most 1 variable so that their product has at most 2 variables
-        if HashMap::contains_key(a, &cq) && HashMap::len(a) > 2 { return false;}
-        else if !HashMap::contains_key(a, &cq) && HashMap::len(a) > 1 { return false;}
+        if HashMap::contains_key(a, &cq) && HashMap::len(a) > 2 {
+            return false;
+        } else if !HashMap::contains_key(a, &cq) && HashMap::len(a) > 1 {
+            return false;
+        }
 
         for k in a.keys() {
             if *k != cq {
@@ -1456,8 +1463,11 @@ where
 
         num_vars = vars.len();
 
-        if HashMap::contains_key(b, &cq) && HashMap::len(b) > 2 { return false;}
-        else if !HashMap::contains_key(b, &cq) && HashMap::len(b) > 1 { return false;}
+        if HashMap::contains_key(b, &cq) && HashMap::len(b) > 2 {
+            return false;
+        } else if !HashMap::contains_key(b, &cq) && HashMap::len(b) > 1 {
+            return false;
+        }
 
         for k in b.keys() {
             if *k != cq {
@@ -1467,10 +1477,13 @@ where
             }
         }
     }
-    
+
     // C can have at most 3 variables, regardless of whether A and B are empty or not. If it has a constant term, the hashmap can have at most 4 entries; otherwise, 3.
-    if HashMap::contains_key(c, &cq) && HashMap::len(c) > 4 { return false;}
-    else if !HashMap::contains_key(c, &cq) && HashMap::len(c) > 3 { return false;}
+    if HashMap::contains_key(c, &cq) && HashMap::len(c) > 4 {
+        return false;
+    } else if !HashMap::contains_key(c, &cq) && HashMap::len(c) > 3 {
+        return false;
+    }
 
     for k in c.keys() {
         if *k != cq {
@@ -1480,13 +1493,12 @@ where
             }
         }
     }
-    
+
     return num_vars <= 3;
 }
 
 // The normalization process still needs to be stored for subsequent checks
 pub fn normalize(c: &mut Constraint<usize>, _field: &BigInt) {
-
     // Removes zero coefficients from A, B, and C and, if A and B are constants, multiplies them and adds their value to C, leaving A and B empty.
     fix_raw_constraint(&mut c.a, &mut c.b, &mut c.c, _field);
 
@@ -1502,7 +1514,7 @@ pub fn normalize(c: &mut Constraint<usize>, _field: &BigInt) {
     //             ArithmeticExpression::initialize_hashmap_for_expression(&mut c.a);
     //             ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.a, _field);
     //         }
-            
+
     //         ArithmeticExpression::initialize_hashmap_for_expression(&mut c.c);
     //         ArithmeticExpression::divide_coefficients_by_constant(&constant, &mut c.c, _field);
     //     }
@@ -1511,20 +1523,24 @@ pub fn normalize(c: &mut Constraint<usize>, _field: &BigInt) {
 
 // This function is just called after normalizing and with constraints that are not plonk
 fn vars_to_plonk(ct: &Constraint<usize>) -> (usize, usize, usize) {
-
     use std::cmp::max;
 
-    let a = &ct.a; let b = &ct.b; let c = &ct.c;
+    let a = &ct.a;
+    let b = &ct.b;
+    let c = &ct.c;
 
-    let mut res_a = 0; let mut res_b = 0; let mut res_c = 0;
+    let mut res_a = 0;
+    let mut res_b = 0;
+    let mut res_c = 0;
     let mut vars = HashSet::new(); // To check how many original variables contain C that can be used in the final expression
     let cq: usize = ArithmeticExpression::constant_coefficient();
     // A and B at the end can have at most 1 variable each. Each new signal introduced van have at most 2 variables.
     // The number of variables introduced in A and B is the number of variables they have minus 1, because at most they can have 1 variable
-    
+
     let mut signals_used = 0;
-    
-    let vars_a = a.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
+
+    let vars_a =
+        a.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
 
     if vars_a == 1 {
         for (k, coefficient) in a {
@@ -1539,7 +1555,8 @@ fn vars_to_plonk(ct: &Constraint<usize>) -> (usize, usize, usize) {
         res_a = max(0, vars_a - 1);
     }
 
-    let vars_b = b.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
+    let vars_b =
+        b.iter().filter(|(signal, coefficient)| **signal != cq && !coefficient.is_zero()).count();
 
     if vars_b == 1 {
         for (k, coefficient) in b {
@@ -1564,7 +1581,8 @@ fn vars_to_plonk(ct: &Constraint<usize>) -> (usize, usize, usize) {
     }
 
     // let vars_can_use_c = 3 - signals_used;
-    if vars_c > 1 { // vars_can_use_c {
+    if vars_c > 1 {
+        // vars_can_use_c {
         res_c = vars_c - 1; // vars_can_use_c;
     }
 

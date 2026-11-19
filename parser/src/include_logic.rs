@@ -150,9 +150,9 @@ impl IncludesGraph {
         for file in path.iter().map(|file| file.display().to_string()) {
             res.push_str(sep);
             let result_split = file.rsplit_once("/");
-            if result_split.is_some(){
+            if result_split.is_some() {
                 res.push_str(result_split.unwrap().1);
-            } else{
+            } else {
                 res.push_str(&file);
             }
             sep = " -> ";

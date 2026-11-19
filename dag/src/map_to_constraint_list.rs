@@ -13,7 +13,7 @@ fn map_tree(
     tree: &Tree,
     witness: &mut Vec<usize>,
     c_holder: &mut CHolder,
-    forbidden: &mut HashSet<usize>
+    forbidden: &mut HashSet<usize>,
 ) -> usize {
     let mut no_constraints = 0;
 
@@ -144,7 +144,7 @@ pub fn map(dag: DAG, flags: SimplificationFlags) -> ConstraintList {
         json_substitutions: flags.json_substitutions,
         apply_eager_plonk: flags.apply_eager_plonk,
         apply_sat_plonk: flags.apply_sat_plonk,
-        plonk_simplification: flags.plonk_simplification
+        plonk_simplification: flags.plonk_simplification,
     }
     .simplify_constraints()
 }

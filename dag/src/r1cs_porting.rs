@@ -1,12 +1,14 @@
 use super::{Constraint, Tree, DAG};
 use constraint_writers::log_writer::Log;
-use constraint_writers::r1cs_writer::{ConstraintSection, CustomGatesAppliedData, HeaderData, R1CSWriter};
+use constraint_writers::r1cs_writer::{
+    ConstraintSection, CustomGatesAppliedData, HeaderData, R1CSWriter,
+};
 
 pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
     let tree = Tree::new(dag);
     let field_size = if tree.field.bits() % 64 == 0 {
         tree.field.bits() / 8
-    } else{
+    } else {
         (tree.field.bits() / 64 + 1) * 8
     };
     let mut log = Log::new();
@@ -44,9 +46,9 @@ pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
         signal_section.write_signal_usize(signal)?;
     }
     let r1cs = signal_section.end_section()?;
-    
+
     if !custom_gates {
-	R1CSWriter::finish_writing(r1cs)?;
+        R1CSWriter::finish_writing(r1cs)?;
     } else {
         let mut custom_gates_used_section = R1CSWriter::start_custom_gates_used_section(r1cs)?;
         let (usage_data, occurring_order) = {
@@ -56,7 +58,7 @@ pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
                 if node.is_custom_gate() {
                     let mut name = node.template_name.clone();
                     occurring_order.push(name.clone());
-                    while name.pop() != Some('(') {};
+                    while name.pop() != Some('(') {}
                     usage_data.push((name, node.parameters().clone()));
                 }
             }
@@ -65,11 +67,12 @@ pub fn write(dag: &DAG, output: &str, custom_gates: bool) -> Result<(), ()> {
         custom_gates_used_section.write_custom_gates_usages(usage_data)?;
         let r1cs = custom_gates_used_section.end_section()?;
 
-        let mut custom_gates_applied_section = R1CSWriter::start_custom_gates_applied_section(r1cs)?;
+        let mut custom_gates_applied_section =
+            R1CSWriter::start_custom_gates_applied_section(r1cs)?;
         let application_data = {
             fn find_indexes(
                 occurring_order: Vec<String>,
-                application_data: Vec<(String, Vec<usize>)>
+                application_data: Vec<(String, Vec<usize>)>,
             ) -> CustomGatesAppliedData {
                 let mut new_application_data = vec![];
                 for (custom_gate_name, signals) in application_data {

@@ -10,7 +10,6 @@ use program_structure::program_archive::ProgramArchive;
 use program_structure::wire_data::WireType;
 use std::collections::HashSet;
 
-
 type ArithmeticType = usize;
 type ComponentInfo = (Option<String>, ArithmeticType);
 type BusInfo = (Option<String>, ArithmeticType, std::vec::Vec<std::string::String>);
@@ -38,16 +37,28 @@ struct FoldedType {
 }
 impl FoldedType {
     pub fn arithmetic_type(dimensions: ArithmeticType) -> FoldedType {
-        FoldedType { arithmetic: Option::Some(dimensions), template: Option::None, bus: Option::None }
+        FoldedType {
+            arithmetic: Option::Some(dimensions),
+            template: Option::None,
+            bus: Option::None,
+        }
     }
     pub fn template(name: &str) -> FoldedType {
-        FoldedType { template: Option::Some(name.to_string()), arithmetic: Option::None, bus: Option::None }
+        FoldedType {
+            template: Option::Some(name.to_string()),
+            arithmetic: Option::None,
+            bus: Option::None,
+        }
     }
     pub fn is_template(&self) -> bool {
         self.template.is_some() && self.arithmetic.is_none()
     }
     pub fn bus(name: &str, dimensions: ArithmeticType) -> FoldedType {
-        FoldedType { bus: Option::Some((name.to_string(), dimensions)), arithmetic: Option::Some(dimensions), template: Option::None }
+        FoldedType {
+            bus: Option::Some((name.to_string(), dimensions)),
+            arithmetic: Option::Some(dimensions),
+            template: Option::None,
+        }
     }
     pub fn is_bus(&self) -> bool {
         self.bus.is_some()
@@ -55,7 +66,7 @@ impl FoldedType {
     pub fn dim(&self) -> usize {
         if let Option::Some(dim) = &self.arithmetic {
             *dim
-        } else  if let Option::Some((_, bus_dim)) = &self.bus {
+        } else if let Option::Some((_, bus_dim)) = &self.bus {
             *bus_dim
         } else {
             0
@@ -63,7 +74,9 @@ impl FoldedType {
     }
     pub fn same_type(left: &FoldedType, right: &FoldedType) -> bool {
         let mut equal = false;
-        if let (Option::Some(l_template), Option::Some(r_template)) = (&left.template, &right.template) {
+        if let (Option::Some(l_template), Option::Some(r_template)) =
+            (&left.template, &right.template)
+        {
             equal = l_template.eq(r_template);
         }
         if let (Option::Some(l_bus), Option::Some(r_bus)) = (&left.bus, &right.bus) {
@@ -92,12 +105,11 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
     let initial_expression = program_archive.get_main_expression();
     let type_analysis_response =
         type_expression(initial_expression, program_archive, &mut analysis_information);
-    if type_analysis_response.is_err(){
+    if type_analysis_response.is_err() {
         return Result::Err(analysis_information.reports);
     }
 
     check_main_has_tags(initial_expression, program_archive, &mut analysis_information.reports);
-
 
     if analysis_information.reports.is_empty() {
         Result::Ok(OutInfo { reached: analysis_information.reached })
@@ -106,11 +118,16 @@ pub fn type_check(program_archive: &ProgramArchive) -> Result<OutInfo, ReportCol
     }
 }
 
-fn check_main_has_tags(initial_expression: &Expression, program_archive: &ProgramArchive, reports: &mut ReportCollection) {    if let Call { id, .. } = initial_expression {
-        if program_archive.contains_template(id){
+fn check_main_has_tags(
+    initial_expression: &Expression,
+    program_archive: &ProgramArchive,
+    reports: &mut ReportCollection,
+) {
+    if let Call { id, .. } = initial_expression {
+        if program_archive.contains_template(id) {
             let inputs = program_archive.get_template_data(id).get_inputs();
-            for (_name,info) in inputs {
-                if !info.get_tags().is_empty(){
+            for (_name, info) in inputs {
+                if !info.get_tags().is_empty() {
                     add_report(
                         ReportCode::MainComponentWithTags,
                         initial_expression.get_meta(),
@@ -118,7 +135,7 @@ fn check_main_has_tags(initial_expression: &Expression, program_archive: &Progra
                     );
                     break;
                 } else if let WireType::Bus(bus_name) = info.get_type() {
-                    if check_bus_contains_tag_recursive(bus_name, program_archive){
+                    if check_bus_contains_tag_recursive(bus_name, program_archive) {
                         add_report(
                             ReportCode::MainComponentWithTags,
                             initial_expression.get_meta(),
@@ -128,21 +145,11 @@ fn check_main_has_tags(initial_expression: &Expression, program_archive: &Progra
                     }
                 }
             }
-        } else{
-            add_report(
-                ReportCode::IllegalMainExpression,
-                initial_expression.get_meta(),
-                reports,
-            )
+        } else {
+            add_report(ReportCode::IllegalMainExpression, initial_expression.get_meta(), reports)
         }
-       
-    }
-    else { 
-        add_report(
-            ReportCode::IllegalMainExpression,
-            initial_expression.get_meta(),
-            reports,
-        )
+    } else {
+        add_report(ReportCode::IllegalMainExpression, initial_expression.get_meta(), reports)
     }
 }
 
@@ -150,11 +157,11 @@ fn check_bus_contains_tag_recursive(bus_name: String, program_archive: &ProgramA
     let bus_data = program_archive.get_bus_data(&bus_name);
     let mut tag_in_inputs = false;
     for (_name, info) in bus_data.get_fields() {
-        if !info.get_tags().is_empty(){
+        if !info.get_tags().is_empty() {
             tag_in_inputs = true;
             break;
         } else if let WireType::Bus(bus_name) = info.get_type() {
-            if check_bus_contains_tag_recursive(bus_name, program_archive){
+            if check_bus_contains_tag_recursive(bus_name, program_archive) {
                 tag_in_inputs = true;
                 break;
             }
@@ -184,15 +191,13 @@ fn type_statement(
                         dim_expression.get_meta(),
                         &mut analysis_information.reports,
                     );
-                }
-                else if dim_type.is_bus() {
+                } else if dim_type.is_bus() {
                     add_report(
                         ReportCode::InvalidArraySizeB,
                         dim_expression.get_meta(),
                         &mut analysis_information.reports,
                     );
-                }
-                else if dim_type.dim() > 0 {
+                } else if dim_type.dim() > 0 {
                     add_report(
                         ReportCode::InvalidArraySize(dim_type.dim()),
                         dim_expression.get_meta(),
@@ -201,41 +206,42 @@ fn type_statement(
                 }
             }
             match xtype {
-                VariableType::Signal(s_type, tags) => {
-                    match s_type {
-                        SignalType::Input => analysis_information
-                            .environment
-                            .add_input(name, (dimensions.len(),tags.clone())),
-                        SignalType::Output => analysis_information
-                            .environment
-                            .add_output(name, (dimensions.len(),tags.clone())),
-                        SignalType::Intermediate => analysis_information
-                            .environment
-                            .add_intermediate(name, (dimensions.len(),tags.clone())),
-                    }
+                VariableType::Signal(s_type, tags) => match s_type {
+                    SignalType::Input => analysis_information
+                        .environment
+                        .add_input(name, (dimensions.len(), tags.clone())),
+                    SignalType::Output => analysis_information
+                        .environment
+                        .add_output(name, (dimensions.len(), tags.clone())),
+                    SignalType::Intermediate => analysis_information
+                        .environment
+                        .add_intermediate(name, (dimensions.len(), tags.clone())),
+                },
+                VariableType::Var => {
+                    analysis_information.environment.add_variable(name, dimensions.len())
                 }
-                VariableType::Var => analysis_information
-                    .environment
-                    .add_variable(name, dimensions.len()),
                 VariableType::Component => analysis_information
                     .environment
                     .add_component(name, (meta.component_inference.clone(), dimensions.len())),
                 VariableType::AnonymousComponent => analysis_information
                     .environment
                     .add_component(name, (meta.component_inference.clone(), dimensions.len())),
-                VariableType::Bus(tname, ss_type, tags) => {
-                    match ss_type {
-                        SignalType::Input => analysis_information
-                            .environment
-                            .add_input_bus(name, (Option::Some(tname.clone()), dimensions.len(), tags.clone())),
-                        SignalType::Output => analysis_information
-                            .environment
-                            .add_output_bus(name, (Option::Some(tname.clone()), dimensions.len(), tags.clone())),
-                        SignalType::Intermediate => analysis_information
-                            .environment
-                            .add_intermediate_bus(name, (Option::Some(tname.clone()), dimensions.len(), tags.clone())),
+                VariableType::Bus(tname, ss_type, tags) => match ss_type {
+                    SignalType::Input => analysis_information.environment.add_input_bus(
+                        name,
+                        (Option::Some(tname.clone()), dimensions.len(), tags.clone()),
+                    ),
+                    SignalType::Output => analysis_information.environment.add_output_bus(
+                        name,
+                        (Option::Some(tname.clone()), dimensions.len(), tags.clone()),
+                    ),
+                    SignalType::Intermediate => {
+                        analysis_information.environment.add_intermediate_bus(
+                            name,
+                            (Option::Some(tname.clone()), dimensions.len(), tags.clone()),
+                        )
                     }
-                }
+                },
             }
         }
         Substitution { var, access, op, rhe, meta, .. } => {
@@ -274,27 +280,48 @@ fn type_statement(
                 | (SymbolInformation::Signal(_), AssignOp::AssignSignal)
                 | (SymbolInformation::Var(_), AssignOp::AssignVar)
                 | (SymbolInformation::Component(_), AssignOp::AssignVar)
-                | (SymbolInformation::Bus(_,_), AssignOp::AssignConstraintSignal)
-                | (SymbolInformation::Bus(_,_), AssignOp::AssignSignal)  => {}
-                | (SymbolInformation::Bus(_,_), AssignOp::AssignVar) => {
-                    if !rhe.is_bus_call() && !rhe.is_bus_call_array(){
-                        return add_report(ReportCode::WrongTypesInAssignOperationBus, meta, &mut analysis_information.reports);
+                | (SymbolInformation::Bus(_, _), AssignOp::AssignConstraintSignal)
+                | (SymbolInformation::Bus(_, _), AssignOp::AssignSignal) => {}
+                (SymbolInformation::Bus(_, _), AssignOp::AssignVar) => {
+                    if !rhe.is_bus_call() && !rhe.is_bus_call_array() {
+                        return add_report(
+                            ReportCode::WrongTypesInAssignOperationBus,
+                            meta,
+                            &mut analysis_information.reports,
+                        );
                     }
                 }
-                | (SymbolInformation::Tag, AssignOp::AssignVar) => {
+                (SymbolInformation::Tag, AssignOp::AssignVar) => {
                     //If the tag comes from an output wire, it cannot be modified.
-                    if analysis_information.environment.has_component(var){
-                        let (comp,_) = analysis_information.environment.get_component(var).unwrap();
-                        if comp.is_some() && access_information.1.is_some() && access_information.1.as_ref().unwrap().len() > 0 {
+                    if analysis_information.environment.has_component(var) {
+                        let (comp, _) =
+                            analysis_information.environment.get_component(var).unwrap();
+                        if comp.is_some()
+                            && access_information.1.is_some()
+                            && access_information.1.as_ref().unwrap().len() > 0
+                        {
                             let template_name = comp.clone().unwrap();
-                            let (first_access,_) = access_information.1.as_ref().unwrap().get(0).unwrap();
-                            let output = program_archive.get_template_data(&template_name).get_output_info(&first_access);
+                            let (first_access, _) =
+                                access_information.1.as_ref().unwrap().get(0).unwrap();
+                            let output = program_archive
+                                .get_template_data(&template_name)
+                                .get_output_info(&first_access);
                             if output.is_some() {
-                                return add_report( ReportCode::OutputTagCannotBeModifiedOutside,meta, &mut analysis_information.reports);
+                                return add_report(
+                                    ReportCode::OutputTagCannotBeModifiedOutside,
+                                    meta,
+                                    &mut analysis_information.reports,
+                                );
                             }
-                            let input = program_archive.get_template_data(&template_name).get_input_info(&first_access);
+                            let input = program_archive
+                                .get_template_data(&template_name)
+                                .get_input_info(&first_access);
                             if input.is_some() {
-                                return add_report( ReportCode::InputTagCannotBeModifiedOutside,meta, &mut analysis_information.reports);
+                                return add_report(
+                                    ReportCode::InputTagCannotBeModifiedOutside,
+                                    meta,
+                                    &mut analysis_information.reports,
+                                );
                             }
                         }
                     }
@@ -349,9 +376,8 @@ fn type_statement(
                                 meta,
                                 &mut analysis_information.reports,
                             )
-                        }
-                        else if possible_bus.is_none() {
-                            let (current_bus, _,_) = analysis_information
+                        } else if possible_bus.is_none() {
+                            let (current_bus, _, _) = analysis_information
                                 .environment
                                 .get_mut_bus_or_break(var, file!(), line!());
                             *current_bus = rhe_type.bus.as_ref().map(|(name, _)| name.clone());
@@ -365,14 +391,13 @@ fn type_statement(
                                         meta,
                                         &mut analysis_information.reports,
                                     )
-                                }
-                                else {
+                                } else {
                                     add_report(
-                                            ReportCode::WrongTypesInAssignOperationDifferentBus,
-                                            meta,
-                                            &mut analysis_information.reports,
-                                        )
-                                    }
+                                        ReportCode::WrongTypesInAssignOperationDifferentBus,
+                                        meta,
+                                        &mut analysis_information.reports,
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -383,15 +408,14 @@ fn type_statement(
                         )
                     }
                 }
-                SymbolInformation::Signal(dim)
-                | SymbolInformation::Var(dim) => {
-                    if rhe_type.is_template()  {
+                SymbolInformation::Signal(dim) | SymbolInformation::Var(dim) => {
+                    if rhe_type.is_template() {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationExpression,
                             meta,
                             &mut analysis_information.reports,
                         )
-                    } else if  rhe_type.is_bus() {
+                    } else if rhe_type.is_bus() {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationBus,
                             meta,
@@ -406,13 +430,13 @@ fn type_statement(
                     }
                 }
                 SymbolInformation::Tag => {
-                    if rhe_type.is_template()  {
+                    if rhe_type.is_template() {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationExpression,
                             meta,
                             &mut analysis_information.reports,
                         )
-                    } else if  rhe_type.is_bus() {
+                    } else if rhe_type.is_bus() {
                         add_report(
                             ReportCode::WrongTypesInAssignOperationBus,
                             meta,
@@ -457,24 +481,34 @@ fn type_statement(
             }
             if lhe_type.is_bus() || rhe_type.is_bus() {
                 match (lhe_type.bus, rhe_type.bus) {
-                    (Some(b1),Some(b2)) => {
+                    (Some(b1), Some(b2)) => {
                         if b1 != b2 {
-                            add_report(ReportCode::MustBeSameBus, lhe.get_meta(), 
-                                    &mut analysis_information.reports);
+                            add_report(
+                                ReportCode::MustBeSameBus,
+                                lhe.get_meta(),
+                                &mut analysis_information.reports,
+                            );
                         }
                     }
-                    (Some(_),_)=>{
-                        add_report(ReportCode::MustBeBus, rhe.get_meta(), 
-                        &mut analysis_information.reports);
-                    },
-                    (_,Some(_)) => {
-                        add_report(ReportCode::MustBeBus, lhe.get_meta(), 
-                        &mut analysis_information.reports);
-                    },
-                    (_,_) => {unreachable!("At least one of them is a bus.")}
+                    (Some(_), _) => {
+                        add_report(
+                            ReportCode::MustBeBus,
+                            rhe.get_meta(),
+                            &mut analysis_information.reports,
+                        );
+                    }
+                    (_, Some(_)) => {
+                        add_report(
+                            ReportCode::MustBeBus,
+                            lhe.get_meta(),
+                            &mut analysis_information.reports,
+                        );
+                    }
+                    (_, _) => {
+                        unreachable!("At least one of them is a bus.")
+                    }
                 }
-            }
-            else if rhe_type.dim() != lhe_type.dim() {
+            } else if rhe_type.dim() != lhe_type.dim() {
                 add_report(
                     ReportCode::MustBeSameDimension(rhe_type.dim(), lhe_type.dim()),
                     rhe.get_meta(),
@@ -484,7 +518,7 @@ fn type_statement(
         }
         LogCall { args, meta } => {
             for arglog in args {
-                if let LogArgument::LogExp(arg) = arglog{
+                if let LogArgument::LogExp(arg) = arglog {
                     let arg_response = type_expression(&arg, program_archive, analysis_information);
                     let arg_type = if let Result::Ok(t) = arg_response {
                         t
@@ -532,7 +566,7 @@ fn type_statement(
                     meta,
                     &mut analysis_information.reports,
                 )
-            }  else if arg_type.dim() > 0 {
+            } else if arg_type.dim() > 0 {
                 add_report(
                     ReportCode::MustBeSingleArithmetic(arg_type.dim()),
                     meta,
@@ -581,7 +615,7 @@ fn type_statement(
                     cond.get_meta(),
                     &mut analysis_information.reports,
                 )
-            }  else if cond_type.dim() > 0 {
+            } else if cond_type.dim() > 0 {
                 add_report(
                     ReportCode::MustBeSingleArithmetic(cond_type.dim()),
                     cond.get_meta(),
@@ -625,7 +659,7 @@ fn type_statement(
             analysis_information.environment.remove_variable_block();
         }
         MultSubstitution { .. } => unreachable!(),
-        UnderscoreSubstitution { rhe , ..} => {
+        UnderscoreSubstitution { rhe, .. } => {
             let rhe_response = type_expression(rhe, program_archive, analysis_information);
             let rhe_type = if let Result::Ok(r_type) = rhe_response {
                 r_type
@@ -639,7 +673,7 @@ fn type_statement(
                     &mut analysis_information.reports,
                 );
             }
-        },
+        }
     }
 }
 
@@ -689,8 +723,7 @@ fn type_expression(
                         expression.get_meta(),
                         &mut analysis_information.reports,
                     );
-                }
-                else if inferred_dim != value_type.dim() {
+                } else if inferred_dim != value_type.dim() {
                     add_report(
                         ReportCode::NonHomogeneousArray(inferred_dim, value_type.dim()),
                         expression.get_meta(),
@@ -707,11 +740,7 @@ fn type_expression(
         UniformArray { meta, value, dimension } => {
             let value_type = type_expression(value, program_archive, analysis_information)?;
             if value_type.is_template() {
-                add_report(
-                    ReportCode::InvalidArrayType,
-                    meta,
-                    &mut analysis_information.reports,
-                );
+                add_report(ReportCode::InvalidArrayType, meta, &mut analysis_information.reports);
             };
             let dim_type = type_expression(dimension, program_archive, analysis_information)?;
             if dim_type.is_template() {
@@ -726,7 +755,7 @@ fn type_expression(
                     expression.get_meta(),
                     &mut analysis_information.reports,
                 );
-            }else if dim_type.dim() != 0 {
+            } else if dim_type.dim() != 0 {
                 add_report(
                     ReportCode::InvalidArrayType,
                     expression.get_meta(),
@@ -774,7 +803,7 @@ fn type_expression(
                 Result::Ok(FoldedType::arithmetic_type(0))
             }
         }
-        ParallelOp {rhe, .. } => {
+        ParallelOp { rhe, .. } => {
             let rhe_type = type_expression(rhe, program_archive, analysis_information)?;
             if rhe_type.is_template() {
                 Result::Ok(rhe_type)
@@ -789,7 +818,8 @@ fn type_expression(
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             let cond_response = type_expression(cond, program_archive, analysis_information);
             let if_true_response = type_expression(if_true, program_archive, analysis_information);
-            let if_false_response = type_expression(if_false, program_archive, analysis_information);
+            let if_false_response =
+                type_expression(if_false, program_archive, analysis_information);
             let if_true_type = if_true_response?;
 
             let cond_type = if let Result::Ok(f) = cond_response {
@@ -809,8 +839,7 @@ fn type_expression(
                     cond.get_meta(),
                     &mut analysis_information.reports,
                 )
-            }
-            else if cond_type.dim() > 0 {
+            } else if cond_type.dim() > 0 {
                 add_report(
                     ReportCode::MustBeSingleArithmetic(cond_type.dim()),
                     cond.get_meta(),
@@ -834,8 +863,7 @@ fn type_expression(
         }
         Variable { name, access, meta, .. } => {
             debug_assert!(analysis_information.environment.has_symbol(name));
-            let access_information =
-                treat_access( access, program_archive, analysis_information)?;
+            let access_information = treat_access(access, program_archive, analysis_information)?;
             let environment = &analysis_information.environment;
             let reports = &mut analysis_information.reports;
             let symbol_information = apply_access_to_symbol(
@@ -862,9 +890,7 @@ fn type_expression(
                 SymbolInformation::Var(dim) | SymbolInformation::Signal(dim) => {
                     Result::Ok(FoldedType::arithmetic_type(dim))
                 }
-                SymbolInformation::Tag => {
-                    Result::Ok(FoldedType::arithmetic_type(0))
-                }
+                SymbolInformation::Tag => Result::Ok(FoldedType::arithmetic_type(0)),
                 _ => unreachable!(),
             }
         }
@@ -929,13 +955,16 @@ fn type_expression(
             analysis_information.file_id = previous_file_id;
             let folded_value = returned_type?;
             Result::Ok(folded_value)
-        },
+        }
         BusCall { meta, id, args } => {
             analysis_information.reached.insert(id.clone());
             let typing_response =
                 type_array_of_expressions(args, program_archive, analysis_information);
             if program_archive.contains_bus(id) && typing_response.is_err() {
-                return Result::Ok(FoldedType::bus(id,program_archive.get_bus_data(id).get_fields().len()));
+                return Result::Ok(FoldedType::bus(
+                    id,
+                    program_archive.get_bus_data(id).get_fields().len(),
+                ));
             }
             let arg_types = typing_response?;
             let mut concrete_types = Vec::new();
@@ -957,7 +986,10 @@ fn type_expression(
                 concrete_types.push(arg_type.dim());
             }
             if program_archive.contains_bus(id) && success.is_err() {
-                return Result::Ok(FoldedType::bus(id,program_archive.get_bus_data(id).get_fields().len()));
+                return Result::Ok(FoldedType::bus(
+                    id,
+                    program_archive.get_bus_data(id).get_fields().len(),
+                ));
             }
             success?;
             let previous_file_id = analysis_information.file_id;
@@ -971,19 +1003,24 @@ fn type_expression(
                 &mut analysis_information.reports,
             );
             if new_environment.is_err() {
-                return Result::Ok(FoldedType::bus(id,program_archive.get_bus_data(id).get_fields().len()));
+                return Result::Ok(FoldedType::bus(
+                    id,
+                    program_archive.get_bus_data(id).get_fields().len(),
+                ));
             }
             let new_environment = new_environment?;
             let previous_environment =
                 std::mem::replace(&mut analysis_information.environment, new_environment);
-            let returned_type = type_bus(id, &concrete_types, analysis_information, program_archive);
+            let returned_type =
+                type_bus(id, &concrete_types, analysis_information, program_archive);
             analysis_information.environment = previous_environment;
             analysis_information.file_id = previous_file_id;
             let folded_value = returned_type?;
             Result::Ok(folded_value)
-
         }
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }
 
@@ -1011,15 +1048,15 @@ fn treat_access(
 ) -> Result<AccessInfo, ()> {
     use Access::*;
     let mut access_info: AccessInfo = (0, Option::None);
-    let mut signal_info : Vec<(String, ArithmeticType)> = Vec::new();
+    let mut signal_info: Vec<(String, ArithmeticType)> = Vec::new();
     for access in accesses {
         match access {
             ArrayAccess(index) => {
                 let index_response = type_expression(&index, program_archive, analysis_information);
                 if signal_info.len() > 0 {
-                    let mut info = signal_info.get(signal_info.len()-1).unwrap().clone();
+                    let mut info = signal_info.get(signal_info.len() - 1).unwrap().clone();
                     info.1 = info.1 + 1;
-                    signal_info.remove(signal_info.len()-1);
+                    signal_info.remove(signal_info.len() - 1);
                     signal_info.push(info);
                 } else {
                     access_info.0 += 1;
@@ -1027,39 +1064,39 @@ fn treat_access(
                 if let Result::Ok(index_type) = index_response {
                     if index_type.is_template() {
                         add_report(
-                                ReportCode::InvalidArraySizeT,
-                                index.get_meta(),
-                                &mut analysis_information.reports,
-                            );
+                            ReportCode::InvalidArraySizeT,
+                            index.get_meta(),
+                            &mut analysis_information.reports,
+                        );
                     } else if index_type.is_bus() {
                         add_report(
-                                ReportCode::InvalidArraySizeB,
-                                index.get_meta(),
-                                &mut analysis_information.reports,
-                            );
+                            ReportCode::InvalidArraySizeB,
+                            index.get_meta(),
+                            &mut analysis_information.reports,
+                        );
+                    } else if index_type.dim() > 0 {
+                        add_report(
+                            ReportCode::InvalidArraySize(index_type.dim()),
+                            index.get_meta(),
+                            &mut analysis_information.reports,
+                        );
                     }
-                    else if index_type.dim() > 0 {
-                            add_report(
-                                ReportCode::InvalidArraySize(index_type.dim()),
-                                index.get_meta(),
-                                &mut analysis_information.reports,
-                            );
-                        }
-                    }
+                }
             }
             ComponentAccess(name) => {
-
                 if signal_info.len() > 0 {
-                    signal_info.push((name.clone(),0));
+                    signal_info.push((name.clone(), 0));
                 } else {
                     signal_info = vec![(name.clone(), 0)];
                 }
             }
         }
     }
-    if signal_info.len() > 0{
+    if signal_info.len() > 0 {
         access_info.1 = Some(signal_info);
-    } else { access_info.1 = None; }
+    } else {
+        access_info.1 = None;
+    }
     Result::Ok(access_info)
 }
 
@@ -1079,7 +1116,8 @@ fn check_if_it_is_a_tag(
     reports: &mut ReportCollection,
     program_archive: &ProgramArchive,
 ) -> Result<bool, ()> {
-    let buses_and_signals = if access_information.1.is_none() { // no access
+    let buses_and_signals = if access_information.1.is_none() {
+        // no access
         return Result::Ok(false);
     } else {
         access_information.1.unwrap()
@@ -1087,11 +1125,12 @@ fn check_if_it_is_a_tag(
     let mut num_dims_accessed = 0;
     let mut pos = 0;
     let mut it_is_input_subcomponent = false;
-    let (mut kind, mut tags) = if environment.has_component(symbol){ 
+    let (mut kind, mut tags) = if environment.has_component(symbol) {
         // we are inside component
         let (name, dim) = environment.get_component_or_break(symbol, file!(), line!()).clone();
         let current_dim = dim - access_information.0;
-        if current_dim != 0{ // only allowed complete accesses to component
+        if current_dim != 0 {
+            // only allowed complete accesses to component
             return add_report_and_end(ReportCode::InvalidPartialArray, meta, reports);
         } else if buses_and_signals.len() <= 1 {
             return Result::Ok(false);
@@ -1099,11 +1138,13 @@ fn check_if_it_is_a_tag(
         //current_dim == 0 => component completely defined
         //buses_and_signals.len() > 1 => we are accessing a signal, or a bus and later maybe a tag
         let template_name = name.unwrap();
-        let (accessed_element,accessed_dim) = buses_and_signals.get(0).unwrap();
+        let (accessed_element, accessed_dim) = buses_and_signals.get(0).unwrap();
         pos += 1;
-        num_dims_accessed += accessed_dim; 
-        let input = program_archive.get_template_data(&template_name).get_input_info(&accessed_element);
-        let output = program_archive.get_template_data(&template_name).get_output_info(&accessed_element);
+        num_dims_accessed += accessed_dim;
+        let input =
+            program_archive.get_template_data(&template_name).get_input_info(&accessed_element);
+        let output =
+            program_archive.get_template_data(&template_name).get_output_info(&accessed_element);
         let (kind, atags) = if let Some(wire_data) = input {
             it_is_input_subcomponent = true;
             (wire_data.get_type(), wire_data.get_tags())
@@ -1113,71 +1154,94 @@ fn check_if_it_is_a_tag(
             return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
         };
         (kind, atags.clone())
-    } 
-    else { // we are outside component
+    } else {
+        // we are outside component
         num_dims_accessed = access_information.0;
-        let (kind, possible_tags) = if environment.has_variable(symbol) { return Result::Ok(false); }
-        else if environment.has_bus(symbol){
-            let (current_bus,_,possible_tags) = environment.get_bus_or_break(symbol, file!(), line!()).clone();
+        let (kind, possible_tags) = if environment.has_variable(symbol) {
+            return Result::Ok(false);
+        } else if environment.has_bus(symbol) {
+            let (current_bus, _, possible_tags) =
+                environment.get_bus_or_break(symbol, file!(), line!()).clone();
             let kind = WireType::Bus(current_bus.unwrap());
             (kind, possible_tags)
         } else {
             let kind = WireType::Signal;
-            let (_, possible_tags) = environment.get_signal_or_break(symbol, file!(), line!()).clone();
-            (kind,possible_tags)
+            let (_, possible_tags) =
+                environment.get_signal_or_break(symbol, file!(), line!()).clone();
+            (kind, possible_tags)
         };
         let mut tags = HashSet::new();
         for i in possible_tags.clone() {
             tags.insert(i);
         }
-        (kind, tags) };
+        (kind, tags)
+    };
     while pos < buses_and_signals.len() {
         let (accessed_element, accessed_dim) = buses_and_signals.get(pos).unwrap().clone();
         num_dims_accessed += accessed_dim;
         if kind == WireType::Signal {
-                if tags.contains(&accessed_element) {
-
-                    //Tags cannot be partially accessed. Then, the previous bus or signal cannot be array accessed.
-                    if pos == buses_and_signals.len()-1 && num_dims_accessed == 0{
-                        return if it_is_input_subcomponent { add_report_and_end(ReportCode::InputTagCannotBeAccessedOutside, meta, reports)} 
-                                else {Result::Ok(true)};
-                    } else if num_dims_accessed > 0 {
-                        return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
-                    } else{
-                            return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
-                    }
-                }
-                else{
+            if tags.contains(&accessed_element) {
+                //Tags cannot be partially accessed. Then, the previous bus or signal cannot be array accessed.
+                if pos == buses_and_signals.len() - 1 && num_dims_accessed == 0 {
+                    return if it_is_input_subcomponent {
+                        add_report_and_end(
+                            ReportCode::InputTagCannotBeAccessedOutside,
+                            meta,
+                            reports,
+                        )
+                    } else {
+                        Result::Ok(true)
+                    };
+                } else if num_dims_accessed > 0 {
+                    return add_report_and_end(
+                        ReportCode::InvalidTagAccessAfterArray,
+                        meta,
+                        reports,
+                    );
+                } else {
                     return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
                 }
-        } else if let WireType::Bus(b_name) = kind  {
-                let field = program_archive.get_bus_data(&b_name).get_field_info(&accessed_element);
-                match field {
-                    Some(wire) => {
-                        if pos == buses_and_signals.len()-1 {
-                            return Result::Ok(false);
-                        } else {
-                            kind = wire.get_type();
-                            tags = wire.get_tags().clone();
-                        }
-                    },
-                    Option::None => {
-                        if tags.contains(&accessed_element) {
-                            if pos == buses_and_signals.len()-1 && num_dims_accessed == 0{
-                                return if it_is_input_subcomponent { add_report_and_end(ReportCode::InputTagCannotBeAccessedOutside, meta, reports)} 
-                                       else {Result::Ok(true)};
-                            } else if num_dims_accessed > 0 {
-                                return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
-                            } else{
-                                    return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
-                            }
-                        }
-                        else {
-                            return Ok(false);
-                        }
-                    },
+            } else {
+                return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
             }
-        } else{
+        } else if let WireType::Bus(b_name) = kind {
+            let field = program_archive.get_bus_data(&b_name).get_field_info(&accessed_element);
+            match field {
+                Some(wire) => {
+                    if pos == buses_and_signals.len() - 1 {
+                        return Result::Ok(false);
+                    } else {
+                        kind = wire.get_type();
+                        tags = wire.get_tags().clone();
+                    }
+                }
+                Option::None => {
+                    if tags.contains(&accessed_element) {
+                        if pos == buses_and_signals.len() - 1 && num_dims_accessed == 0 {
+                            return if it_is_input_subcomponent {
+                                add_report_and_end(
+                                    ReportCode::InputTagCannotBeAccessedOutside,
+                                    meta,
+                                    reports,
+                                )
+                            } else {
+                                Result::Ok(true)
+                            };
+                        } else if num_dims_accessed > 0 {
+                            return add_report_and_end(
+                                ReportCode::InvalidTagAccessAfterArray,
+                                meta,
+                                reports,
+                            );
+                        } else {
+                            return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
+                        }
+                    } else {
+                        return Ok(false);
+                    }
+                }
+            }
+        } else {
             unreachable!()
         }
         pos += 1;
@@ -1193,72 +1257,110 @@ fn apply_access_to_symbol(
     reports: &mut ReportCollection,
     program_archive: &ProgramArchive,
 ) -> Result<SymbolInformation, ()> {
-    let it_is_tag = check_if_it_is_a_tag(symbol, meta, access_information.clone(), environment, reports, program_archive)?;
+    let it_is_tag = check_if_it_is_a_tag(
+        symbol,
+        meta,
+        access_information.clone(),
+        environment,
+        reports,
+        program_archive,
+    )?;
     if it_is_tag {
         return Result::Ok(SymbolInformation::Tag);
     }
-    let (current_template_or_bus, mut current_dim, possible_tags) = if environment.has_component(symbol) {
-        let (temp, dim) = environment.get_component_or_break(symbol, file!(), line!()).clone();
-        (temp.clone(),dim, Vec::new())
-    } else if environment.has_signal(symbol) {
-        let(dim, tags) = environment.get_signal_or_break(symbol, file!(), line!());
-        (Some(symbol.to_string()),  *dim, tags.clone())
-    } else if environment.has_bus(symbol){
-        environment.get_bus_or_break(symbol, file!(), line!()).clone()
-    } else {
-        let dim = environment.get_variable_or_break(symbol, file!(), line!());
-        (Option::None, *dim, Vec::new())
-    };
+    let (current_template_or_bus, mut current_dim, possible_tags) =
+        if environment.has_component(symbol) {
+            let (temp, dim) = environment.get_component_or_break(symbol, file!(), line!()).clone();
+            (temp.clone(), dim, Vec::new())
+        } else if environment.has_signal(symbol) {
+            let (dim, tags) = environment.get_signal_or_break(symbol, file!(), line!());
+            (Some(symbol.to_string()), *dim, tags.clone())
+        } else if environment.has_bus(symbol) {
+            environment.get_bus_or_break(symbol, file!(), line!()).clone()
+        } else {
+            let dim = environment.get_variable_or_break(symbol, file!(), line!());
+            (Option::None, *dim, Vec::new())
+        };
     if access_information.0 > current_dim {
-        return add_report_and_end(ReportCode::InvalidArrayAccess(current_dim, access_information.0), meta, reports);
+        return add_report_and_end(
+            ReportCode::InvalidArrayAccess(current_dim, access_information.0),
+            meta,
+            reports,
+        );
     } else {
         current_dim -= access_information.0
     }
-    // Case wires or tags 
-     if let Option::Some(buses_and_signals) = access_information.1{
+    // Case wires or tags
+    if let Option::Some(buses_and_signals) = access_information.1 {
         assert!(buses_and_signals.len() > 0);
         let mut pos = 0;
-        if current_dim > 0 && (pos < buses_and_signals.len()- 1 || !possible_tags.contains(&buses_and_signals.get(0).unwrap().0)){
-            return add_report_and_end(ReportCode::InvalidArrayAccess(current_dim+access_information.0,access_information.0), meta, reports);
+        if current_dim > 0
+            && (pos < buses_and_signals.len() - 1
+                || !possible_tags.contains(&buses_and_signals.get(0).unwrap().0))
+        {
+            return add_report_and_end(
+                ReportCode::InvalidArrayAccess(
+                    current_dim + access_information.0,
+                    access_information.0,
+                ),
+                meta,
+                reports,
+            );
         }
-        if current_template_or_bus.is_none() && environment.has_bus(symbol){
+        if current_template_or_bus.is_none() && environment.has_bus(symbol) {
             return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
-        } else if current_template_or_bus.is_none() && environment.has_component(symbol){
+        } else if current_template_or_bus.is_none() && environment.has_component(symbol) {
             return add_report_and_end(ReportCode::UninitializedComponent, meta, reports);
         }
 
-        let (mut kind, mut tags) = if environment.has_component(symbol){ 
+        let (mut kind, mut tags) = if environment.has_component(symbol) {
             // we are inside component
-            
-            if current_dim != 0{ // only allowed complete accesses to component
+
+            if current_dim != 0 {
+                // only allowed complete accesses to component
                 return add_report_and_end(ReportCode::InvalidPartialArray, meta, reports);
             }
             //current_dim == 0 => component completely defined
             let template_name = current_template_or_bus.unwrap();
-            let (accessed_element,accessed_dim) = buses_and_signals.get(pos).unwrap();
-            let input = program_archive.get_template_data(&template_name).get_input_info(&accessed_element);
-            let output = program_archive.get_template_data(&template_name).get_output_info(&accessed_element);
+            let (accessed_element, accessed_dim) = buses_and_signals.get(pos).unwrap();
+            let input =
+                program_archive.get_template_data(&template_name).get_input_info(&accessed_element);
+            let output = program_archive
+                .get_template_data(&template_name)
+                .get_output_info(&accessed_element);
             let (dim, kind, atags) = match (input, output) {
-                (Option::Some(wire_data), _) | (_, Option::Some(wire_data)) =>
-                    (wire_data.get_dimension(), wire_data.get_type(), wire_data.get_tags()),
+                (Option::Some(wire_data), _) | (_, Option::Some(wire_data)) => {
+                    (wire_data.get_dimension(), wire_data.get_type(), wire_data.get_tags())
+                }
                 _ => {
                     return add_report_and_end(ReportCode::InvalidSignalAccess, meta, reports);
                 }
             };
-            
+
             if *accessed_dim > dim {
-                return add_report_and_end(ReportCode::InvalidArrayAccess(dim, *accessed_dim), meta, reports);
+                return add_report_and_end(
+                    ReportCode::InvalidArrayAccess(dim, *accessed_dim),
+                    meta,
+                    reports,
+                );
             }
             current_dim = dim - accessed_dim;
-            if pos == buses_and_signals.len()-1 {
+            if pos == buses_and_signals.len() - 1 {
                 match kind {
-                    WireType::Signal => {return Result::Ok(SymbolInformation::Signal(current_dim));},
-                    WireType::Bus(b_name) => {return Result::Ok(SymbolInformation::Bus(Some(b_name.clone()),current_dim))},
+                    WireType::Signal => {
+                        return Result::Ok(SymbolInformation::Signal(current_dim));
+                    }
+                    WireType::Bus(b_name) => {
+                        return Result::Ok(SymbolInformation::Bus(
+                            Some(b_name.clone()),
+                            current_dim,
+                        ))
+                    }
                 }
             }
             pos += 1;
             (kind, atags.clone())
-        } else if environment.has_bus(symbol){
+        } else if environment.has_bus(symbol) {
             let kind = WireType::Bus(current_template_or_bus.unwrap());
             let mut tags = HashSet::new();
             for i in possible_tags.clone() {
@@ -1271,86 +1373,123 @@ fn apply_access_to_symbol(
             for i in possible_tags.clone() {
                 tags.insert(i);
             }
-            (kind,tags)
+            (kind, tags)
         };
         while pos < buses_and_signals.len() {
             let (accessed_element, accessed_dim) = buses_and_signals.get(pos).unwrap().clone();
-            if current_dim > 0 && (pos < buses_and_signals.len()- 1 || !tags.contains(&accessed_element)){
-                return add_report_and_end(ReportCode::InvalidArrayAccess(current_dim,accessed_dim), meta, reports);
+            if current_dim > 0
+                && (pos < buses_and_signals.len() - 1 || !tags.contains(&accessed_element))
+            {
+                return add_report_and_end(
+                    ReportCode::InvalidArrayAccess(current_dim, accessed_dim),
+                    meta,
+                    reports,
+                );
             }
             if kind == WireType::Signal {
-                    if tags.contains(&accessed_element) {
-                        let prev_dim_access = if buses_and_signals.len()>1 {buses_and_signals.get(buses_and_signals.len()-2).unwrap().1}
-                                                  else {access_information.0}; 
-                        //Tags cannot be partially accessed. Then, the previous bus or signal cannot be array accessed.
-                        if pos == buses_and_signals.len()-1 && 0 == prev_dim_access && accessed_dim == 0{
-                            return Result::Ok(SymbolInformation::Tag);
-                        } else if prev_dim_access > 0 {
-                            return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
-                        } else{
-                                return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
-                        }
-                    }
-                    else{
+                if tags.contains(&accessed_element) {
+                    let prev_dim_access = if buses_and_signals.len() > 1 {
+                        buses_and_signals.get(buses_and_signals.len() - 2).unwrap().1
+                    } else {
+                        access_information.0
+                    };
+                    //Tags cannot be partially accessed. Then, the previous bus or signal cannot be array accessed.
+                    if pos == buses_and_signals.len() - 1
+                        && 0 == prev_dim_access
+                        && accessed_dim == 0
+                    {
+                        return Result::Ok(SymbolInformation::Tag);
+                    } else if prev_dim_access > 0 {
+                        return add_report_and_end(
+                            ReportCode::InvalidTagAccessAfterArray,
+                            meta,
+                            reports,
+                        );
+                    } else {
                         return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
                     }
-            } else if let WireType::Bus(b_name) = kind  {
-                    let field = program_archive.get_bus_data(&b_name).get_field_info(&accessed_element);
-                    match field {
-                        Some(wire) => {
-                            if accessed_dim > wire.get_dimension() {
-                                return add_report_and_end(ReportCode::InvalidArrayAccess(wire.get_dimension(), accessed_dim), meta, reports);
-                            }
-                            current_dim = wire.get_dimension() - accessed_dim;
-                            if pos == buses_and_signals.len()-1 {
-                                match wire.get_type() {
-                                    WireType::Signal => {return Result::Ok(SymbolInformation::Signal(current_dim));},
-                                    WireType::Bus(b_name2) => {return Result::Ok(SymbolInformation::Bus(Some(b_name2.clone()), current_dim))},
-                                }
-                            } else {
-                                kind = wire.get_type();
-                                tags = wire.get_tags().clone();
-                            }
-                        },
-                        Option::None => {
-                            if tags.contains(&accessed_element) {
-                                let prev_dim_access = if buses_and_signals.len()>1 {buses_and_signals.get(buses_and_signals.len()-2).unwrap().1}
-                                                            else {access_information.0}; 
-                                if pos == buses_and_signals.len()-1 && prev_dim_access == 0 && accessed_dim == 0{
-                                    return Result::Ok(SymbolInformation::Tag);
-                                } else if prev_dim_access > 0 {
-                                    return add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
-                                } else{
-                                        return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
-                                }
-                            }
-                            else{
-                                return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
-                            }
-                        },
+                } else {
+                    return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
                 }
-            } else{
+            } else if let WireType::Bus(b_name) = kind {
+                let field = program_archive.get_bus_data(&b_name).get_field_info(&accessed_element);
+                match field {
+                    Some(wire) => {
+                        if accessed_dim > wire.get_dimension() {
+                            return add_report_and_end(
+                                ReportCode::InvalidArrayAccess(wire.get_dimension(), accessed_dim),
+                                meta,
+                                reports,
+                            );
+                        }
+                        current_dim = wire.get_dimension() - accessed_dim;
+                        if pos == buses_and_signals.len() - 1 {
+                            match wire.get_type() {
+                                WireType::Signal => {
+                                    return Result::Ok(SymbolInformation::Signal(current_dim));
+                                }
+                                WireType::Bus(b_name2) => {
+                                    return Result::Ok(SymbolInformation::Bus(
+                                        Some(b_name2.clone()),
+                                        current_dim,
+                                    ))
+                                }
+                            }
+                        } else {
+                            kind = wire.get_type();
+                            tags = wire.get_tags().clone();
+                        }
+                    }
+                    Option::None => {
+                        if tags.contains(&accessed_element) {
+                            let prev_dim_access = if buses_and_signals.len() > 1 {
+                                buses_and_signals.get(buses_and_signals.len() - 2).unwrap().1
+                            } else {
+                                access_information.0
+                            };
+                            if pos == buses_and_signals.len() - 1
+                                && prev_dim_access == 0
+                                && accessed_dim == 0
+                            {
+                                return Result::Ok(SymbolInformation::Tag);
+                            } else if prev_dim_access > 0 {
+                                return add_report_and_end(
+                                    ReportCode::InvalidTagAccessAfterArray,
+                                    meta,
+                                    reports,
+                                );
+                            } else {
+                                return add_report_and_end(
+                                    ReportCode::InvalidTagAccess,
+                                    meta,
+                                    reports,
+                                );
+                            }
+                        } else {
+                            return add_report_and_end(ReportCode::InvalidTagAccess, meta, reports);
+                        }
+                    }
+                }
+            } else {
                 unreachable!()
             }
             pos += 1;
         }
         unreachable!()
 
-
         //add_report_and_end(ReportCode::InvalidTagAccessAfterArray, meta, reports);
     } else if environment.has_variable(symbol) {
         Result::Ok(SymbolInformation::Var(current_dim))
     } else if environment.has_signal(symbol) {
         Result::Ok(SymbolInformation::Signal(current_dim))
-    } else if environment.has_bus(symbol){ 
+    } else if environment.has_bus(symbol) {
         Result::Ok(SymbolInformation::Bus(current_template_or_bus, current_dim))
-    }else if environment.has_component(symbol) && current_dim == 0 {
+    } else if environment.has_component(symbol) && current_dim == 0 {
         Result::Ok(SymbolInformation::Component(current_template_or_bus))
     } else {
         add_report_and_end(ReportCode::InvalidPartialArray, meta, reports)
     }
 }
-
 
 fn type_array_of_expressions(
     expressions: &[Expression],
@@ -1414,15 +1553,19 @@ fn type_template(
     call_id.to_string()
 }
 
-
-fn type_bus(id: &str, args_dims: &[ArithmeticType], analysis_information: &mut AnalysisInformation, program_archive: &ProgramArchive) -> Result<FoldedType,()> {
+fn type_bus(
+    id: &str,
+    args_dims: &[ArithmeticType],
+    analysis_information: &mut AnalysisInformation,
+    program_archive: &ProgramArchive,
+) -> Result<FoldedType, ()> {
     debug_assert!(program_archive.contains_bus(id));
     if analysis_information.registered_calls.get_instance(id, args_dims).is_none() {
         analysis_information.registered_calls.add_instance(id, args_dims.to_vec(), 0);
         let stmts = program_archive.get_bus_data(id).get_body_as_vec();
         treat_sequence_of_statements(stmts, program_archive, analysis_information);
     }
-    Result::Ok(FoldedType::bus(id,0))
+    Result::Ok(FoldedType::bus(id, 0))
 }
 
 fn type_function(

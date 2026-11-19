@@ -16,7 +16,6 @@ const CUSTOM_GATES_APPLIED_TYPE: &[u8] = &[5, 0, 0, 0];
 //This is used only to skip the section size.
 const PLACE_HOLDER: &[u8] = &[3, 3, 3, 3, 3, 3, 3, 3];
 
-
 pub enum R1CSParsingError {
     InvalidMagicNumber,
     InvalidVersion,
@@ -32,7 +31,9 @@ impl fmt::Display for R1CSParsingError {
             R1CSParsingError::InvalidVersion => write!(f, "Invalid version"),
             R1CSParsingError::InvalidSectionHeader => write!(f, "Invalid section header"),
             R1CSParsingError::InvalidSectionType => write!(f, "Invalid section type"),
-            R1CSParsingError::SectionNotPresent(section) => write!(f, "Section \"{}\" not present", section),
+            R1CSParsingError::SectionNotPresent(section) => {
+                write!(f, "Section \"{}\" not present", section)
+            }
         }
     }
 }
@@ -51,7 +52,10 @@ fn read_section(reader: &mut BufReader<File>, header: &[u8]) -> Result<u64, std:
     let mut buffer = vec![0; header.len()];
     reader.read_exact(&mut buffer)?;
     if buffer != header {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, R1CSParsingError::InvalidSectionHeader.to_string()));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            R1CSParsingError::InvalidSectionHeader.to_string(),
+        ));
     }
     let go_back = reader.seek(SeekFrom::Current(0))?;
     reader.seek(SeekFrom::Current(PLACE_HOLDER.len() as i64))?;
@@ -97,12 +101,10 @@ where
     Ok((a, b, c))
 }
 
-
 pub struct R1CSReader {
     field_size: usize,
     reader: BufReader<File>,
     sections: [bool; SECTIONS as usize],
-    
 }
 
 pub struct HeaderSection {
@@ -125,7 +127,6 @@ pub struct HeaderData {
     pub number_of_constraints: usize,
 }
 
-
 type Constraint = HashMap<usize, BigInt>;
 type ConstraintList = Vec<(Constraint, Constraint, Constraint)>;
 type SignalList = Vec<usize>;
@@ -138,8 +139,6 @@ pub struct ConstraintSection {
     field_size: usize,
     sections: [bool; SECTIONS as usize],
 }
-
-
 
 pub struct SignalSection {
     reader: BufReader<File>,
@@ -172,7 +171,7 @@ impl R1CSReader {
     pub fn new(input_file: String) -> Result<R1CSReader, std::io::Error> {
         let sections = [false; SECTIONS as usize];
         let reader = File::open(&input_file).map(BufReader::new)?;
-        Ok(R1CSReader { reader, sections, field_size:0 })
+        Ok(R1CSReader { reader, sections, field_size: 0 })
     }
 
     pub fn start_header_section(mut r1cs: R1CSReader) -> Result<HeaderSection, std::io::Error> {
@@ -187,7 +186,9 @@ impl R1CSReader {
         })
     }
 
-    pub fn start_constraints_section(mut r1cs: R1CSReader) -> Result<ConstraintSection, std::io::Error> {
+    pub fn start_constraints_section(
+        mut r1cs: R1CSReader,
+    ) -> Result<ConstraintSection, std::io::Error> {
         let start = read_section(&mut r1cs.reader, CONSTRAINT_TYPE)?;
         Ok(ConstraintSection {
             number_of_constraints: 0,
@@ -212,7 +213,9 @@ impl R1CSReader {
         })
     }
 
-    pub fn start_custom_gates_used_section(mut r1cs: R1CSReader) -> Result<CustomGatesUsedSection, std::io::Error> {
+    pub fn start_custom_gates_used_section(
+        mut r1cs: R1CSReader,
+    ) -> Result<CustomGatesUsedSection, std::io::Error> {
         let start = read_section(&mut r1cs.reader, CUSTOM_GATES_USED_TYPE)?;
         Ok(CustomGatesUsedSection {
             reader: r1cs.reader,
@@ -224,7 +227,9 @@ impl R1CSReader {
         })
     }
 
-    pub fn start_custom_gates_applied_section(mut r1cs: R1CSReader) -> Result<CustomGatesAppliedSection, std::io::Error> {
+    pub fn start_custom_gates_applied_section(
+        mut r1cs: R1CSReader,
+    ) -> Result<CustomGatesAppliedSection, std::io::Error> {
         let start = read_section(&mut r1cs.reader, CUSTOM_GATES_APPLIED_TYPE)?;
         Ok(CustomGatesAppliedSection {
             reader: r1cs.reader,
@@ -271,7 +276,9 @@ impl HeaderSection {
 }
 
 impl ConstraintSection {
-    pub fn read_constraint_usize(&mut self) -> Result<(Constraint, Constraint, Constraint), std::io::Error> {
+    pub fn read_constraint_usize(
+        &mut self,
+    ) -> Result<(Constraint, Constraint, Constraint), std::io::Error> {
         let field_size = self.field_size;
         let (a, b, c) = read_constraint::<Vec<u8>>(&mut self.reader, field_size)?;
         let mut constraint_a = HashMap::new();
@@ -299,11 +306,7 @@ impl ConstraintSection {
         let mut sections = self.sections;
         let index = self.index;
         sections[index] = true;
-        Ok(R1CSReader {
-            reader: self.reader,
-            field_size: self.field_size,
-            sections,
-        })
+        Ok(R1CSReader { reader: self.reader, field_size: self.field_size, sections })
     }
 
     pub fn constraints_read(&self) -> usize {
@@ -321,7 +324,7 @@ impl SignalSection {
 
     pub fn read_signal_usize(&mut self) -> Result<usize, std::io::Error> {
         let signal = self.read_signal()?;
-        Ok(BigInt::from_bytes_le(Sign::Plus,&signal).to_usize().unwrap())
+        Ok(BigInt::from_bytes_le(Sign::Plus, &signal).to_usize().unwrap())
     }
 
     pub fn end_section(mut self) -> Result<R1CSReader, std::io::Error> {
@@ -330,11 +333,7 @@ impl SignalSection {
         let mut sections = self.sections;
         let index = self.index;
         sections[index] = true;
-        Ok(R1CSReader {
-            reader: self.reader,
-            field_size: self.field_size,
-            sections,
-        })
+        Ok(R1CSReader { reader: self.reader, field_size: self.field_size, sections })
     }
 }
 
@@ -374,17 +373,15 @@ impl CustomGatesUsedSection {
         let mut sections = self.sections;
         let index = self.index;
         sections[index] = true;
-        Ok(R1CSReader {
-            reader: self.reader,
-            field_size: self.field_size,
-            sections,
-        })
+        Ok(R1CSReader { reader: self.reader, field_size: self.field_size, sections })
     }
 }
 
 pub type CustomGatesAppliedData = Vec<(usize, Vec<usize>)>;
 impl CustomGatesAppliedSection {
-    pub fn read_custom_gates_applications(&mut self) -> Result<CustomGatesAppliedData, std::io::Error> {
+    pub fn read_custom_gates_applications(
+        &mut self,
+    ) -> Result<CustomGatesAppliedData, std::io::Error> {
         let no_custom_gate_applications = read_bigint(&mut self.reader, 4)?.to_usize().unwrap();
         let mut data = Vec::with_capacity(no_custom_gate_applications);
 
@@ -409,11 +406,7 @@ impl CustomGatesAppliedSection {
         let mut sections = self.sections;
         let index = self.index;
         sections[index] = true;
-        Ok(R1CSReader {
-            reader: self.reader,
-            field_size: self.field_size,
-            sections,
-        })
+        Ok(R1CSReader { reader: self.reader, field_size: self.field_size, sections })
     }
 }
 
@@ -449,7 +442,6 @@ impl R1CSData {
     }
 }
 
-
 pub fn read_r1cs(input: &str) -> Result<R1CSData, std::io::Error> {
     let mut info = R1CSData::new();
     let mut r1cs = R1CSReader::new(input.to_string())?;
@@ -461,7 +453,7 @@ pub fn read_r1cs(input: &str) -> Result<R1CSData, std::io::Error> {
     info.custom_gates = n_sections == 5;
     let mut current_offset = 0;
     let mut section_starts = HashMap::new();
-    for _ in 0..n_sections{
+    for _ in 0..n_sections {
         let mut buffer = vec![0; 4];
         let new_offset = r1cs.reader.seek(SeekFrom::Current(current_offset))?;
         r1cs.reader.read_exact(&mut buffer)?;
@@ -470,8 +462,11 @@ pub fn read_r1cs(input: &str) -> Result<R1CSData, std::io::Error> {
         if section_type >= 1 && section_type <= n_sections as u8 {
             section_starts.insert(section_type, new_offset);
         } else {
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, R1CSParsingError::InvalidSectionType.to_string()));
-         }
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                R1CSParsingError::InvalidSectionType.to_string(),
+            ));
+        }
         current_offset = (section_size.to_u64().unwrap()) as i64;
     }
 
@@ -483,19 +478,29 @@ fn read_initialization(r1cs: &mut R1CSReader) -> Result<Vec<u8>, std::io::Error>
     let mut buffer = vec![0; MAGIC.len()];
     r1cs.reader.read_exact(&mut buffer)?;
     if buffer != MAGIC {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, R1CSParsingError::InvalidMagicNumber.to_string()));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            R1CSParsingError::InvalidMagicNumber.to_string(),
+        ));
     }
     let mut buffer = vec![0; VERSION.len()];
     r1cs.reader.read_exact(&mut buffer)?;
     if buffer != VERSION {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, R1CSParsingError::InvalidVersion.to_string()));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            R1CSParsingError::InvalidVersion.to_string(),
+        ));
     }
     let mut buffer = vec![0; 4];
     r1cs.reader.read_exact(&mut buffer)?;
     Ok(buffer)
 }
 
-fn read_sections(info: &mut R1CSData, mut r1cs: R1CSReader, starts: HashMap<u8, u64>) -> Result<(), std::io::Error> {
+fn read_sections(
+    info: &mut R1CSData,
+    mut r1cs: R1CSReader,
+    starts: HashMap<u8, u64>,
+) -> Result<(), std::io::Error> {
     //reading the header section
     if let Some(&start) = starts.get(&1) {
         r1cs.reader.seek(SeekFrom::Start(start))?;
@@ -505,8 +510,10 @@ fn read_sections(info: &mut R1CSData, mut r1cs: R1CSReader, starts: HashMap<u8, 
         //Important: After r eading the header we know the size of the field
         r1cs.field_size = info.header_data.field_size;
     } else {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other,
-             R1CSParsingError::SectionNotPresent("Header".to_string()).to_string()));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            R1CSParsingError::SectionNotPresent("Header".to_string()).to_string(),
+        ));
     }
 
     //reading the constraints section
@@ -519,8 +526,10 @@ fn read_sections(info: &mut R1CSData, mut r1cs: R1CSReader, starts: HashMap<u8, 
         }
         r1cs = constraint_section.end_section()?;
     } else {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other,
-            R1CSParsingError::SectionNotPresent("Constraints".to_string()).to_string()));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            R1CSParsingError::SectionNotPresent("Constraints".to_string()).to_string(),
+        ));
     }
     //reading the signals section
     if let Some(&start) = starts.get(&3) {
@@ -532,8 +541,10 @@ fn read_sections(info: &mut R1CSData, mut r1cs: R1CSReader, starts: HashMap<u8, 
         }
         r1cs = signal_section.end_section()?;
     } else {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other,
-            R1CSParsingError::SectionNotPresent("Signals".to_string()).to_string()));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            R1CSParsingError::SectionNotPresent("Signals".to_string()).to_string(),
+        ));
     }
 
     //reading the custom gates sections
@@ -542,22 +553,29 @@ fn read_sections(info: &mut R1CSData, mut r1cs: R1CSReader, starts: HashMap<u8, 
         if let Some(&start) = starts.get(&4) {
             r1cs.reader.seek(SeekFrom::Start(start))?;
             let mut custom_gates_used_section = R1CSReader::start_custom_gates_used_section(r1cs)?;
-            info.custom_gates_used_data = Some(custom_gates_used_section.read_custom_gates_usages()?);
+            info.custom_gates_used_data =
+                Some(custom_gates_used_section.read_custom_gates_usages()?);
             r1cs = custom_gates_used_section.end_section()?;
         } else {
-            return Err(std::io::Error::new(std::io::ErrorKind::Other,
-                R1CSParsingError::SectionNotPresent("Custom Gates Used".to_string()).to_string()));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                R1CSParsingError::SectionNotPresent("Custom Gates Used".to_string()).to_string(),
+            ));
         }
 
         //reading the Custom Gates Applied Section
         if let Some(&start) = starts.get(&5) {
             r1cs.reader.seek(SeekFrom::Start(start))?;
-            let mut custom_gates_applied_section = R1CSReader::start_custom_gates_applied_section(r1cs)?;
-            info.custom_gates_applied_data = Some(custom_gates_applied_section.read_custom_gates_applications()?);
+            let mut custom_gates_applied_section =
+                R1CSReader::start_custom_gates_applied_section(r1cs)?;
+            info.custom_gates_applied_data =
+                Some(custom_gates_applied_section.read_custom_gates_applications()?);
             custom_gates_applied_section.end_section()?;
         } else {
-            return Err(std::io::Error::new(std::io::ErrorKind::Other,
-                R1CSParsingError::SectionNotPresent("Custom Gates Applied".to_string()).to_string()));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                R1CSParsingError::SectionNotPresent("Custom Gates Applied".to_string()).to_string(),
+            ));
         }
     }
     Ok(())

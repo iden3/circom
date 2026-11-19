@@ -105,7 +105,11 @@ fn analyze_main(program: &ProgramArchive) -> Result<(), Vec<Report>> {
         &environment,
     );
 
-    if reports.is_empty() { Ok(()) } else { Err(reports) }
+    if reports.is_empty() {
+        Ok(())
+    } else {
+        Err(reports)
+    }
 }
 
 pub fn analyze_symbols(
@@ -182,14 +186,36 @@ fn analyze_statement(
 ) {
     match stmt {
         Statement::MultSubstitution { .. } => unreachable!(),
-        Statement::Return { value, .. } => {
-            analyze_expression(value, file_id, function_info, template_info, bus_info, reports, environment)
-        }
+        Statement::Return { value, .. } => analyze_expression(
+            value,
+            file_id,
+            function_info,
+            template_info,
+            bus_info,
+            reports,
+            environment,
+        ),
         Statement::UnderscoreSubstitution { rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_expression(
+                rhe,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
         }
         Statement::Substitution { meta, var, access, rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_expression(
+                rhe,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
             treat_variable(
                 meta,
                 var,
@@ -203,8 +229,24 @@ fn analyze_statement(
             );
         }
         Statement::ConstraintEquality { lhe, rhe, .. } => {
-            analyze_expression(lhe, file_id, function_info, template_info, bus_info, reports, environment);
-            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_expression(
+                lhe,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
+            analyze_expression(
+                rhe,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
         }
         Statement::InitializationBlock { initializations, .. } => {
             for initialization in initializations.iter() {
@@ -243,10 +285,10 @@ fn analyze_statement(
                 );
                 reports.push(report);
             }
-            if let VariableType::Bus(b_name,_,tags ) = xtype {
+            if let VariableType::Bus(b_name, _, tags) = xtype {
                 if let Some(bus) = bus_info.get(b_name) {
                     for t in tags {
-                         if bus.get_fields().contains_key(t) {
+                        if bus.get_fields().contains_key(t) {
                             let mut report = Report::error(
                                 format!("Declaring same symbol twice"),
                                 ReportCode::SameSymbolDeclaredTwice,
@@ -257,7 +299,7 @@ fn analyze_statement(
                                 format!("This tag name is also a field name in the bus."),
                             );
                             reports.push(report);
-                         }
+                        }
                     }
                 }
             }
@@ -265,13 +307,27 @@ fn analyze_statement(
         Statement::LogCall { args, .. } => {
             for logarg in args {
                 if let LogArgument::LogExp(arg) = logarg {
-                    analyze_expression(arg, file_id, function_info, template_info, bus_info, reports, environment);
+                    analyze_expression(
+                        arg,
+                        file_id,
+                        function_info,
+                        template_info,
+                        bus_info,
+                        reports,
+                        environment,
+                    );
                 }
             }
         }
-        Statement::Assert { arg, .. } => {
-            analyze_expression(arg, file_id, function_info, template_info, bus_info, reports, environment)
-        }
+        Statement::Assert { arg, .. } => analyze_expression(
+            arg,
+            file_id,
+            function_info,
+            template_info,
+            bus_info,
+            reports,
+            environment,
+        ),
         Statement::Block { stmts, .. } => {
             environment.push(Block::new());
             for block_stmt in stmts.iter() {
@@ -288,12 +344,44 @@ fn analyze_statement(
             environment.pop();
         }
         Statement::While { stmt, cond, .. } => {
-            analyze_expression(cond, file_id, function_info, template_info, bus_info, reports, environment);
-            analyze_statement(stmt, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_expression(
+                cond,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
+            analyze_statement(
+                stmt,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
         }
         Statement::IfThenElse { cond, if_case, else_case, .. } => {
-            analyze_expression(cond, file_id, function_info, template_info, bus_info, reports, environment);
-            analyze_statement(if_case, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_expression(
+                cond,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
+            analyze_statement(
+                if_case,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
             if let Option::Some(else_stmt) = else_case {
                 analyze_statement(
                     else_stmt,
@@ -332,7 +420,15 @@ fn treat_variable(
     for acc in access.iter() {
         match acc {
             Access::ArrayAccess(index) => {
-                analyze_expression(index, file_id, function_info, template_info, bus_info, reports, environment);
+                analyze_expression(
+                    index,
+                    file_id,
+                    function_info,
+                    template_info,
+                    bus_info,
+                    reports,
+                    environment,
+                );
             }
             Access::ComponentAccess(_) => {}
         }
@@ -350,17 +446,53 @@ fn analyze_expression(
 ) {
     match expression {
         Expression::InfixOp { lhe, rhe, .. } => {
-            analyze_expression(lhe, file_id, function_info, template_info, bus_info, reports, environment);
-            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_expression(
+                lhe,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
+            analyze_expression(
+                rhe,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
         }
-        Expression::PrefixOp { rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment)
-        }
-        Expression::ParallelOp { rhe, .. } => {
-            analyze_expression(rhe, file_id, function_info, template_info, bus_info, reports, environment)
-        }
+        Expression::PrefixOp { rhe, .. } => analyze_expression(
+            rhe,
+            file_id,
+            function_info,
+            template_info,
+            bus_info,
+            reports,
+            environment,
+        ),
+        Expression::ParallelOp { rhe, .. } => analyze_expression(
+            rhe,
+            file_id,
+            function_info,
+            template_info,
+            bus_info,
+            reports,
+            environment,
+        ),
         Expression::InlineSwitchOp { cond, if_true, if_false, .. } => {
-            analyze_expression(cond, file_id, function_info, template_info, bus_info, reports, environment);
+            analyze_expression(
+                cond,
+                file_id,
+                function_info,
+                template_info,
+                bus_info,
+                reports,
+                environment,
+            );
             analyze_expression(
                 if_true,
                 file_id,
@@ -446,7 +578,7 @@ fn analyze_expression(
                 );
             }
         }
-        Expression::UniformArray{ value, dimension, .. } => {
+        Expression::UniformArray { value, dimension, .. } => {
             analyze_expression(
                 value,
                 file_id,
@@ -465,9 +597,8 @@ fn analyze_expression(
                 reports,
                 environment,
             );
-        },
-        Expression::BusCall { meta, id, args } => 
-        {
+        }
+        Expression::BusCall { meta, id, args } => {
             if !bus_info.contains_key(id) {
                 let mut report =
                     Report::error(format!("Calling symbol"), ReportCode::NonExistentSymbol);
@@ -504,7 +635,7 @@ fn analyze_expression(
                     environment,
                 );
             }
-        },
+        }
         _ => {}
     }
 }

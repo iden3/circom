@@ -49,7 +49,10 @@ fn end_section(writer: &mut BufWriter<File>, go_back: u64, size: usize) -> Resul
 fn obtain_linear_combination_block<T>(
     linear_combination: &HashMap<T, BigInt>,
     field_size: usize,
-) -> (Vec<u8>, usize) where T: AsRef<[u8]> + std::cmp::Ord + std::hash::Hash {
+) -> (Vec<u8>, usize)
+where
+    T: AsRef<[u8]> + std::cmp::Ord + std::hash::Hash,
+{
     let mut block = Vec::new();
     let non_zero_factors = BigInt::from(linear_combination.len());
     let mut size = 0;
@@ -77,7 +80,10 @@ fn write_constraint<T>(
     b: &HashMap<T, BigInt>,
     c: &HashMap<T, BigInt>,
     field_size: usize,
-) -> Result<usize, ()> where T: AsRef<[u8]> + std::cmp::Ord + std::hash::Hash {
+) -> Result<usize, ()>
+where
+    T: AsRef<[u8]> + std::cmp::Ord + std::hash::Hash,
+{
     let (block_a, size_a) = obtain_linear_combination_block(a, field_size);
     let (block_b, size_b) = obtain_linear_combination_block(b, field_size);
     let (block_c, size_c) = obtain_linear_combination_block(c, field_size);
@@ -103,7 +109,7 @@ fn initialize_file(writer: &mut BufWriter<File>, num_sections: u8) -> Result<(),
 pub struct R1CSWriter {
     field_size: usize,
     writer: BufWriter<File>,
-    sections: [bool; SECTIONS as usize]
+    sections: [bool; SECTIONS as usize],
 }
 
 pub struct HeaderSection {
@@ -112,7 +118,7 @@ pub struct HeaderSection {
     size: usize,
     index: usize,
     field_size: usize,
-    sections: [bool; SECTIONS as usize]
+    sections: [bool; SECTIONS as usize],
 }
 
 pub struct ConstraintSection {
@@ -122,7 +128,7 @@ pub struct ConstraintSection {
     size: usize,
     index: usize,
     field_size: usize,
-    sections: [bool; SECTIONS as usize]
+    sections: [bool; SECTIONS as usize],
 }
 
 pub struct SignalSection {
@@ -131,7 +137,7 @@ pub struct SignalSection {
     size: usize,
     index: usize,
     field_size: usize,
-    sections: [bool; SECTIONS as usize]
+    sections: [bool; SECTIONS as usize],
 }
 
 pub struct CustomGatesUsedSection {
@@ -140,7 +146,7 @@ pub struct CustomGatesUsedSection {
     size: usize,
     index: usize,
     field_size: usize,
-    sections: [bool; SECTIONS as usize]
+    sections: [bool; SECTIONS as usize],
 }
 
 pub struct CustomGatesAppliedSection {
@@ -149,14 +155,14 @@ pub struct CustomGatesAppliedSection {
     size: usize,
     index: usize,
     field_size: usize,
-    sections: [bool; SECTIONS as usize]
+    sections: [bool; SECTIONS as usize],
 }
 
 impl R1CSWriter {
     pub fn new(
         output_file: String,
         field_size: usize,
-        custom_gates: bool
+        custom_gates: bool,
     ) -> Result<R1CSWriter, ()> {
         let sections = [false; SECTIONS as usize];
         let num_sections: u8 = if custom_gates { 5 } else { 3 };
@@ -203,7 +209,9 @@ impl R1CSWriter {
         })
     }
 
-    pub fn start_custom_gates_used_section(mut r1cs: R1CSWriter) -> Result<CustomGatesUsedSection, ()> {
+    pub fn start_custom_gates_used_section(
+        mut r1cs: R1CSWriter,
+    ) -> Result<CustomGatesUsedSection, ()> {
         let start = initialize_section(&mut r1cs.writer, CUSTOM_GATES_USED_TYPE)?;
         Result::Ok(CustomGatesUsedSection {
             writer: r1cs.writer,
@@ -211,11 +219,13 @@ impl R1CSWriter {
             size: 0,
             index: 3,
             field_size: r1cs.field_size,
-            sections: r1cs.sections
+            sections: r1cs.sections,
         })
     }
 
-    pub fn start_custom_gates_applied_section(mut r1cs: R1CSWriter) -> Result<CustomGatesAppliedSection, ()> {
+    pub fn start_custom_gates_applied_section(
+        mut r1cs: R1CSWriter,
+    ) -> Result<CustomGatesAppliedSection, ()> {
         let start = initialize_section(&mut r1cs.writer, CUSTOM_GATES_APPLIED_TYPE)?;
         Result::Ok(CustomGatesAppliedSection {
             writer: r1cs.writer,
@@ -223,12 +233,12 @@ impl R1CSWriter {
             size: 0,
             index: 4,
             field_size: r1cs.field_size,
-            sections: r1cs.sections
+            sections: r1cs.sections,
         })
     }
 
     pub fn finish_writing(mut r1cs: R1CSWriter) -> Result<(), ()> {
-	r1cs.writer.flush().map_err(|_err| {})
+        r1cs.writer.flush().map_err(|_err| {})
     }
 }
 
@@ -312,11 +322,7 @@ impl ConstraintSection {
         let mut sections = self.sections;
         let index = self.index;
         sections[index] = true;
-        Result::Ok(R1CSWriter {
-            writer: self.writer,
-            field_size: self.field_size,
-            sections
-        })
+        Result::Ok(R1CSWriter { writer: self.writer, field_size: self.field_size, sections })
     }
 
     pub fn constraints_written(&self) -> usize {
@@ -325,14 +331,14 @@ impl ConstraintSection {
 }
 
 impl SignalSection {
-    pub fn write_signal<T>(
-        &mut self,
-        bytes: &T
-    ) -> Result<(), ()> where T: AsRef<[u8]> {
+    pub fn write_signal<T>(&mut self, bytes: &T) -> Result<(), ()>
+    where
+        T: AsRef<[u8]>,
+    {
         let (bytes, size) = into_format(bytes.as_ref(), 8);
         self.size += size;
-        self.writer.write_all(&bytes).map_err(|_err| {})//?;
-        //self.writer.flush().map_err(|_err| {})
+        self.writer.write_all(&bytes).map_err(|_err| {}) //?;
+                                                         //self.writer.flush().map_err(|_err| {})
     }
 
     pub fn write_signal_usize(&mut self, signal: usize) -> Result<(), ()> {
@@ -345,11 +351,7 @@ impl SignalSection {
         let mut sections = self.sections;
         let index = self.index;
         sections[index] = true;
-        Result::Ok(R1CSWriter {
-            writer: self.writer,
-            field_size: self.field_size,
-            sections
-        })
+        Result::Ok(R1CSWriter { writer: self.writer, field_size: self.field_size, sections })
     }
 }
 
@@ -380,7 +382,8 @@ impl CustomGatesUsedSection {
             //self.writer.flush().map_err(|_err| {})?;
 
             for parameter in custom_gate_parameters {
-                let (parameter_stream, parameter_size) = bigint_as_bytes(&parameter, self.field_size);
+                let (parameter_stream, parameter_size) =
+                    bigint_as_bytes(&parameter, self.field_size);
                 self.size += parameter_size;
                 self.writer.write(&parameter_stream).map_err(|_err| {})?;
                 //self.writer.flush().map_err(|_err| {})?;
@@ -395,17 +398,16 @@ impl CustomGatesUsedSection {
         let mut sections = self.sections;
         let index = self.index;
         sections[index] = true;
-        Result::Ok(R1CSWriter {
-            writer: self.writer,
-            field_size: self.field_size,
-            sections
-        })
+        Result::Ok(R1CSWriter { writer: self.writer, field_size: self.field_size, sections })
     }
 }
 
 pub type CustomGatesAppliedData = Vec<(usize, Vec<usize>)>;
 impl CustomGatesAppliedSection {
-    pub fn write_custom_gates_applications(&mut self, data: CustomGatesAppliedData) -> Result<(), ()> {
+    pub fn write_custom_gates_applications(
+        &mut self,
+        data: CustomGatesAppliedData,
+    ) -> Result<(), ()> {
         let no_custom_gate_applications = data.len();
         let (no_custom_gate_applications_stream, no_custom_gate_applications_size) =
             bigint_as_bytes(&BigInt::from(no_custom_gate_applications), 4);
@@ -436,7 +438,7 @@ impl CustomGatesAppliedSection {
                 //self.writer.flush().map_err(|_err| {})?;
             }
         }
-	//self.writer.flush().map_err(|_err| {})?;
+        //self.writer.flush().map_err(|_err| {})?;
         Result::Ok(())
     }
 
@@ -445,10 +447,6 @@ impl CustomGatesAppliedSection {
         let mut sections = self.sections;
         let index = self.index;
         sections[index] = true;
-        Result::Ok(R1CSWriter {
-            writer: self.writer,
-            field_size: self.field_size,
-            sections
-        })
+        Result::Ok(R1CSWriter { writer: self.writer, field_size: self.field_size, sections })
     }
 }

@@ -40,9 +40,8 @@ pub struct Input {
     pub flag_verbose: bool,
     pub flag_no_init: bool,
     pub prime: String,
-    pub link_libraries : Vec<PathBuf>
+    pub link_libraries: Vec<PathBuf>,
 }
-
 
 const R1CS: &'static str = "r1cs";
 const WAT: &'static str = "wat";
@@ -52,7 +51,6 @@ const JS: &'static str = "js";
 const DAT: &'static str = "dat";
 const SYM: &'static str = "sym";
 const JSON: &'static str = "json";
-
 
 impl Input {
     pub fn new() -> Result<Input, ()> {
@@ -65,16 +63,16 @@ impl Input {
 
         let c_flag = input_processing::get_c(&matches);
 
-        if c_flag && (file_name == "main" || file_name == "fr" || file_name == "calcwit"){
+        if c_flag && (file_name == "main" || file_name == "fr" || file_name == "calcwit") {
             println!("{}", Colour::Yellow.paint(format!("The name {} is reserved in Circom when using de --c flag. The files generated for your circuit will use the name {}_c instead of {}.", file_name, file_name, file_name)));
             file_name = format!("{}_c", file_name)
         };
         let output_c_path = Input::build_folder(&output_path, &file_name, CPP);
         let output_js_path = Input::build_folder(&output_path, &file_name, JS);
         let o_style = input_processing::get_simplification_style(&matches)?;
-        let (plonk_style, is_plonk)= match o_style{
+        let (plonk_style, is_plonk) = match o_style {
             O1PLONK(value) => (value, true),
-            _ => (PlonkReduction::MIXED, false)
+            _ => (PlonkReduction::MIXED, false),
         };
         let sanity_check_style = input_processing::get_sanity_check_style(&matches)?;
         let link_libraries = input_processing::get_link_libraries(&matches);
@@ -84,10 +82,10 @@ impl Input {
             out_r1cs: Input::build_output(&output_path, &file_name, R1CS),
             out_wat_code: Input::build_output(&output_js_path, &file_name, WAT),
             out_wasm_code: Input::build_output(&output_js_path, &file_name, WASM),
-	        out_js_folder: output_js_path.clone(),
-	        out_wasm_name: file_name.clone(),
-	        out_c_folder: output_c_path.clone(),
-	        out_c_run_name: file_name.clone(),
+            out_js_folder: output_js_path.clone(),
+            out_wasm_name: file_name.clone(),
+            out_c_folder: output_c_path.clone(),
+            out_c_run_name: file_name.clone(),
             out_c_code: Input::build_output(&output_c_path, &file_name, CPP),
             out_c_dat: Input::build_output(&output_c_path, &file_name, DAT),
             out_sym: Input::build_output(&output_path, &file_name, SYM),
@@ -101,10 +99,10 @@ impl Input {
                 &format!("{}_substitutions", file_name),
                 JSON,
             ),
-            wat_flag:input_processing::get_wat(&matches),
+            wat_flag: input_processing::get_wat(&matches),
             wasm_flag: input_processing::get_wasm(&matches),
             c_flag: c_flag,
-            no_asm_flag:input_processing::get_no_asm(&matches),
+            no_asm_flag: input_processing::get_no_asm(&matches),
             sanity_check_style: sanity_check_style as usize,
             r1cs_flag: input_processing::get_r1cs(&matches),
             sym_flag: input_processing::get_sym(&matches),
@@ -115,29 +113,31 @@ impl Input {
             no_rounds: if let SimplificationStyle::O2(r) = o_style { r } else { 0 },
             fast_flag: o_style == SimplificationStyle::O0,
             reduced_simplification_flag: o_style == SimplificationStyle::O1,
-            apply_eager_plonk: plonk_style == PlonkReduction::EAGER || plonk_style == PlonkReduction::MIXED,
-            apply_sat_plonk: plonk_style == PlonkReduction::SAT || plonk_style == PlonkReduction::MIXED,
+            apply_eager_plonk: plonk_style == PlonkReduction::EAGER
+                || plonk_style == PlonkReduction::MIXED,
+            apply_sat_plonk: plonk_style == PlonkReduction::SAT
+                || plonk_style == PlonkReduction::MIXED,
             plonk_simplification: is_plonk,
             parallel_simplification_flag: input_processing::get_parallel_simplification(&matches),
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
             flag_old_heuristics: input_processing::get_flag_old_heuristics(&matches),
-            flag_verbose: input_processing::get_flag_verbose(&matches), 
-            flag_no_init: input_processing::get_flag_no_init(&matches), 
+            flag_verbose: input_processing::get_flag_verbose(&matches),
+            flag_no_init: input_processing::get_flag_no_init(&matches),
             prime: input_processing::get_prime(&matches)?,
-            link_libraries
+            link_libraries,
         })
     }
 
     fn build_folder(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
         let mut file = output_path.clone();
-	    let folder_name = format!("{}_{}",filename,ext);
-	    file.push(folder_name);
-	    file
+        let folder_name = format!("{}_{}", filename, ext);
+        file.push(folder_name);
+        file
     }
-    
+
     fn build_output(output_path: &PathBuf, filename: &str, ext: &str) -> PathBuf {
         let mut file = output_path.clone();
-        file.push(format!("{}.{}",filename,ext));
+        file.push(format!("{}.{}", filename, ext));
         file
     }
 
@@ -237,7 +237,7 @@ impl Input {
     pub fn apply_eager_plonk(&self) -> bool {
         self.apply_eager_plonk
     }
-        pub fn apply_sat_plonk(&self) -> bool {
+    pub fn apply_sat_plonk(&self) -> bool {
         self.apply_sat_plonk
     }
     pub fn plonk_simplification(&self) -> bool {
@@ -252,7 +252,7 @@ impl Input {
     pub fn no_rounds(&self) -> usize {
         self.no_rounds
     }
-    pub fn prime(&self) -> String{
+    pub fn prime(&self) -> String {
         self.prime.clone()
     }
 }
@@ -267,8 +267,15 @@ mod input_processing {
         if route.is_file() {
             Result::Ok(route)
         } else {
-            let route = if route.to_str().is_some() { ": ".to_owned() + route.to_str().unwrap()} else { "".to_owned() };
-            Result::Err(eprintln!("{}", Colour::Red.paint("Input file does not exist".to_owned() + &route)))
+            let route = if route.to_str().is_some() {
+                ": ".to_owned() + route.to_str().unwrap()
+            } else {
+                "".to_owned()
+            };
+            Result::Err(eprintln!(
+                "{}",
+                Colour::Red.paint("Input file does not exist".to_owned() + &route)
+            ))
         }
     }
 
@@ -282,11 +289,19 @@ mod input_processing {
     }
 
     #[derive(Copy, Clone, Eq, PartialEq)]
-    pub enum PlonkReduction {SAT, EAGER, MIXED}
+    pub enum PlonkReduction {
+        SAT,
+        EAGER,
+        MIXED,
+    }
     #[derive(Copy, Clone, Eq, PartialEq)]
-    pub enum SimplificationStyle { O0, O1, O2(usize), O1PLONK(PlonkReduction) }
+    pub enum SimplificationStyle {
+        O0,
+        O1,
+        O2(usize),
+        O1PLONK(PlonkReduction),
+    }
     pub fn get_simplification_style(matches: &ArgMatches) -> Result<SimplificationStyle, ()> {
-
         let o_0 = matches.is_present("no_simplification");
         let o_1 = matches.is_present("reduced_simplification");
         let o_2 = matches.is_present("full_simplification");
@@ -294,21 +309,25 @@ mod input_processing {
 
         let only_sat = matches.is_present("sat_simplification");
         let only_eager = matches.is_present("eager_simplification");
-    
 
         let o_2round = matches.is_present("simplification_rounds");
         match (o_0, o_1, o_2round, o_2, o_plonk) {
             (true, _, _, _, _) => Ok(SimplificationStyle::O0),
             (_, true, _, _, _) => Ok(SimplificationStyle::O1),
-            (_, _, true,  _, _) => {
+            (_, _, true, _, _) => {
                 let o_2_argument = matches.value_of("simplification_rounds").unwrap();
                 let rounds_r = usize::from_str_radix(o_2_argument, 10);
-                if let Result::Ok(no_rounds) = rounds_r { 
-                    if no_rounds == 0 { Ok(SimplificationStyle::O1) }
-                    else {Ok(SimplificationStyle::O2(no_rounds))}} 
-                else { Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds"))) }
-            },
-            (_, _, _, _ , true) => {
+                if let Result::Ok(no_rounds) = rounds_r {
+                    if no_rounds == 0 {
+                        Ok(SimplificationStyle::O1)
+                    } else {
+                        Ok(SimplificationStyle::O2(no_rounds))
+                    }
+                } else {
+                    Result::Err(eprintln!("{}", Colour::Red.paint("invalid number of rounds")))
+                }
+            }
+            (_, _, _, _, true) => {
                 let plonk_reduction_type = match (only_sat, only_eager) {
                     (true, true) => PlonkReduction::MIXED,
                     (false, true) => PlonkReduction::EAGER,
@@ -323,27 +342,30 @@ mod input_processing {
     }
 
     #[derive(Copy, Clone, Eq, PartialEq)]
-    pub enum SanityCheckStyle { O0, O1, O2, O3 }
+    pub enum SanityCheckStyle {
+        O0,
+        O1,
+        O2,
+        O3,
+    }
     pub fn get_sanity_check_style(matches: &ArgMatches) -> Result<SanityCheckStyle, ()> {
         use SanityCheckStyle::*;
-        match matches.is_present("sanity_check"){
-            true => 
-               {
-                   let value = matches.value_of("sanity_check").unwrap();
-                   if value == "0"{
+        match matches.is_present("sanity_check") {
+            true => {
+                let value = matches.value_of("sanity_check").unwrap();
+                if value == "0" {
                     Ok(O0)
-                   } else if value == "1"{
+                } else if value == "1" {
                     Ok(O1)
-                   } else if value == "2"{
+                } else if value == "2" {
                     Ok(O2)
-                   } else if value == "3"{
+                } else if value == "3" {
                     Ok(O3)
-                   } 
-                    else{
-                        Result::Err(eprintln!("{}", Colour::Red.paint("invalid sanity check level")))
-                    }
-               }
-               
+                } else {
+                    Result::Err(eprintln!("{}", Colour::Red.paint("invalid sanity check level")))
+                }
+            }
+
             false => Ok(O2),
         }
     }
@@ -407,27 +429,24 @@ mod input_processing {
         matches.is_present("flag_old_heuristics")
     }
     pub fn get_prime(matches: &ArgMatches) -> Result<String, ()> {
-        
-        match matches.is_present("prime"){
-            true => 
-               {
-                   let prime_value = matches.value_of("prime").unwrap();
-                   if prime_value == "bn128"
-                      || prime_value == "bls12381"
-                      || prime_value == "goldilocks"
-                      || prime_value == "grumpkin"
-                      || prime_value == "pallas"
-                      || prime_value == "vesta"
-                      || prime_value == "secq256r1"
-                      || prime_value == "bls12377"
-                      {
-                        Ok(String::from(matches.value_of("prime").unwrap()))
-                    }
-                    else{
-                        Result::Err(eprintln!("{}", Colour::Red.paint("invalid prime number")))
-                    }
-               }
-               
+        match matches.is_present("prime") {
+            true => {
+                let prime_value = matches.value_of("prime").unwrap();
+                if prime_value == "bn128"
+                    || prime_value == "bls12381"
+                    || prime_value == "goldilocks"
+                    || prime_value == "grumpkin"
+                    || prime_value == "pallas"
+                    || prime_value == "vesta"
+                    || prime_value == "secq256r1"
+                    || prime_value == "bls12377"
+                {
+                    Ok(String::from(matches.value_of("prime").unwrap()))
+                } else {
+                    Result::Err(eprintln!("{}", Colour::Red.paint("invalid prime number")))
+                }
+            }
+
             false => Ok(String::from("bn128")),
         }
     }

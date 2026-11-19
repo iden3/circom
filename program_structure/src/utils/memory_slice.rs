@@ -36,7 +36,7 @@ pub enum MemoryError {
     TagValueNotInitializedAccess,
     MissingInputs(String),
     MultipleSizesInlineBuses,
-    DifferentBusesInline
+    DifferentBusesInline,
 }
 pub type SliceCapacity = usize;
 pub type SimpleSlice = MemorySlice<BigInt>;
@@ -51,17 +51,14 @@ pub struct MemorySlice<C> {
 }
 
 impl<C: PartialEq> PartialEq for MemorySlice<C> {
-    fn eq(&self, other: &Self) -> bool{
-        self.route ==  other.route && self.values == other.values
+    fn eq(&self, other: &Self) -> bool {
+        self.route == other.route && self.values == other.values
     }
 }
 
 impl<C: Clone> Clone for MemorySlice<C> {
     fn clone(&self) -> Self {
-        MemorySlice {
-            route: self.route.clone(),
-            values: self.values.clone(),
-        }
+        MemorySlice { route: self.route.clone(), values: self.values.clone() }
     }
 }
 
@@ -145,13 +142,12 @@ impl<C: Clone> MemorySlice<C> {
             }
 
             if new_values.route[i] > memory_slice.route[initial_index_new + i] {
-                if is_strict{
+                if is_strict {
                     return Result::Err(MemoryError::MismatchedDimensions(
                         new_values.route[i],
                         memory_slice.route[initial_index_new + i],
                     ));
-                }
-                else{
+                } else {
                     // case variables: we allow the assignment of smaller arrays
                     return Result::Err(MemoryError::MismatchedDimensionsWeak(
                         new_values.route[i],
@@ -211,7 +207,7 @@ impl<C: Clone> MemorySlice<C> {
     ) -> Result<Vec<&'a C>, MemoryError> {
         if access.is_empty() {
             let mut values = Vec::new();
-            for v in &memory_slice.values{
+            for v in &memory_slice.values {
                 values.push(v);
             }
             return Ok(values);
@@ -239,7 +235,7 @@ impl<C: Clone> MemorySlice<C> {
 
         if access.is_empty() {
             let mut values = Vec::new();
-            for v in &mut memory_slice.values{
+            for v in &mut memory_slice.values {
                 values.push(v);
             }
             return Ok(values);
@@ -251,8 +247,8 @@ impl<C: Clone> MemorySlice<C> {
         let initial_cell = MemorySlice::get_initial_cell(memory_slice, access)?;
 
         let mut index = 0;
-        for v in &mut memory_slice.values{
-            if index >= initial_cell && index < initial_cell + number_of_cells{
+        for v in &mut memory_slice.values {
+            if index >= initial_cell && index < initial_cell + number_of_cells {
                 values.push(v);
             }
             index += 1;
@@ -298,15 +294,14 @@ impl<C: Clone> MemorySlice<C> {
                 Result::Ok(())
             }
             Result::Err(MemoryError::MismatchedDimensionsWeak(dim_1, dim_2)) => {
-                
                 let mut aux_access = access.to_vec();
-                for index in 0..new_values.route()[0]{
+                for index in 0..new_values.route()[0] {
                     aux_access.push(index);
                     let _ = MemorySlice::insert_values(
                         memory_slice,
                         &aux_access,
                         &MemorySlice::access_values(new_values, &[index])?,
-                        is_strict
+                        is_strict,
                     );
                     aux_access.pop();
                 }
@@ -385,11 +380,10 @@ impl<C: Clone> MemorySlice<C> {
         if index > MemorySlice::get_number_of_cells(memory_slice) {
             return Result::Err(MemoryError::OutOfBoundsError);
         }
-        return Result::Ok(memory_slice.values.get_mut(index).unwrap());    }
+        return Result::Ok(memory_slice.values.get_mut(index).unwrap());
+    }
 
-    pub fn get_reference_values<'a>(
-        memory_slice: &'a MemorySlice<C>,
-    )-> &'a Vec<C>{
+    pub fn get_reference_values<'a>(memory_slice: &'a MemorySlice<C>) -> &'a Vec<C> {
         &memory_slice.values
     }
 
@@ -443,7 +437,7 @@ impl<C: Clone> MemorySlice<C> {
     pub fn route(&self) -> &[SliceCapacity] {
         &self.route
     }
-    pub fn route_value(&self) ->Vec<SliceCapacity> {
+    pub fn route_value(&self) -> Vec<SliceCapacity> {
         self.route.clone()
     }
     pub fn is_single(&self) -> bool {
@@ -465,7 +459,6 @@ impl<C: Clone> MemorySlice<C> {
     pub fn destruct(self) -> (Vec<SliceCapacity>, Vec<C>) {
         (self.route, self.values)
     }
-
 }
 
 #[cfg(test)]

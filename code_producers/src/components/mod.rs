@@ -6,40 +6,40 @@ pub struct IODef {
     pub offset: usize,
     pub lengths: Vec<usize>,
     pub size: usize,
-    pub bus_id: Option<usize>
+    pub bus_id: Option<usize>,
 }
 
 // Previously an array that contains, now struct (name, start position, size, bus_id (if any))
 #[derive(Clone)]
-pub struct InputInfo{
+pub struct InputInfo {
     pub name: String,
     pub dimensions: Vec<usize>,
     pub start: usize,
     pub size: usize, //full size (not only the content if array)
-    pub bus_id: Option<usize>
+    pub bus_id: Option<usize>,
 }
 
 #[derive(Default, Clone)]
-pub struct FieldData{
+pub struct FieldData {
     pub dimensions: Vec<usize>,
     pub size: usize, // it is only the size of the content if array
     pub offset: usize,
     pub bus_id: Option<usize>,
-    pub name: String
+    pub name: String,
 }
 
 pub type FieldMap = Vec<Vec<FieldData>>;
 
 pub type InputList = Vec<InputInfo>;
 pub type TemplateList = Vec<String>;
-pub struct InfoTemplate{
+pub struct InfoTemplate {
     pub template_name: String,
     pub name: String,
     pub is_parallel: bool,
     pub is_not_parallel: bool,
     pub is_extern_c: bool,
     pub io_signals: Option<Vec<String>>, // Only needed in case is extern c
-    pub arguments: Option<Vec<(String, bool)>> // stores the name and if it is an array
+    pub arguments: Option<Vec<(String, bool)>>, // stores the name and if it is an array
 }
 pub type TemplateListInfo = Vec<InfoTemplate>;
 pub type SignalList = Vec<usize>;

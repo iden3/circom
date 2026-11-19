@@ -132,7 +132,8 @@ pub struct Simplifier {
 }
 impl Simplifier {
     pub fn simplify_constraints(mut self) -> ConstraintList {
-        let (portable, map, private_inputs_witness) = constraint_simplification::simplification(&mut self);
+        let (portable, map, private_inputs_witness) =
+            constraint_simplification::simplification(&mut self);
         ConstraintList {
             field: self.field,
             dag_encoding: self.dag_encoding,

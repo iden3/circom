@@ -76,15 +76,18 @@ pub fn preprocess(expr: &str, file_id: FileID) -> Result<String, ReportCollectio
         }
     }
     if state == 2 {
-        Err(vec![
-            produce_report(ReportCode::UnclosedComment,  block_start..block_start, file_id)
-        ])
+        Err(vec![produce_report(ReportCode::UnclosedComment, block_start..block_start, file_id)])
     } else {
         Ok(pp)
     }
 }
 
-pub fn parse_file(src: &str, file_id: FileID, field: &BigInt, flag_no_init: bool) -> Result<AST, ReportCollection> {
+pub fn parse_file(
+    src: &str,
+    file_id: FileID,
+    field: &BigInt,
+    flag_no_init: bool,
+) -> Result<AST, ReportCollection> {
     use lalrpop_util::ParseError::*;
 
     let mut errors = Vec::new();
@@ -94,24 +97,16 @@ pub fn parse_file(src: &str, file_id: FileID, field: &BigInt, flag_no_init: bool
         .parse(file_id, &mut errors, field, flag_no_init, &preprocess)
         // TODO: is this always fatal?
         .map_err(|parse_error| match parse_error {
-            InvalidToken { location } => 
-                produce_generic_report(
-                format!("{:?}", parse_error),
-                 location..location, file_id
-                ),
-            UnrecognizedToken { ref token, .. } => 
-            produce_generic_report(
-                format!("{:?}", parse_error),
-                 token.0..token.2, file_id
-                ),
-            ExtraToken { ref token } => produce_generic_report(
-                format!("{:?}", parse_error),
-                 token.0..token.2, file_id
-                ),
-            _ => produce_generic_report(
-                format!("{:?}", parse_error),
-                 0..0, file_id
-                )
+            InvalidToken { location } => {
+                produce_generic_report(format!("{:?}", parse_error), location..location, file_id)
+            }
+            UnrecognizedToken { ref token, .. } => {
+                produce_generic_report(format!("{:?}", parse_error), token.0..token.2, file_id)
+            }
+            ExtraToken { ref token } => {
+                produce_generic_report(format!("{:?}", parse_error), token.0..token.2, file_id)
+            }
+            _ => produce_generic_report(format!("{:?}", parse_error), 0..0, file_id),
         })
         .map_err(|e| vec![e])?;
 
@@ -127,4 +122,3 @@ fn produce_generic_report(format: String, token: std::ops::Range<usize>, file_id
     report.add_primary(token, file_id, "here".to_string());
     report
 }
-

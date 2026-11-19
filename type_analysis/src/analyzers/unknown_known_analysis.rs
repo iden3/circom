@@ -65,7 +65,6 @@ pub fn unknown_known_analysis(
         (bus_body, file_id)
     };
 
-
     let entry = EntryInformation { file_id, environment };
     let result = analyze(body, entry);
     if result.reports.is_empty() {
@@ -101,7 +100,14 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             }
             environment = exit.environment;
         }
-        (constraints_declared, tags_modified, signals_declared, reports, environment, modified_variables)
+        (
+            constraints_declared,
+            tags_modified,
+            signals_declared,
+            reports,
+            environment,
+            modified_variables,
+        )
     }
     let file_id = entry_information.file_id;
     let mut reports = ReportCollection::new();
@@ -115,7 +121,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             match xtype {
                 VariableType::Var => {
                     let is_array = dimensions.len() > 0;
-                    environment.add_variable(name, (Known, is_array));                
+                    environment.add_variable(name, (Known, is_array));
                     modified_variables.insert(name.clone());
                 }
                 VariableType::Signal(..) => {
@@ -126,8 +132,7 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     environment.add_intermediate_bus(name, Unknown);
                     signals_declared = true;
                 }
-                VariableType::Component
-                | VariableType::AnonymousComponent => {
+                VariableType::Component | VariableType::AnonymousComponent => {
                     environment.add_component(name, Unknown);
                     signals_declared = true;
                 }
@@ -139,12 +144,12 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     for dimension in dimensions {
                         if tag(dimension, &environment) == Unknown {
                             add_report(
-                                    ReportCode::UnknownDimension,
-                                    dimension.get_meta(),
-                                    file_id,
-                                    &mut reports,
-                                );
-                            }
+                                ReportCode::UnknownDimension,
+                                dimension.get_meta(),
+                                file_id,
+                                &mut reports,
+                            );
+                        }
                     }
                 }
             }
@@ -166,32 +171,44 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             }
             match reduced_type {
                 TypeReduction::Variable => {
-                    let (value, is_array) = environment.get_mut_variable_or_break(var, file!(), line!());
-                    if !*is_array { // if it is a single variable we always update
+                    let (value, is_array) =
+                        environment.get_mut_variable_or_break(var, file!(), line!());
+                    if !*is_array {
+                        // if it is a single variable we always update
                         *value = max(expression_tag, access_tag);
-                    } else if *value == Known{ // if not, if it was ukn it remains ukn
+                    } else if *value == Known {
+                        // if not, if it was ukn it remains ukn
                         *value = max(expression_tag, access_tag);
                     }
                     modified_variables.insert(var.clone());
-
                 }
                 TypeReduction::Component(_) => {
                     constraints_declared = true;
                     if expression_tag == Unknown {
-                        add_report(ReportCode::UnknownTemplate, rhe.get_meta(), file_id, &mut reports);
+                        add_report(
+                            ReportCode::UnknownTemplate,
+                            rhe.get_meta(),
+                            file_id,
+                            &mut reports,
+                        );
                     }
                     if access_tag == Unknown {
                         add_report(ReportCode::UnknownTemplate, meta, file_id, &mut reports);
                     }
                 }
                 TypeReduction::Bus(_) => {
-                    if  *op == AssignOp::AssignVar && expression_tag == Unknown {
+                    if *op == AssignOp::AssignVar && expression_tag == Unknown {
                         add_report(ReportCode::UnknownBus, meta, file_id, &mut reports);
                     }
                     if *op == AssignOp::AssignConstraintSignal {
                         constraints_declared = true;
                         if is_non_quadratic(rhe, &environment) {
-                            add_report(ReportCode::NonQuadratic, rhe.get_meta(), file_id, &mut reports);
+                            add_report(
+                                ReportCode::NonQuadratic,
+                                rhe.get_meta(),
+                                file_id,
+                                &mut reports,
+                            );
                         }
                         if access_tag == Unknown {
                             add_report(ReportCode::NonQuadratic, meta, file_id, &mut reports);
@@ -201,7 +218,12 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                 TypeReduction::Tag => {
                     tags_modified = true;
                     if expression_tag == Unknown {
-                        add_report(ReportCode::NonValidTagAssignment, rhe.get_meta(), file_id, &mut reports);
+                        add_report(
+                            ReportCode::NonValidTagAssignment,
+                            rhe.get_meta(),
+                            file_id,
+                            &mut reports,
+                        );
                     }
                     if access_tag == Unknown {
                         add_report(ReportCode::NonValidTagAssignment, meta, file_id, &mut reports);
@@ -211,15 +233,24 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     if *op == AssignOp::AssignConstraintSignal {
                         constraints_declared = true;
                         if is_non_quadratic(rhe, &environment) {
-                            add_report(ReportCode::NonQuadratic, rhe.get_meta(), file_id, &mut reports);
+                            add_report(
+                                ReportCode::NonQuadratic,
+                                rhe.get_meta(),
+                                file_id,
+                                &mut reports,
+                            );
                         }
                         if access_tag == Unknown {
                             add_report(ReportCode::NonQuadratic, meta, file_id, &mut reports);
                         }
-                    }
-                    else if environment.has_component(var){
+                    } else if environment.has_component(var) {
                         if access_tag == Unknown {
-                            add_report(ReportCode::UnknownTemplateAssignment, meta, file_id, &mut reports);
+                            add_report(
+                                ReportCode::UnknownTemplateAssignment,
+                                meta,
+                                file_id,
+                                &mut reports,
+                            );
                         }
                     }
                 }
@@ -256,8 +287,8 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                     constraints_declared: false,
                     environment: new_entry_else_case.environment,
                     reports: ReportCollection::with_capacity(0),
-                    modified_variables : HashSet::new(),
-                    tags_modified : false,
+                    modified_variables: HashSet::new(),
+                    tags_modified: false,
                     signals_declared: false,
                 }
             };
@@ -277,14 +308,14 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                 Environment::merge(if_case_info.environment, else_case_info.environment, |a, b| {
                     max(a, b)
                 });
-            if tag_cond == Unknown{
-                for var in &modified_variables{
-                    if environment.has_variable(var){
-                        let (value, _is_array) = environment.get_mut_variable_or_break(var, file!(), line!());
+            if tag_cond == Unknown {
+                for var in &modified_variables {
+                    if environment.has_variable(var) {
+                        let (value, _is_array) =
+                            environment.get_mut_variable_or_break(var, file!(), line!());
                         *value = Unknown;
                     }
                 }
-
             }
             if tag_cond == Unknown && constraints_declared {
                 add_report(
@@ -295,35 +326,27 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                 );
             }
             if tag_cond == Unknown && tags_modified {
-                add_report(
-                    ReportCode::UnreachableTags,
-                    cond.get_meta(),
-                    file_id,
-                    &mut reports,
-                );
+                add_report(ReportCode::UnreachableTags, cond.get_meta(), file_id, &mut reports);
             }
             if tag_cond == Unknown && signals_declared {
-                add_report(
-                    ReportCode::UnreachableSignals,
-                    cond.get_meta(),
-                    file_id,
-                    &mut reports,
-                );
+                add_report(ReportCode::UnreachableSignals, cond.get_meta(), file_id, &mut reports);
             }
         }
         While { cond, stmt, .. } => {
             let mut entry_info = environment.clone();
-            let mut entry = EntryInformation { file_id, environment};
+            let mut entry = EntryInformation { file_id, environment };
             let mut exit = analyze(stmt, entry);
-            let mut modified = check_modified(entry_info, &mut exit.environment, &exit.modified_variables);
+            let mut modified =
+                check_modified(entry_info, &mut exit.environment, &exit.modified_variables);
             environment = exit.environment;
-            while modified{
+            while modified {
                 entry_info = environment.clone();
-                entry = EntryInformation { file_id, environment};
+                entry = EntryInformation { file_id, environment };
                 exit = analyze(stmt, entry);
-                modified = check_modified(entry_info, &mut exit.environment, &exit.modified_variables);
+                modified =
+                    check_modified(entry_info, &mut exit.environment, &exit.modified_variables);
                 environment = exit.environment;
-            };
+            }
 
             constraints_declared = exit.constraints_declared;
             tags_modified = exit.tags_modified;
@@ -333,13 +356,14 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             }
             let tag_out = tag(cond, &environment);
 
-            if tag_out == Unknown{
-                for var in &exit.modified_variables{
-                    if environment.has_variable(var){
-                        let (value, _is_array) = environment.get_mut_variable_or_break(var, file!(), line!());
+            if tag_out == Unknown {
+                for var in &exit.modified_variables {
+                    if environment.has_variable(var) {
+                        let (value, _is_array) =
+                            environment.get_mut_variable_or_break(var, file!(), line!());
                         *value = Unknown;
                     }
-                }   
+                }
             }
 
             if constraints_declared && tag_out == Unknown {
@@ -351,25 +375,16 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
                 );
             }
             if tag_out == Unknown && tags_modified {
-                add_report(
-                    ReportCode::UnreachableTags,
-                    cond.get_meta(),
-                    file_id,
-                    &mut reports,
-                );
+                add_report(ReportCode::UnreachableTags, cond.get_meta(), file_id, &mut reports);
             }
             if tag_out == Unknown && signals_declared {
-                add_report(
-                    ReportCode::UnreachableSignals,
-                    cond.get_meta(),
-                    file_id,
-                    &mut reports,
-                );
+                add_report(ReportCode::UnreachableSignals, cond.get_meta(), file_id, &mut reports);
             }
         }
         Block { stmts, .. } => {
             environment.add_variable_block();
-            let (nc, tags, ns, nr, ne, nm) = iterate_statements(stmts, reports, environment, file_id);
+            let (nc, tags, ns, nr, ne, nm) =
+                iterate_statements(stmts, reports, environment, file_id);
             constraints_declared = nc;
             reports = nr;
             environment = ne;
@@ -379,7 +394,8 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
             signals_declared = ns;
         }
         InitializationBlock { initializations, .. } => {
-            let (nc, tags, ns, nr, ne, nm) = iterate_statements(initializations, reports, environment, file_id);
+            let (nc, tags, ns, nr, ne, nm) =
+                iterate_statements(initializations, reports, environment, file_id);
             constraints_declared = nc;
             reports = nr;
             environment = ne;
@@ -389,8 +405,13 @@ fn analyze(stmt: &Statement, entry_information: EntryInformation) -> ExitInforma
         }
         _ => {}
     }
-    ExitInformation { 
-        reports, environment, constraints_declared, modified_variables, tags_modified, signals_declared
+    ExitInformation {
+        reports,
+        environment,
+        constraints_declared,
+        modified_variables,
+        tags_modified,
+        signals_declared,
     }
 }
 
@@ -399,26 +420,26 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
     use Tag::*;
     match expression {
         Number(_, _) => Known,
-        Variable { meta, name,.. } => {
+        Variable { meta, name, .. } => {
             let reduced_type = meta.get_type_knowledge().get_reduces_to();
             match reduced_type {
                 TypeReduction::Variable => {
                     let (tag, is_array) = environment.get_variable_or_break(name, file!(), line!());
-                    if *is_array{
+                    if *is_array {
                         Known
-                    } else{
+                    } else {
                         *tag
                     }
-                },
+                }
                 TypeReduction::Signal => Unknown,
                 TypeReduction::Bus(_) => Unknown,
-                TypeReduction::Component(_) => *environment.get_component_or_break(name, file!(), line!()),
+                TypeReduction::Component(_) => {
+                    *environment.get_component_or_break(name, file!(), line!())
+                }
                 TypeReduction::Tag => Known,
             }
         }
-        ArrayInLine { values, .. } 
-        | Call { args: values, .. } 
-        | BusCall { args: values, .. }=> {
+        ArrayInLine { values, .. } | Call { args: values, .. } | BusCall { args: values, .. } => {
             expression_iterator(values, Known, Unknown, environment)
         }
         UniformArray { value, dimension, .. } => {
@@ -439,7 +460,9 @@ fn tag(expression: &Expression, environment: &Environment) -> Tag {
         }
         PrefixOp { rhe, .. } => tag(rhe, environment),
         ParallelOp { rhe, .. } => tag(rhe, environment),
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }
 // ***************************** Compare two variable states ********************
@@ -454,8 +477,9 @@ fn check_modified(
         if initial_state.has_variable(v) && final_state.has_variable(v) {
             let t_ini = initial_state.get_variable_or_break(v, file!(), line!());
             let t_fin = final_state.get_mut_variable_or_break(v, file!(), line!());
-            if *t_ini != *t_fin{
-                if t_fin.0 == Tag::Unknown{ // in other case we can enter in loops
+            if *t_ini != *t_fin {
+                if t_fin.0 == Tag::Unknown {
+                    // in other case we can enter in loops
                     modified = true;
                 }
                 *t_fin = max(*t_ini, *t_fin);
@@ -507,16 +531,12 @@ fn unknown_index(exp: &Expression, environment: &Environment) -> bool {
         InfixOp { lhe, rhe, .. } => {
             unknown_index(lhe.as_ref(), environment) || unknown_index(rhe.as_ref(), environment)
         }
-        PrefixOp { rhe, .. } => {
-            unknown_index(rhe.as_ref(), environment)
-        }
-        ParallelOp { rhe, .. } => {
-            unknown_index(rhe.as_ref(), environment)
-        }
+        PrefixOp { rhe, .. } => unknown_index(rhe.as_ref(), environment),
+        ParallelOp { rhe, .. } => unknown_index(rhe.as_ref(), environment),
         InlineSwitchOp { cond, if_true, if_false, .. } => {
             unknown_index(cond.as_ref(), environment)
-            || unknown_index(if_true.as_ref(), environment)
-            || unknown_index(if_false.as_ref(), environment)
+                || unknown_index(if_true.as_ref(), environment)
+                || unknown_index(if_false.as_ref(), environment)
         }
         Call { args: exprs, .. }
         | BusCall { args: exprs, .. }
@@ -531,10 +551,13 @@ fn unknown_index(exp: &Expression, environment: &Environment) -> bool {
             }
             has_unknown_index
         }
-        UniformArray{ value, dimension, .. } => {
-            unknown_index(value.as_ref(), environment) || unknown_index(dimension.as_ref(), environment)
+        UniformArray { value, dimension, .. } => {
+            unknown_index(value.as_ref(), environment)
+                || unknown_index(dimension.as_ref(), environment)
         }
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }
 

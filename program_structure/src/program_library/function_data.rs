@@ -43,7 +43,7 @@ impl FunctionData {
     pub fn get_mut_body(&mut self) -> &mut Statement {
         &mut self.body
     }
-    pub fn set_body(&mut self, body: Statement){
+    pub fn set_body(&mut self, body: Statement) {
         self.body = body;
     }
     pub fn replace_body(&mut self, new: Statement) -> Statement {

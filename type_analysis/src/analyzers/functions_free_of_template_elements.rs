@@ -127,7 +127,7 @@ fn analyse_statement(
                 reports.push(report);
             }
             analyse_expression(rhe, function_names, reports);
-        },
+        }
     }
 }
 
@@ -169,7 +169,7 @@ fn analyse_expression(
         PrefixOp { rhe, .. } => {
             analyse_expression(rhe, function_names, reports);
         }
-        ParallelOp{ rhe, ..} =>{
+        ParallelOp { rhe, .. } => {
             analyse_expression(rhe, function_names, reports);
         }
         InlineSwitchOp { cond, if_true, if_false, .. } => {
@@ -199,11 +199,9 @@ fn analyse_expression(
                 analyse_expression(value, function_names, reports);
             }
         }
-        UniformArray {value, dimension, .. } => {
+        UniformArray { value, dimension, .. } => {
             analyse_expression(value, function_names, reports);
             analyse_expression(dimension, function_names, reports);
-
-
         }
         BusCall { meta, .. } => {
             let mut report = Report::error(
@@ -214,7 +212,9 @@ fn analyse_expression(
                 file_definition::generate_file_location(meta.get_start(), meta.get_end());
             report.add_primary(location, file_id, "Declaring template element".to_string());
             reports.push(report);
-        },
-        _ => {unreachable!("Anonymous calls should not be reachable at this point."); }
+        }
+        _ => {
+            unreachable!("Anonymous calls should not be reachable at this point.");
+        }
     }
 }

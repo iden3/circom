@@ -44,7 +44,7 @@ impl OperatorType {
         match self {
             OperatorType::Eq(SizeOption::Single(n)) => *n > 1,
             OperatorType::Eq(SizeOption::Multiple(_)) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -52,39 +52,39 @@ impl OperatorType {
 impl ToString for OperatorType {
     fn to_string(&self) -> String {
         use OperatorType::*;
-	if let Eq(n) = self {
-	    format!("EQ({:?})", n)
-	} else {
-        match self {
-            Mul => "MUL",
-            Div => "DIV",
-            Add => "ADD",
-            Sub => "SUB",
-            Pow => "POW",
-            IntDiv => "INT_DIV",
-            Mod => "MOD",
-            ShiftL => "SHIFT_L",
-            ShiftR => "SHIFT_R",
-            LesserEq => "LESSER_EQ",
-            GreaterEq => "GREATER_EQ",
-            Lesser => "LESSER",
-            Greater => "GREATER",
-            NotEq => "NOT_EQ",
-            BoolOr => "BOOL_OR",
-            BoolAnd => "BOOL_AND",
-            BitOr => "BITOR",
-            BitAnd => "BITAND",
-            BitXor => "BITXOR",
-            PrefixSub => "PREFIX_SUB",
-            BoolNot => "BOOL_NOT",
-            Complement => "COMPLEMENT",
-            ToAddress => "TO_ADDRESS",
-            MulAddress => "MUL_ADDRESS",
-            AddAddress => "ADD_ADDRESS",
-	    _ => "",
+        if let Eq(n) = self {
+            format!("EQ({:?})", n)
+        } else {
+            match self {
+                Mul => "MUL",
+                Div => "DIV",
+                Add => "ADD",
+                Sub => "SUB",
+                Pow => "POW",
+                IntDiv => "INT_DIV",
+                Mod => "MOD",
+                ShiftL => "SHIFT_L",
+                ShiftR => "SHIFT_R",
+                LesserEq => "LESSER_EQ",
+                GreaterEq => "GREATER_EQ",
+                Lesser => "LESSER",
+                Greater => "GREATER",
+                NotEq => "NOT_EQ",
+                BoolOr => "BOOL_OR",
+                BoolAnd => "BOOL_AND",
+                BitOr => "BITOR",
+                BitAnd => "BITAND",
+                BitXor => "BITXOR",
+                PrefixSub => "PREFIX_SUB",
+                BoolNot => "BOOL_NOT",
+                Complement => "COMPLEMENT",
+                ToAddress => "TO_ADDRESS",
+                MulAddress => "MUL_ADDRESS",
+                AddAddress => "ADD_ADDRESS",
+                _ => "",
+            }
+            .to_string()
         }
-        .to_string()
-	}
     }
 }
 
@@ -140,7 +140,7 @@ impl WriteWasm for ComputeBucket {
         let mut instructions = vec![];
         if producer.needs_comments() {
             instructions.push(";; compute bucket".to_string());
-	}
+        }
         match &self.op {
             OperatorType::AddAddress => {}
             OperatorType::MulAddress => {}
@@ -159,7 +159,7 @@ impl WriteWasm for ComputeBucket {
         }
         if producer.needs_comments() {
             instructions.push(format!(";; OP({})", self.op.to_string()));
-	}
+        }
         match &self.op {
             OperatorType::AddAddress => {
                 instructions.push(add32());
@@ -213,30 +213,32 @@ impl WriteWasm for ComputeBucket {
                     }
                     OperatorType::Eq(n) => {
                         let mut is_multiple = false;
-                        let (length,values) = match n{
-                            SizeOption::Single(v) => (*v,vec![]),
+                        let (length, values) = match n {
+                            SizeOption::Single(v) => (*v, vec![]),
                             SizeOption::Multiple(v) => {
-                            	is_multiple = true;
-                                (v.len(),v.clone())
+                                is_multiple = true;
+                                (v.len(), v.clone())
                             }
                         };
-			assert!(length != 0);
-			if !is_multiple && length == 1 {
+                        assert!(length != 0);
+                        if !is_multiple && length == 1 {
                             instructions.push(call("$Fr_eq"));
                         } else {
-		            if is_multiple { //create a nested if-else with all cases
-		                instructions.push(get_local(producer.get_sub_cmp_load_tag()));
-		                instructions.push(load32(None)); // get template id
-		                instructions.push(set_local(producer.get_aux_0_tag()));
-		                let mut instr_if = create_if_selection(&values,producer.get_aux_0_tag());
-		                instructions.append(&mut instr_if);
-		            } else { 
-		                instructions.push(set_constant(&length.to_string()));
-		            }
+                            if is_multiple {
+                                //create a nested if-else with all cases
+                                instructions.push(get_local(producer.get_sub_cmp_load_tag()));
+                                instructions.push(load32(None)); // get template id
+                                instructions.push(set_local(producer.get_aux_0_tag()));
+                                let mut instr_if =
+                                    create_if_selection(&values, producer.get_aux_0_tag());
+                                instructions.append(&mut instr_if);
+                            } else {
+                                instructions.push(set_constant(&length.to_string()));
+                            }
                             instructions.push(set_local(producer.get_counter_tag()));
-                            instructions.push(set_local(producer.get_aux_2_tag()));  // second argument initial position
-			    instructions.push(set_local(producer.get_aux_1_tag()));  // first argument initial position
-			    instructions.push(set_local(producer.get_aux_0_tag()));  // resut position
+                            instructions.push(set_local(producer.get_aux_2_tag())); // second argument initial position
+                            instructions.push(set_local(producer.get_aux_1_tag())); // first argument initial position
+                            instructions.push(set_local(producer.get_aux_0_tag())); // resut position
                             instructions.push(add_block());
                             instructions.push(add_loop());
                             instructions.push(get_local(producer.get_aux_0_tag()));
@@ -246,7 +248,7 @@ impl WriteWasm for ComputeBucket {
                             instructions.push(get_local(producer.get_aux_0_tag()));
                             instructions.push(call("$Fr_isTrue"));
                             instructions.push(eqz32());
-			    instructions.push(br_if("1"));
+                            instructions.push(br_if("1"));
                             instructions.push(get_local(producer.get_counter_tag()));
                             instructions.push(set_constant("1"));
                             instructions.push(sub32());
@@ -304,7 +306,7 @@ impl WriteWasm for ComputeBucket {
         }
         if producer.needs_comments() {
             instructions.push(";; end of compute bucket".to_string());
-	}
+        }
         instructions
     }
 }
@@ -361,7 +363,7 @@ impl WriteC for ComputeBucket {
                 OperatorType::ToAddress => {
                     result = build_call("Fr_toInt".to_string(), operands);
                 }
-                
+
                 OperatorType::Eq(n) => {
                     let exp_aux_index = self.op_aux_no.to_string();
                     let operator = get_fr_op(&self.op);
@@ -370,42 +372,54 @@ impl WriteC for ComputeBucket {
                     let operands_copy = operands.clone();
                     arguments.append(&mut operands);
                     compute_c.push("{{".to_string());
-                    compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
-                    
+                    compute_c.push(format!(
+                        "{}; // line circom {}",
+                        build_call(operator.clone(), arguments),
+                        self.line.to_string()
+                    ));
+
                     // We compute the possible sizes, case multiple sizes
-                    let expr_size = match &n{
+                    let expr_size = match &n {
                         SizeOption::Single(value) => value.to_string(),
                         SizeOption::Multiple(values) => {
                             let cmp_index_ref = "cmp_index_ref_load".to_string();
-                            
-                            compute_c.push(format!("std::map<int,int> size_eq {};",
-                                                   set_list_tuple(values.clone())
+
+                            compute_c.push(format!(
+                                "std::map<int,int> size_eq {};",
+                                set_list_tuple(values.clone())
                             ));
-                            let sub_component_pos_in_memory = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
+                            let sub_component_pos_in_memory =
+                                format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
                             let temp_id = template_id_in_component(sub_component_pos_in_memory);
                             format!("size_eq[{}]", temp_id)
                         }
                     };
-                
+
                     if expr_size != "1" {
                         compute_c.push(format!("{} = 1;", index_multiple_eq()));
-                        compute_c.push(format!("while({} < {} && Fr_isTrue({})) {{", index_multiple_eq(), expr_size, result_ref));
+                        compute_c.push(format!(
+                            "while({} < {} && Fr_isTrue({})) {{",
+                            index_multiple_eq(),
+                            expr_size,
+                            result_ref
+                        ));
                         operands = vec![];
                         arguments = vec![result_ref.clone()];
                         for operand in &operands_copy {
                             operands.push(format!("{} + {}", operand, index_multiple_eq()));
                         }
                         arguments.append(&mut operands);
-                        compute_c.push(format!("{}; // line circom {}", build_call(operator.clone(), arguments),self.line.to_string()));
+                        compute_c.push(format!(
+                            "{}; // line circom {}",
+                            build_call(operator.clone(), arguments),
+                            self.line.to_string()
+                        ));
                         compute_c.push(format!("{}++;", index_multiple_eq()));
                         compute_c.push(format!("}}"));
-                        
                     }
                     compute_c.push("}}".to_string());
-                    
+
                     result = result_ref;
-                    
-                    
                 }
                 _ => {
                     let exp_aux_index = self.op_aux_no.to_string();
@@ -414,7 +428,11 @@ impl WriteC for ComputeBucket {
                     let result_ref = format!("&{}", expaux(exp_aux_index.clone()));
                     let mut arguments = vec![result_ref.clone()];
                     arguments.append(&mut operands);
-                    compute_c.push(format!("{}; // line circom {}", build_call(operator, arguments),self.line.to_string()));
+                    compute_c.push(format!(
+                        "{}; // line circom {}",
+                        build_call(operator, arguments),
+                        self.line.to_string()
+                    ));
 
                     //value address
                     result = result_ref;
@@ -434,25 +452,31 @@ impl WriteC for ComputeBucket {
 
                 OperatorType::Eq(n) => {
                     // We compute the possible sizes, case multiple sizes
-                    let expr_size = match &n{
+                    let expr_size = match &n {
                         SizeOption::Single(value) => value.to_string(),
                         SizeOption::Multiple(values) => {
                             let cmp_index_ref = "cmp_index_ref_load".to_string();
-                            
-                            compute_c.push(format!("std::map<int,int> size_eq {};",
-                                                   set_list_tuple(values.clone())
+
+                            compute_c.push(format!(
+                                "std::map<int,int> size_eq {};",
+                                set_list_tuple(values.clone())
                             ));
-                            let sub_component_pos_in_memory = format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
+                            let sub_component_pos_in_memory =
+                                format!("{}[{}]", MY_SUBCOMPONENTS, cmp_index_ref);
                             let temp_id = template_id_in_component(sub_component_pos_in_memory);
                             format!("size_eq[{}]", temp_id)
                         }
                     };
                     if expr_size != "1" {
-                        operands = vec![format!("&{}", operands[0]), format!("&{}", operands[1]),expr_size];
+                        operands = vec![
+                            format!("&{}", operands[0]),
+                            format!("&{}", operands[1]),
+                            expr_size,
+                        ];
                         // operands.push(expr_size);
                     }
                     let operator = get_fr_op(&self.op);
-                    result = build_call(operator,operands);                     
+                    result = build_call(operator, operands);
                 }
                 _ => {
                     // build assign
@@ -461,7 +485,7 @@ impl WriteC for ComputeBucket {
                 }
             }
         }
-	//compute_c.push(format!("// end of compute with result {}",result));
+        //compute_c.push(format!("// end of compute with result {}",result));
         (compute_c, result)
     }
 }
