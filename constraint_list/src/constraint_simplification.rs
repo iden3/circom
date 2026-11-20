@@ -11,7 +11,7 @@ use z3::{Config, Optimize, Solver, SatResult, with_z3_config};
 use std::str::FromStr;
 use std::fmt::Write as FmtWrite;
 use std::fs;
-// use bitwuzla_sys::*;
+use bitwuzla_sys::*;
 use std::ffi::CString;
 use cadical::{Solver as CadicalSolver, Timeout};
 
@@ -108,6 +108,81 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
     clusters
 }
 
+// fn build_expr_clusters(
+//     expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>,
+//     no_vars: usize,
+// ) -> Vec<Vec<usize>> {
+//     type ClusterPath = Vec<usize>;
+
+//     fn shrink_jumps_and_find(c_to_c: &mut ClusterPath, org: usize) -> usize {
+//         let mut current = org;
+//         let mut jumps = Vec::new();
+//         while current != c_to_c[current] {
+//             Vec::push(&mut jumps, current);
+//             current = c_to_c[current];
+//         }
+//         while let Some(redirect) = Vec::pop(&mut jumps) {
+//             c_to_c[redirect] = current;
+//         }
+//         current
+//     }
+
+//     fn arena_merge(c_to_c: &mut ClusterPath, src: usize, dest: usize) {
+//         let current_dest = shrink_jumps_and_find(c_to_c, dest);
+//         let current_src = shrink_jumps_and_find(c_to_c, src);
+
+//         c_to_c[current_src] = current_dest;
+//     }
+
+//     let no_expressions = expressions.len();
+//     let mut cluster_to_current: ClusterPath = Vec::with_capacity(no_expressions);
+//     // For each variable, which expressions contain it
+//     let mut signal_to_expressions: Vec<Vec<usize>> = vec![Vec::new(); no_vars];
+
+//     for expression_id in 0..no_expressions {
+//         let (_, expr, _) = &expressions[expression_id];
+
+//         let constant = C::constant_coefficient();
+//         let signals: Vec<usize> =
+//             expr.keys().filter(|signal| **signal != constant).cloned().collect();
+
+//         Vec::push(&mut cluster_to_current, expression_id);
+
+//         // How much variables are shared between the previous expression and the actual one
+//         let mut shared_signals: HashMap<usize, usize> = HashMap::new();
+
+//         for signal in signals {
+//             for previous_expression in &signal_to_expressions[signal] {
+//                 let count = shared_signals.entry(*previous_expression).or_insert(0);
+//                 *count += 1;
+//             }
+
+//             signal_to_expressions[signal].push(expression_id);
+//         }
+
+//         // Two expressions belong to the same cluster if they share at least 2 variables
+//         for (previous_expression, count) in shared_signals {
+//             if count >= 2 {
+//                 arena_merge(&mut cluster_to_current, previous_expression, expression_id);
+//             }
+//         }
+//     }
+
+//     let mut clusters: Vec<Vec<usize>> = Vec::new();
+//     for expression_id in 0..no_expressions {
+//         let root = shrink_jumps_and_find(&mut cluster_to_current, expression_id);
+
+//         while clusters.len() <= root {
+//             clusters.push(Vec::new());
+//         }
+
+//         clusters[root].push(expression_id);
+//     }
+
+//     clusters.retain(|cluster| !cluster.is_empty());
+//     clusters
+// }
+
 fn build_expr_clusters(
     expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>,
     no_vars: usize,
@@ -117,13 +192,16 @@ fn build_expr_clusters(
     fn shrink_jumps_and_find(c_to_c: &mut ClusterPath, org: usize) -> usize {
         let mut current = org;
         let mut jumps = Vec::new();
+
         while current != c_to_c[current] {
             Vec::push(&mut jumps, current);
             current = c_to_c[current];
         }
+
         while let Some(redirect) = Vec::pop(&mut jumps) {
             c_to_c[redirect] = current;
         }
+
         current
     }
 
@@ -134,43 +212,124 @@ fn build_expr_clusters(
         c_to_c[current_src] = current_dest;
     }
 
+    // Checks whether the coefficient ratio of two signals
+    // is the same in both expressions.
+    fn same_ratio(
+        expr1: &HashMap<usize, BigInt>,
+        expr2: &HashMap<usize, BigInt>,
+        signal1: usize,
+        signal2: usize,
+    ) -> bool {
+        let coeff1_signal1 = expr1.get(&signal1).unwrap();
+        let coeff1_signal2 = expr1.get(&signal2).unwrap();
+
+        let coeff2_signal1 = expr2.get(&signal1).unwrap();
+        let coeff2_signal2 = expr2.get(&signal2).unwrap();
+
+        coeff1_signal2 * coeff2_signal1
+            == coeff2_signal2 * coeff1_signal1
+    }
+
     let no_expressions = expressions.len();
-    let mut cluster_to_current: ClusterPath = Vec::with_capacity(no_expressions);
-    // For each variable, which expressions contain it
-    let mut signal_to_expressions: Vec<Vec<usize>> = vec![Vec::new(); no_vars];
+
+    let mut cluster_to_current: ClusterPath =
+        Vec::with_capacity(no_expressions);
+
+    // For each variable, which expressions contain it.
+    let mut signal_to_expressions: Vec<Vec<usize>> =
+        vec![Vec::new(); no_vars];
 
     for expression_id in 0..no_expressions {
         let (_, expr, _) = &expressions[expression_id];
 
         let constant = C::constant_coefficient();
-        let signals: Vec<usize> =
-            expr.keys().filter(|signal| **signal != constant).cloned().collect();
+
+        let signals: Vec<usize> = expr
+            .keys()
+            .filter(|signal| **signal != constant)
+            .cloned()
+            .collect();
 
         Vec::push(&mut cluster_to_current, expression_id);
 
-        // How much variables are shared between the previous expression and the actual one
-        let mut shared_signals: HashMap<usize, usize> = HashMap::new();
+        // Shared signals with previous expressions.
+        let mut shared_signals: HashMap<usize, Vec<usize>> =
+            HashMap::new();
 
         for signal in signals {
-            for previous_expression in &signal_to_expressions[signal] {
-                let count = shared_signals.entry(*previous_expression).or_insert(0);
-                *count += 1;
+            for previous_expression in
+                &signal_to_expressions[signal]
+            {
+                let shared = shared_signals
+                    .entry(*previous_expression)
+                    .or_insert(Vec::new());
+
+                shared.push(signal);
             }
 
             signal_to_expressions[signal].push(expression_id);
         }
 
-        // Two expressions belong to the same cluster if they share at least 2 variables
-        for (previous_expression, count) in shared_signals {
-            if count >= 2 {
-                arena_merge(&mut cluster_to_current, previous_expression, expression_id);
+        // Find the previous expression(s) with the highest number
+        // of compatible signal pairs.
+        let mut best_score = 0;
+        let mut best_candidates: Vec<usize> = Vec::new();
+
+        for (previous_expression, shared) in shared_signals {
+            if shared.len() < 2 {
+                continue;
             }
+
+            let (_, previous_expr, _) =
+                &expressions[previous_expression];
+
+            let mut compatible_pairs = 0;
+
+            // Count all compatible pairs of shared signals.
+            for i in 0..shared.len() {
+                for j in i + 1..shared.len() {
+                    if same_ratio(
+                        previous_expr,
+                        expr,
+                        shared[i],
+                        shared[j],
+                    ) {
+                        compatible_pairs += 1;
+                    }
+                }
+            }
+
+            if compatible_pairs == 0 {
+                continue;
+            }
+
+            if compatible_pairs > best_score {
+                best_score = compatible_pairs;
+
+                best_candidates.clear();
+                best_candidates.push(previous_expression);
+            } else if compatible_pairs == best_score {
+                best_candidates.push(previous_expression);
+            }
+        }
+
+        // Merge with the best candidate(s).
+        for previous_expression in best_candidates {
+            arena_merge(
+                &mut cluster_to_current,
+                previous_expression,
+                expression_id,
+            );
         }
     }
 
     let mut clusters: Vec<Vec<usize>> = Vec::new();
+
     for expression_id in 0..no_expressions {
-        let root = shrink_jumps_and_find(&mut cluster_to_current, expression_id);
+        let root = shrink_jumps_and_find(
+            &mut cluster_to_current,
+            expression_id,
+        );
 
         while clusters.len() <= root {
             clusters.push(Vec::new());
@@ -180,6 +339,7 @@ fn build_expr_clusters(
     }
 
     clusters.retain(|cluster| !cluster.is_empty());
+
     clusters
 }
 
@@ -1459,592 +1619,592 @@ fn variables_optimization_unsat_core(
     })
 }
 
-// fn variables_optimization_bitwuzla(storage: &mut ConstraintStorage, expression: &[(usize, HashMap<usize, BigInt>, usize)], cluster: &[usize], aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
-// next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, cluster_id: usize, auxiliary_constraint_ids: &mut HashMap<usize, usize>) {
-
-//     let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
-
-//     for &expression_id in cluster {
-//         for (var, coeff) in &expression[expression_id].1 {
-//             if *var == 0 || coeff == &BigInt::from(0) {
-//                 continue;
-//             }
-
-//             let pair = (*var, coeff.clone());
-//             if !coeffs_and_vars.contains(&pair) {
-//                 coeffs_and_vars.push(pair);
-//             }
-//         }
-//     }
-
-//     let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
-
-//     for &expression_id in cluster {
-//         let expression_coeffs = &expression[expression_id].1;
-//         let mut v = Vec::new();
-
-//         for (var, coeff) in &coeffs_and_vars {
-//             v.push(expression_coeffs.get(var) == Some(coeff));
-//         }
-
-//         vars_per_expression.push(v);
-//     }
-
-//     let mut bound = cluster.len();
-
-//     for &expression_id in cluster {
-//         bound += expression[expression_id].2;
-//     }
-
-//     unsafe {
-//         let tm = bitwuzla_term_manager_new();
-//         let options = bitwuzla_options_new();
-//         bitwuzla_set_option(options, BITWUZLA_OPT_PRODUCE_MODELS, 1);
-
-//         let solver = bitwuzla_new(tm, options);
-//         bitwuzla_options_delete(options);
-
-//         let bool_sort = bitwuzla_mk_bool_sort(tm);
-//         let true_term = bitwuzla_mk_true(tm);
-//         let false_term = bitwuzla_mk_false(tm);
-
-//         let mk_nary = |kind: BitwuzlaKind, mut args: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
-//             if args.is_empty() {
-//                 return if kind == BITWUZLA_KIND_AND {
-//                     true_term
-//                 }
-//                 else {
-//                     false_term
-//                 };
-//             }
-//             if args.len() == 1 && kind != BITWUZLA_KIND_NOT {
-//                 return args[0];
-//             }
-//             bitwuzla_mk_term(tm, kind, args.len() as u32, args.as_mut_ptr())
-//         };
-
-//         let mk_not = |term: BitwuzlaTerm| -> BitwuzlaTerm {
-//             mk_nary(BITWUZLA_KIND_NOT, vec![term])
-//         };
-
-//         let mk_and = |terms: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
-//             mk_nary(BITWUZLA_KIND_AND, terms)
-//         };
-
-//         let mk_or = |terms: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
-//             mk_nary(BITWUZLA_KIND_OR, terms)
-//         };
-
-//         let mk_implies = |a: BitwuzlaTerm, b: BitwuzlaTerm| -> BitwuzlaTerm {
-//             mk_nary(BITWUZLA_KIND_IMPLIES, vec![a, b])
-//         };
-
-//         let mk_equal = |a: BitwuzlaTerm, b: BitwuzlaTerm| -> BitwuzlaTerm {
-//             mk_nary(BITWUZLA_KIND_EQUAL, vec![a, b])
-//         };
-
-//         let mut assertion_id = 0usize;
-
-//         let mut new_bool = |name: String| -> BitwuzlaTerm {
-//             let symbol = CString::new(name).unwrap();
-//             let term = bitwuzla_mk_const(tm, bool_sort, symbol.as_ptr());
-//             assertion_id += 1;
-//             term
-//         };
-
-//         let assert_formula = |formula: BitwuzlaTerm| {
-//             bitwuzla_assert(solver, formula);
-//         };
-
-//         let is_selected = |variable: BitwuzlaTerm| -> bool {
-//             let value = bitwuzla_get_value(solver, variable);
-//             bitwuzla_term_is_true(value)
-//         };
-
-//         let rows_expr = cluster.len();
-//         let cols_expr = bound;
+fn variables_optimization_bitwuzla(storage: &mut ConstraintStorage, expression: &[(usize, HashMap<usize, BigInt>, usize)], cluster: &[usize], aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
+next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, cluster_id: usize, auxiliary_constraint_ids: &mut HashMap<usize, usize>) {
+
+    let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
+
+    for &expression_id in cluster {
+        for (var, coeff) in &expression[expression_id].1 {
+            if *var == 0 || coeff == &BigInt::from(0) {
+                continue;
+            }
+
+            let pair = (*var, coeff.clone());
+            if !coeffs_and_vars.contains(&pair) {
+                coeffs_and_vars.push(pair);
+            }
+        }
+    }
+
+    let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
+
+    for &expression_id in cluster {
+        let expression_coeffs = &expression[expression_id].1;
+        let mut v = Vec::new();
+
+        for (var, coeff) in &coeffs_and_vars {
+            v.push(expression_coeffs.get(var) == Some(coeff));
+        }
+
+        vars_per_expression.push(v);
+    }
+
+    let mut bound = cluster.len();
+
+    for &expression_id in cluster {
+        bound += expression[expression_id].2;
+    }
+
+    unsafe {
+        let tm = bitwuzla_term_manager_new();
+        let options = bitwuzla_options_new();
+        bitwuzla_set_option(options, BITWUZLA_OPT_PRODUCE_MODELS, 1);
+
+        let solver = bitwuzla_new(tm, options);
+        bitwuzla_options_delete(options);
+
+        let bool_sort = bitwuzla_mk_bool_sort(tm);
+        let true_term = bitwuzla_mk_true(tm);
+        let false_term = bitwuzla_mk_false(tm);
+
+        let mk_nary = |kind: BitwuzlaKind, mut args: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
+            if args.is_empty() {
+                return if kind == BITWUZLA_KIND_AND {
+                    true_term
+                }
+                else {
+                    false_term
+                };
+            }
+            if args.len() == 1 && kind != BITWUZLA_KIND_NOT {
+                return args[0];
+            }
+            bitwuzla_mk_term(tm, kind, args.len() as u32, args.as_mut_ptr())
+        };
+
+        let mk_not = |term: BitwuzlaTerm| -> BitwuzlaTerm {
+            mk_nary(BITWUZLA_KIND_NOT, vec![term])
+        };
+
+        let mk_and = |terms: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
+            mk_nary(BITWUZLA_KIND_AND, terms)
+        };
+
+        let mk_or = |terms: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
+            mk_nary(BITWUZLA_KIND_OR, terms)
+        };
+
+        let mk_implies = |a: BitwuzlaTerm, b: BitwuzlaTerm| -> BitwuzlaTerm {
+            mk_nary(BITWUZLA_KIND_IMPLIES, vec![a, b])
+        };
+
+        let mk_equal = |a: BitwuzlaTerm, b: BitwuzlaTerm| -> BitwuzlaTerm {
+            mk_nary(BITWUZLA_KIND_EQUAL, vec![a, b])
+        };
+
+        let mut assertion_id = 0usize;
+
+        let mut new_bool = |name: String| -> BitwuzlaTerm {
+            let symbol = CString::new(name).unwrap();
+            let term = bitwuzla_mk_const(tm, bool_sort, symbol.as_ptr());
+            assertion_id += 1;
+            term
+        };
+
+        let assert_formula = |formula: BitwuzlaTerm| {
+            bitwuzla_assert(solver, formula);
+        };
+
+        let is_selected = |variable: BitwuzlaTerm| -> bool {
+            let value = bitwuzla_get_value(solver, variable);
+            bitwuzla_term_is_true(value)
+        };
+
+        let rows_expr = cluster.len();
+        let cols_expr = bound;
 
-//         let mut expr_use_vars: Vec<BitwuzlaTerm> = Vec::new();
-//         for e in 0..rows_expr {
-//             for c in 0..cols_expr {
-//                 let var = new_bool(format!("expr_{}_uses_var{}", e, c));
-
-//                 expr_use_vars.push(var);
-//             }
-//         }
-
-//         let get_expr_uses = |r: usize, c: usize| {
-//             expr_use_vars[r * cols_expr + c]
-//         };
+        let mut expr_use_vars: Vec<BitwuzlaTerm> = Vec::new();
+        for e in 0..rows_expr {
+            for c in 0..cols_expr {
+                let var = new_bool(format!("expr_{}_uses_var{}", e, c));
+
+                expr_use_vars.push(var);
+            }
+        }
+
+        let get_expr_uses = |r: usize, c: usize| {
+            expr_use_vars[r * cols_expr + c]
+        };
 
-//         let rows_vars = bound;
-//         let cols_vars = coeffs_and_vars.len() + bound;
+        let rows_vars = bound;
+        let cols_vars = coeffs_and_vars.len() + bound;
 
-//         let mut vars_composition: Vec<BitwuzlaTerm> = Vec::new();
-
-//         for v in 0..rows_vars {
-//             for c in 0..cols_vars {
-//                 let var = new_bool(format!("var_{}_uses_{}", v, c));
-//                 vars_composition.push(var);
-//             }
-//         }
-
-//         let get_v_composition = |r: usize, c: usize| {
-//             vars_composition[r * cols_vars + c]
-//         };
-
-//         // Each new variable can be empty or formed with exactly two original variables or previous declared variables.
-//         for v in 0..rows_vars {
-//             // At most 2 positions are used for each variable
-//             for c in 0..cols_vars {
-//                 let c_used = get_v_composition(v, c);
-//                 for c_next in c+1..cols_vars {
-//                     let both_used = mk_and(vec![get_v_composition(v, c_next), c_used]);
-//                     for c_not in c_next + 1..cols_vars {
-//                         let c_not_used = get_v_composition(v, c_not);
-
-//                         assert_formula(mk_or(vec![mk_not(both_used), mk_not(c_not_used)]));
-//                     }
-//                 }
-//             }
-
-//             // At least 2 positions or 0 are used
-//             let mut is_empty = true_term;
-
-//             for c in 0..cols_vars {
-//                 is_empty = mk_and(vec![is_empty, mk_not(get_v_composition(v, c))]);
-//             }
-
-//             for c in 0..cols_vars {
-//                 let current = get_v_composition(v, c);
-//                 let mut another_used = false_term;
-//                 for other_c in 0..cols_vars {
-//                     if other_c != c {
-//                         another_used = mk_or(vec![another_used, get_v_composition(v, other_c)]);
-//                     }
-//                 }
-
-//                 assert_formula(mk_or(vec![is_empty, mk_not(current), another_used]));
-//             }
-
-//             // If a variable is not empty, it must be used by another variable or a final expression.
-//             let mut used_by_another_var = false_term;
-
-//             for next_var in v + 1..rows_vars {
-//                 let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
-//                 used_by_another_var = mk_or(vec![used_by_another_var, uses_v]);
-//             }
-
-//             let mut used_by_final_expr = false_term;
-
-//             for e in 0..rows_expr {
-//                 used_by_final_expr = mk_or(vec![used_by_final_expr, get_expr_uses(e, v)]);
-//             }
-
-//             assert_formula(mk_or(vec![is_empty, used_by_another_var, used_by_final_expr]));
-
-//             for next in v + 1..rows_vars {
-//                 let mut different = false_term;
-
-//                 for c in 0..cols_vars {
-//                     let comp_v = get_v_composition(v, c);
-//                     let comp_next = get_v_composition(next, c);
-
-//                     different = mk_or(vec![different, mk_not(mk_equal(comp_v, comp_next))]);
-//                 }
-
-//                 assert_formula(mk_or(vec![is_empty, different]));
-//             }
-
-//             let mut uses_another_var = false_term;
-
-//             for c in coeffs_and_vars.len()..v {
-//                 uses_another_var = mk_or(vec![uses_another_var, get_v_composition(v, c)]);
-//             }
-
-//             for next in v + 1..rows_vars {
-//                 let mut next_var_uses_another_var = false_term;
-//                 let mut next_is_empty = true_term;
-
-//                 for c in coeffs_and_vars.len()..next {
-//                     let comp_next = get_v_composition(next, c);
-
-//                     next_var_uses_another_var = mk_or(vec![next_var_uses_another_var, comp_next]);
-//                     next_is_empty = mk_and(vec![next_is_empty, mk_not(comp_next)]);
-//                 }
-
-//                 assert_formula(mk_or(vec![mk_not(uses_another_var), next_is_empty, next_var_uses_another_var]));
-//             }
-
-//             // Two terms with the same variables cannot be used in the same auxiliary variable.
-//             for first in 0..coeffs_and_vars.len() {
-//                 for second in first + 1..coeffs_and_vars.len() {
-//                     if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
-//                         assert_formula(mk_or(vec![mk_not(get_v_composition(v, first)), mk_not(get_v_composition(v, second))]));
-//                     }
-//                 }
-//             }
-//         }
-
-//         // Empty variables
-//         let mut empty: Vec<BitwuzlaTerm> = Vec::new();
-
-//         for v in 0..rows_vars {
-//             let mut nots = Vec::new();
-
-//             for c in 0..cols_vars {
-//                 nots.push(mk_not(get_v_composition(v, c)));
-//             }
-
-//             empty.push(mk_and(nots));
-//         }
-
-//         // Ordered by its maximum column
-//         for var in 0..rows_vars.saturating_sub(1) {
-//             for c in 0..cols_vars {
-//                 let mut lits = Vec::new();
-//                 for k in c..cols_vars {
-//                     lits.push(get_v_composition(var + 1, k));
-//                 }
-
-//                 lits.push(empty[var + 1]);
-
-//                 assert_formula(mk_implies(get_v_composition(var, c), mk_or(lits)));
-//             }
-//         }
-
-//         // Each new variable can only use previous variables
-//         for v in 0..rows_vars {
-//             for c in coeffs_and_vars.len() + v..cols_vars {
-//                 assert_formula(mk_not(get_v_composition(v, c)));
-//             }
-//         }
-
-//         // Empty variables must be at the end
-//         for v in 0..rows_vars.saturating_sub(1) {
-//             let mut empty_var = true_term;
-//             let mut empty_next = true_term;
-
-//             for c in 0..cols_vars {
-//                 let selected_v = get_v_composition(v, c);
-//                 empty_var = mk_and(vec![empty_var, mk_not(selected_v)]);
-
-//                 let selected_next = get_v_composition(v + 1, c);
-//                 empty_next = mk_and(vec![empty_next, mk_not(selected_next)]);
-//             }
-
-//             assert_formula(mk_or(vec![mk_not(empty_var), empty_next]));
-//         }
-
-//         let mut subexpressions_var: Vec<Vec<BitwuzlaTerm>> = Vec::new();
-
-//         for v in 0..rows_vars {
-//             let mut sub_vars = Vec::new();
-//             for subexpr in 0..coeffs_and_vars.len() {
-//                 let mut contains_subexpr = get_v_composition(v, subexpr);
-
-//                 for prev_v in 0..v {
-//                     let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
-//                     let prev_contains = subexpressions_var[prev_v][subexpr];
-//                     let uses_subexpr_through_prev = mk_and(vec![uses_prev, prev_contains]);
-//                     contains_subexpr = mk_or(vec![contains_subexpr, uses_subexpr_through_prev]);
-//                 }
-
-//                 sub_vars.push(contains_subexpr);
-//             }
-
-//             subexpressions_var.push(sub_vars);
-//         }
-
-//         for e in 0..rows_expr {
-//             for subexpr in 0..coeffs_and_vars.len() {
-//                 let mut used = false_term;
-
-//                 for v in 0..rows_vars {
-//                     used = mk_or(vec![used, mk_and(vec![get_expr_uses(e, v), subexpressions_var[v][subexpr]])]);
-//                 }
-
-//                 if vars_per_expression[e][subexpr] {
-//                     assert_formula(used);
-//                 }
-//                 else {
-//                     assert_formula(mk_not(used));
-//                 }
-//             }
-//         }
-
-//         // Each final expression uses at most one auxiliary variable
-//         for e in 0..rows_expr {
-//             for c in 0..cols_expr {
-//                 let used = get_expr_uses(e, c);
-
-//                 for next in c + 1..cols_expr {
-//                     assert_formula(mk_or(vec![mk_not(used), mk_not(get_expr_uses(e, next))]));
-//                 }
-//             }
-//         }
-
-//         // An expression only uses non-empty variables
-//         for e in 0..rows_expr {
-//             for v in 0..rows_vars {
-//                 let mut empty_var = true_term;
-
-//                 for c in 0..cols_vars {
-//                     empty_var = mk_and(vec![empty_var, mk_not(get_v_composition(v, c))]);
-//                 }
-
-//                 let expr_uses_aux = get_expr_uses(e, v);
-//                 assert_formula(mk_or(vec![mk_not(expr_uses_aux), mk_not(empty_var)]));
-//             }
-//         }
-
-//         // Incremental minimization of auxiliary variables
-//         for k in 1..rows_vars + 1 {
-//             bitwuzla_push(solver, 1);
-
-//             for v in 0..k {
-//                 let mut used = false_term;
-
-//                 for col in 0..cols_vars {
-//                     used = mk_or(vec![used, get_v_composition(v, col)]);
-//                 }
-
-//                 bitwuzla_assert(solver, used);
-//             }
-
-//             for v in k..rows_vars {
-//                 for col in 0..cols_vars {
-//                     bitwuzla_assert(solver, mk_not(get_v_composition(v, col)));
-//                 }
-//             }
-
-//             match bitwuzla_check_sat(solver) {
-//                 BITWUZLA_SAT => {
-
-//                     println!("[Bitwuzla] Cluster {} -> SAT with k = {}", cluster_id, k);
-//                     let mut created_variables = 0usize;
-
-//                     for v in 0..rows_vars {
-//                         let mut used = false;
-
-//                         for c in 0..cols_vars {
-//                             if is_selected(vars_composition[v * cols_vars + c]) {
-//                                 used = true;
-//                                 break;
-//                             }
-//                         }
-
-//                         if used {
-//                             created_variables += 1;
-//                         }
-//                     }
-
-//                     let mut model_aux_signals = vec![None; rows_vars];
-
-//                     for v in 0..rows_vars {
-//                         let mut selected_sources = Vec::new();
-
-//                         for c in 0..cols_vars {
-//                             if is_selected(vars_composition[v * cols_vars + c]) {
-//                                 selected_sources.push(c);
-//                             }
-//                         }
-
-//                         if selected_sources.is_empty() {continue;}
-
-//                         let source = |column: usize, model_aux_signals: &[Option<usize>]| -> (usize, BigInt) {
-//                             if column < coeffs_and_vars.len() {
-//                                 (
-//                                     coeffs_and_vars[column].0,
-//                                     coeffs_and_vars[column].1.clone(),
-//                                 )
-//                             } else {
-//                                 let previous_aux = column - coeffs_and_vars.len();
-//                                 (
-//                                     model_aux_signals[previous_aux]
-//                                         .unwrap(),
-//                                     BigInt::from(1),
-//                                 )
-//                             }
-//                         };
-
-//                         let (signal_a, coeff_a) = source(
-//                             selected_sources[0],
-//                             &model_aux_signals,
-//                         );
-
-//                         let (signal_b, coeff_b) = source(
-//                             selected_sources[1],
-//                             &model_aux_signals,
-//                         );
-
-//                         let pair = (
-//                             signal_a,
-//                             signal_b,
-//                             coeff_a,
-//                             coeff_b,
-//                         );
-
-//                         let is_new_auxiliary =
-//                             !aux_signals.contains_key(&pair);
-
-//                         let auxiliary = apply_pair_to_cluster(
-//                             storage,
-//                             cluster,
-//                             expression,
-//                             pair,
-//                             aux_signals,
-//                             next_aux,
-//                             non_linear_map,
-//                             field,
-//                         );
-
-//                         if is_new_auxiliary {
-//                             let definition_id = storage
-//                                 .get_ids()
-//                                 .last()
-//                                 .copied()
-//                                 .expect(
-//                                     "new auxiliary must have a defining constraint",
-//                                 );
-
-//                             auxiliary_constraint_ids.insert(
-//                                 auxiliary,
-//                                 definition_id,
-//                             );
-//                         }
-
-//                         model_aux_signals[v] = Some(auxiliary);
-//                     }
-
-//                     if created_variables > 0 {
-//                         // println!("New constraints:");
-
-//                         let mut introduced = 0;
-
-//                         for v in 0..created_variables {
-//                             let mut terms = Vec::new();
-
-//                             for c in 0..cols_vars {
-//                                 if !is_selected(
-//                                     vars_composition[v * cols_vars + c],
-//                                 ) {
-//                                     continue;
-//                                 }
-
-//                                 if c < coeffs_and_vars.len() {
-//                                     let (signal, coefficient) =
-//                                         &coeffs_and_vars[c];
-
-//                                     terms.push(format!(
-//                                         "{} * x{}",
-//                                         coefficient,
-//                                         signal
-//                                     ));
-//                                 } else {
-//                                     let previous_aux =
-//                                         c - coeffs_and_vars.len();
-
-//                                     terms.push(format!(
-//                                         "x{}",
-//                                         model_aux_signals[previous_aux]
-//                                             .unwrap()
-//                                     ));
-//                                 }
-//                             }
-
-//                             if !terms.is_empty() {
-//                                 let auxiliary =
-//                                     model_aux_signals[v].unwrap();
-
-//                                 // println!(
-//                                 //     "  x{} = {}",
-//                                 //     auxiliary,
-//                                 //     terms.join(" + ")
-//                                 // );
-
-//                                 introduced += 1;
-//                             }
-//                         }
-
-//                         // println!(
-//                         //     "Introduced variables ({}):",
-//                         //     introduced
-//                         // );
-
-//                         for v in 0..created_variables {
-//                             // println!(
-//                             //     "  x{}",
-//                             //     model_aux_signals[v].unwrap()
-//                             // );
-//                         }
-
-//                         // println!("Transformed expressions:");
-
-//                         for e in 0..rows_expr {
-//                             let expression_id = cluster[e];
-//                             let mut terms = Vec::new();
-
-//                             if let Some(constant) =
-//                                 expression[expression_id].1.get(&0)
-//                             {
-//                                 if constant != &BigInt::from(0) {
-//                                     terms.push(constant.to_string());
-//                                 }
-//                             }
-
-//                             for v in 0..rows_vars {
-//                                 if is_selected(get_expr_uses(e, v)) {
-//                                     terms.push(format!(
-//                                         "x{}",
-//                                         model_aux_signals[v].unwrap()
-//                                     ));
-//                                 }
-//                             }
-
-//                             // println!(
-//                             //     "  expression {}: {}",
-//                             //     expression_id,
-//                             //     terms.join(" + ")
-//                             // );
-//                         }
-//                     }
-
-//                     break;
-//                 }
-
-//                 BITWUZLA_UNSAT => {
-//                     println!(
-//                         "\nVariable optimization: UNSAT with k = {}",
-//                         k
-//                     );
-
-//                     bitwuzla_pop(solver, 1);
-//                     continue;
-//                 }
-
-//                 BITWUZLA_UNKNOWN => {
-//                     println!(
-//                         "\nVariable optimization: UNKNOWN with k = {}",
-//                         k
-//                     );
-
-//                     bitwuzla_pop(solver, 1);
-//                     break;
-//                 }
-
-//                 _ => {
-//                     bitwuzla_pop(solver, 1);
-//                     break;
-//                 }
-//             }
-//         }
-
-//         // Release Bitwuzla resources
-//         bitwuzla_delete(solver);
-//         bitwuzla_term_manager_delete(tm);
-//     }
-// }
+        let mut vars_composition: Vec<BitwuzlaTerm> = Vec::new();
+
+        for v in 0..rows_vars {
+            for c in 0..cols_vars {
+                let var = new_bool(format!("var_{}_uses_{}", v, c));
+                vars_composition.push(var);
+            }
+        }
+
+        let get_v_composition = |r: usize, c: usize| {
+            vars_composition[r * cols_vars + c]
+        };
+
+        // Each new variable can be empty or formed with exactly two original variables or previous declared variables.
+        for v in 0..rows_vars {
+            // At most 2 positions are used for each variable
+            for c in 0..cols_vars {
+                let c_used = get_v_composition(v, c);
+                for c_next in c+1..cols_vars {
+                    let both_used = mk_and(vec![get_v_composition(v, c_next), c_used]);
+                    for c_not in c_next + 1..cols_vars {
+                        let c_not_used = get_v_composition(v, c_not);
+
+                        assert_formula(mk_or(vec![mk_not(both_used), mk_not(c_not_used)]));
+                    }
+                }
+            }
+
+            // At least 2 positions or 0 are used
+            let mut is_empty = true_term;
+
+            for c in 0..cols_vars {
+                is_empty = mk_and(vec![is_empty, mk_not(get_v_composition(v, c))]);
+            }
+
+            for c in 0..cols_vars {
+                let current = get_v_composition(v, c);
+                let mut another_used = false_term;
+                for other_c in 0..cols_vars {
+                    if other_c != c {
+                        another_used = mk_or(vec![another_used, get_v_composition(v, other_c)]);
+                    }
+                }
+
+                assert_formula(mk_or(vec![is_empty, mk_not(current), another_used]));
+            }
+
+            // If a variable is not empty, it must be used by another variable or a final expression.
+            let mut used_by_another_var = false_term;
+
+            for next_var in v + 1..rows_vars {
+                let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
+                used_by_another_var = mk_or(vec![used_by_another_var, uses_v]);
+            }
+
+            let mut used_by_final_expr = false_term;
+
+            for e in 0..rows_expr {
+                used_by_final_expr = mk_or(vec![used_by_final_expr, get_expr_uses(e, v)]);
+            }
+
+            assert_formula(mk_or(vec![is_empty, used_by_another_var, used_by_final_expr]));
+
+            for next in v + 1..rows_vars {
+                let mut different = false_term;
+
+                for c in 0..cols_vars {
+                    let comp_v = get_v_composition(v, c);
+                    let comp_next = get_v_composition(next, c);
+
+                    different = mk_or(vec![different, mk_not(mk_equal(comp_v, comp_next))]);
+                }
+
+                assert_formula(mk_or(vec![is_empty, different]));
+            }
+
+            let mut uses_another_var = false_term;
+
+            for c in coeffs_and_vars.len()..v {
+                uses_another_var = mk_or(vec![uses_another_var, get_v_composition(v, c)]);
+            }
+
+            for next in v + 1..rows_vars {
+                let mut next_var_uses_another_var = false_term;
+                let mut next_is_empty = true_term;
+
+                for c in coeffs_and_vars.len()..next {
+                    let comp_next = get_v_composition(next, c);
+
+                    next_var_uses_another_var = mk_or(vec![next_var_uses_another_var, comp_next]);
+                    next_is_empty = mk_and(vec![next_is_empty, mk_not(comp_next)]);
+                }
+
+                assert_formula(mk_or(vec![mk_not(uses_another_var), next_is_empty, next_var_uses_another_var]));
+            }
+
+            // Two terms with the same variables cannot be used in the same auxiliary variable.
+            for first in 0..coeffs_and_vars.len() {
+                for second in first + 1..coeffs_and_vars.len() {
+                    if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
+                        assert_formula(mk_or(vec![mk_not(get_v_composition(v, first)), mk_not(get_v_composition(v, second))]));
+                    }
+                }
+            }
+        }
+
+        // Empty variables
+        let mut empty: Vec<BitwuzlaTerm> = Vec::new();
+
+        for v in 0..rows_vars {
+            let mut nots = Vec::new();
+
+            for c in 0..cols_vars {
+                nots.push(mk_not(get_v_composition(v, c)));
+            }
+
+            empty.push(mk_and(nots));
+        }
+
+        // Ordered by its maximum column
+        for var in 0..rows_vars.saturating_sub(1) {
+            for c in 0..cols_vars {
+                let mut lits = Vec::new();
+                for k in c..cols_vars {
+                    lits.push(get_v_composition(var + 1, k));
+                }
+
+                lits.push(empty[var + 1]);
+
+                assert_formula(mk_implies(get_v_composition(var, c), mk_or(lits)));
+            }
+        }
+
+        // Each new variable can only use previous variables
+        for v in 0..rows_vars {
+            for c in coeffs_and_vars.len() + v..cols_vars {
+                assert_formula(mk_not(get_v_composition(v, c)));
+            }
+        }
+
+        // Empty variables must be at the end
+        for v in 0..rows_vars.saturating_sub(1) {
+            let mut empty_var = true_term;
+            let mut empty_next = true_term;
+
+            for c in 0..cols_vars {
+                let selected_v = get_v_composition(v, c);
+                empty_var = mk_and(vec![empty_var, mk_not(selected_v)]);
+
+                let selected_next = get_v_composition(v + 1, c);
+                empty_next = mk_and(vec![empty_next, mk_not(selected_next)]);
+            }
+
+            assert_formula(mk_or(vec![mk_not(empty_var), empty_next]));
+        }
+
+        let mut subexpressions_var: Vec<Vec<BitwuzlaTerm>> = Vec::new();
+
+        for v in 0..rows_vars {
+            let mut sub_vars = Vec::new();
+            for subexpr in 0..coeffs_and_vars.len() {
+                let mut contains_subexpr = get_v_composition(v, subexpr);
+
+                for prev_v in 0..v {
+                    let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
+                    let prev_contains = subexpressions_var[prev_v][subexpr];
+                    let uses_subexpr_through_prev = mk_and(vec![uses_prev, prev_contains]);
+                    contains_subexpr = mk_or(vec![contains_subexpr, uses_subexpr_through_prev]);
+                }
+
+                sub_vars.push(contains_subexpr);
+            }
+
+            subexpressions_var.push(sub_vars);
+        }
+
+        for e in 0..rows_expr {
+            for subexpr in 0..coeffs_and_vars.len() {
+                let mut used = false_term;
+
+                for v in 0..rows_vars {
+                    used = mk_or(vec![used, mk_and(vec![get_expr_uses(e, v), subexpressions_var[v][subexpr]])]);
+                }
+
+                if vars_per_expression[e][subexpr] {
+                    assert_formula(used);
+                }
+                else {
+                    assert_formula(mk_not(used));
+                }
+            }
+        }
+
+        // Each final expression uses at most one auxiliary variable
+        for e in 0..rows_expr {
+            for c in 0..cols_expr {
+                let used = get_expr_uses(e, c);
+
+                for next in c + 1..cols_expr {
+                    assert_formula(mk_or(vec![mk_not(used), mk_not(get_expr_uses(e, next))]));
+                }
+            }
+        }
+
+        // An expression only uses non-empty variables
+        for e in 0..rows_expr {
+            for v in 0..rows_vars {
+                let mut empty_var = true_term;
+
+                for c in 0..cols_vars {
+                    empty_var = mk_and(vec![empty_var, mk_not(get_v_composition(v, c))]);
+                }
+
+                let expr_uses_aux = get_expr_uses(e, v);
+                assert_formula(mk_or(vec![mk_not(expr_uses_aux), mk_not(empty_var)]));
+            }
+        }
+
+        // Incremental minimization of auxiliary variables
+        for k in 1..rows_vars + 1 {
+            bitwuzla_push(solver, 1);
+
+            for v in 0..k {
+                let mut used = false_term;
+
+                for col in 0..cols_vars {
+                    used = mk_or(vec![used, get_v_composition(v, col)]);
+                }
+
+                bitwuzla_assert(solver, used);
+            }
+
+            for v in k..rows_vars {
+                for col in 0..cols_vars {
+                    bitwuzla_assert(solver, mk_not(get_v_composition(v, col)));
+                }
+            }
+
+            match bitwuzla_check_sat(solver) {
+                BITWUZLA_SAT => {
+
+                    println!("[Bitwuzla] Cluster {} -> SAT with k = {}", cluster_id, k);
+                    let mut created_variables = 0usize;
+
+                    for v in 0..rows_vars {
+                        let mut used = false;
+
+                        for c in 0..cols_vars {
+                            if is_selected(vars_composition[v * cols_vars + c]) {
+                                used = true;
+                                break;
+                            }
+                        }
+
+                        if used {
+                            created_variables += 1;
+                        }
+                    }
+
+                    let mut model_aux_signals = vec![None; rows_vars];
+
+                    for v in 0..rows_vars {
+                        let mut selected_sources = Vec::new();
+
+                        for c in 0..cols_vars {
+                            if is_selected(vars_composition[v * cols_vars + c]) {
+                                selected_sources.push(c);
+                            }
+                        }
+
+                        if selected_sources.is_empty() {continue;}
+
+                        let source = |column: usize, model_aux_signals: &[Option<usize>]| -> (usize, BigInt) {
+                            if column < coeffs_and_vars.len() {
+                                (
+                                    coeffs_and_vars[column].0,
+                                    coeffs_and_vars[column].1.clone(),
+                                )
+                            } else {
+                                let previous_aux = column - coeffs_and_vars.len();
+                                (
+                                    model_aux_signals[previous_aux]
+                                        .unwrap(),
+                                    BigInt::from(1),
+                                )
+                            }
+                        };
+
+                        let (signal_a, coeff_a) = source(
+                            selected_sources[0],
+                            &model_aux_signals,
+                        );
+
+                        let (signal_b, coeff_b) = source(
+                            selected_sources[1],
+                            &model_aux_signals,
+                        );
+
+                        let pair = (
+                            signal_a,
+                            signal_b,
+                            coeff_a,
+                            coeff_b,
+                        );
+
+                        let is_new_auxiliary =
+                            !aux_signals.contains_key(&pair);
+
+                        let auxiliary = apply_pair_to_cluster(
+                            storage,
+                            cluster,
+                            expression,
+                            pair,
+                            aux_signals,
+                            next_aux,
+                            non_linear_map,
+                            field,
+                        );
+
+                        if is_new_auxiliary {
+                            let definition_id = storage
+                                .get_ids()
+                                .last()
+                                .copied()
+                                .expect(
+                                    "new auxiliary must have a defining constraint",
+                                );
+
+                            auxiliary_constraint_ids.insert(
+                                auxiliary,
+                                definition_id,
+                            );
+                        }
+
+                        model_aux_signals[v] = Some(auxiliary);
+                    }
+
+                    if created_variables > 0 {
+                        // println!("New constraints:");
+
+                        let mut introduced = 0;
+
+                        for v in 0..created_variables {
+                            let mut terms = Vec::new();
+
+                            for c in 0..cols_vars {
+                                if !is_selected(
+                                    vars_composition[v * cols_vars + c],
+                                ) {
+                                    continue;
+                                }
+
+                                if c < coeffs_and_vars.len() {
+                                    let (signal, coefficient) =
+                                        &coeffs_and_vars[c];
+
+                                    terms.push(format!(
+                                        "{} * x{}",
+                                        coefficient,
+                                        signal
+                                    ));
+                                } else {
+                                    let previous_aux =
+                                        c - coeffs_and_vars.len();
+
+                                    terms.push(format!(
+                                        "x{}",
+                                        model_aux_signals[previous_aux]
+                                            .unwrap()
+                                    ));
+                                }
+                            }
+
+                            if !terms.is_empty() {
+                                let auxiliary =
+                                    model_aux_signals[v].unwrap();
+
+                                // println!(
+                                //     "  x{} = {}",
+                                //     auxiliary,
+                                //     terms.join(" + ")
+                                // );
+
+                                introduced += 1;
+                            }
+                        }
+
+                        // println!(
+                        //     "Introduced variables ({}):",
+                        //     introduced
+                        // );
+
+                        for v in 0..created_variables {
+                            // println!(
+                            //     "  x{}",
+                            //     model_aux_signals[v].unwrap()
+                            // );
+                        }
+
+                        // println!("Transformed expressions:");
+
+                        for e in 0..rows_expr {
+                            let expression_id = cluster[e];
+                            let mut terms = Vec::new();
+
+                            if let Some(constant) =
+                                expression[expression_id].1.get(&0)
+                            {
+                                if constant != &BigInt::from(0) {
+                                    terms.push(constant.to_string());
+                                }
+                            }
+
+                            for v in 0..rows_vars {
+                                if is_selected(get_expr_uses(e, v)) {
+                                    terms.push(format!(
+                                        "x{}",
+                                        model_aux_signals[v].unwrap()
+                                    ));
+                                }
+                            }
+
+                            // println!(
+                            //     "  expression {}: {}",
+                            //     expression_id,
+                            //     terms.join(" + ")
+                            // );
+                        }
+                    }
+
+                    break;
+                }
+
+                BITWUZLA_UNSAT => {
+                    println!(
+                        "\nVariable optimization: UNSAT with k = {}",
+                        k
+                    );
+
+                    bitwuzla_pop(solver, 1);
+                    continue;
+                }
+
+                BITWUZLA_UNKNOWN => {
+                    println!(
+                        "\nVariable optimization: UNKNOWN with k = {}",
+                        k
+                    );
+
+                    bitwuzla_pop(solver, 1);
+                    break;
+                }
+
+                _ => {
+                    bitwuzla_pop(solver, 1);
+                    break;
+                }
+            }
+        }
+
+        // Release Bitwuzla resources
+        bitwuzla_delete(solver);
+        bitwuzla_term_manager_delete(tm);
+    }
+}
 
 fn variables_optimization_cadical(
     storage: &mut ConstraintStorage,
@@ -2433,13 +2593,8 @@ fn variables_optimization_cadical(
     let _ = cluster_id;
     let _ = constraints_ids;
 
-    let mut low = 1;
-    let mut high = rows_vars;
-    let mut unknown = false;
-
-    // Binary search for the minimum number of introduced variables.
-    while low < high {
-        let k = low + (high - low) / 2;
+    // Incremental minimization of auxiliary variables.
+    for k in 1..rows_vars + 1 {
         let mut assumptions = Vec::new();
 
         for v in 0..k {
@@ -2451,40 +2606,9 @@ fn variables_optimization_cadical(
         }
 
         match solver.solve_with(assumptions) {
-            // Incremental
             Some(true) => {
-                println!("\nVariable optimization: SAT with k = {}", k);
-                high = k;
-            }
+                println!("[Cadical] Cluster {} -> SAT with k = {}", cluster_id, k);
 
-            Some(false) => {
-                println!("\nVariable optimization: UNSAT with k = {}", k);
-                low = k + 1;
-            }
-
-            None => {
-                println!("\nVariable optimization: UNKNOWN with k = {}", k);
-                unknown = true;
-                break;
-            }
-        }
-    }
-
-    if !unknown {
-        let k = low;
-        let mut assumptions = Vec::new();
-
-        for v in 0..k {
-            assumptions.push(row_nonempty[v]);
-        }
-
-        for v in k..rows_vars {
-            assumptions.push(-row_nonempty[v]);
-        }
-
-        match solver.solve_with(assumptions) {
-            // Incremental
-            Some(true) => {
                 let is_selected = |variable: i32| solver.value(variable).unwrap_or(false);
 
                 let created_variables = (0..rows_vars)
@@ -2521,9 +2645,7 @@ fn variables_optimization_cadical(
                     };
 
                     let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
-
                     let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
-
                     let pair = (signal_a, signal_b, coeff_a, coeff_b);
 
                     let is_new_auxiliary = !aux_signals.contains_key(&pair);
@@ -2567,21 +2689,16 @@ fn variables_optimization_cadical(
 
                             if c < coeffs_and_vars.len() {
                                 let (signal, coefficient) = &coeffs_and_vars[c];
-
                                 terms.push(format!("{} * x{}", coefficient, signal));
                             } else {
                                 let previous_aux = c - coeffs_and_vars.len();
-
-                                terms
-                                    .push(format!("x{}", model_aux_signals[previous_aux].unwrap()));
+                                terms.push(format!("x{}", model_aux_signals[previous_aux].unwrap()));
                             }
                         }
 
                         if !terms.is_empty() {
                             let auxiliary = model_aux_signals[v].unwrap();
-
                             println!("  x{} = {}", auxiliary, terms.join(" + "));
-
                             introduced += 1;
                         }
                     }
@@ -2614,14 +2731,16 @@ fn variables_optimization_cadical(
                     }
                 }
 
+                break;
             }
 
             Some(false) => {
-                println!("\nVariable optimization: UNSAT with k = {}", k);
+                println!("Variable optimization: UNSAT with k = {}", k);
             }
 
             None => {
-                println!("\nVariable optimization: UNKNOWN with k = {}", k);
+                println!("Variable optimization: UNKNOWN with k = {}", k);
+                break;
             }
         }
     }
@@ -3500,17 +3619,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                 // variables_optimization(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
                 // variables_optimization_unsat_core(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field, i, &mut auxiliary_constraint_ids);
                 // variables_optimization_bitwuzla(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field, i, &mut auxiliary_constraint_ids);
-                variables_optimization_cadical(
-                    &mut constraint_storage,
-                    &expressions_to_fix,
-                    cluster,
-                    &mut auxiliary_signals,
-                    &mut max_signal,
-                    &mut non_linear_map,
-                    &field,
-                    i,
-                    &mut auxiliary_constraint_ids,
-                );
+                variables_optimization_cadical(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field, i, &mut auxiliary_constraint_ids);
                 i += 1;
             }
             restore_plonk_constraints(
