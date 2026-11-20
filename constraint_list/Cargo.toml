@@ -14,3 +14,4 @@ threadpool = "1.0"
 num_cpus = "1.0"
 z3 = { version = "=0.20.2", features = ["vendored"] }
 cadical = "0.1.16"
+bitwuzla-sys = { version = "0.8", features = ["vendor-cadical"] }
