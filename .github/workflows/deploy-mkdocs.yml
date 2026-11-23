@@ -20,7 +20,7 @@ jobs:
     # Tasks that will be executed as part of the job
     steps:
       # Checks-out repository
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       # Installs mkdocs
       - name: install mkdocs
