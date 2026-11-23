@@ -33,7 +33,7 @@ The input array `in` is declared with the tag `binary`. This tag means that each
 
 Then, whenever the previous template is instantiated, the compiler checks if the array  `a` assigned to the input array has the tag binary, since `in` has the tag `binary` in its declaration. If it does not, an error is reported. Notice that the compiler also checks if both arrays have the same size. 
 
-It is important to highlight that the compiler never does make any check about the validity of the tags. It is the programmer's responsibility to include the constraints and executable code to guarantee that the intended meaning of each signal is always true.
+It is important to highlight that the compiler never makes any check about the validity of the tags. It is the programmer's responsibility to include the constraints and executable code to guarantee that the intended meaning of each signal is always true.
 
 When doing a substitution from a tagged signal to another signal, the tags are always inherited by it (even if it is not declared with it). For instance,
 
@@ -64,7 +64,7 @@ template IsZero() {
 }
 ```
 
-To the light of this example, when using tags in intermediate or output signals, the programmer must use components like the previous one or explicitly include the constraints to guarantee the validity of the tags.
+In the light of this example, when using tags in intermediate or output signals, the programmer must use components like the previous one or explicitly include the constraints to guarantee the validity of the tags.
 
 ### Tags with value
 Notice that in the previous template `Bits2Num`, we can add more information about the output signal `out`: the maximum number of bits needed to represent it is `n`. To express this fact, it is necessary that tags can have a value.
