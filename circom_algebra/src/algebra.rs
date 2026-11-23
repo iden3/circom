@@ -1379,12 +1379,17 @@ where
     HashMap::contains_key(expr, &cq) && HashMap::len(expr) == 1
 }
 
-pub fn normalize(c: Constraint<usize>, _field: &BigInt) -> Constraint<usize> {
-    use std::collections::LinkedList;
-    let _a: LinkedList<_> = c.a.iter().clone().collect();
-    let _b: LinkedList<_> = c.b.iter().clone().collect();
-    let _c: LinkedList<_> = c.c.iter().clone().collect();
-    todo!()
+pub fn normalize(c: Constraint<usize>, field: &BigInt) -> Constraint<usize> {
+    // Create mutable copies of the constraint components
+    let mut a = c.a.clone();
+    let mut b = c.b.clone();
+    let mut c = c.c.clone();
+    
+    // Apply the same normalization logic as fix_raw_constraint
+    fix_raw_constraint(&mut a, &mut b, &mut c, field);
+    
+    // Return the normalized constraint
+    Constraint::new(a, b, c)
 }
 
 #[cfg(test)]
@@ -1490,5 +1495,51 @@ mod test {
         assert!(constraint.b.is_empty());
         assert_eq!(*y_c, expected_y_c);
         assert_eq!(*constant_c, expected_constant_c);
+    }
+
+    #[test]
+    fn algebra_constraint_normalize() {
+        let field = BigInt::parse_bytes(FIELD.as_bytes(), 10)
+            .expect("generating the big int was not possible");
+        
+        // Test case 1: Empty constraint should remain empty
+        let empty_constraint = C::empty();
+        let normalized_empty = crate::algebra::normalize(empty_constraint.clone(), &field);
+        assert!(normalized_empty.is_empty());
+        
+        // Test case 2: Linear constraint should be normalized
+        let x = 1;
+        let y = 2;
+        let constant = C::constant_coefficient();
+        
+        let mut c = HashMap::new();
+        c.insert(x, BigInt::from(1));
+        c.insert(y, BigInt::from(1));
+        c.insert(constant, BigInt::from(3));
+        
+        let linear_constraint = C::new(HashMap::new(), HashMap::new(), c);
+        let normalized_linear = crate::algebra::normalize(linear_constraint, &field);
+        
+        // The normalized constraint should have the same structure
+        assert!(normalized_linear.a.is_empty());
+        assert!(normalized_linear.b.is_empty());
+        assert!(!normalized_linear.c.is_empty());
+        
+        // Test case 3: Quadratic constraint with constant should be normalized
+        let mut a = HashMap::new();
+        let mut b = HashMap::new();
+        let mut c = HashMap::new();
+        
+        a.insert(constant, BigInt::from(2)); // constant * b
+        b.insert(x, BigInt::from(1)); // x
+        c.insert(y, BigInt::from(1)); // y
+        
+        let quadratic_constraint = C::new(a, b, c);
+        let normalized_quadratic = crate::algebra::normalize(quadratic_constraint, &field);
+        
+        // After normalization, constant * linear should be reduced to linear
+        assert!(normalized_quadratic.a.is_empty());
+        assert!(normalized_quadratic.b.is_empty());
+        assert!(!normalized_quadratic.c.is_empty());
     }
 }
