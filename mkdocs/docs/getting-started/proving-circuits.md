@@ -47,7 +47,8 @@ we can proceed with the Phase 2.
 
 ## Phase 2 <a id="my-first-trusted-setup"></a>
 
-The **phase 2** is **circuit-specific**. 
+The **phase 2** is **circuit-specific**. If you are using a proving system that does not require a trusted setup, you don't need to go through phase 2 and can directly proceed to the next [section](#generating-a-proof). In this example we are using [Groth16](https://eprint.iacr.org/2016/260), which requires a trusted setup.
+
 Execute the following command to start the generation of this phase:
 
 ```text
@@ -67,54 +68,33 @@ Contribute to the phase 2 of the ceremony:
 snarkjs zkey contribute multiplier2_0000.zkey multiplier2_0001.zkey --name="1st Contributor Name" -v
 ```
 
-<!-- 
-Verify the latest zkey
-snarkjs zkey verify $1.r1cs pot12_final.ptau $1_0001.zkey
+We should be prompted to enter some text to provide a random source of entropy.
 
-
-Apply a random beacon:
+Finalize phase 2 of the trusted setup by adding a beacon on the latest zkey.
+This is necessary in order to generate a final zkey file and finalize phase 2 of the trusted setup.
 
 ```text
 snarkjs zkey beacon multiplier2_0001.zkey multiplier2_final.zkey 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f 10 -n="Final Beacon phase2"
 ```
 
-Verify the final zkey
-snarkjs zkey verify $1.r1cs pot12_final.ptau $1_final.zkey
+We can perform a final check in order to verify the final zkey.
+```text
+snarkjs zkey verify multiplier2.r1cs pot12_final.ptau multiplier2_final.zkey
+```
 
-As before, you will be prompted to enter some random text to provide a source of entropy. The output will be a file named `multiplier2_final.zkey`, which we will use to **export the verification key**.
-
+Finally, export the verification key:
 ```text
 snarkjs zkey export verificationkey multiplier2_final.zkey verification_key.json
 ```
 
-Now, the verification key from `multiplier2_final.zkey` is exported into the file `verification_key.json`.
-
-You can always **verify** that the computations of a `.ptau` or a `.zkey` file are correct:
-
-```text
-snarkjs powersoftau verify pot12_final.ptausnarkjs zkey verify multiplier2.r1cs pot12_final.ptau multiplier2_final.zkey
-```
-
-If everything checks out, you should see the following at the top of the output:
-
-```text
-[INFO]  snarkJS: Powers of Tau file OK![INFO]  snarkJS: ZKey OK!
-```
-
-​The command `snarkjs zkey verify` also checks that the `.zkey` file corresponds to the specific circuit.
--->
-
-Export the verification key:
-```text
-snarkjs zkey export verificationkey multiplier2_0001.zkey verification_key.json
-```
+Please ensure that you only use the final `zkey` file for this step, as using the other `zkey` files might result in invalid verification keys.
 
 ## Generating a Proof
 
 Once the witness is computed and the trusted setup is already executed, we can **generate a zk-proof** associated to the circuit and the witness:
 
 ```text
-snarkjs groth16 prove multiplier2_0001.zkey witness.wtns proof.json public.json
+snarkjs groth16 prove multiplier2_final.zkey witness.wtns proof.json public.json
 ```
 
 This command generates a [Groth16](https://eprint.iacr.org/2016/260) proof and outputs two files:
@@ -141,12 +121,14 @@ A valid proof not only proves that we know a set of signals that satisfy the cir
 First, we need to generate the Solidity code using the command:
 
 ```text
-snarkjs zkey export solidityverifier multiplier2_0001.zkey verifier.sol
+snarkjs zkey export solidityverifier multiplier2_final.zkey verifier.sol
 ```
 
-This command takes validation key `multiplier2_0001.zkey` and outputs Solidity code in a file named `verifier.sol`. You can take the code from this file and cut and paste it in Remix. You will see that the code contains two contracts: `Pairing` and `Verifier`. You only need to deploy the `Verifier` contract.
+This command takes validation key `multiplier2_final.zkey` and outputs Solidity code in a file named `verifier.sol`. You can take the code from this file and cut and paste it in Remix. You will see that the code contains two contracts: `Pairing` and `Verifier`. You only need to deploy the `Verifier` contract.
 
-You may want to use first a testnet like Rinkeby, Kovan or Ropsten. You can also use the JavaScript VM, but in some browsers the verification takes long and the page may freeze.
+Note that you should only generate the verifier using the final `zkey` file. If you use the other `zkey` files the verifier generated will not properly verify the proof given.
+
+You may want to use first a testnet like Goerli or Sepolia. You can also use the JavaScript VM, but in some browsers the verification takes long and the page may freeze.
 
 The `Verifier` has a `view` function called `verifyProof` that returns `TRUE` if and only if the proof and the inputs are valid. To facilitate the call, you can use `snarkJS` to generate the parameters of the call by typing:
 
