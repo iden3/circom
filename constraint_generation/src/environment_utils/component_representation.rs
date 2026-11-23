@@ -180,7 +180,7 @@ impl ComponentRepresentation {
                     &mut initial_value_bus,
                     bus_node,
                     scheme,
-                    false // it is not initialized at the begining
+                    false // it is not initialized at the beginning
                 )?;
                 let bus_slice = BusSlice::new_with_route(route, &initial_value_bus);
                 let bus_slice_size = BusSlice::get_number_of_cells(&bus_slice);
@@ -220,7 +220,7 @@ impl ComponentRepresentation {
                     &mut initial_value_bus,
                     bus_node,
                     scheme,
-                    true // the outputs of the component are initialized at the begining
+                    true // the outputs of the component are initialized at the beginning
                 )?;
                 let bus_slice = BusSlice::new_with_route(route, &initial_value_bus);
     
