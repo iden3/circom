@@ -2,7 +2,7 @@
 use super::{ConstraintStorage, EncodingIterator, SEncoded, Simplifier, A, C, S};
 use crate::SignalMap;
 use circom_algebra::num_bigint::BigInt;
-// use circom_algebra::algebra::ArithmeticExpression;
+use circom_algebra::modular_arithmetic;
 use constraint_writers::json_writer::SubstitutionJSON;
 use std::collections::{HashMap, HashSet, LinkedList, BTreeSet, VecDeque};
 use std::sync::Arc;
@@ -214,20 +214,14 @@ fn build_expr_clusters(
 
     // Checks whether the coefficient ratio of two signals
     // is the same in both expressions.
-    fn same_ratio(
-        expr1: &HashMap<usize, BigInt>,
-        expr2: &HashMap<usize, BigInt>,
-        signal1: usize,
-        signal2: usize,
-    ) -> bool {
+    fn same_ratio(expr1: &HashMap<usize, BigInt>, expr2: &HashMap<usize, BigInt>, signal1: usize, signal2: usize) -> bool {
         let coeff1_signal1 = expr1.get(&signal1).unwrap();
         let coeff1_signal2 = expr1.get(&signal2).unwrap();
 
         let coeff2_signal1 = expr2.get(&signal1).unwrap();
         let coeff2_signal2 = expr2.get(&signal2).unwrap();
 
-        coeff1_signal2 * coeff2_signal1
-            == coeff2_signal2 * coeff1_signal1
+        coeff1_signal2 * coeff2_signal1 == coeff2_signal2 * coeff1_signal1
     }
 
     let no_expressions = expressions.len();
@@ -257,9 +251,7 @@ fn build_expr_clusters(
             HashMap::new();
 
         for signal in signals {
-            for previous_expression in
-                &signal_to_expressions[signal]
-            {
+            for previous_expression in &signal_to_expressions[signal] {
                 let shared = shared_signals
                     .entry(*previous_expression)
                     .or_insert(Vec::new());
@@ -270,8 +262,7 @@ fn build_expr_clusters(
             signal_to_expressions[signal].push(expression_id);
         }
 
-        // Find the previous expression(s) with the highest number
-        // of compatible signal pairs.
+        // Joins this expression with the previous one with more common pairs of variables + coefficients
         let mut best_score = 0;
         let mut best_candidates: Vec<usize> = Vec::new();
 
@@ -288,19 +279,10 @@ fn build_expr_clusters(
             // Count all compatible pairs of shared signals.
             for i in 0..shared.len() {
                 for j in i + 1..shared.len() {
-                    if same_ratio(
-                        previous_expr,
-                        expr,
-                        shared[i],
-                        shared[j],
-                    ) {
+                    if same_ratio(previous_expr, expr, shared[i], shared[j]) {
                         compatible_pairs += 1;
                     }
                 }
-            }
-
-            if compatible_pairs == 0 {
-                continue;
             }
 
             if compatible_pairs > best_score {
@@ -315,11 +297,7 @@ fn build_expr_clusters(
 
         // Merge with the best candidate(s).
         for previous_expression in best_candidates {
-            arena_merge(
-                &mut cluster_to_current,
-                previous_expression,
-                expression_id,
-            );
+            arena_merge(&mut cluster_to_current, previous_expression, expression_id);
         }
     }
 
@@ -343,11 +321,49 @@ fn build_expr_clusters(
     clusters
 }
 
+// fn count_variable_pairs(
+//     cluster: &[usize],
+//     expressions: &[(usize, HashMap<usize, BigInt>, usize)],
+// ) -> Vec<((usize, usize, BigInt, BigInt), usize)> {
+//     let mut frequencies: HashMap<(usize, usize, BigInt, BigInt), usize> = HashMap::new();
+
+//     for &expression_id in cluster {
+//         let (_, expression, _) = &expressions[expression_id];
+
+//         let mut terms: Vec<(usize, BigInt)> = Vec::new();
+
+//         for (signal, coeff) in expression {
+//             if *signal != 0 && coeff != &BigInt::from(0) {
+//                 terms.push((*signal, coeff.clone()));
+//             }
+//         }
+
+//         terms.sort_by_key(|(signal, _)| *signal);
+
+//         for i in 0..terms.len() {
+//             for j in (i + 1)..terms.len() {
+//                 let pair = (terms[i].0, terms[j].0, terms[i].1.clone(), terms[j].1.clone());
+
+//                 *frequencies.entry(pair).or_insert(0) += 1;
+//             }
+//         }
+//     }
+
+//     let mut result: Vec<((usize, usize, BigInt, BigInt), usize)> =
+//         frequencies.into_iter().collect();
+
+//     result
+// }
+
 fn count_variable_pairs(
     cluster: &[usize],
     expressions: &[(usize, HashMap<usize, BigInt>, usize)],
+    field: &BigInt,
 ) -> Vec<((usize, usize, BigInt, BigInt), usize)> {
-    let mut frequencies: HashMap<(usize, usize, BigInt, BigInt), usize> = HashMap::new();
+    let mut frequencies: HashMap<
+        (usize, usize, BigInt, BigInt),
+        usize,
+    > = HashMap::new();
 
     for &expression_id in cluster {
         let (_, expression, _) = &expressions[expression_id];
@@ -364,56 +380,114 @@ fn count_variable_pairs(
 
         for i in 0..terms.len() {
             for j in (i + 1)..terms.len() {
-                let pair = (terms[i].0, terms[j].0, terms[i].1.clone(), terms[j].1.clone());
+                let signal_a = terms[i].0;
+                let signal_b = terms[j].0;
 
-                *frequencies.entry(pair).or_insert(0) += 1;
+                let coeff_a = &terms[i].1;
+                let coeff_b = &terms[j].1;
+
+                // Normalize the pair as:
+                // aux = signal_a + ratio * signal_b
+                if let Ok(ratio) = modular_arithmetic::div(coeff_b, coeff_a, field) {
+                    let pair = (signal_a, signal_b, BigInt::from(1), ratio);
+    
+                    *frequencies.entry(pair).or_insert(0) += 1;
+                }
+
             }
         }
     }
 
-    let mut result: Vec<((usize, usize, BigInt, BigInt), usize)> =
-        frequencies.into_iter().collect();
-
-    result
+    frequencies.into_iter().collect()
 }
+
+// fn select_most_frequent_pair(
+//     cluster: &[usize],
+//     expressions: &[(usize, HashMap<usize, BigInt>, usize)],
+//     pairs: Vec<((usize, usize, BigInt, BigInt), usize)>,
+// ) -> Option<((usize, usize, BigInt, BigInt), usize)> {
+//     let mut valid_pairs = Vec::new();
+
+//     for (pair, frequency) in pairs {
+//         let (signal_a, signal_b, coeff_a, coeff_b) = &pair;
+//         let mut can_transform = false;
+
+//         for &expression_id in cluster {
+//             let (_, expression, _) = &expressions[expression_id];
+
+//             if expression.get(signal_a) == Some(coeff_a)
+//                 && expression.get(signal_b) == Some(coeff_b)
+//             {
+//                 can_transform = true;
+//                 break;
+//             }
+//         }
+
+//         if can_transform {
+//             valid_pairs.push((pair, frequency));
+//         }
+//     }
+
+//     let mut best_pair = None;
+//     let mut best_frec = 0;
+
+//     for candidate in valid_pairs {
+//         if best_pair.is_none()
+//             || candidate.1 > best_frec
+//             || (candidate.1 == best_frec && candidate.0 < *best_pair.as_ref().unwrap())
+//         {
+//             best_pair = Some(candidate.0);
+//             best_frec = candidate.1;
+//         }
+//     }
+
+//     if let Some(pair) = best_pair {
+//         Some((pair, best_frec))
+//     } else {
+//         None
+//     }
+// }
 
 fn select_most_frequent_pair(
     cluster: &[usize],
     expressions: &[(usize, HashMap<usize, BigInt>, usize)],
     pairs: Vec<((usize, usize, BigInt, BigInt), usize)>,
+    field: &BigInt,
 ) -> Option<((usize, usize, BigInt, BigInt), usize)> {
-    let mut valid_pairs = Vec::new();
+    let mut best_pair = None;
+    let mut best_frec = 0;
 
     for (pair, frequency) in pairs {
-        let (signal_a, signal_b, coeff_a, coeff_b) = &pair;
+        let (signal_a, signal_b, _, ratio) = &pair;
+
         let mut can_transform = false;
 
         for &expression_id in cluster {
             let (_, expression, _) = &expressions[expression_id];
 
-            if expression.get(signal_a) == Some(coeff_a)
-                && expression.get(signal_b) == Some(coeff_b)
-            {
-                can_transform = true;
-                break;
+            let coeff_a = expression.get(signal_a);
+            let coeff_b = expression.get(signal_b);
+
+            if let (Some(coeff_a), Some(coeff_b)) = (coeff_a, coeff_b) {
+                if coeff_a != &BigInt::from(0) && coeff_b != &BigInt::from(0) {
+                    if let Ok(current_ratio) = modular_arithmetic::div(coeff_b, coeff_a, field) {
+                        if current_ratio == *ratio {
+                            can_transform = true;
+                            break;
+                        }
+                    }
+
+                }
             }
         }
 
-        if can_transform {
-            valid_pairs.push((pair, frequency));
+        if !can_transform {
+            continue;
         }
-    }
 
-    let mut best_pair = None;
-    let mut best_frec = 0;
-
-    for candidate in valid_pairs {
-        if best_pair.is_none()
-            || candidate.1 > best_frec
-            || (candidate.1 == best_frec && candidate.0 < *best_pair.as_ref().unwrap())
-        {
-            best_pair = Some(candidate.0);
-            best_frec = candidate.1;
+        if best_pair.is_none() || frequency > best_frec || (frequency == best_frec && pair < *best_pair.as_ref().unwrap())  {
+            best_pair = Some(pair);
+            best_frec = frequency;
         }
     }
 
@@ -425,6 +499,24 @@ fn select_most_frequent_pair(
 }
 
 // This function creates the constraint for the new variable introduced
+// fn create_aux_constraint(
+//     auxiliary: usize,
+//     pair: &(usize, usize, BigInt, BigInt),
+//     field: &BigInt,
+// ) -> C {
+//     let mut coefficients = HashMap::new();
+
+//     coefficients.insert(0, BigInt::from(0));
+//     coefficients.insert(pair.0, pair.2.clone());
+//     coefficients.insert(pair.1, pair.3.clone());
+
+//     let substitution = S::new(auxiliary, A::Linear { coefficients }).unwrap();
+
+//     let mut constraint = S::substitution_into_constraint(substitution, field);
+
+//     constraint
+// }
+
 fn create_aux_constraint(
     auxiliary: usize,
     pair: &(usize, usize, BigInt, BigInt),
@@ -438,10 +530,57 @@ fn create_aux_constraint(
 
     let substitution = S::new(auxiliary, A::Linear { coefficients }).unwrap();
 
-    let mut constraint = S::substitution_into_constraint(substitution, field);
-
-    constraint
+    S::substitution_into_constraint(substitution, field)
 }
+
+// fn apply_pair_to_cluster(
+//     storage: &mut ConstraintStorage,
+//     cluster: &[usize],
+//     expressions: &[(usize, HashMap<usize, BigInt>, usize)],
+//     pair: (usize, usize, BigInt, BigInt),
+//     aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
+//     next_aux: &mut usize,
+//     non_linear_map: &mut SignalToConstraints,
+//     field: &BigInt,
+// ) -> usize {
+//     // If the aux var exists for those variables and coefficients, it is reused
+//     let aux = if let Some(existing) = aux_signals.get(&pair) {
+//         *existing
+//     }
+//     // If not, it creates a new variable and introduces the corresponding constraint
+//     else {
+//         let new_aux = *next_aux;
+//         *next_aux += 1;
+
+//         let constraint = create_aux_constraint(new_aux, &pair, field);
+//         let constraint_id = storage.add_constraint(constraint);
+
+//         non_linear_map.entry(new_aux).or_insert_with(LinkedList::new).push_back(constraint_id);
+//         aux_signals.insert(pair.clone(), new_aux);
+
+//         new_aux
+//     };
+
+//     let (s_a, s_b, coeff_a, coeff_b) = pair;
+//     let mut processed_constraints = HashSet::new();
+
+//     // Replaces each appearance of the pair in the cluster constraints
+//     for &expression_id in cluster {
+//         let (constraint_id, _, _) = &expressions[expression_id];
+
+//         if !processed_constraints.insert(*constraint_id) {
+//             continue;
+//         }
+
+//         let mut constraint = storage.read_constraint(*constraint_id).unwrap();
+//         constraint.replace_pair_with_auxiliary(s_a, &coeff_a, s_b, &coeff_b, aux);
+//         constraint.normalize_constraint(field);
+
+//         storage.replace(*constraint_id, constraint);
+//     }
+
+//     aux
+// }
 
 fn apply_pair_to_cluster(
     storage: &mut ConstraintStorage,
@@ -453,28 +592,31 @@ fn apply_pair_to_cluster(
     non_linear_map: &mut SignalToConstraints,
     field: &BigInt,
 ) -> usize {
-    // If the aux var exists for those variables and coefficients, it is reused
+    // If the auxiliary already exists, reuse it.
     let aux = if let Some(existing) = aux_signals.get(&pair) {
         *existing
-    }
-    // If not, it creates a new variable and introduces the corresponding constraint
-    else {
+    } else {
         let new_aux = *next_aux;
         *next_aux += 1;
 
         let constraint = create_aux_constraint(new_aux, &pair, field);
+
         let constraint_id = storage.add_constraint(constraint);
 
-        non_linear_map.entry(new_aux).or_insert_with(LinkedList::new).push_back(constraint_id);
+        non_linear_map
+            .entry(new_aux)
+            .or_insert_with(LinkedList::new)
+            .push_back(constraint_id);
+
         aux_signals.insert(pair.clone(), new_aux);
 
         new_aux
     };
 
-    let (s_a, s_b, coeff_a, coeff_b) = pair;
+    let (signal_a, signal_b, coeff_a, coeff_b) = pair;
+
     let mut processed_constraints = HashSet::new();
 
-    // Replaces each appearance of the pair in the cluster constraints
     for &expression_id in cluster {
         let (constraint_id, _, _) = &expressions[expression_id];
 
@@ -483,7 +625,9 @@ fn apply_pair_to_cluster(
         }
 
         let mut constraint = storage.read_constraint(*constraint_id).unwrap();
-        constraint.replace_pair_with_auxiliary(s_a, &coeff_a, s_b, &coeff_b, aux);
+
+        constraint.replace_pair_with_auxiliary(signal_a, &coeff_a, signal_b, &coeff_b, aux, field);
+
         constraint.normalize_constraint(field);
 
         storage.replace(*constraint_id, constraint);
@@ -3566,10 +3710,10 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                     usize,
                     Vec<usize>,
                 )> = None;
+
                 for cluster in &clusters {
-                    let pairs = count_variable_pairs(cluster, &expressions_to_fix);
-                    if let Some((pair, frec)) =
-                        select_most_frequent_pair(cluster, &expressions_to_fix, pairs)
+                    let pairs = count_variable_pairs(cluster, &expressions_to_fix, &field);
+                    if let Some((pair, frec)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs, &field)
                     {
                         let replace = match &best_candidate {
                             None => true,
