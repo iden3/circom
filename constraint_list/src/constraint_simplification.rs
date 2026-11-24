@@ -4,7 +4,7 @@ use crate::SignalMap;
 use circom_algebra::num_bigint::BigInt;
 use circom_algebra::modular_arithmetic;
 use constraint_writers::json_writer::SubstitutionJSON;
-use std::collections::{HashMap, HashSet, LinkedList, BTreeSet, VecDeque};
+use std::collections::{HashMap, HashSet, LinkedList, BTreeSet, VecDeque, BTreeMap};
 use std::sync::Arc;
 use z3::ast::{Bool, Int};
 use z3::{Config, Optimize, Solver, SatResult, with_z3_config};
@@ -184,8 +184,8 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
 // }
 
 fn build_expr_clusters(
-    expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>,
-    no_vars: usize,
+    expressions: &[(usize, BTreeMap<usize, BigInt>, usize)],
+    field: &BigInt,
 ) -> Vec<Vec<usize>> {
     type ClusterPath = Vec<usize>;
 
@@ -212,92 +212,37 @@ fn build_expr_clusters(
         c_to_c[current_src] = current_dest;
     }
 
-    // Checks whether the coefficient ratio of two signals
-    // is the same in both expressions.
-    fn same_ratio(expr1: &HashMap<usize, BigInt>, expr2: &HashMap<usize, BigInt>, signal1: usize, signal2: usize) -> bool {
-        let coeff1_signal1 = expr1.get(&signal1).unwrap();
-        let coeff1_signal2 = expr1.get(&signal2).unwrap();
-
-        let coeff2_signal1 = expr2.get(&signal1).unwrap();
-        let coeff2_signal2 = expr2.get(&signal2).unwrap();
-
-        coeff1_signal2 * coeff2_signal1 == coeff2_signal2 * coeff1_signal1
-    }
-
     let no_expressions = expressions.len();
-
-    let mut cluster_to_current: ClusterPath =
-        Vec::with_capacity(no_expressions);
-
-    // For each variable, which expressions contain it.
-    let mut signal_to_expressions: Vec<Vec<usize>> =
-        vec![Vec::new(); no_vars];
+    let mut cluster_to_current: ClusterPath = (0..no_expressions).collect();
+    let mut pair_to_expression: HashMap<(usize, usize, BigInt), usize> = HashMap::new();
 
     for expression_id in 0..no_expressions {
         let (_, expr, _) = &expressions[expression_id];
-
         let constant = C::constant_coefficient();
-
-        let signals: Vec<usize> = expr
-            .keys()
-            .filter(|signal| **signal != constant)
-            .cloned()
+        let terms: Vec<(usize, &BigInt)> = expr
+            .iter()
+            .filter(|(signal, coefficient)| {
+                **signal != constant && **coefficient != BigInt::from(0)
+            })
+            .map(|(signal, coefficient)| (*signal, coefficient))
             .collect();
 
-        Vec::push(&mut cluster_to_current, expression_id);
+        for i in 0..terms.len() {
+            for j in i + 1..terms.len() {
+                let (signal_a, coeff_a) = terms[i];
+                let (signal_b, coeff_b) = terms[j];
+                let ratio = match modular_arithmetic::div(coeff_b, coeff_a, field) {
+                    Ok(ratio) => ratio,
+                    Err(_) => continue,
+                };
+                let pair = (signal_a, signal_b, ratio);
 
-        // Shared signals with previous expressions.
-        let mut shared_signals: HashMap<usize, Vec<usize>> =
-            HashMap::new();
-
-        for signal in signals {
-            for previous_expression in &signal_to_expressions[signal] {
-                let shared = shared_signals
-                    .entry(*previous_expression)
-                    .or_insert(Vec::new());
-
-                shared.push(signal);
-            }
-
-            signal_to_expressions[signal].push(expression_id);
-        }
-
-        // Joins this expression with the previous one with more common pairs of variables + coefficients
-        let mut best_score = 0;
-        let mut best_candidates: Vec<usize> = Vec::new();
-
-        for (previous_expression, shared) in shared_signals {
-            if shared.len() < 2 {
-                continue;
-            }
-
-            let (_, previous_expr, _) =
-                &expressions[previous_expression];
-
-            let mut compatible_pairs = 0;
-
-            // Count all compatible pairs of shared signals.
-            for i in 0..shared.len() {
-                for j in i + 1..shared.len() {
-                    if same_ratio(previous_expr, expr, shared[i], shared[j]) {
-                        compatible_pairs += 1;
-                    }
+                if let Some(previous_expression) = pair_to_expression.get(&pair) {
+                    arena_merge(&mut cluster_to_current, *previous_expression, expression_id);
+                } else {
+                    pair_to_expression.insert(pair, expression_id);
                 }
             }
-
-            if compatible_pairs > best_score {
-                best_score = compatible_pairs;
-
-                best_candidates.clear();
-                best_candidates.push(previous_expression);
-            } else if compatible_pairs == best_score {
-                best_candidates.push(previous_expression);
-            }
-        }
-
-        // Merge with the best candidate(s).
-        for previous_expression in best_candidates {
-            arena_merge(&mut cluster_to_current, previous_expression, expression_id);
         }
     }
 
@@ -319,6 +264,33 @@ fn build_expr_clusters(
     clusters.retain(|cluster| !cluster.is_empty());
 
     clusters
+}
+
+#[cfg(test)]
+mod greedy_cluster_tests {
+    use super::*;
+
+    fn expression(id: usize, terms: &[(usize, i64)]) -> (usize, BTreeMap<usize, BigInt>, usize) {
+        let coefficients = terms
+            .iter()
+            .map(|(signal, coefficient)| (*signal, BigInt::from(*coefficient)))
+            .collect();
+        (id, coefficients, 0)
+    }
+
+    #[test]
+    fn clusters_expressions_with_the_same_pair_ratio() {
+        let expressions = vec![
+            expression(0, &[(1, 2), (2, 4)]),
+            expression(1, &[(1, 3), (2, 6)]),
+            expression(2, &[(1, 1), (2, 3)]),
+        ];
+
+        let clusters = build_expr_clusters(&expressions, &BigInt::from(101));
+
+        assert!(clusters.iter().any(|cluster| cluster == &vec![0, 1]));
+        assert!(clusters.iter().any(|cluster| cluster == &vec![2]));
+    }
 }
 
 // fn count_variable_pairs(
@@ -356,14 +328,8 @@ fn build_expr_clusters(
 // }
 
 fn count_variable_pairs(
-    cluster: &[usize],
-    expressions: &[(usize, HashMap<usize, BigInt>, usize)],
-    field: &BigInt,
-) -> Vec<((usize, usize, BigInt, BigInt), usize)> {
-    let mut frequencies: HashMap<
-        (usize, usize, BigInt, BigInt),
-        usize,
-    > = HashMap::new();
+    cluster: &[usize], expressions: &[(usize, BTreeMap<usize, BigInt>, usize)], field: &BigInt) -> Vec<((usize, usize, BigInt, BigInt), usize)> {
+    let mut frequencies: BTreeMap<(usize, usize, BigInt, BigInt), usize> = BTreeMap::new();
 
     for &expression_id in cluster {
         let (_, expression, _) = &expressions[expression_id];
@@ -448,16 +414,13 @@ fn count_variable_pairs(
 //     }
 // }
 
-fn select_most_frequent_pair(
-    cluster: &[usize],
-    expressions: &[(usize, HashMap<usize, BigInt>, usize)],
-    pairs: Vec<((usize, usize, BigInt, BigInt), usize)>,
-    field: &BigInt,
-) -> Option<((usize, usize, BigInt, BigInt), usize)> {
+fn select_most_frequent_pair(cluster: &[usize], expressions: &[(usize, BTreeMap<usize, BigInt>, usize)], pairs: Vec<((usize, usize, BigInt, BigInt), usize)>, field: &BigInt) -> Option<((usize, usize, BigInt, BigInt), usize)> {
     let mut best_pair = None;
     let mut best_frec = 0;
 
     for (pair, frequency) in pairs {
+
+        // if frequency <= 1 { continue; }
         let (signal_a, signal_b, _, ratio) = &pair;
 
         let mut can_transform = false;
@@ -517,16 +480,14 @@ fn select_most_frequent_pair(
 //     constraint
 // }
 
-fn create_aux_constraint(
-    auxiliary: usize,
-    pair: &(usize, usize, BigInt, BigInt),
-    field: &BigInt,
-) -> C {
-    let mut coefficients = HashMap::new();
+fn create_aux_constraint(auxiliary: usize, pair: &(usize, usize, BigInt, BigInt), field: &BigInt) -> C {
+    let mut coefficients = BTreeMap::new();
 
     coefficients.insert(0, BigInt::from(0));
     coefficients.insert(pair.0, pair.2.clone());
     coefficients.insert(pair.1, pair.3.clone());
+
+    let coefficients: HashMap<usize, BigInt> = coefficients.into_iter().collect();
 
     let substitution = S::new(auxiliary, A::Linear { coefficients }).unwrap();
 
@@ -585,37 +546,17 @@ fn create_aux_constraint(
 fn apply_pair_to_cluster(
     storage: &mut ConstraintStorage,
     cluster: &[usize],
-    expressions: &[(usize, HashMap<usize, BigInt>, usize)],
+    expressions: &[(usize, BTreeMap<usize, BigInt>, usize)],
     pair: (usize, usize, BigInt, BigInt),
-    aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
+    aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
     next_aux: &mut usize,
     non_linear_map: &mut SignalToConstraints,
     field: &BigInt,
 ) -> usize {
-    // If the auxiliary already exists, reuse it.
-    let aux = if let Some(existing) = aux_signals.get(&pair) {
-        *existing
-    } else {
-        let new_aux = *next_aux;
-        *next_aux += 1;
-
-        let constraint = create_aux_constraint(new_aux, &pair, field);
-
-        let constraint_id = storage.add_constraint(constraint);
-
-        non_linear_map
-            .entry(new_aux)
-            .or_insert_with(LinkedList::new)
-            .push_back(constraint_id);
-
-        aux_signals.insert(pair.clone(), new_aux);
-
-        new_aux
-    };
-
-    let (signal_a, signal_b, coeff_a, coeff_b) = pair;
-
-    let mut processed_constraints = HashSet::new();
+    let aux = aux_signals.get(&pair).copied().unwrap_or(*next_aux);
+    let (signal_a, signal_b, coeff_a, coeff_b) = (&pair.0, &pair.1, &pair.2, &pair.3);
+    let mut processed_constraints = BTreeSet::new();
+    let mut modified_constraints = Vec::new();
 
     for &expression_id in cluster {
         let (constraint_id, _, _) = &expressions[expression_id];
@@ -625,38 +566,64 @@ fn apply_pair_to_cluster(
         }
 
         let mut constraint = storage.read_constraint(*constraint_id).unwrap();
-
-        constraint.replace_pair_with_auxiliary(signal_a, &coeff_a, signal_b, &coeff_b, aux, field);
-
-        constraint.normalize_constraint(field);
-
-        storage.replace(*constraint_id, constraint);
+        if constraint.replace_pair_with_auxiliary(
+            *signal_a,
+            coeff_a,
+            *signal_b,
+            coeff_b,
+            aux,
+            field,
+        ) {
+            modified_constraints.push((*constraint_id, constraint));
+        }
     }
 
-    aux
+    if modified_constraints.is_empty() {
+        return 0;
+    }
+
+    if !aux_signals.contains_key(&pair) {
+        let constraint = create_aux_constraint(aux, &pair, field);
+        let constraint_id = storage.add_constraint(constraint);
+        non_linear_map
+            .entry(aux)
+            .or_insert_with(LinkedList::new)
+            .push_back(constraint_id);
+        aux_signals.insert(pair, aux);
+        *next_aux += 1;
+    }
+
+    let modified = modified_constraints.len();
+    for (constraint_id, mut constraint) in modified_constraints {
+        constraint.normalize_constraint(field);
+        storage.replace(constraint_id, constraint);
+    }
+
+    modified
 }
 
 fn restore_plonk_constraints(
     storage: &mut ConstraintStorage,
-    aux_signals: &HashMap<(usize, usize, BigInt, BigInt), usize>,
-    auxiliary_constraint_ids: &HashMap<usize, usize>,
+    aux_signals: &BTreeMap<(usize, usize, BigInt, BigInt), usize>,
+    auxiliary_constraint_ids: &BTreeMap<usize, usize>,
     non_linear_map: &mut SignalToConstraints,
     deleted: &mut HashSet<usize>,
     field: &BigInt,
 ) {
     let mut substitutions = Vec::with_capacity(aux_signals.len());
-    let mut auxiliary_sources = HashMap::with_capacity(aux_signals.len());
+    let mut auxiliary_sources: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for (pair, auxiliary) in aux_signals {
-        let mut coefficients = HashMap::new();
+        let mut coefficients = BTreeMap::new();
         coefficients.insert(C::constant_coefficient(), BigInt::from(0));
         coefficients.insert(pair.0, pair.2.clone());
         coefficients.insert(pair.1, pair.3.clone());
+        let coefficients: HashMap<usize, BigInt> = coefficients.into_iter().collect();
         substitutions.push((*auxiliary, S::new(*auxiliary, A::Linear { coefficients }).unwrap()));
         auxiliary_sources.insert(*auxiliary, vec![pair.0, pair.1]);
     }
     substitutions.sort_by(|(left, _), (right, _)| right.cmp(left));
 
-    let definition_ids: HashSet<usize> = auxiliary_constraint_ids.values().cloned().collect();
+    let definition_ids: BTreeSet<usize> = auxiliary_constraint_ids.values().cloned().collect();
     for constraint_id in storage.get_ids() {
         if !definition_ids.contains(&constraint_id) {
             let mut constraint = storage.read_constraint(constraint_id).unwrap();
@@ -712,7 +679,7 @@ fn restore_plonk_constraints(
     // }
 
     // Checks which variables are not necessary and deletes them
-    let mut used_auxiliaries = HashSet::new();
+    let mut used_auxiliaries = BTreeSet::new();
     let mut pending = Vec::new();
     for constraint_id in storage.get_ids() {
         if definition_ids.contains(&constraint_id) {
@@ -752,9 +719,9 @@ fn restore_plonk_constraints(
 // Optimization of the number of new variables introduced, using an SMT solver
 fn variables_optimization(
     storage: &mut ConstraintStorage,
-    expression: &[(usize, HashMap<usize, BigInt>, usize)],
+    expression: &[(usize, BTreeMap<usize, BigInt>, usize)],
     cluster: &[usize],
-    aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
+    aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
     next_aux: &mut usize,
     non_linear_map: &mut SignalToConstraints,
     field: &BigInt,
@@ -1205,14 +1172,14 @@ fn variables_optimization(
 
 fn variables_optimization_unsat_core(
     storage: &mut ConstraintStorage,
-    expression: &[(usize, HashMap<usize, BigInt>, usize)],
+    expression: &[(usize, BTreeMap<usize, BigInt>, usize)],
     cluster: &[usize],
-    aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
+    aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
     next_aux: &mut usize,
     non_linear_map: &mut SignalToConstraints,
     field: &BigInt,
     cluster_id: usize,
-    auxiliary_constraint_ids: &mut HashMap<usize, usize>,
+    auxiliary_constraint_ids: &mut BTreeMap<usize, usize>,
 ) {
     let mut constraints_ids = Vec::new();
     let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
@@ -1763,8 +1730,8 @@ fn variables_optimization_unsat_core(
     })
 }
 
-fn variables_optimization_bitwuzla(storage: &mut ConstraintStorage, expression: &[(usize, HashMap<usize, BigInt>, usize)], cluster: &[usize], aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
-next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, cluster_id: usize, auxiliary_constraint_ids: &mut HashMap<usize, usize>) {
+fn variables_optimization_bitwuzla(storage: &mut ConstraintStorage, expression: &[(usize, BTreeMap<usize, BigInt>, usize)], cluster: &[usize], aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
+next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, cluster_id: usize, auxiliary_constraint_ids: &mut BTreeMap<usize, usize>) {
 
     let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
 
@@ -2352,14 +2319,14 @@ next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, 
 
 fn variables_optimization_cadical(
     storage: &mut ConstraintStorage,
-    expression: &[(usize, HashMap<usize, BigInt>, usize)],
+    expression: &[(usize, BTreeMap<usize, BigInt>, usize)],
     cluster: &[usize],
-    aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
+    aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
     next_aux: &mut usize,
     non_linear_map: &mut SignalToConstraints,
     field: &BigInt,
     cluster_id: usize,
-    auxiliary_constraint_ids: &mut HashMap<usize, usize>,
+    auxiliary_constraint_ids: &mut BTreeMap<usize, usize>,
 ) {
     let mut constraints_ids = Vec::new();
     let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
@@ -2892,7 +2859,7 @@ fn variables_optimization_cadical(
 
 fn export_expr_clusters_json(
     path: &str,
-    expressions: &[(usize, HashMap<usize, BigInt>, usize)],
+    expressions: &[(usize, BTreeMap<usize, BigInt>, usize)],
     clusters: &[Vec<usize>],
 ) -> std::io::Result<()> {
     let constant = C::constant_coefficient();
@@ -3656,9 +3623,9 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         // At this point call to normalize all constraints
         // // if we are in PLONK mode
 
-        let mut auxiliary_signals = HashMap::new();
+        let mut auxiliary_signals: BTreeMap<(usize, usize, BigInt, BigInt), usize> = BTreeMap::new();
 
-        let mut expressions_to_fix = Vec::new();
+        let mut expressions_to_fix: Vec<(usize, BTreeMap<usize, BigInt>, usize)> = Vec::new();
         let mut estimated_auxiliary_variables = 0;
         for i in constraint_storage.get_ids() {
             let mut constraint = constraint_storage.read_constraint(i).unwrap();
@@ -3668,7 +3635,8 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                 let (expressions, total_auxiliaries) = constraint.vars_to_solve_plonk_with_total();
                 estimated_auxiliary_variables += total_auxiliaries;
                 for (expr, num_vars) in expressions {
-                    expressions_to_fix.push((i, expr.clone(), num_vars));
+                    let expr_btree: BTreeMap<usize, BigInt> = expr.iter().map(|(signal, coeff)| (*signal, coeff.clone())).collect();
+                    expressions_to_fix.push((i, expr_btree, num_vars));
                 }
             }
 
@@ -3676,7 +3644,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         }
 
         // Export the initial clusters before applying any optimization.
-        let initial_clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+        let initial_clusters = build_expr_clusters(&expressions_to_fix, &field);
 
         if let Err(error) =
             export_expr_clusters_json("clusters.json", &expressions_to_fix, &initial_clusters)
@@ -3687,13 +3655,17 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         // Greedy optimization retained for comparison:
         if smp.apply_eager_plonk {
             loop {
-                let mut expressions_to_fix = Vec::new();
+                let mut expressions_to_fix: Vec<(usize, BTreeMap<usize, BigInt>, usize)> = Vec::new();
                 for i in constraint_storage.get_ids() {
                     let constraint = constraint_storage.read_constraint(i).unwrap();
                     if !constraint.is_plonk() {
                         let (expressions, _) = constraint.vars_to_solve_plonk_with_total();
                         for (expr, num_vars) in expressions {
-                            expressions_to_fix.push((i, expr.clone(), num_vars));
+                            let expr_btree: BTreeMap<usize, BigInt> = expr.iter()
+                                .map(|(signal, coeff)| (*signal, coeff.clone()))
+                                .collect();
+
+                            expressions_to_fix.push((i, expr_btree, num_vars));
                         }
                     }
                 }
@@ -3703,7 +3675,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                 }
 
                 // Rebuild the clusters
-                let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
+                let clusters = build_expr_clusters(&expressions_to_fix, &field);
 
                 let mut best_candidate: Option<(
                     (usize, usize, BigInt, BigInt),
@@ -3733,7 +3705,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                     None => break,
                 };
 
-                apply_pair_to_cluster(
+                let modified = apply_pair_to_cluster(
                     &mut constraint_storage,
                     &cluster,
                     &expressions_to_fix,
@@ -3743,21 +3715,32 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                     &mut non_linear_map,
                     &field,
                 );
+
+                if modified == 0 {
+                    eprintln!(
+                        "Greedy PLONK simplification stopped: selected pair matched no constraints"
+                    );
+                    break;
+                }
             }
         } else if smp.apply_sat_plonk {
-            let mut expressions_to_fix = Vec::new();
+            let mut expressions_to_fix: Vec<(usize, BTreeMap<usize, BigInt>, usize)> = Vec::new();
             for i in constraint_storage.get_ids() {
                 let constraint = constraint_storage.read_constraint(i).unwrap();
                 if !constraint.is_plonk() {
                     let (expressions, _) = constraint.vars_to_solve_plonk_with_total();
                     for (expr, num_vars) in expressions {
-                        expressions_to_fix.push((i, expr.clone(), num_vars));
+                        let expr_btree: BTreeMap<usize, BigInt> = expr.iter()
+                            .map(|(signal, coeff)| (*signal, coeff.clone()))
+                            .collect();
+
+                        expressions_to_fix.push((i, expr_btree, num_vars));
                     }
                 }
             }
 
-            let clusters = build_expr_clusters(&expressions_to_fix, max_signal);
-            let mut auxiliary_constraint_ids = HashMap::new();
+            let clusters = build_expr_clusters(&expressions_to_fix, &field);
+            let mut auxiliary_constraint_ids : BTreeMap<usize, usize> = BTreeMap::new();
             let mut i = 0;
             for cluster in &clusters {
                 // variables_optimization(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);

@@ -1223,48 +1223,90 @@ impl<C: Default + Clone + Display + Hash + Eq> Constraint<C> {
     //     }
     // }
 
-    pub fn replace_pair_with_auxiliary(&mut self, signal_a: C, coeff_a: &BigInt, signal_b: C, coeff_b: &BigInt, auxiliary: C, field: &BigInt) {
-        // A
+    pub fn replace_pair_with_auxiliary(&mut self, signal_a: C, coeff_a: &BigInt, signal_b: C, coeff_b: &BigInt, auxiliary: C, field: &BigInt) -> bool {
+        // Ratio defining the auxiliary:
+        // auxiliary = signal_a + ratio * signal_b
+        let expected_ratio =
+            match modular_arithmetic::div(coeff_b, coeff_a, field) {
+                Ok(ratio) => ratio,
+                Err(_) => return false,
+            };
+
+        let mut changed = false;
+
+        // Replace the pair in A.
         if let (Some(current_a), Some(current_b)) = (
             self.a.get(&signal_a).cloned(),
             self.a.get(&signal_b).cloned(),
         ) {
-            if let Ok(ratio) = modular_arithmetic::div(&current_b, &current_a, field) {
-                if ratio == *coeff_b {
-                    self.a.insert(signal_a.clone(), BigInt::from(0));
-                    self.a.insert(signal_b.clone(), BigInt::from(0));
-                    *self.a.entry(auxiliary.clone()).or_insert(BigInt::from(0)) += current_a;
+            if current_a != BigInt::from(0)
+                && current_b != BigInt::from(0)
+            {
+                if let Ok(current_ratio) =
+                    modular_arithmetic::div(&current_b, &current_a, field)
+                {
+                    if current_ratio == expected_ratio {
+                        self.a.insert(signal_a.clone(), BigInt::from(0));
+                        self.a.insert(signal_b.clone(), BigInt::from(0));
+
+                        *self.a.entry(auxiliary.clone())
+                            .or_insert(BigInt::from(0)) += current_a;
+
+                        changed = true;
+                    }
                 }
             }
         }
 
-        // B
+        // Replace the pair in B.
         if let (Some(current_a), Some(current_b)) = (
             self.b.get(&signal_a).cloned(),
             self.b.get(&signal_b).cloned(),
         ) {
-            if let Ok(ratio) = modular_arithmetic::div(&current_b, &current_a, field) {
-                if ratio == *coeff_b {
-                    self.b.insert(signal_a.clone(), BigInt::from(0));
-                    self.b.insert(signal_b.clone(), BigInt::from(0));
-                    *self.b.entry(auxiliary.clone()).or_insert(BigInt::from(0)) += current_a;
+            if current_a != BigInt::from(0)
+                && current_b != BigInt::from(0)
+            {
+                if let Ok(current_ratio) =
+                    modular_arithmetic::div(&current_b, &current_a, field)
+                {
+                    if current_ratio == expected_ratio {
+                        self.b.insert(signal_a.clone(), BigInt::from(0));
+                        self.b.insert(signal_b.clone(), BigInt::from(0));
+
+                        *self.b.entry(auxiliary.clone())
+                            .or_insert(BigInt::from(0)) += current_a;
+
+                        changed = true;
+                    }
                 }
             }
         }
 
-        // C
+        // Replace the pair in C.
         if let (Some(current_a), Some(current_b)) = (
             self.c.get(&signal_a).cloned(),
             self.c.get(&signal_b).cloned(),
         ) {
-            if let Ok(ratio) = modular_arithmetic::div(&current_b, &current_a, field) {
-                if ratio == *coeff_b {
-                    self.c.insert(signal_a.clone(), BigInt::from(0));
-                    self.c.insert(signal_b.clone(), BigInt::from(0));
-                    *self.c.entry(auxiliary.clone()).or_insert(BigInt::from(0)) += current_a;
+            if current_a != BigInt::from(0)
+                && current_b != BigInt::from(0)
+            {
+                if let Ok(current_ratio) =
+                    modular_arithmetic::div(&current_b, &current_a, field)
+                {
+                    if current_ratio == expected_ratio {
+                        self.c.insert(signal_a.clone(), BigInt::from(0));
+                        self.c.insert(signal_b.clone(), BigInt::from(0));
+
+                        *self.c.entry(auxiliary.clone())
+                            .or_insert(BigInt::from(0)) += current_a;
+
+                        changed = true;
+                    }
                 }
             }
         }
+
+        changed
     }
 }
 
