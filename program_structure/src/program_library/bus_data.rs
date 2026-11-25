@@ -16,6 +16,9 @@ pub struct BusData {
     fields: WireInfo,
     /* Only used to know the order in which fields are declared.*/
     field_declarations: WireDeclarationOrder,
+    // Byte range of the whole `bus Name(...) { ... }` text in its file, used
+    // by `-cbc` to hash the definition (see `TemplateData`).
+    definition_location: FileLocation,
 }
 
 impl BusData {
@@ -40,7 +43,8 @@ impl BusData {
              name_of_params,
              param_location,
              fields,
-             field_declarations
+             field_declarations,
+             definition_location: 0..0,
         }
     }
     pub fn copy(
@@ -61,7 +65,8 @@ impl BusData {
             name_of_params,
             param_location,
             fields,
-            field_declarations
+            field_declarations,
+            definition_location: 0..0,
         }
     }
     pub fn get_file_id(&self) -> FileID {
@@ -99,6 +104,12 @@ impl BusData {
     }
     pub fn get_name_of_params(&self) -> &Vec<String> {
         &self.name_of_params
+    }
+    pub fn set_definition_location(&mut self, location: FileLocation) {
+        self.definition_location = location;
+    }
+    pub fn get_definition_location(&self) -> FileLocation {
+        self.definition_location.clone()
     }
     pub fn get_name(&self) -> &str {
         &self.name

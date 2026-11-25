@@ -25,7 +25,7 @@ Usage:
     inline_circomlib.py --lib <circomlib>/circuits verify-hashes
 
 `fill` rewrites the blocks, `check` fails if any block is stale, and
-`verify-hashes` recomputes the hash of every template under --lib with the
+`verify-hashes` recomputes the hash of every template, function and bus under --lib with the
 same normalisation as `certifier.rs` and compares it with the embedded table.
 """
 
@@ -303,10 +303,16 @@ def regenerate(lib, path):
     return new, requested
 
 
+def table_key(kind, name):
+    """Key used by the embedded table: `Name` for templates, `function:name`
+    and `bus:Name` for the rest (format v2)."""
+    return name if kind == "template" else f"{kind}:{name}"
+
+
 def load_known():
     known = set()
     for line in HASH_TABLE.read_text().splitlines():
-        if line.strip():
+        if line.strip() and not line.startswith("#"):
             h, loc = line.split(None, 1)
             known.add((loc.rsplit("::", 1)[1], h))
     return known
@@ -322,8 +328,8 @@ def cmd_fill(lib, args, check_only):
         # every inlined template must hash to an embedded entry
         block = new[new.index(BEGIN):new.index(END)]
         for kind, name, s, e in definitions(block):
-            if kind == "template" and (name, hash_definition(block[s:e])) not in known:
-                print(f"WARNING {path}: inlined {name} does not match the embedded hash table")
+            if (table_key(kind, name), hash_definition(block[s:e])) not in known:
+                print(f"WARNING {path}: inlined {kind} {name} does not match the embedded hash table")
         if new != path.read_text():
             if check_only:
                 print(f"STALE   {path}")
@@ -339,13 +345,11 @@ def cmd_verify(lib):
     total = bad = 0
     for rel, src in lib.files.items():
         for kind, name, s, e in definitions(src):
-            if kind != "template":
-                continue
             total += 1
-            if (name, hash_definition(src[s:e])) not in known:
+            if (table_key(kind, name), hash_definition(src[s:e])) not in known:
                 bad += 1
-                print(f"MISMATCH circuits/{rel}::{name}")
-    print(f"{total - bad}/{total} templates match the embedded table ({len(known)} entries)")
+                print(f"MISMATCH circuits/{rel}::{table_key(kind, name)}")
+    print(f"{total - bad}/{total} templates/functions/buses match the embedded table ({len(known)} entries)")
     return 1 if bad else 0
 
 

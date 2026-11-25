@@ -57,21 +57,24 @@ pub fn find_file(
     (found, path, src, crr_str_file, reports)
 }
 
-// Used by `--cbc --cbc-refresh` to locate every template definition of a
-// standalone file (includes are not followed), with the same byte ranges that
-// `run_parser` records in `TemplateData::get_definition_location`.
-pub fn template_definitions(
+// Used by `--cbc --cbc-refresh` to locate every template, function and bus
+// definition of a standalone file (includes are not followed), with the same
+// byte ranges that `run_parser` records in `get_definition_location` of
+// `TemplateData` / `FunctionData` / `BusData`. Each entry is
+// (kind, name, range) with kind one of "template", "function", "bus".
+pub fn callable_definitions(
     src: &str,
     field: &BigInt,
-) -> Result<Vec<(String, std::ops::Range<usize>)>, ReportCollection> {
+) -> Result<Vec<(&'static str, String, std::ops::Range<usize>)>, ReportCollection> {
     use program_structure::ast::Definition;
     let program = parser_logic::parse_file(src, 0, field, false)?;
     Ok(program
         .definitions
         .into_iter()
-        .filter_map(|definition| match definition {
-            Definition::Template { name, meta, .. } => Some((name, meta.start..meta.end)),
-            _ => None,
+        .map(|definition| match definition {
+            Definition::Template { name, meta, .. } => ("template", name, meta.start..meta.end),
+            Definition::Function { name, meta, .. } => ("function", name, meta.start..meta.end),
+            Definition::Bus { name, meta, .. } => ("bus", name, meta.start..meta.end),
         })
         .collect())
 }

@@ -50,8 +50,10 @@ The embedded hashes are frozen at whatever commit was vendored when
 `circomlib_buses` with `git` (it fails with a clear message if `git` isn't in
 `PATH` -- failing loudly there was an explicit requirement, not a silent
 skip), parse every file with the compiler's own parser, hash every template
-definition, and overwrite `.circomlib2_template_hashes` (`sha256sum`-style
-format, one `<hash>  <path>::<template>` line per template) in the
+template, function and bus definition, and overwrite
+`.circomlib2_template_hashes` (`sha256sum`-style format: a version header,
+then one `<hash>  <path>::<Template>` / `<path>::function:<name>` /
+`<path>::bus:<Name>` line per definition) in the
 directory `circom` is invoked from. Once that file exists, it is used
 **exclusively** -- the embedded table is no longer consulted at all, on this
 or any later run, for as long as the cache file is present. This is
@@ -60,7 +62,9 @@ stale/compromised embedded snapshot with the current canonical truth, so an
 old embedded hash for a template that has since been patched upstream (e.g.
 a security fix) must stop being trusted rather than linger as a silent
 fallback. Delete `.circomlib2_template_hashes` to go back to relying on the
-embedded table. Refreshing needs network access and `git` installed -- which
+embedded table (a cache written by an older `-cbc`, without the version
+header, is ignored with a warning). `CBC_CIRCOMLIB2_DIR=<checkout>` makes
+`--cbc-refresh` hash a local checkout instead of cloning the branch head. Refreshing needs network access and `git` installed -- which
 is why it's a separate flag, never implied by plain `-cbc`. The cache file
 has the same format as `circomlib2_template_hashes.txt`, so regenerating
 the embedded table is just copying it there and rebuilding.

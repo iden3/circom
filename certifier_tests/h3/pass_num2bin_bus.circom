@@ -6,7 +6,6 @@ pragma circom 2.2.0;
 // @certified 1
 // @trusted Bin2Num(8,null)
 // @trusted Num2Bin(8)
-// @known-bug a bus with a bus-level tag is never an honest source (not even as an input) -> spurious CE02 (see buses/known_bug_*)
 // @circomlib Num2Bin Bin2Num
 
 template Top() {

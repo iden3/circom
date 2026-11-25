@@ -11,6 +11,8 @@ WITHOUT `-l`. Expectations live in header comments:
                                           set; no line = nothing trusted)
     // @fail <Instance()> <CODE> ...      one line per non-certifiable instance with
                                           its error codes (exact set and multiset)
+    // @trusted-count <n>                 instead of @trusted lines: only the number of
+                                          distinct trusted instances (for huge trees)
     // @error <CODE>                      for COMPILE_ERROR: circom's error code (e.g. T3001)
     // @args <extra circom flags>         optional
     // @known-bug <description>           the expectations above describe the CORRECT
@@ -37,7 +39,7 @@ import tempfile
 HERE = pathlib.Path(__file__).resolve().parent
 DEFAULT_CIRCOM = HERE.parent / "target" / "debug" / "circom"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
-FAIL_LINE = re.compile(r"^(.*?)\s+((?:[A-Z]{1,3}\d+\s*)+)$")
+FAIL_LINE = re.compile(r"^(.*?)\s+((?:[A-Z]{1,3}\d+\s*)+|\*)$")
 
 
 def strip_comments(src):
@@ -47,7 +49,7 @@ def strip_comments(src):
 
 def parse_expectations(path):
     src = path.read_text()
-    exp = {"expect": None, "certified": None, "trusted": [], "fail": {}, "args": [], "known_bug": None, "error": None}
+    exp = {"expect": None, "certified": None, "trusted": [], "fail": {}, "args": [], "known_bug": None, "error": None, "trusted_count": None}
     for m in re.finditer(r"^//\s*@([\w-]+)\s*(.*?)\s*$", src, re.M):
         key, val = m.group(1).replace("-", "_"), m.group(2)
         if key == "expect":
@@ -61,6 +63,8 @@ def parse_expectations(path):
             if not fm:
                 raise ValueError(f"{path}: bad @fail line {val!r}")
             exp["fail"][fm.group(1)] = sorted(fm.group(2).split())
+        elif key == "trusted_count":
+            exp["trusted_count"] = int(val)
         elif key == "error":
             exp["error"] = val
         elif key == "args":
@@ -119,9 +123,13 @@ def compare(exp, rep, out):
         problems.append(f"verdict {rep['verdict']}, expected {exp['expect']}")
     if exp["certified"] is not None and rep["certified"] != exp["certified"]:
         problems.append(f"certified {rep['certified']}, expected {exp['certified']}")
-    if set(rep["trusted"]) != set(exp["trusted"]):
+    if exp["trusted_count"] is not None:
+        if len(set(rep["trusted"])) != exp["trusted_count"]:
+            problems.append(f"{len(set(rep['trusted']))} trusted instances, expected {exp['trusted_count']}")
+    elif set(rep["trusted"]) != set(exp["trusted"]):
         problems.append(f"trusted {sorted(rep['trusted'])}, expected {sorted(exp['trusted'])}")
-    if rep["fail"] != exp["fail"]:
+    if set(rep["fail"]) != set(exp["fail"]) or any(
+            codes != ["*"] and rep["fail"][inst] != codes for inst, codes in exp["fail"].items()):
         problems.append(f"not certifiable {rep['fail']}, expected {exp['fail']}")
     return problems
 

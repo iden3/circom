@@ -13,6 +13,9 @@ pub struct FunctionData {
     name_of_params: Vec<String>,
     param_location: FileLocation,
     body: Statement,
+    // Byte range of the whole `function name(...) { ... }` text in its file,
+    // used by `-cbc` to hash the definition (see `TemplateData`).
+    definition_location: FileLocation,
 }
 
 impl FunctionData {
@@ -26,7 +29,7 @@ impl FunctionData {
         elem_id: &mut usize,
     ) -> FunctionData {
         body.fill(file_id, elem_id);
-        FunctionData { name, file_id, body, name_of_params, param_location, num_of_params }
+        FunctionData { name, file_id, body, name_of_params, param_location, num_of_params, definition_location: 0..0 }
     }
     pub fn get_file_id(&self) -> FileID {
         self.file_id
@@ -66,5 +69,11 @@ impl FunctionData {
     }
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+    pub fn set_definition_location(&mut self, location: FileLocation) {
+        self.definition_location = location;
+    }
+    pub fn get_definition_location(&self) -> FileLocation {
+        self.definition_location.clone()
     }
 }

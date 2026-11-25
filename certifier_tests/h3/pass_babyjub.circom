@@ -8,7 +8,6 @@ pragma circom 2.2.0;
 // @trusted BabyAdd(null,null)
 // @trusted BabyCheck()
 // @trusted BabyDbl(null)
-// @known-bug a bus with a bus-level tag is never an honest source (not even as an input) -> spurious CE02 (see buses/known_bug_*)
 // @circomlib BabyCheck BabyAdd BabyDbl
 
 template Top() {

@@ -3,7 +3,7 @@ pragma circom 2.2.0;
 // (Buses + H3) PASS: whole-bus copy of a trusted subcomponent's bus output
 // into a bus WITHOUT a bus-level tag. The {binary} fields of BinaryNumber
 // are trusted recursively from the callee's declared structure. Contrast
-// with known_bug_bus_level_tag_from_trusted.circom.
+// with pass_bus_level_tag_from_trusted.circom.
 // @expect PASS
 // @certified 1
 // @trusted Num2Bin(8)

@@ -39,7 +39,8 @@ Exit status is non-zero if any test fails or a known bug unexpectedly passes.
 // @expect PASS | FAIL | COMPILE_ERROR
 // @certified <n>                 number of certified instances
 // @trusted <Instance>            one per distinct trusted instance (exact set; none = nothing trusted)
-// @fail <Instance> <CODE> ...    one per non-certifiable instance, with all its error codes
+// @fail <Instance> <CODE> ...    one per non-certifiable instance, with all its error codes (`*` = any)
+// @trusted-count <n>            instead of @trusted: number of distinct trusted instances (huge trees)
 // @error <CODE>                  COMPILE_ERROR only: circom's own error code (e.g. T3001)
 // @known-bug <description>       see below
 // @circomlib <Name> ... [-Name]  circomlib2 templates to inline (see below)
@@ -56,28 +57,53 @@ Instance names are the ones circom prints, which include template parameters
 A test marked `@known-bug` states the **correct** expected behaviour, which
 `-cbc` does not implement yet. While it mismatches it is reported as `xfail`
 (not a failure). Once the bug is fixed it shows up as `XPASS` and makes the
-run fail, so the marker gets removed.
+run fail, so the marker gets removed. There are no open known bugs right now.
 
-Currently open (5 tests, `buses/known_bug_*.circom`, `h3/pass_babyjub.circom`,
-`h3/pass_num2bin_bus.circom`): a bus with a **bus-level** tag
-(`Point() {babyedwards} p`, `BinaryNumber(8) {unique} b`) is never treated as
-an honest source, not even when it is an input. Every own template that
-declares one gets a spurious CE02, so circomlib2's `babyjub`, `binnum`,
-`pointbits`... cannot be composed through whole-bus copies. Field-level tags
-inside buses work (`buses/pass_*`). Minimal reproduction:
-`buses/known_bug_tagged_input_bus.circom`.
+### Fixed issues and their regression tests
+
+- **Bus-level tags** (`Point() {babyedwards} p`) used to get a spurious CE02
+  even as inputs: the parser desugars every bus declaration into
+  `Declaration p` + `p = Point()`, and H2 took that `=` for a tag claim.
+  `buses/pass_tagged_input_bus.circom`, `buses/pass_bus_level_tag_*`,
+  `buses/fail_bus_level_tag_*`.
+- **Trust ignored the functions and buses a template uses** (soundness).
+  The hash table now also holds one hash per circomlib2 function
+  (`function:name`) and bus (`bus:Name`); a template is trusted only if every
+  function and bus in its static closure matches too, and a CW01 warning names
+  the modified dependency. `h3/fail_tampered_function_loses_trust.circom`
+  (`maxbits()` -> unsound `LessThan(253)`),
+  `h3/fail_tampered_bus_loses_trust.circom`,
+  `h3/fail_tampered_nbits_function.circom`,
+  `h3/pass_reformatted_function.circom`.
+- **An unconstrained output inside a trusted template was not reported.**
+  An output CA01 is now always an error, trusted or not, with a note that the
+  circuit is not safe (under-constrained).
+- **Tag values set by hand** (`m.maxbit = 4; m <== x;`) were not checked
+  (soundness: circom keeps the hand-set value and ignores the source's). A
+  hand-set tag value is now always CE02 in ordinary code.
+  `h2/fail_tag_value_set_by_hand_*.circom`.
+- **Tags inherited by signals declared without tags** were not tracked
+  (false positive). H2 now follows circom (`perform_tag_propagation`): only
+  bare `<==` copies carry tags, the result is the intersection over every
+  assignment, and a signal that is not completely assigned inherits nothing
+  (completeness read from the instance's constraints, as circom's
+  `remaining_inserts == 0`). Tags are compared by name, like everywhere else
+  in H2. `h2/*_inherited_*.circom`,
+  `compile_errors/inherited_maxbit_value_lost_then_read.circom`.
 
 ## Layout
 
 | Directory         | What it covers |
 |-------------------|----------------|
 | `h1/`             | No free assignments: `<--`/`-->` anywhere (loops, branches actually taken, intermediate signals, subcomponent inputs), per-instance pruning, locality |
-| `h2/`             | No bare tags: tags from expressions, constants, hand-set tag values, tagged intermediates and arrays, honest copies from inputs / subcomponents / trusted circomlib |
-| `h3/`             | Trusted circomlib2: comparators, bitify, gates, mux, switcher, binsum, tags-managing, babyjub, binnum; recursive trust, tampered/renamed/reformatted copies |
-| `buses/`          | Tagged bus fields, nested buses, whole-bus copies, known bus-level tag bug |
+| `h2/`             | No bare tags: tags from expressions, constants, hand-set tag values, tagged intermediates and arrays, honest copies from inputs / subcomponents / trusted circomlib, tags inherited by untagged signals (`*_inherited_*`) |
+| `h3/`             | Trusted circomlib2: comparators, bitify, gates, mux1-4, switcher, binsum/binsub, tags-managing, babyjub, montgomery, pointbits, binnum, pedersen_old, sha256 (slow, ~9 s); recursive trust, tampered/renamed/reformatted copies, tampered functions/buses |
+| `buses/`          | Tagged bus fields, nested buses, whole-bus copies, bus-level tags |
 | `arrays/`         | Arrays (1-D, 2-D) of buses: collapsed paths, one dishonest element, untouched elements |
+| `syntax/`         | Tuples, `_`, `parallel`, named anonymous inputs, initialised declarations, while, nested branches, component arrays, functions, log/assert |
+| `flags/`          | Same verdicts under `--O0`, `--O2`, `--inspect`, `--prime goldilocks/bls12381` |
 | `structural/`     | Which CA01/CA02 structural warnings are promoted to failures (outputs only) |
-| `compile_errors/` | Cases circom itself rejects before `-cbc` runs |
+| `compile_errors/` | Cases circom itself rejects before `-cbc` runs, including snapshot templates that do not compile (Pedersen, EscalarMulFix/Any, BabyPbk at `aef239c`) |
 
 ## Adding a test that uses circomlib2
 
@@ -99,11 +125,20 @@ inside buses work (`buses/pass_*`). Minimal reproduction:
    ```
 
 `check` instead of `fill` only reports stale blocks. `verify-hashes`
-recomputes the hash of every template under `--lib` with the same
-normalisation as `certifier.rs` and compares it with
-`constraint_generation/src/circomlib2_template_hashes.txt` (111/111 at
-`aef239c`). `fill`/`check` also warn if an inlined template does not match
-the embedded table.
+recomputes the hash of every template, function and bus under `--lib` with
+the same normalisation as `certifier.rs` and compares it with
+`constraint_generation/src/circomlib2_template_hashes.txt` (136/136 at
+`aef239c`: 111 templates, 20 functions, 5 buses). `fill`/`check` also warn if
+an inlined definition does not match the embedded table.
+
+The embedded table itself is generated by the compiler from a pinned
+checkout:
+
+```
+git -C /tmp/circomlib checkout aef239c
+CBC_CIRCOMLIB2_DIR=/tmp/circomlib target/debug/circom any.circom -cbc --cbc-refresh
+cp .circomlib2_template_hashes constraint_generation/src/circomlib2_template_hashes.txt
+```
 
 If the embedded table is regenerated from a newer commit, re-run `fill` from
 that commit and update the commit in this README. At the time of writing,

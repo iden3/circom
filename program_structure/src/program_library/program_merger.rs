@@ -57,7 +57,7 @@ impl Merger {
                     if self.contains_function(&name) || self.contains_template(&name) || self.contains_bus(&name) {
                         (Option::Some(name), meta)
                     } else {
-                        let new_data = FunctionData::new(
+                        let mut new_data = FunctionData::new(
                             name.clone(),
                             file_id,
                             body,
@@ -66,6 +66,7 @@ impl Merger {
                             arg_location,
                             &mut self.fresh_id,
                         );
+                        new_data.set_definition_location(meta.start..meta.end);
                         self.get_mut_function_info().insert(name.clone(), new_data);
                         (Option::None, meta)
                     }
@@ -74,7 +75,7 @@ impl Merger {
                     if self.contains_function(&name) || self.contains_template(&name) || self.contains_bus(&name) {
                         (Option::Some(name), meta)
                     } else {
-                        let new_data = BusData::new(
+                        let mut new_data = BusData::new(
                             file_id,
                             name.clone(),
                             body,
@@ -83,6 +84,7 @@ impl Merger {
                             arg_location,
                             &mut self.fresh_id,
                         );
+                        new_data.set_definition_location(meta.start..meta.end);
                         self.get_mut_bus_info().insert(name.clone(), new_data);
                         (Option::None, meta)
                     }

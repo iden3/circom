@@ -71,31 +71,47 @@ impl CertificationResult {
     pub fn absorb_structural_warnings(&mut self, warnings: &[Report]) {
         for warning in warnings {
             let Some(template) = extract_template_name(warning.get_message()) else { continue };
-            if self.trusted.iter().any(|t| t == template) {
-                // Same black-box exemption as H1/H2: we don't check inside a
-                // trusted node's own body at all.
-                continue;
-            }
             if matches!(warning.get_code(), ReportCode::UnconstrainedIOSignal) {
                 // A father not using every one of a subcomponent's outputs is
                 // legitimate and common: never a certification failure.
                 continue;
             }
-            if matches!(warning.get_code(), ReportCode::UnconstrainedSignal) {
-                let Some(signal) = extract_local_signal_name(warning.get_message()) else { continue };
-                // `arr[1].x` -> `arr`: both the bus field and the array
-                // index have to go before comparing with declared outputs.
-                let top_level = signal.split(|c| c == '.' || c == '[').next().unwrap_or(signal);
-                let is_output =
-                    self.output_signals.get(template).map(|o| o.contains(top_level)).unwrap_or(false);
-                if !is_output {
-                    // Unconstrained input or intermediate signal: allowed,
-                    // treated as verified. Only an unconstrained OUTPUT is a
-                    // real gap.
+            let is_trusted = self.trusted.iter().any(|t| t == template);
+            let is_output = matches!(warning.get_code(), ReportCode::UnconstrainedSignal)
+                && extract_local_signal_name(warning.get_message()).map_or(false, |signal| {
+                    // `arr[1].x` -> `arr`: both the bus field and the array
+                    // index have to go before comparing with declared outputs.
+                    let top_level = signal.split(|c| c == '.' || c == '[').next().unwrap_or(signal);
+                    self.output_signals.get(template).map(|o| o.contains(top_level)).unwrap_or(false)
+                });
+            if !is_output {
+                // An unconstrained input or intermediate cannot make any
+                // output non-deterministic: allowed. Anything else inside a
+                // trusted node is part of the black box (same exemption as
+                // H1/H2).
+                if is_trusted || matches!(warning.get_code(), ReportCode::UnconstrainedSignal) {
                     continue;
                 }
             }
-            let promoted = Report::error(warning.get_message().clone(), *warning.get_code());
+            // An output that appears in no constraint is never acceptable,
+            // not even inside a trusted circomlib2 template: no audit can
+            // vouch for a wire that the constraint system does not mention.
+            let mut promoted = Report::error(warning.get_message().clone(), *warning.get_code());
+            if is_output {
+                promoted.add_note(
+                    "An output that appears in no constraint is not determined by the inputs: \
+                     any value satisfies the circuit, so it is NOT safe (under-constrained)."
+                        .to_string(),
+                );
+            }
+            if is_trusted {
+                promoted.add_note(
+                    "This happens inside a template trusted as circomlib2: trust never covers an \
+                     unconstrained output, so it is reported anyway."
+                        .to_string(),
+                );
+                self.trusted.retain(|name| name != template);
+            }
             self.errors.push(promoted.clone());
             if let Some((_, errs)) = self.failed.iter_mut().find(|(name, _)| name == template) {
                 errs.push(promoted);
@@ -128,8 +144,8 @@ fn extract_local_signal_name(message: &str) -> Option<&str> {
 
 pub fn certify(model: &[ExecutedTemplate], program: &ProgramArchive) -> CertificationResult {
     let mut errors = ReportCollection::new();
-    let warnings = ReportCollection::new();
-    let trusted_nodes = trusted_instances(model, program, &known_template_hashes());
+    let mut warnings = ReportCollection::new();
+    let trusted_nodes = trusted_instances(model, program, &known_template_hashes(), &mut warnings);
 
     let mut certified = Vec::new();
     let mut trusted = Vec::new();
@@ -186,17 +202,36 @@ pub fn certify(model: &[ExecutedTemplate], program: &ProgramArchive) -> Certific
 // uses '<--', so a tampered or non-vendored one will simply fail H1 on its
 // own -- no separate rejection logic needed).
 //
-// Generated with `--cbc --cbc-refresh` from
-// https://github.com/iden3/circomlib.git, branch `circomlib_buses`, commit
-// aef239c53279535128b86303dc571d9750bcfa0e (2026-10-22), `circuits/`
-// directory. Same `<hash>  <path>::<template>` format as
-// `LOCAL_HASH_CACHE_FILE`, so regenerating it is just copying that file here.
+// A template is also audited together with the FUNCTIONS it calls and the
+// BUS types it uses (e.g. `LessThan`'s guard `assert(n <= maxbits()-2)`, or
+// the fields `Num2Bin` writes in `BinaryNumber`): editing `maxbits()` or
+// `BinaryNumber` changes what the template does without touching its text.
+// So the table also holds one hash per circomlib2 function and bus, and a
+// template only matches if, besides its own text, every function and bus in
+// its static closure (identifiers in its text, transitively through those
+// functions' and buses' own texts) matches too. Subtemplates are covered by
+// the per-instance recursion above. When that is what breaks trust, a CW01
+// warning names the modified dependency.
+//
+// Generated with `CBC_CIRCOMLIB2_DIR=<checkout> circom ... --cbc --cbc-refresh`
+// from https://github.com/iden3/circomlib.git, branch `circomlib_buses`,
+// checked out at commit aef239c53279535128b86303dc571d9750bcfa0e
+// (2026-10-22), `circuits/` directory: 111 templates, 20 functions, 5 buses. Same format as `LOCAL_HASH_CACHE_FILE` (see `HASH_TABLE_HEADER`),
+// so regenerating it is just copying that file here.
 const KNOWN_CIRCOMLIB2_TEMPLATE_HASHES: &str = include_str!("circomlib2_template_hashes.txt");
 
-// (template name, hash) pairs. The name is part of the key because circomlib2
-// reuses names across files (e.g. `Pedersen` in pedersen.circom and in
-// pedersen_old.circom), and a body should only be trusted under its own name.
+// (key, hash) pairs, where the key is `Name` for a template, `function:name`
+// for a function and `bus:Name` for a bus. The name is part of the key
+// because circomlib2 reuses names across files (e.g. `Pedersen` in
+// pedersen.circom and in pedersen_old.circom), and a body should only be
+// trusted under its own name.
 type KnownHashes = HashSet<(String, String)>;
+
+// First line of every hash table. A table without it predates function and
+// bus hashes: with it, every template that calls a function or uses a bus
+// would silently lose trust, so such a stale cache is ignored (with a
+// warning) instead of used.
+const HASH_TABLE_HEADER: &str = "# cbc-hashes v2: templates (Name), functions (function:name), buses (bus:Name)";
 
 // Once a local refresh cache exists, it is used EXCLUSIVELY, never merged
 // with the embedded table: the whole point of `--cbc-refresh` is to replace a
@@ -208,7 +243,18 @@ type KnownHashes = HashSet<(String, String)>;
 // into the compiler at build time.
 fn known_template_hashes() -> KnownHashes {
     match std::fs::read_to_string(LOCAL_HASH_CACHE_FILE) {
-        Ok(refreshed) => parse_hash_table(&refreshed),
+        Ok(refreshed) if refreshed.lines().next() == Some(HASH_TABLE_HEADER) => parse_hash_table(&refreshed),
+        Ok(_) => {
+            eprintln!(
+                "{}",
+                ansi_term::Colour::Yellow.paint(format!(
+                    "warning: {} was written by an older -cbc (no function/bus hashes); \
+                     ignoring it and using the embedded table. Run --cbc-refresh again.",
+                    LOCAL_HASH_CACHE_FILE
+                ))
+            );
+            parse_hash_table(KNOWN_CIRCOMLIB2_TEMPLATE_HASHES)
+        }
         Err(_) => parse_hash_table(KNOWN_CIRCOMLIB2_TEMPLATE_HASHES),
     }
 }
@@ -216,6 +262,7 @@ fn known_template_hashes() -> KnownHashes {
 fn parse_hash_table(content: &str) -> KnownHashes {
     content
         .lines()
+        .filter(|line| !line.starts_with('#'))
         .filter_map(|line| {
             let mut fields = line.split_whitespace();
             let hash = fields.next()?;
@@ -227,11 +274,16 @@ fn parse_hash_table(content: &str) -> KnownHashes {
 
 // Trust of every instance in `model` (indexed like it). The instance graph
 // is acyclic, and memoized per node so shared subtrees are only walked once.
-fn trusted_instances(model: &[ExecutedTemplate], program: &ProgramArchive, known: &KnownHashes) -> Vec<bool> {
+fn trusted_instances(
+    model: &[ExecutedTemplate],
+    program: &ProgramArchive,
+    known: &KnownHashes,
+    warnings: &mut ReportCollection,
+) -> Vec<bool> {
     let mut own_match = HashMap::new();
     let mut memo = vec![None; model.len()];
     for node in 0..model.len() {
-        subtree_is_trusted(node, model, program, known, &mut own_match, &mut memo);
+        subtree_is_trusted(node, model, program, known, &mut own_match, &mut memo, warnings);
     }
     memo.into_iter().map(|trusted| trusted.unwrap_or(false)).collect()
 }
@@ -243,15 +295,16 @@ fn subtree_is_trusted(
     known: &KnownHashes,
     own_match: &mut HashMap<String, bool>,
     memo: &mut Vec<Option<bool>>,
+    warnings: &mut ReportCollection,
 ) -> bool {
     if let Some(trusted) = memo[node] {
         return trusted;
     }
     let exe = &model[node];
-    let trusted = definition_matches(exe, program, known, own_match)
+    let trusted = definition_matches(exe, program, known, own_match, warnings)
         && exe
             .subcomponent_edges()
-            .all(|(_, child)| subtree_is_trusted(child, model, program, known, own_match, memo));
+            .all(|(_, child)| subtree_is_trusted(child, model, program, known, own_match, memo, warnings));
     memo[node] = Some(trusted);
     trusted
 }
@@ -263,16 +316,100 @@ fn definition_matches(
     program: &ProgramArchive,
     known: &KnownHashes,
     cache: &mut HashMap<String, bool>,
+    warnings: &mut ReportCollection,
 ) -> bool {
     if let Some(matches) = cache.get(&exe.template_name) {
         return *matches;
     }
-    let matches = match definition_hash(program, &exe.template_name) {
+    let own = match definition_hash(program, &exe.template_name) {
         Some(hash) => known.contains(&(exe.template_name.clone(), hash)),
         None => false,
     };
+    let matches = own
+        && match first_modified_dependency(program, known, &exe.template_name) {
+            None => true,
+            Some(dependency) => {
+                warnings.push(Report::warning(
+                    format!(
+                        "(H3) Template '{}' matches circomlib2, but it uses {}, which does not \
+                         match circomlib2: the template is not trusted and is checked as \
+                         ordinary code (H1/H2), together with every instance above it.",
+                        exe.template_name, dependency
+                    ),
+                    ReportCode::TrustLostDependency,
+                ));
+                false
+            }
+        };
     cache.insert(exe.template_name.clone(), matches);
     matches
+}
+
+// Walks the static closure of functions and buses a template depends on
+// (identifiers in its normalized text, then transitively in theirs) and
+// returns the first one whose definition is not in `known`, as a readable
+// description ("function maxbits()", "bus BinaryNumber"). Identifiers are
+// over-approximated (a name in a dead branch, or inside a log string, also
+// counts), which can only make trust stricter. Circom forbids reusing a name
+// across templates, functions and buses, so a name identifies its definition.
+fn first_modified_dependency(program: &ProgramArchive, known: &KnownHashes, template: &str) -> Option<String> {
+    let template_data = program.get_template_data(template);
+    let own_text = definition_text(program, template_data.get_file_id(), template_data.get_definition_location())?;
+    let mut queue: Vec<String> = identifiers(&normalize_definition(&own_text));
+    let mut seen: HashSet<String> = HashSet::new();
+    while let Some(ident) = queue.pop() {
+        if !seen.insert(ident.clone()) {
+            continue;
+        }
+        let (key, description, text) = if program.contains_function(&ident) {
+            let data = program.get_function_data(&ident);
+            (
+                format!("function:{}", ident),
+                format!("function {}()", ident),
+                definition_text(program, data.get_file_id(), data.get_definition_location()),
+            )
+        } else if program.contains_bus(&ident) {
+            let data = program.get_bus_data(&ident);
+            (
+                format!("bus:{}", ident),
+                format!("bus {}", ident),
+                definition_text(program, data.get_file_id(), data.get_definition_location()),
+            )
+        } else {
+            continue; // a variable, signal, tag, template, keyword...
+        };
+        let Some(text) = text else { return Some(description) };
+        if !known.contains(&(key, hash_definition(&text))) {
+            return Some(description);
+        }
+        queue.extend(identifiers(&normalize_definition(&text)));
+    }
+    None
+}
+
+fn definition_text(
+    program: &ProgramArchive,
+    file_id: usize,
+    location: program_structure::file_definition::FileLocation,
+) -> Option<String> {
+    let source = program.file_library.to_storage().get(file_id)?.source();
+    source.get(location).map(str::to_string)
+}
+
+fn identifiers(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut current = String::new();
+    for c in text.chars() {
+        if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
+            current.push(c);
+        } else if !current.is_empty() {
+            out.push(std::mem::take(&mut current));
+        }
+    }
+    if !current.is_empty() {
+        out.push(current);
+    }
+    out
 }
 
 // Hashes the definition straight from the source the parser already read
@@ -355,6 +492,27 @@ const LOCAL_HASH_CACHE_FILE: &str = ".circomlib2_template_hashes";
 // `sha256sum`-style `<hash>  <path>::<template>` format for easy manual
 // inspection/diffing.
 pub fn refresh_circomlib2_cache(prime: &str) -> Result<(), String> {
+    // Reproducibility aid: hash an existing local checkout (e.g. pinned at the
+    // commit the embedded table must describe) instead of cloning the moving
+    // branch head. This is how `circomlib2_template_hashes.txt` is regenerated.
+    if let Ok(local) = std::env::var("CBC_CIRCOMLIB2_DIR") {
+        let circuits_dir = PathBuf::from(&local).join("circuits");
+        let mut files = Vec::new();
+        collect_circom_files(&circuits_dir, &circuits_dir, &mut files)
+            .ok_or_else(|| format!("could not read {}", circuits_dir.display()))?;
+        files.sort();
+        let (cache_content, count) = hash_circomlib_files(&files, prime)?;
+        std::fs::write(LOCAL_HASH_CACHE_FILE, cache_content)
+            .map_err(|err| format!("failed to write {}: {}", LOCAL_HASH_CACHE_FILE, err))?;
+        println!(
+            "{}",
+            ansi_term::Colour::Green.paint(format!(
+                "Refreshed {} with {} circomlib2 template/function/bus hashes from {} files of {} (CBC_CIRCOMLIB2_DIR).",
+                LOCAL_HASH_CACHE_FILE, count, files.len(), local
+            ))
+        );
+        return Ok(());
+    }
     let scratch_dir = std::env::temp_dir().join(format!("circomlib2_refresh_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&scratch_dir);
 
@@ -399,7 +557,7 @@ pub fn refresh_circomlib2_cache(prime: &str) -> Result<(), String> {
     println!(
         "{}",
         ansi_term::Colour::Green.paint(format!(
-            "Refreshed {} with {} circomlib2 ({}) template hashes from {} files.",
+            "Refreshed {} with {} circomlib2 ({}) template/function/bus hashes from {} files.",
             LOCAL_HASH_CACHE_FILE,
             template_count,
             CIRCOMLIB2_BRANCH,
@@ -416,17 +574,18 @@ fn hash_circomlib_files(files: &[(String, PathBuf)], prime: &str) -> Result<(Str
     for (relative_path, absolute_path) in files {
         let source = std::fs::read_to_string(absolute_path)
             .map_err(|err| format!("failed to read {}: {}", absolute_path.display(), err))?;
-        let definitions = parser::template_definitions(&source, &field)
+        let definitions = parser::callable_definitions(&source, &field)
             .map_err(|_| format!("failed to parse circuits/{}", relative_path))?;
-        for (name, location) in definitions {
+        for (kind, name, location) in definitions {
             let definition = source
                 .get(location)
-                .ok_or_else(|| format!("bad template range in circuits/{}", relative_path))?;
-            cache_content.push_str(&format!("{}  circuits/{}::{}\n", hash_definition(definition), relative_path, name));
+                .ok_or_else(|| format!("bad definition range in circuits/{}", relative_path))?;
+            let key = if kind == "template" { name } else { format!("{}:{}", kind, name) };
+            cache_content.push_str(&format!("{}  circuits/{}::{}\n", hash_definition(definition), relative_path, key));
             template_count += 1;
         }
     }
-    Ok((cache_content, template_count))
+    Ok((format!("{}\n{}", HASH_TABLE_HEADER, cache_content), template_count))
 }
 
 fn collect_circom_files(root: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) -> Option<()> {
@@ -513,6 +672,9 @@ fn free_assignment_report(instance_name: &str, signal: &str, meta: &Meta) -> Rep
 // and is reported as a bare tag.
 
 struct H2Context<'a> {
+    // The instance being checked: its concrete signal dimensions and
+    // constraints tell which positions of an array were actually assigned.
+    exe: &'a ExecutedTemplate,
     model: &'a [ExecutedTemplate],
     program: &'a ProgramArchive,
     instance_name: &'a str,
@@ -533,7 +695,45 @@ struct H2Context<'a> {
     // poisoned for good, regardless of order; it is reported exactly once,
     // at the first offending touch, and never re-verified afterwards.
     dishonest: HashSet<String>,
+    // Plain (non-bus) intermediate/output signals declared WITHOUT tags.
+    // Circom lets such a signal INHERIT the tags of whatever it is copied
+    // from with a bare `<==` ("Tag not defined by user" in
+    // `assignment_utils.rs::perform_tag_propagation`): the first assignment
+    // adds the source's tags, every later one (another array position) keeps
+    // only the tags the new source carries too. `-cbc` mirrors that, so
+    // `t <== IsZero()(a); o <== t;` with `signal t;` and
+    // `signal output {binary} o;` is honest, as it is for circom.
+    untagged: HashSet<String>,
+    // Every assignment to an `untagged` path (array indices collapse), as the
+    // source its tags come from. The inherited tags of a path are the
+    // intersection over ALL of them, resolved once the walk is over (see
+    // `resolve_inherited`), so a later dishonest position (or `<--`, or an
+    // expression) still removes a tag that an earlier claim relied on.
+    inherit_edges: HashMap<String, Vec<InheritSource>>,
+    // Tag claims whose source is an `untagged` signal: (claimed path, claimed
+    // tags, source path, meta). Provisionally accepted during the walk and
+    // re-checked in `finalize` against the final inherited tags.
+    deferred: Vec<(String, Vec<String>, String, Meta)>,
     errors: &'a mut ReportCollection,
+}
+
+// Where an assignment to an `untagged` path takes its tags from.
+enum InheritSource {
+    // A local signal or local bus field, resolved at the end of the walk:
+    // recursively inherited if it is `untagged` itself, otherwise its own
+    // honestly established tags (none if it ended up dishonest).
+    Local(String),
+    // Already known: a subcomponent port's declared tags, or nothing at all
+    // (`<--`, an arithmetic expression, a constant).
+    Fixed(HashSet<String>),
+}
+
+// Outcome of checking a tag claim's source.
+enum Honesty {
+    Honest,
+    Dishonest,
+    // The source is an `untagged` signal: decided in `finalize`.
+    Deferred(String),
 }
 
 fn check_h2<'a>(
@@ -544,6 +744,7 @@ fn check_h2<'a>(
 ) {
     let subcomponents: HashMap<&str, NodePointer> = exe.subcomponent_edges().collect();
     let mut ctx = H2Context {
+        exe,
         model,
         program,
         instance_name: &exe.report_name,
@@ -552,6 +753,9 @@ fn check_h2<'a>(
         pending: HashMap::new(),
         verified: HashMap::new(),
         dishonest: HashSet::new(),
+        untagged: HashSet::new(),
+        inherit_edges: HashMap::new(),
+        deferred: Vec::new(),
         errors,
     };
     ctx.walk(&exe.code);
@@ -596,6 +800,13 @@ impl<'a> H2Context<'a> {
 
         if tags.is_empty() {
             self.verified.insert(name.to_string(), HashSet::new());
+            // Inputs never inherit (their tags are exactly the declared
+            // interface); intermediates and outputs do, inside this template.
+            // Whole buses already propagate their field structure through
+            // `record_legitimate_copy`.
+            if bus_type.is_none() && stype != SignalType::Input {
+                self.untagged.insert(name.to_string());
+            }
         } else if stype == SignalType::Input {
             // Inputs carry their declared tags axiomatically (this is exactly
             // the paper's `x |= Req` hypothesis) -- nothing to verify here.
@@ -660,6 +871,22 @@ impl<'a> H2Context<'a> {
         op: AssignOp,
         rhe: &Expression,
     ) {
+        // `=` (AssignVar) never moves a value into a signal. On a signal/bus
+        // path it only shows up as (a) the bus "constructor" `p = Point()` the
+        // parser inserts right after EVERY bus declaration
+        // (`split_bus_declaration_into_single_nodes`), or (b) a tag-value
+        // assignment such as `out.maxbit = n`. Neither establishes nor breaks
+        // a tag's honesty; treating (a) as a tag claim made every bus with a
+        // bus-level tag fail CE02 at its own declaration, inputs included.
+        if op == AssignOp::AssignVar {
+            // (b) is not neutral, though: circom keeps a value set by hand
+            // and IGNORES the value the source brings (`value_defined` in
+            // `perform_tag_propagation`), so `m.maxbit = 4; m <== x;` with
+            // `x.maxbit = 8` claims a bound nothing proves. A tag value can
+            // only be honest if it comes from an honest source, never typed in.
+            self.check_tag_value_assignment(meta, var, access);
+            return;
+        }
         if first_component_access(access).is_some() {
             if self.subcomponents.contains_key(var) {
                 // `var.field <== rhe` feeding a subcomponent's declared input:
@@ -716,18 +943,189 @@ impl<'a> H2Context<'a> {
             if op == AssignOp::AssignConstraintSignal && self.bus_types.contains_key(&path) {
                 self.record_legitimate_copy(&path, HashSet::new(), rhe);
             }
+            if self.untagged.contains(&path) {
+                // Same rule as circom: only a bare `<==` carries tags; `<--`
+                // or an expression contributes none (and so, intersected with
+                // the other positions, removes every inherited tag).
+                let source = if op == AssignOp::AssignConstraintSignal {
+                    self.inherit_source(rhe)
+                } else {
+                    InheritSource::Fixed(HashSet::new())
+                };
+                self.inherit_edges.entry(path).or_default().push(source);
+            }
             return;
         };
 
         self.pending.remove(&path);
-        let legitimate = op == AssignOp::AssignConstraintSignal && self.honest_source(rhe, &tags);
-        if legitimate {
-            self.record_legitimate_copy(&path, tags.into_iter().collect(), rhe);
+        let honesty = if op == AssignOp::AssignConstraintSignal {
+            self.honest_source(rhe, &tags)
         } else {
-            self.verified.remove(&path);
-            self.dishonest.insert(path.clone());
-            self.errors.push(bare_tag_report(self.instance_name, &path, &tags, meta));
+            Honesty::Dishonest
+        };
+        match honesty {
+            Honesty::Honest => self.record_legitimate_copy(&path, tags.into_iter().collect(), rhe),
+            Honesty::Deferred(src) => {
+                self.deferred.push((path.clone(), tags.clone(), src, meta.clone()));
+                self.record_legitimate_copy(&path, tags.into_iter().collect(), rhe);
+            }
+            Honesty::Dishonest => {
+                self.verified.remove(&path);
+                self.dishonest.insert(path.clone());
+                self.errors.push(bare_tag_report(self.instance_name, &path, &tags, meta));
+            }
         }
+    }
+
+    // `path.tag = value`: if `tag` is one of the tags `path` declares, its
+    // value is being set by hand -> CE02, and the path is disqualified for
+    // good (no later copy can make that value honest).
+    fn check_tag_value_assignment(&mut self, meta: &Meta, var: &str, access: &[Access]) {
+        let hops: Vec<&str> = access
+            .iter()
+            .filter_map(|a| match a {
+                Access::ComponentAccess(name) => Some(name.as_str()),
+                Access::ArrayAccess(_) => None,
+            })
+            .collect();
+        let Some((tag, fields)) = hops.split_last() else { return };
+        if self.subcomponents.contains_key(var) {
+            return; // circom does not allow setting a subcomponent's tags
+        }
+        let path = std::iter::once(var).chain(fields.iter().copied()).collect::<Vec<_>>().join(".");
+        let declares = self.pending.get(&path).map_or(false, |(tags, _)| tags.iter().any(|t| t == tag))
+            || self.verified.get(&path).map_or(false, |tags| tags.contains(*tag));
+        if !declares || self.dishonest.contains(&path) {
+            return;
+        }
+        let tags = self.pending.remove(&path).map(|(tags, _)| tags).unwrap_or_else(|| vec![tag.to_string()]);
+        self.verified.remove(&path);
+        self.dishonest.insert(path.clone());
+        let mut report = Report::error(
+            format!(
+                "(H2) In {}: the value of tag '{}' of signal '{}' is set by hand; a certifiable \
+                 circuit must obtain tag values from an honest source (a bare copy of a signal, \
+                 or the output of a trusted/certifiable subcomponent), never assign them.",
+                self.instance_name, tag, path
+            ),
+            ReportCode::BareTagDetected,
+        );
+        report.add_primary(
+            generate_file_location(meta.start, meta.end),
+            meta.get_file_id(),
+            "tag value set by hand here".to_string(),
+        );
+        report.add_note(format!(
+            "circom keeps a hand-set value and ignores the one the source carries, so this \
+             value is an unchecked claim (declared tags: {:?}).",
+            tags
+        ));
+        self.errors.push(report);
+    }
+
+    // True iff every position of the `untagged` signal `path` was assigned:
+    // each `<==` produces a constraint mentioning its position, so a position
+    // that appears in no constraint of this instance was never written. Same
+    // rule as circom, which only propagates inherited tags out of a signal
+    // once it is complete (`remaining_inserts == 0` in
+    // `compute_propagated_tags`).
+    fn is_complete(&self, path: &str, constrained: &HashSet<&str>) -> bool {
+        let Some(wire) = self.exe.intermediates.iter().chain(self.exe.outputs.iter()).find(|w| w.name == path) else {
+            return false;
+        };
+        let mut positions = vec![path.to_string()];
+        for &dim in &wire.length {
+            positions = positions
+                .into_iter()
+                .flat_map(|prefix| (0..dim).map(move |i| format!("{}[{}]", prefix, i)))
+                .collect();
+        }
+        positions.iter().all(|p| constrained.contains(p.as_str()))
+    }
+
+    // The source an assignment `<== rhe` into an `untagged` path inherits
+    // from. Only a bare `Variable` carries tags (as in circom).
+    fn inherit_source(&self, rhe: &Expression) -> InheritSource {
+        let Expression::Variable { name, access, .. } = rhe else {
+            return InheritSource::Fixed(HashSet::new());
+        };
+        if first_component_access(access).is_none() {
+            return InheritSource::Local(name.clone());
+        }
+        match self.resolve_access(name, access) {
+            // A subcomponent port: its declared tags (Assumption 1).
+            Some((_, tags, true)) => InheritSource::Fixed(tags),
+            // A local bus field: whatever it ends up honestly carrying.
+            Some((path, _, false)) => InheritSource::Local(path),
+            None => InheritSource::Fixed(HashSet::new()),
+        }
+    }
+
+    // Tags a NON-`untagged` local path honestly carries at the end of the
+    // walk: none if it was ever disqualified or never resolved.
+    fn final_tags_of(&self, path: &str) -> HashSet<String> {
+        if self.dishonest.contains(path) {
+            return HashSet::new();
+        }
+        self.verified.get(path).cloned().unwrap_or_default()
+    }
+
+    // Inherited tags of every `untagged` path: for each path, the
+    // intersection over all its assignments of the tags of their sources.
+    // Computed as a GREATEST fixpoint (`None` = not yet constrained, the
+    // identity of intersection), so self-references such as `t[1] <== t[0]`
+    // resolve to what the other positions bring instead of to nothing.
+    // Sound because circom never lets a signal be read before it is written,
+    // so no value can depend on itself. A path that is never assigned, not
+    // completely assigned (`is_complete`), or only through such cycles,
+    // inherits nothing.
+    fn resolve_inherited(&self) -> HashMap<String, HashSet<String>> {
+        let constrained: HashSet<&str> = self
+            .exe
+            .constraints
+            .iter()
+            .flat_map(|c| c.take_signals().into_iter().map(String::as_str))
+            .collect();
+        // Never assigned, or not completely (some array position never
+        // written): inherits nothing, exactly as in circom.
+        let incomplete: HashSet<&String> = self
+            .untagged
+            .iter()
+            .filter(|p| !self.inherit_edges.contains_key(*p) || !self.is_complete(p, &constrained))
+            .collect();
+        let mut current: HashMap<String, Option<HashSet<String>>> = self
+            .untagged
+            .iter()
+            .map(|p| (p.clone(), if incomplete.contains(p) { Some(HashSet::new()) } else { None }))
+            .collect();
+        loop {
+            let mut changed = false;
+            for (path, edges) in &self.inherit_edges {
+                if incomplete.contains(path) {
+                    continue;
+                }
+                let mut acc: Option<HashSet<String>> = None;
+                for edge in edges {
+                    let carried = match edge {
+                        InheritSource::Fixed(tags) => Some(tags.clone()),
+                        InheritSource::Local(src) if self.untagged.contains(src) => current[src].clone(),
+                        InheritSource::Local(src) => Some(self.final_tags_of(src)),
+                    };
+                    acc = match (acc, carried) {
+                        (None, other) | (other, None) => other,
+                        (Some(a), Some(b)) => Some(a.intersection(&b).cloned().collect()),
+                    };
+                }
+                if current[path] != acc {
+                    current.insert(path.clone(), acc);
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        current.into_iter().map(|(p, t)| (p, t.unwrap_or_default())).collect()
     }
 
     // Records that `path` (a plain signal, a whole bus, or a specific nested
@@ -806,34 +1204,63 @@ impl<'a> H2Context<'a> {
     // A tag claim on `rhe` is honest iff it is a bare `Variable` (no
     // arithmetic, no call) pointing at a source that already, legitimately,
     // carries every tag being claimed.
-    fn honest_source(&self, rhe: &Expression, tags: &[String]) -> bool {
-        let Expression::Variable { name, access, .. } = rhe else { return false };
+    fn honest_source(&self, rhe: &Expression, tags: &[String]) -> Honesty {
+        let Expression::Variable { name, access, .. } = rhe else { return Honesty::Dishonest };
         let required: HashSet<&str> = tags.iter().map(String::as_str).collect();
+        let covers = |carried: Option<&HashSet<String>>| match carried {
+            Some(carried) if required.iter().all(|t| carried.contains(*t)) => Honesty::Honest,
+            _ => Honesty::Dishonest,
+        };
 
         if first_component_access(access).is_none() {
+            // Declared without tags: whatever it inherits is only known once
+            // every assignment to it has been seen.
+            if self.untagged.contains(name.as_str()) {
+                return Honesty::Deferred(name.clone());
+            }
             // Plain variable (or array-indexed): same declaration-level tags
             // regardless of which element.
-            return match self.verified.get(name) {
-                Some(carried) => required.iter().all(|t| carried.contains(*t)),
-                None => false,
-            };
+            return covers(self.verified.get(name));
         }
 
         let Some((path, declared_or_verified, is_component)) = self.resolve_access(name, access) else {
-            return false;
+            return Honesty::Dishonest;
         };
         if is_component {
             // Assumption 1: trust the callee's own declared promise directly.
-            required.iter().all(|t| declared_or_verified.contains(*t))
+            covers(Some(&declared_or_verified))
         } else {
-            match self.verified.get(&path) {
-                Some(carried) => required.iter().all(|t| carried.contains(*t)),
-                None => false,
-            }
+            covers(self.verified.get(&path))
         }
     }
 
     fn finalize(&mut self) {
+        // Claims copied from an `untagged` signal: honest iff that signal
+        // inherited every claimed tag on ALL of its assignments.
+        let inherited = self.resolve_inherited();
+        let mut reported: HashSet<String> = HashSet::new();
+        for (path, tags, src, meta) in std::mem::take(&mut self.deferred) {
+            if self.dishonest.contains(&path) || reported.contains(&path) {
+                continue; // already reported once for this collapsed path
+            }
+            let carried = inherited.get(&src).cloned().unwrap_or_default();
+            if !tags.iter().all(|t| carried.contains(t)) {
+                reported.insert(path.clone());
+                let mut report = bare_tag_report(self.instance_name, &path, &tags, &meta);
+                report.add_note(format!(
+                    "'{}' is declared without tags; it only inherits a tag if every assignment \
+                     to it (every array position) is a bare '<==' copy of a source carrying it. \
+                     Inherited here: {:?}.",
+                    src,
+                    {
+                        let mut v: Vec<_> = carried.into_iter().collect();
+                        v.sort();
+                        v
+                    }
+                ));
+                self.errors.push(report);
+            }
+        }
         // Declared with tags, but never legitimately (re)assigned at all.
         for (name, (tags, meta)) in std::mem::take(&mut self.pending) {
             self.errors.push(bare_tag_report(self.instance_name, &name, &tags, &meta));

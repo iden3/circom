@@ -4,14 +4,16 @@ pragma circom 2.2.0;
 // line (unsound: the bits are no longer forced to be binary). LessThan,
 // MaxbitCheck and MaxbitCheckArray are textually pristine, but they
 // instantiate Num2Bits, so they lose trust as well and are checked as own
-// code: MaxbitCheck (`out.maxbit = n; out <== in;`) and LessThan fail CE02;
-// MaxbitCheckArray, which only copies MaxbitCheck's tagged outputs,
-// certifies as own code (together with Top). Nothing is trusted.
+// code: MaxbitCheck (`out.maxbit = n; out <== in;`) and LessThan fail CE02,
+// and so does MaxbitCheckArray: it only copies MaxbitCheck's tagged outputs,
+// but it also sets `out.maxbit = n` by hand, which is never honest in
+// ordinary code. Only Top certifies. Nothing is trusted.
 // @expect FAIL
-// @certified 2
+// @certified 1
 // @fail Num2Bits(8) CE01 CE02
 // @fail Num2Bits(9) CE01 CE02
 // @fail MaxbitCheck(8) CE02
+// @fail MaxbitCheckArray(8,2) CE02
 // @fail LessThan(8,8) CE02
 // @circomlib MaxbitCheckArray LessThan -Num2Bits
 

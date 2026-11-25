@@ -131,6 +131,7 @@ pub enum ReportCode {
     // Certification codes (--cbc)
     FreeAssignmentDetected,
     BareTagDetected,
+    TrustLostDependency,
 }
 
 impl fmt::Display for ReportCode {
@@ -263,6 +264,7 @@ impl fmt::Display for ReportCode {
             // Certification codes (--cbc)
             FreeAssignmentDetected => "CE01",
             BareTagDetected => "CE02",
+            TrustLostDependency => "CW01",
         };
         f.write_str(string_format)
     }
