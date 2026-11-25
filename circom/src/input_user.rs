@@ -31,11 +31,13 @@ pub struct Input {
     pub parallel_simplification_flag: bool,
     pub flag_old_heuristics: bool,
     pub inspect_constraints_flag: bool,
+    pub certifiable_flag: bool,
+    pub refresh_circomlib2_flag: bool,
     pub no_rounds: usize,
     pub flag_verbose: bool,
     pub flag_no_init: bool,
     pub prime: String,
-    pub link_libraries : Vec<PathBuf>
+    pub link_libraries : Vec<PathBuf>,
 }
 
 
@@ -108,11 +110,13 @@ impl Input {
             reduced_simplification_flag: o_style == SimplificationStyle::O1,
             parallel_simplification_flag: input_processing::get_parallel_simplification(&matches),
             inspect_constraints_flag: input_processing::get_inspect_constraints(&matches),
+            certifiable_flag: input_processing::get_certifiable(&matches),
+            refresh_circomlib2_flag: input_processing::get_refresh_circomlib2(&matches),
             flag_old_heuristics: input_processing::get_flag_old_heuristics(&matches),
             flag_verbose: input_processing::get_flag_verbose(&matches), 
             flag_no_init: input_processing::get_flag_no_init(&matches), 
             prime: input_processing::get_prime(&matches)?,
-            link_libraries
+            link_libraries,
         })
     }
 
@@ -212,6 +216,12 @@ impl Input {
     }
     pub fn inspect_constraints_flag(&self) -> bool {
         self.inspect_constraints_flag
+    }
+    pub fn certifiable_flag(&self) -> bool {
+        self.certifiable_flag
+    }
+    pub fn refresh_circomlib2_flag(&self) -> bool {
+        self.refresh_circomlib2_flag
     }
     pub fn flag_verbose(&self) -> bool {
         self.flag_verbose
@@ -357,6 +367,14 @@ mod input_processing {
         matches.is_present("inspect_constraints")
     }
 
+    pub fn get_certifiable(matches: &ArgMatches) -> bool {
+        matches.is_present("certifiable")
+    }
+
+    pub fn get_refresh_circomlib2(matches: &ArgMatches) -> bool {
+        matches.is_present("refresh_circomlib2")
+    }
+
     pub fn get_flag_verbose(matches: &ArgMatches) -> bool {
         matches.is_present("flag_verbose")
     }
@@ -467,6 +485,20 @@ mod input_processing {
                     .takes_value(false)
                     .display_order(801)
                     .help("Does an additional check over the constraints produced"),
+            )
+            .arg(
+                Arg::with_name("certifiable")
+                    .long("cbc")
+                    .takes_value(false)
+                    .display_order(802)
+                    .help("Correct by construction (also -cbc): statically certifies that the circuit satisfies H1 (no free assignments), H2 (no bare tags) and H3 (trusted composition)"),
+            )
+            .arg(
+                Arg::with_name("refresh_circomlib2")
+                    .long("cbc-refresh")
+                    .takes_value(false)
+                    .display_order(803)
+                    .help("With --cbc: re-clones the real circomlib2 (circomlib_buses) via git and refreshes the local per-template trusted-hash cache before certifying. Requires git in PATH; reaches out to the network."),
             )
             .arg(
                 Arg::with_name("print_json_sub")
@@ -581,7 +613,10 @@ mod input_processing {
                     .display_order(300)
                     .help("To choose the prime number to use to generate the circuit. Receives the name of the curve (bn128, bls12377, bls12381, goldilocks, grumpkin, pallas, secq256r1, vesta)"),
             )
-            .get_matches()
+            // clap 2 only knows single-character short flags (`-cbc` would be
+            // read as `-c -b -c`), so the single-dash spelling is mapped to
+            // `--cbc` before parsing.
+            .get_matches_from(std::env::args().map(|arg| if arg == "-cbc" { "--cbc".to_string() } else { arg }))
     }
 
     pub fn get_link_libraries(matches: &ArgMatches) -> Vec<PathBuf> {

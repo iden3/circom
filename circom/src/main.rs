@@ -35,6 +35,8 @@ fn start() -> Result<(), ()> {
         flag_old_heuristics: user_input.flag_old_heuristics(),
         flag_verbose: user_input.flag_verbose(),
         inspect_constraints_flag: user_input.inspect_constraints_flag(),
+        certifiable_flag: user_input.certifiable_flag(),
+        refresh_circomlib2_flag: user_input.refresh_circomlib2_flag(),
         r1cs_flag: user_input.r1cs_flag(),
         json_constraint_flag: user_input.json_constraints_flag(),
         json_substitution_flag: user_input.json_substitutions_flag(),

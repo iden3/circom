@@ -133,6 +133,13 @@ impl ExecutedTemplate {
             && self.tag_instances == *tag_context
     }
 
+    // Used by `certifier` (H2/H3) to resolve which template a component
+    // instance in `code` was instantiated from, without exposing `connexions`
+    // (and its DAG-building-only offsets) wholesale.
+    pub fn subcomponent_edges(&self) -> impl Iterator<Item = (&str, NodePointer)> {
+        self.connexions.iter().map(|c| (c.inspect.name.as_str(), c.inspect.goes_to))
+    }
+
     pub fn add_arrow(&mut self, component_name: String, data: SubComponentData) {
         let cnn =
             Connexion { full_name: component_name, inspect: data, dag_offset: 0, dag_component_offset: 0, dag_jump: 0, dag_component_jump: 0};

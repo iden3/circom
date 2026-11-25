@@ -14,6 +14,9 @@ pub struct TemplateData {
     num_of_params: usize,
     name_of_params: Vec<String>,
     param_location: FileLocation,
+    // Byte range of the whole `template ... { ... }` definition in its file,
+    // used by `--cbc` (H3) to hash each template on its own.
+    definition_location: FileLocation,
     input_wires: WireInfo,
     output_wires: WireInfo,
     is_parallel: bool,
@@ -32,6 +35,7 @@ impl TemplateData {
         num_of_params: usize,
         name_of_params: Vec<String>,
         param_location: FileLocation,
+        definition_location: FileLocation,
         elem_id: &mut usize,
         is_parallel: bool,
         is_custom_gate: bool,
@@ -50,6 +54,7 @@ impl TemplateData {
             num_of_params,
             name_of_params,
             param_location,
+            definition_location,
             input_wires,
             output_wires,
             is_parallel,
@@ -67,6 +72,7 @@ impl TemplateData {
         num_of_params: usize,
         name_of_params: Vec<String>,
         param_location: FileLocation,
+        definition_location: FileLocation,
         input_wires: WireInfo,
         output_wires: WireInfo,
         is_parallel: bool,
@@ -82,6 +88,7 @@ impl TemplateData {
             num_of_params,
             name_of_params,
             param_location,
+            definition_location,
             input_wires,
             output_wires,
             is_parallel,
@@ -121,6 +128,9 @@ impl TemplateData {
     }
     pub fn get_param_location(&self) -> FileLocation {
         self.param_location.clone()
+    }
+    pub fn get_definition_location(&self) -> FileLocation {
+        self.definition_location.clone()
     }
     pub fn get_name_of_params(&self) -> &Vec<String> {
         &self.name_of_params

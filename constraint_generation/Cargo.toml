@@ -11,6 +11,8 @@ num-bigint-dig = "0.8.4"
 compiler = { path = "../compiler" }
 circom_algebra = { path = "../circom_algebra" }
 program_structure = { path = "../program_structure" }
+parser = { path = "../parser" }
 constraint_writers = { path = "../constraint_writers" }
 constraint_list = { path = "../constraint_list" }
 dag = { path = "../dag" }
+sha2 = "0.10"

@@ -6,6 +6,7 @@ mod environment_utils;
 mod execute;
 mod execution_data;
 mod assignment_utils;
+mod certifier;
 
 use ansi_term::Colour;
 use circom_algebra::algebra::{ArithmeticError, ArithmeticExpression};
@@ -32,6 +33,8 @@ pub struct BuildConfig {
     pub flag_verbose: bool,
     pub flag_old_heuristics: bool,
     pub inspect_constraints: bool,
+    pub certifiable: bool,
+    pub refresh_circomlib2: bool,
     pub prime: String,
 }
 
@@ -53,11 +56,51 @@ pub fn build_circuit(program: ProgramArchive, config: BuildConfig) -> BuildRespo
         Report::print_reports(&r, &files);
     })?;
     Report::print_reports(&warnings, &files);
+
+    // H1/H2/H3 need `exe.model`'s AST, which `export()` consumes -- so they
+    // must run here, before it. The verdict isn't final yet even if they
+    // already fail: we still proceed to `export()` so the structural
+    // (unconstrained-signal) check below also runs and gets merged into the
+    // SAME report, rather than hiding behind whichever kind of violation
+    // happened to be found first. `<--`/bare-tag usage is ordinary, valid
+    // circom that `export()` handles fine outside of `--cbc`, so
+    // there is nothing unsafe about continuing past a failing `cert_result`.
+    let mut cert_result = None;
+    if config.certifiable {
+        if config.refresh_circomlib2 {
+            certifier::refresh_circomlib2_cache(&config.prime).map_err(|err| {
+                eprintln!("{}", Colour::Red.paint(format!("--cbc-refresh failed: {}", err)));
+            })?;
+        }
+        let result = certifier::certify(&exe.model, &program);
+        Report::print_reports(&result.warnings, &files);
+        cert_result = Some(result);
+    }
+
     let (mut dag, mut vcp, warnings) = export(exe, program, flags).map_err(|r| {
         Report::print_reports(&r, &files);
     })?;
     if config.inspect_constraints {
         Report::print_reports(&warnings, &files);
+    }
+
+    if let Some(mut cert_result) = cert_result {
+        // Re-run the same structural analysis `--inspect` uses, regardless
+        // of whether `--inspect` was separately passed: a signal that is
+        // never touched at all (not even dishonestly) is invisible to H1/H2.
+        let structural_warnings = dag.constraint_analysis().map_err(|errs| {
+            Report::print_reports(&errs, &files);
+        })?;
+        cert_result.absorb_structural_warnings(&structural_warnings);
+        if cert_result.is_certifiable() {
+            cert_result.print_summary();
+            println!("{}", Colour::Green.paint("Certifiable: PASS (H1, H2, H3, fully constrained)"));
+        } else {
+            Report::print_reports(&cert_result.errors, &files);
+            cert_result.print_summary();
+            println!("{}", Colour::Red.paint("Certifiable: FAIL"));
+            return Result::Err(());
+        }
     }
     if config.flag_f {
         sync_dag_and_vcp(&mut vcp, &mut dag);

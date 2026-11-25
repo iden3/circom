@@ -17,6 +17,8 @@ pub struct ExecutionConfig {
     pub flag_old_heuristics:bool,
     pub flag_verbose: bool,
     pub inspect_constraints_flag: bool,
+    pub certifiable_flag: bool,
+    pub refresh_circomlib2_flag: bool,
     pub sym_flag: bool,
     pub r1cs_flag: bool,
     pub json_substitution_flag: bool,
@@ -39,6 +41,8 @@ pub fn execute_project(
         flag_p: config.flag_p,
         flag_verbose: config.flag_verbose,
         inspect_constraints: config.inspect_constraints_flag,
+        certifiable: config.certifiable_flag,
+        refresh_circomlib2: config.refresh_circomlib2_flag,
         flag_old_heuristics: config.flag_old_heuristics,
         prime : config.prime,
     };

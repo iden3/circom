@@ -43,6 +43,7 @@ impl Merger {
                             args.len(),
                             args,
                             arg_location,
+                            meta.start..meta.end,
                             &mut self.fresh_id,
                             parallel,
                             is_custom_gate,

@@ -128,6 +128,9 @@ pub enum ReportCode {
     InvalidSignalAccessInBus,
     MustBeSameBus,
     MustBeBus,
+    // Certification codes (--cbc)
+    FreeAssignmentDetected,
+    BareTagDetected,
 }
 
 impl fmt::Display for ReportCode {
@@ -257,6 +260,9 @@ impl fmt::Display for ReportCode {
             InvalidSignalAccessInBus => "BU04",
             MustBeSameBus => "BU05",
             MustBeBus => "BU06",
+            // Certification codes (--cbc)
+            FreeAssignmentDetected => "CE01",
+            BareTagDetected => "CE02",
         };
         f.write_str(string_format)
     }
