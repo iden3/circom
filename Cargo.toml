@@ -13,3 +13,6 @@ members = [
     "code_producers",
     "dag"
 ]
+
+[profile.release]
+debug = true

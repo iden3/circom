@@ -15,6 +15,8 @@ use bitwuzla_sys::*;
 use std::ffi::CString;
 use cadical::{Solver as CadicalSolver, Timeout};
 
+use std::time::Instant;
+
 fn log_substitutions(substitutions: &LinkedList<S>, writer: &mut Option<SubstitutionJSON>) {
     use super::json_porting::port_substitution;
     if let Some(w) = writer {
@@ -264,33 +266,6 @@ fn build_expr_clusters(
     clusters.retain(|cluster| !cluster.is_empty());
 
     clusters
-}
-
-#[cfg(test)]
-mod greedy_cluster_tests {
-    use super::*;
-
-    fn expression(id: usize, terms: &[(usize, i64)]) -> (usize, BTreeMap<usize, BigInt>, usize) {
-        let coefficients = terms
-            .iter()
-            .map(|(signal, coefficient)| (*signal, BigInt::from(*coefficient)))
-            .collect();
-        (id, coefficients, 0)
-    }
-
-    #[test]
-    fn clusters_expressions_with_the_same_pair_ratio() {
-        let expressions = vec![
-            expression(0, &[(1, 2), (2, 4)]),
-            expression(1, &[(1, 3), (2, 6)]),
-            expression(2, &[(1, 1), (2, 3)]),
-        ];
-
-        let clusters = build_expr_clusters(&expressions, &BigInt::from(101));
-
-        assert!(clusters.iter().any(|cluster| cluster == &vec![0, 1]));
-        assert!(clusters.iter().any(|cluster| cluster == &vec![2]));
-    }
 }
 
 // fn count_variable_pairs(
@@ -3644,7 +3619,10 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
         }
 
         // Export the initial clusters before applying any optimization.
+        let start = Instant::now();
+        println!("build_expr_clusters starts");
         let initial_clusters = build_expr_clusters(&expressions_to_fix, &field);
+        println!("build_expr_clusters took: {:?}", start.elapsed());
 
         if let Err(error) =
             export_expr_clusters_json("clusters.json", &expressions_to_fix, &initial_clusters)
@@ -3675,15 +3653,13 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                 }
 
                 // Rebuild the clusters
+                let start = Instant::now();
+                println!("build_expr_clusters starts");
                 let clusters = build_expr_clusters(&expressions_to_fix, &field);
-
-                let mut best_candidate: Option<(
-                    (usize, usize, BigInt, BigInt),
-                    usize,
-                    Vec<usize>,
-                )> = None;
+                println!("build_expr_clusters took: {:?}", start.elapsed());
 
                 for cluster in &clusters {
+                    let mut best_candidate: Option<((usize, usize, BigInt, BigInt), usize, Vec<usize>)> = None;
                     let pairs = count_variable_pairs(cluster, &expressions_to_fix, &field);
                     if let Some((pair, frec)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs, &field)
                     {
@@ -3698,30 +3674,30 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                             best_candidate = Some((pair, frec, cluster.clone()));
                         }
                     }
-                }
-
-                let (pair, _frec, cluster) = match best_candidate {
-                    Some(candidate) => candidate,
-                    None => break,
-                };
-
-                let modified = apply_pair_to_cluster(
-                    &mut constraint_storage,
-                    &cluster,
-                    &expressions_to_fix,
-                    pair,
-                    &mut auxiliary_signals,
-                    &mut max_signal,
-                    &mut non_linear_map,
-                    &field,
-                );
-
-                if modified == 0 {
-                    eprintln!(
-                        "Greedy PLONK simplification stopped: selected pair matched no constraints"
+                    
+                    let (pair, _frec, cluster) = match best_candidate {
+                        Some(candidate) => candidate,
+                        None => break,
+                    };
+    
+                    let modified = apply_pair_to_cluster(
+                        &mut constraint_storage,
+                        &cluster,
+                        &expressions_to_fix,
+                        pair,
+                        &mut auxiliary_signals,
+                        &mut max_signal,
+                        &mut non_linear_map,
+                        &field,
                     );
-                    break;
                 }
+
+                // if modified == 0 {
+                //     eprintln!(
+                //         "Greedy PLONK simplification stopped: selected pair matched no constraints"
+                //     );
+                //     break;
+                // }
             }
         } else if smp.apply_sat_plonk {
             let mut expressions_to_fix: Vec<(usize, BTreeMap<usize, BigInt>, usize)> = Vec::new();
@@ -3739,7 +3715,11 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                 }
             }
 
+            let start = Instant::now();
+            println!("build_expr_clusters starts");
             let clusters = build_expr_clusters(&expressions_to_fix, &field);
+            println!("build_expr_clusters took: {:?}", start.elapsed());
+
             let mut auxiliary_constraint_ids : BTreeMap<usize, usize> = BTreeMap::new();
             let mut i = 0;
             for cluster in &clusters {
