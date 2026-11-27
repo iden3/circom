@@ -110,81 +110,6 @@ fn build_clusters(linear: LinkedList<C>, no_vars: usize) -> Vec<Cluster> {
     clusters
 }
 
-// fn build_expr_clusters(
-//     expressions: &Vec<(usize, HashMap<usize, BigInt>, usize)>,
-//     no_vars: usize,
-// ) -> Vec<Vec<usize>> {
-//     type ClusterPath = Vec<usize>;
-
-//     fn shrink_jumps_and_find(c_to_c: &mut ClusterPath, org: usize) -> usize {
-//         let mut current = org;
-//         let mut jumps = Vec::new();
-//         while current != c_to_c[current] {
-//             Vec::push(&mut jumps, current);
-//             current = c_to_c[current];
-//         }
-//         while let Some(redirect) = Vec::pop(&mut jumps) {
-//             c_to_c[redirect] = current;
-//         }
-//         current
-//     }
-
-//     fn arena_merge(c_to_c: &mut ClusterPath, src: usize, dest: usize) {
-//         let current_dest = shrink_jumps_and_find(c_to_c, dest);
-//         let current_src = shrink_jumps_and_find(c_to_c, src);
-
-//         c_to_c[current_src] = current_dest;
-//     }
-
-//     let no_expressions = expressions.len();
-//     let mut cluster_to_current: ClusterPath = Vec::with_capacity(no_expressions);
-//     // For each variable, which expressions contain it
-//     let mut signal_to_expressions: Vec<Vec<usize>> = vec![Vec::new(); no_vars];
-
-//     for expression_id in 0..no_expressions {
-//         let (_, expr, _) = &expressions[expression_id];
-
-//         let constant = C::constant_coefficient();
-//         let signals: Vec<usize> =
-//             expr.keys().filter(|signal| **signal != constant).cloned().collect();
-
-//         Vec::push(&mut cluster_to_current, expression_id);
-
-//         // How much variables are shared between the previous expression and the actual one
-//         let mut shared_signals: HashMap<usize, usize> = HashMap::new();
-
-//         for signal in signals {
-//             for previous_expression in &signal_to_expressions[signal] {
-//                 let count = shared_signals.entry(*previous_expression).or_insert(0);
-//                 *count += 1;
-//             }
-
-//             signal_to_expressions[signal].push(expression_id);
-//         }
-
-//         // Two expressions belong to the same cluster if they share at least 2 variables
-//         for (previous_expression, count) in shared_signals {
-//             if count >= 2 {
-//                 arena_merge(&mut cluster_to_current, previous_expression, expression_id);
-//             }
-//         }
-//     }
-
-//     let mut clusters: Vec<Vec<usize>> = Vec::new();
-//     for expression_id in 0..no_expressions {
-//         let root = shrink_jumps_and_find(&mut cluster_to_current, expression_id);
-
-//         while clusters.len() <= root {
-//             clusters.push(Vec::new());
-//         }
-
-//         clusters[root].push(expression_id);
-//     }
-
-//     clusters.retain(|cluster| !cluster.is_empty());
-//     clusters
-// }
-
 fn build_expr_clusters(
     expressions: &[(usize, BTreeMap<usize, BigInt>, usize)],
     field: &BigInt,
@@ -268,192 +193,102 @@ fn build_expr_clusters(
     clusters
 }
 
-// fn count_variable_pairs(
-//     cluster: &[usize],
-//     expressions: &[(usize, HashMap<usize, BigInt>, usize)],
-// ) -> Vec<((usize, usize, BigInt, BigInt), usize)> {
-//     let mut frequencies: HashMap<(usize, usize, BigInt, BigInt), usize> = HashMap::new();
+fn get_expression_pairs(expression: &BTreeMap<usize, BigInt>, field: &BigInt) -> Vec<(usize, usize, BigInt, BigInt)> {
+    let mut pairs = Vec::new();
 
-//     for &expression_id in cluster {
-//         let (_, expression, _) = &expressions[expression_id];
+    let terms: Vec<(&usize, &BigInt)> = expression.iter().filter(|(signal, coeff)| **signal != 0 && **coeff != BigInt::from(0)).collect();
 
-//         let mut terms: Vec<(usize, BigInt)> = Vec::new();
+    for i in 0..terms.len() {
+        for j in (i + 1)..terms.len() {
+            let signal_a = *terms[i].0;
+            let signal_b = *terms[j].0;
 
-//         for (signal, coeff) in expression {
-//             if *signal != 0 && coeff != &BigInt::from(0) {
-//                 terms.push((*signal, coeff.clone()));
-//             }
-//         }
+            let coeff_a = terms[i].1;
+            let coeff_b = terms[j].1;
 
-//         terms.sort_by_key(|(signal, _)| *signal);
+            // aux = signal_a + ratio * signal_b
+            if let Ok(ratio) = modular_arithmetic::div(coeff_b, coeff_a, field) {
+                pairs.push((signal_a, signal_b, BigInt::from(1), ratio));
+            }
+        }
+    }
 
-//         for i in 0..terms.len() {
-//             for j in (i + 1)..terms.len() {
-//                 let pair = (terms[i].0, terms[j].0, terms[i].1.clone(), terms[j].1.clone());
+    pairs
+}
 
-//                 *frequencies.entry(pair).or_insert(0) += 1;
-//             }
-//         }
-//     }
-
-//     let mut result: Vec<((usize, usize, BigInt, BigInt), usize)> =
-//         frequencies.into_iter().collect();
-
-//     result
-// }
-
-fn count_variable_pairs(
-    cluster: &[usize], expressions: &[(usize, BTreeMap<usize, BigInt>, usize)], field: &BigInt) -> Vec<((usize, usize, BigInt, BigInt), usize)> {
+fn count_variable_pairs(cluster: &[usize], expressions: &[(usize, BTreeMap<usize, BigInt>, usize)], field: &BigInt) -> 
+(Vec<Vec<(usize, usize, BigInt, BigInt)>>, BTreeMap<(usize, usize, BigInt, BigInt), usize>, BTreeMap<usize, BTreeSet<(usize, usize, BigInt, BigInt)>>) {
+    
     let mut frequencies: BTreeMap<(usize, usize, BigInt, BigInt), usize> = BTreeMap::new();
+    let mut pairs_by_expression = vec![Vec::new(); expressions.len()];
+    let mut pairs_by_frequency: BTreeMap<usize, BTreeSet<(usize, usize, BigInt, BigInt)>> = BTreeMap::new();
 
     for &expression_id in cluster {
         let (_, expression, _) = &expressions[expression_id];
 
-        let mut terms: Vec<(usize, BigInt)> = Vec::new();
+        let pairs = get_expression_pairs(expression, field);
 
-        for (signal, coeff) in expression {
-            if *signal != 0 && coeff != &BigInt::from(0) {
-                terms.push((*signal, coeff.clone()));
-            }
+        for pair in &pairs {
+            // *frequencies.entry(pair.clone()).or_insert(0) += 1;
+            add_pair_frequency(pair.clone(), &mut frequencies, &mut pairs_by_frequency);
         }
 
-        terms.sort_by_key(|(signal, _)| *signal);
-
-        for i in 0..terms.len() {
-            for j in (i + 1)..terms.len() {
-                let signal_a = terms[i].0;
-                let signal_b = terms[j].0;
-
-                let coeff_a = &terms[i].1;
-                let coeff_b = &terms[j].1;
-
-                // Normalize the pair as:
-                // aux = signal_a + ratio * signal_b
-                if let Ok(ratio) = modular_arithmetic::div(coeff_b, coeff_a, field) {
-                    let pair = (signal_a, signal_b, BigInt::from(1), ratio);
-    
-                    *frequencies.entry(pair).or_insert(0) += 1;
-                }
-
-            }
-        }
+        pairs_by_expression[expression_id] = pairs;
     }
 
-    frequencies.into_iter().collect()
+    (pairs_by_expression, frequencies, pairs_by_frequency)
 }
 
-// fn select_most_frequent_pair(
-//     cluster: &[usize],
-//     expressions: &[(usize, HashMap<usize, BigInt>, usize)],
-//     pairs: Vec<((usize, usize, BigInt, BigInt), usize)>,
-// ) -> Option<((usize, usize, BigInt, BigInt), usize)> {
-//     let mut valid_pairs = Vec::new();
+fn add_pair_frequency(pair: (usize, usize, BigInt, BigInt), frequencies: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>, pairs_by_frequency: &mut BTreeMap<usize, BTreeSet<(usize, usize, BigInt, BigInt)>>) {
+    let old_frequency = frequencies.get(&pair).copied().unwrap_or(0);
 
-//     for (pair, frequency) in pairs {
-//         let (signal_a, signal_b, coeff_a, coeff_b) = &pair;
-//         let mut can_transform = false;
+    if old_frequency > 0 {
+        if let Some(pairs) = pairs_by_frequency.get_mut(&old_frequency) {
+            pairs.remove(&pair);
 
-//         for &expression_id in cluster {
-//             let (_, expression, _) = &expressions[expression_id];
-
-//             if expression.get(signal_a) == Some(coeff_a)
-//                 && expression.get(signal_b) == Some(coeff_b)
-//             {
-//                 can_transform = true;
-//                 break;
-//             }
-//         }
-
-//         if can_transform {
-//             valid_pairs.push((pair, frequency));
-//         }
-//     }
-
-//     let mut best_pair = None;
-//     let mut best_frec = 0;
-
-//     for candidate in valid_pairs {
-//         if best_pair.is_none()
-//             || candidate.1 > best_frec
-//             || (candidate.1 == best_frec && candidate.0 < *best_pair.as_ref().unwrap())
-//         {
-//             best_pair = Some(candidate.0);
-//             best_frec = candidate.1;
-//         }
-//     }
-
-//     if let Some(pair) = best_pair {
-//         Some((pair, best_frec))
-//     } else {
-//         None
-//     }
-// }
-
-fn select_most_frequent_pair(cluster: &[usize], expressions: &[(usize, BTreeMap<usize, BigInt>, usize)], pairs: Vec<((usize, usize, BigInt, BigInt), usize)>, field: &BigInt) -> Option<((usize, usize, BigInt, BigInt), usize)> {
-    let mut best_pair = None;
-    let mut best_frec = 0;
-
-    for (pair, frequency) in pairs {
-
-        // if frequency <= 1 { continue; }
-        let (signal_a, signal_b, _, ratio) = &pair;
-
-        let mut can_transform = false;
-
-        for &expression_id in cluster {
-            let (_, expression, _) = &expressions[expression_id];
-
-            let coeff_a = expression.get(signal_a);
-            let coeff_b = expression.get(signal_b);
-
-            if let (Some(coeff_a), Some(coeff_b)) = (coeff_a, coeff_b) {
-                if coeff_a != &BigInt::from(0) && coeff_b != &BigInt::from(0) {
-                    if let Ok(current_ratio) = modular_arithmetic::div(coeff_b, coeff_a, field) {
-                        if current_ratio == *ratio {
-                            can_transform = true;
-                            break;
-                        }
-                    }
-
-                }
+            if pairs.is_empty() {
+                pairs_by_frequency.remove(&old_frequency);
             }
-        }
-
-        if !can_transform {
-            continue;
-        }
-
-        if best_pair.is_none() || frequency > best_frec || (frequency == best_frec && pair < *best_pair.as_ref().unwrap())  {
-            best_pair = Some(pair);
-            best_frec = frequency;
         }
     }
 
-    if let Some(pair) = best_pair {
-        Some((pair, best_frec))
+    let new_frequency = old_frequency + 1;
+
+    frequencies.insert(pair.clone(), new_frequency);
+    pairs_by_frequency.entry(new_frequency).or_insert_with(BTreeSet::new).insert(pair);
+}
+
+fn remove_pair_frequency(pair: &(usize, usize, BigInt, BigInt), frequencies: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>, pairs_by_frequency: &mut BTreeMap<usize, BTreeSet<(usize, usize, BigInt, BigInt)>>) {
+    let old_frequency = match frequencies.get(pair) {
+        Some(frequency) => *frequency,
+        None => return,
+    };
+
+    if let Some(pairs) = pairs_by_frequency.get_mut(&old_frequency) {
+        pairs.remove(pair);
+
+        if pairs.is_empty() {
+            pairs_by_frequency.remove(&old_frequency);
+        }
+    }
+
+    if old_frequency == 1 {
+        frequencies.remove(pair);
     } else {
-        None
+        let new_frequency = old_frequency - 1;
+
+        frequencies.insert(pair.clone(), new_frequency);
+        pairs_by_frequency.entry(new_frequency).or_insert_with(BTreeSet::new).insert(pair.clone());
     }
 }
 
-// This function creates the constraint for the new variable introduced
-// fn create_aux_constraint(
-//     auxiliary: usize,
-//     pair: &(usize, usize, BigInt, BigInt),
-//     field: &BigInt,
-// ) -> C {
-//     let mut coefficients = HashMap::new();
+fn select_most_frequent_pair(pairs_by_frequency: &BTreeMap<usize,BTreeSet<(usize, usize, BigInt, BigInt)>>) -> Option<((usize, usize, BigInt, BigInt), usize)> {
 
-//     coefficients.insert(0, BigInt::from(0));
-//     coefficients.insert(pair.0, pair.2.clone());
-//     coefficients.insert(pair.1, pair.3.clone());
+    let (&frequency, pairs) = pairs_by_frequency.iter().next_back()?;
+    let pair = pairs.iter().next()?.clone();
 
-//     let substitution = S::new(auxiliary, A::Linear { coefficients }).unwrap();
-
-//     let mut constraint = S::substitution_into_constraint(substitution, field);
-
-//     constraint
-// }
+    Some((pair, frequency))
+}
 
 fn create_aux_constraint(auxiliary: usize, pair: &(usize, usize, BigInt, BigInt), field: &BigInt) -> C {
     let mut coefficients = BTreeMap::new();
@@ -469,69 +304,13 @@ fn create_aux_constraint(auxiliary: usize, pair: &(usize, usize, BigInt, BigInt)
     S::substitution_into_constraint(substitution, field)
 }
 
-// fn apply_pair_to_cluster(
-//     storage: &mut ConstraintStorage,
-//     cluster: &[usize],
-//     expressions: &[(usize, HashMap<usize, BigInt>, usize)],
-//     pair: (usize, usize, BigInt, BigInt),
-//     aux_signals: &mut HashMap<(usize, usize, BigInt, BigInt), usize>,
-//     next_aux: &mut usize,
-//     non_linear_map: &mut SignalToConstraints,
-//     field: &BigInt,
-// ) -> usize {
-//     // If the aux var exists for those variables and coefficients, it is reused
-//     let aux = if let Some(existing) = aux_signals.get(&pair) {
-//         *existing
-//     }
-//     // If not, it creates a new variable and introduces the corresponding constraint
-//     else {
-//         let new_aux = *next_aux;
-//         *next_aux += 1;
-
-//         let constraint = create_aux_constraint(new_aux, &pair, field);
-//         let constraint_id = storage.add_constraint(constraint);
-
-//         non_linear_map.entry(new_aux).or_insert_with(LinkedList::new).push_back(constraint_id);
-//         aux_signals.insert(pair.clone(), new_aux);
-
-//         new_aux
-//     };
-
-//     let (s_a, s_b, coeff_a, coeff_b) = pair;
-//     let mut processed_constraints = HashSet::new();
-
-//     // Replaces each appearance of the pair in the cluster constraints
-//     for &expression_id in cluster {
-//         let (constraint_id, _, _) = &expressions[expression_id];
-
-//         if !processed_constraints.insert(*constraint_id) {
-//             continue;
-//         }
-
-//         let mut constraint = storage.read_constraint(*constraint_id).unwrap();
-//         constraint.replace_pair_with_auxiliary(s_a, &coeff_a, s_b, &coeff_b, aux);
-//         constraint.normalize_constraint(field);
-
-//         storage.replace(*constraint_id, constraint);
-//     }
-
-//     aux
-// }
-
-fn apply_pair_to_cluster(
-    storage: &mut ConstraintStorage,
-    cluster: &[usize],
-    expressions: &[(usize, BTreeMap<usize, BigInt>, usize)],
-    pair: (usize, usize, BigInt, BigInt),
-    aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
-    next_aux: &mut usize,
-    non_linear_map: &mut SignalToConstraints,
-    field: &BigInt,
-) -> usize {
+fn apply_pair_to_cluster(storage: &mut ConstraintStorage, cluster: &[usize], expressions: &[(usize, BTreeMap<usize, BigInt>, usize)], pair: (usize, usize, BigInt, BigInt), aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>, next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt) 
+-> (usize, Vec<usize>) {
     let aux = aux_signals.get(&pair).copied().unwrap_or(*next_aux);
     let (signal_a, signal_b, coeff_a, coeff_b) = (&pair.0, &pair.1, &pair.2, &pair.3);
     let mut processed_constraints = BTreeSet::new();
     let mut modified_constraints = Vec::new();
+    let mut modified_ids = Vec::new();
 
     for &expression_id in cluster {
         let (constraint_id, _, _) = &expressions[expression_id];
@@ -541,40 +320,30 @@ fn apply_pair_to_cluster(
         }
 
         let mut constraint = storage.read_constraint(*constraint_id).unwrap();
-        if constraint.replace_pair_with_auxiliary(
-            *signal_a,
-            coeff_a,
-            *signal_b,
-            coeff_b,
-            aux,
-            field,
-        ) {
+        if constraint.replace_pair_with_auxiliary(*signal_a, coeff_a, *signal_b, coeff_b, aux, field) {
             modified_constraints.push((*constraint_id, constraint));
+            modified_ids.push(*constraint_id);
         }
     }
 
     if modified_constraints.is_empty() {
-        return 0;
+        return (aux, modified_ids);
     }
 
     if !aux_signals.contains_key(&pair) {
         let constraint = create_aux_constraint(aux, &pair, field);
         let constraint_id = storage.add_constraint(constraint);
-        non_linear_map
-            .entry(aux)
-            .or_insert_with(LinkedList::new)
-            .push_back(constraint_id);
+        non_linear_map.entry(aux).or_insert_with(LinkedList::new).push_back(constraint_id);
         aux_signals.insert(pair, aux);
         *next_aux += 1;
     }
 
-    let modified = modified_constraints.len();
     for (constraint_id, mut constraint) in modified_constraints {
         constraint.normalize_constraint(field);
         storage.replace(constraint_id, constraint);
     }
 
-    modified
+    (aux, modified_ids)
 }
 
 fn restore_plonk_constraints(
@@ -627,32 +396,6 @@ fn restore_plonk_constraints(
         }
     }
 
-    // for constraint_id in storage.get_ids() {
-    //     if definition_ids.contains(&constraint_id) {
-    //         continue;
-    //     }
-
-    //     let original = storage.read_constraint(constraint_id).unwrap();
-    //     let mut candidate = original.clone();
-
-    //     for (auxiliary, substitution) in &substitutions {
-    //         if !candidate.a().contains_key(auxiliary)
-    //             && !candidate.b().contains_key(auxiliary)
-    //             && !candidate.c().contains_key(auxiliary)
-    //         {
-    //             continue;
-    //         }
-
-    //         C::apply_substitution(&mut candidate, substitution, field);
-    //     }
-
-    //     if candidate.is_plonk() {
-    //         storage.replace(constraint_id, candidate);
-    //     } else {
-    //         storage.replace(constraint_id, original);
-    //     }
-    // }
-
     // Checks which variables are not necessary and deletes them
     let mut used_auxiliaries = BTreeSet::new();
     let mut pending = Vec::new();
@@ -692,2145 +435,2145 @@ fn restore_plonk_constraints(
 }
 
 // Optimization of the number of new variables introduced, using an SMT solver
-fn variables_optimization(
-    storage: &mut ConstraintStorage,
-    expression: &[(usize, BTreeMap<usize, BigInt>, usize)],
-    cluster: &[usize],
-    aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
-    next_aux: &mut usize,
-    non_linear_map: &mut SignalToConstraints,
-    field: &BigInt,
-) {
-    let mut constraints_ids = Vec::new();
-    let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
-
-    for &expression_id in cluster {
-        let constraint_id = expression[expression_id].0;
-        if !constraints_ids.contains(&constraint_id) {
-            constraints_ids.push(constraint_id);
-        }
-
-        for (var, coeff) in &expression[expression_id].1 {
-            if *var == 0 || coeff == &BigInt::from(0) {
-                continue;
-            }
-
-            let pair = (*var, coeff.clone());
-            if !coeffs_and_vars.contains(&pair) {
-                coeffs_and_vars.push(pair);
-            }
-        }
-    }
-
-    let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
-
-    for &expression_id in cluster {
-        let expression_coeffs = &expression[expression_id].1;
-        let mut v = Vec::new();
-
-        for (var, coeff) in &coeffs_and_vars {
-            let present = expression_coeffs.get(var) == Some(coeff);
-            v.push(present);
-        }
-
-        vars_per_expression.push(v);
-    }
-
-    let mut bound = cluster.len(); // Maximum number of variables that are needed to transform all the expressions of the cluster into plonk
-    for &expression_id in cluster {
-        bound += expression[expression_id].2;
-    }
-
-    let config = Config::new();
-    with_z3_config(&config, || {
-        let mut solver = Solver::new();
-        let zero = Int::from_i64(0);
-        let one = Int::from_i64(1);
-
-        let mut expr_use_vars = Vec::new();
-        let rows_expr = cluster.len();
-        // Because we are impossing that each expression at the end just has 1 variable, it cannot be an original expression because if not, it will plonk originally
-        let cols_expr = bound;
-
-        for e in 0..rows_expr {
-            for c in 0..cols_expr {
-                let var = Bool::new_const(format!("expr_{}_uses_var_{}", e, c));
-
-                expr_use_vars.push(var);
-            }
-        }
-
-        let get_expr_uses = |r: usize, c: usize| expr_use_vars[r * cols_expr + c].clone();
-
-        let mut vars_composition = Vec::new();
-        let rows_vars = bound;
-        let cols_vars = coeffs_and_vars.len() + bound;
-
-        for v in 0..rows_vars {
-            for c in 0..cols_vars {
-                let v = Bool::new_const(format!("var_{}_uses_{}", v, c));
-                vars_composition.push(v);
-            }
-        }
-
-        let get_v_composition = |r: usize, c: usize| vars_composition[r * cols_vars + c].clone();
-
-        // Each new variable can be empty or formed with exactly 2 original variables or previous declared new variables
-        for v in 0..rows_vars {
-            // At most 2 positions are used for each variable
-            for c in 0..cols_vars {
-                let c_used = get_v_composition(v, c);
-                for c_next in c + 1..cols_vars {
-                    let both_used = Bool::and(&[&get_v_composition(v, c_next), &c_used]);
-                    for c_not in c_next + 1..cols_vars {
-                        let c_not_used = get_v_composition(v, c_not);
-
-                        // If both variables are used yet, any other variable can be used
-                        solver.assert(Bool::or(&[&both_used.not(), &c_not_used.not()]));
-                    }
-                }
-            }
-
-            // At least 2 positions or 0 are used for each variable
-            let mut is_empty = Bool::from_bool(true);
-            for c in 0..cols_vars {
-                is_empty = Bool::and(&[&is_empty, &&get_v_composition(v, c).not()]);
-            }
-
-            for c in 0..cols_vars {
-                let current = get_v_composition(v, c);
-                let mut another_used = Bool::from_bool(false);
-
-                for other_c in 0..cols_vars {
-                    if other_c != c {
-                        another_used = Bool::or(&[&another_used, &get_v_composition(v, other_c)]);
-                    }
-                }
-
-                solver.assert(Bool::or(&[&is_empty, &current.not(), &another_used]));
-            }
-
-            // If a variable is not empty it is because it is used by someone.
-            let mut used_by_another_var = Bool::from_bool(false);
-            for next_var in (v + 1)..rows_vars {
-                let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
-                used_by_another_var = Bool::or(&[&used_by_another_var, &uses_v]);
-            }
-
-            let mut used_by_final_expr = Bool::from_bool(false);
-            for e in 0..rows_expr {
-                let uses_v = get_expr_uses(e, v);
-                used_by_final_expr = Bool::or(&[&used_by_final_expr, &uses_v]);
-            }
-
-            solver.assert(Bool::or(&[
-                &is_empty,
-                &Bool::or(&[&used_by_another_var, &used_by_final_expr]),
-            ]));
-
-            // Cannot exist two variables with the same composition except for the empty variables
-            for next in (v + 1)..rows_vars {
-                let mut different = Bool::from_bool(false);
-                for c in 0..cols_vars {
-                    let comp_v = get_v_composition(v, c);
-                    let comp_next = get_v_composition(next, c);
-                    different = Bool::or(&[&different, &comp_v._eq(&comp_next).not()]);
-                }
-                solver.assert(Bool::or(&[&is_empty, &different]));
-            }
-
-            // If a variable uses another variable created before, then the next variables must hold the same. First appear the variables that only use factors
-            let mut uses_another_var = Bool::from_bool(false);
-            for c in (coeffs_and_vars.len())..v {
-                let comp_v = get_v_composition(v, c);
-                uses_another_var = Bool::or(&[&uses_another_var, &comp_v]);
-            }
-
-            for next in (v + 1)..rows_vars {
-                let mut next_var_uses_another_var = Bool::from_bool(false);
-                let mut next_is_empty = Bool::from_bool(true);
-                for c in coeffs_and_vars.len()..next {
-                    // because it can only use previous vars ..cols_vars
-                    let comp_next = get_v_composition(next, c);
-                    next_var_uses_another_var = Bool::or(&[&next_var_uses_another_var, &comp_next]);
-                    next_is_empty = Bool::and(&[&next_is_empty, &comp_next.not()]);
-                }
-                solver.assert(Bool::or(&[
-                    &uses_another_var.not(),
-                    &next_is_empty,
-                    &next_var_uses_another_var,
-                ]));
-            }
-
-            let empty: Vec<Bool> = (0..rows_vars)
-                .map(|v| {
-                    let nots: Vec<Bool> =
-                        (0..cols_vars).map(|c| get_v_composition(v, c).not()).collect();
-                    Bool::and(&nots.iter().collect::<Vec<_>>())
-                })
-                .collect();
-
-            // Ordered by its maximum column
-            for var in 0..rows_vars.saturating_sub(1) {
-                for c in 0..cols_vars {
-                    let mut lits: Vec<Bool> =
-                        (c..cols_vars).map(|k| get_v_composition(var + 1, k)).collect();
-                    lits.push(empty[var + 1].clone());
-                    solver.assert(
-                        &get_v_composition(var, c)
-                            .implies(&Bool::or(&lits.iter().collect::<Vec<_>>())),
-                    );
-                }
-            }
-
-            // Two terms with the same variables cannot be used in the same variable
-            for first in 0..coeffs_and_vars.len() {
-                for second in (first + 1)..coeffs_and_vars.len() {
-                    if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
-                        solver.assert(Bool::or(&[
-                            &get_v_composition(v, first).not(),
-                            &get_v_composition(v, second).not(),
-                        ]));
-                    }
-                }
-            }
-        }
-
-        // Each new variable can only use previous variables and cannot use itself to create a new variable
-        for v in 0..rows_vars {
-            for c in (coeffs_and_vars.len() + v)..cols_vars {
-                solver.assert(&get_v_composition(v, c).not());
-            }
-        }
-
-        // Empty variables must be at the end of the matrix
-        for v in 0..rows_vars.saturating_sub(1) {
-            let mut empty_var = Bool::from_bool(true);
-            let mut empty_next = Bool::from_bool(true);
-
-            for c in 0..cols_vars {
-                let selected_v = get_v_composition(v, c);
-                empty_var = Bool::and(&[&empty_var, &selected_v.not()]);
-
-                let selected_next = get_v_composition(v + 1, c);
-                empty_next = Bool::and(&[&empty_next, &selected_next.not()]);
-            }
-
-            solver.assert(Bool::or(&[&empty_var.not(), &empty_next]));
-        }
-
-        // We must check that every subexpression contained in the original expression, is also contained in the transformed one
-        // Does each new variable contain or not a subexpression: just itself or another variable that is contained on it
-        let mut subexpressions_var: Vec<Vec<Bool>> = Vec::new();
-        for v in 0..rows_vars {
-            let mut sub_vars: Vec<Bool> = Vec::new();
-            for subexpr in 0..coeffs_and_vars.len() {
-                let mut contains_subexpr = get_v_composition(v, subexpr);
-
-                for prev_v in 0..v {
-                    let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
-
-                    let prev_contains = &subexpressions_var[prev_v][subexpr];
-                    let uses_subexpr_through_prev = Bool::and(&[&uses_prev, prev_contains]);
-
-                    contains_subexpr = Bool::or(&[&contains_subexpr, &uses_subexpr_through_prev]);
-                }
-                sub_vars.push(contains_subexpr);
-            }
-            subexpressions_var.push(sub_vars);
-        }
-
-        for e in 0..rows_expr {
-            for subexpr in 0..coeffs_and_vars.len() {
-                let mut used = Bool::from_bool(false);
-
-                for v in 0..rows_vars {
-                    used = Bool::or(&[
-                        &used,
-                        &Bool::and(&[&get_expr_uses(e, v), &subexpressions_var[v][subexpr]]),
-                    ]);
-                }
-
-                // If the initial expression contains this subexpression, it must be used by the transformed expression directly or by a variable that it uses
-                if vars_per_expression[e][subexpr] {
-                    solver.assert(used);
-                }
-                // Otherwise it must not be used by the transformed expression or any variable that it uses
-                else {
-                    solver.assert(used.not());
-                }
-            }
-        }
-
-        // Substituted by: each expression at the end just has 1 variable. If it uses one variable, it cannot use any of the following variables
-        for e in 0..rows_expr {
-            for c in 0..cols_expr {
-                let used = get_expr_uses(e, c);
-
-                for next in c + 1..cols_expr {
-                    solver.assert(Bool::or(&[&used.not(), &get_expr_uses(e, next).not()]));
-                }
-            }
-        }
-
-        // An expression just uses non empty variables
-        for e in 0..rows_expr {
-            for v in 0..rows_vars {
-                let mut empty_var = Bool::from_bool(true);
-
-                for c in 0..cols_vars {
-                    let selected = get_v_composition(v, c);
-                    empty_var = Bool::and(&[&empty_var, &selected.not()]);
-                }
-
-                let expr_uses_aux = get_expr_uses(e, v);
-
-                // Or it does not use it, or if it uses is because the variable is not empty
-                solver.assert(Bool::or(&[&expr_uses_aux.not(), &empty_var.not()]));
-            }
-        }
-
-        match solver.check() {
-            SatResult::Sat => {
-                let mut model = solver.get_model().expect("SAT result must have a model");
-                let mut created_variables = (0..rows_vars)
-                    .filter(|v| {
-                        (0..cols_vars).any(|c| {
-                            model
-                                .eval(&vars_composition[v * cols_vars + c], true)
-                                .and_then(|value| value.as_bool())
-                                .unwrap_or(false)
-                        })
-                    })
-                    .count();
-                println!("\nSolution found with {} variables", created_variables);
-
-                // Active variables form a prefix, so disabling the last one tests whether
-                // the same constraints can be represented with fewer auxiliaries --> Incremental solving
-                loop {
-                    if created_variables == 0 {
-                        break;
-                    }
-                    for col in 0..cols_vars {
-                        solver.assert(&get_v_composition(created_variables - 1, col).not());
-                    }
-
-                    for e in 0..rows_expr {
-                        solver.assert(&get_expr_uses(e, created_variables - 1).not());
-                    }
-
-                    match solver.check() {
-                        SatResult::Sat => {
-                            model = solver.get_model().expect("SAT result must have a model");
-                            created_variables = (0..rows_vars)
-                                .filter(|v| {
-                                    (0..cols_vars).any(|c| {
-                                        model
-                                            .eval(&vars_composition[v * cols_vars + c], true)
-                                            .and_then(|value| value.as_bool())
-                                            .unwrap_or(false)
-                                    })
-                                })
-                                .count();
-                            println!("\nSolution found with {} variables", created_variables);
-                        }
-                        SatResult::Unsat => break,
-                        SatResult::Unknown => {
-                            println!(
-                                "\nVariable minimization: UNKNOWN; keeping the last SAT solution"
-                            );
-                            break;
-                        }
-                    }
-                }
-
-                println!("\nFinal solution found with {} variables", created_variables);
-
-                let is_selected = |variable: &Bool| {
-                    model.eval(variable, true).and_then(|value| value.as_bool()).unwrap_or(false)
-                };
-
-                let mut model_aux_signals = vec![None; rows_vars];
-                for v in 0..created_variables {
-                    let selected_sources: Vec<usize> = (0..cols_vars)
-                        .filter(|c| is_selected(&vars_composition[v * cols_vars + c]))
-                        .collect();
-                    if selected_sources.is_empty() {
-                        continue;
-                    }
-
-                    let source = |column: usize, model_aux_signals: &[Option<usize>]| {
-                        if column < coeffs_and_vars.len() {
-                            (coeffs_and_vars[column].0, coeffs_and_vars[column].1.clone())
-                        } else {
-                            let previous_aux = column - coeffs_and_vars.len();
-                            (model_aux_signals[previous_aux].unwrap(), BigInt::from(1))
-                        }
-                    };
-                    let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
-                    let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
-                    let pair = (signal_a, signal_b, coeff_a, coeff_b);
-                    let auxiliary = apply_pair_to_cluster(
-                        storage,
-                        cluster,
-                        expression,
-                        pair,
-                        aux_signals,
-                        next_aux,
-                        non_linear_map,
-                        field,
-                    );
-                    model_aux_signals[v] = Some(auxiliary);
-                }
-
-                if created_variables > 0 {
-                    println!("New constraints:");
-                    let mut introduced = 0;
-                    for v in 0..created_variables {
-                        let mut terms = Vec::new();
-                        for c in 0..cols_vars {
-                            if !is_selected(&vars_composition[v * cols_vars + c]) {
-                                continue;
-                            }
-
-                            if c < coeffs_and_vars.len() {
-                                let (signal, coefficient) = &coeffs_and_vars[c];
-                                terms.push(format!("{} * x{}", coefficient, signal));
-                            } else {
-                                let previous_aux = c - coeffs_and_vars.len();
-                                terms
-                                    .push(format!("x{}", model_aux_signals[previous_aux].unwrap()));
-                            }
-                        }
-
-                        if !terms.is_empty() {
-                            let auxiliary = model_aux_signals[v].unwrap();
-                            println!("  x{} = {}", auxiliary, terms.join(" + "));
-                            introduced += 1;
-                        }
-                    }
-
-                    println!("Introduced variables ({}):", introduced);
-                    for v in 0..created_variables {
-                        println!("  x{}", model_aux_signals[v].unwrap());
-                    }
-
-                    println!("Transformed expressions:");
-                    for e in 0..rows_expr {
-                        let expression_id = cluster[e];
-                        let mut terms = Vec::new();
-                        if let Some(constant) = expression[expression_id].1.get(&0) {
-                            if constant != &BigInt::from(0) {
-                                terms.push(constant.to_string());
-                            }
-                        }
-
-                        for v in 0..created_variables {
-                            if is_selected(&expr_use_vars[e * cols_expr + v]) {
-                                terms.push(format!("x{}", model_aux_signals[v].unwrap()));
-                            }
-                        }
-
-                        println!("  expression {}: {}", expression_id, terms.join(" + "));
-                    }
-                }
-            }
-            SatResult::Unsat => {
-                println!("\nVariable optimization: UNSAT");
-            }
-            SatResult::Unknown => {
-                println!("\nVariable optimization: UNKNOWN");
-            }
-        }
-    })
-}
-
-fn variables_optimization_unsat_core(
-    storage: &mut ConstraintStorage,
-    expression: &[(usize, BTreeMap<usize, BigInt>, usize)],
-    cluster: &[usize],
-    aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
-    next_aux: &mut usize,
-    non_linear_map: &mut SignalToConstraints,
-    field: &BigInt,
-    cluster_id: usize,
-    auxiliary_constraint_ids: &mut BTreeMap<usize, usize>,
-) {
-    let mut constraints_ids = Vec::new();
-    let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
-
-    for &expression_id in cluster {
-        let constraint_id = expression[expression_id].0;
-        if !constraints_ids.contains(&constraint_id) {
-            constraints_ids.push(constraint_id);
-        }
-
-        for (var, coeff) in &expression[expression_id].1 {
-            if *var == 0 || coeff == &BigInt::from(0) {
-                continue;
-            }
-
-            let pair = (*var, coeff.clone());
-            if !coeffs_and_vars.contains(&pair) {
-                coeffs_and_vars.push(pair);
-            }
-        }
-    }
-
-    let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
-
-    for &expression_id in cluster {
-        let expression_coeffs = &expression[expression_id].1;
-        let mut v = Vec::new();
-
-        for (var, coeff) in &coeffs_and_vars {
-            let present = expression_coeffs.get(var) == Some(coeff);
-            v.push(present);
-        }
-
-        vars_per_expression.push(v);
-    }
-
-    let mut bound = cluster.len(); // Maximum number of variables that are needed to transform all the expressions of the cluster into plonk
-    for &expression_id in cluster {
-        bound += expression[expression_id].2;
-    }
-
-    let config = Config::new();
-
-    // Unsatisfiable core
-    let mut tracked_assertions: Vec<(String, String)> = Vec::new();
-    let mut assertion_id = 0usize;
-
-    macro_rules! assert_tracked {
-        ($solver:expr, $constraint:expr, $description:expr) => {{
-            let tracking_name = format!("track_{}", assertion_id);
-            let tracking = Bool::new_const(tracking_name.as_str());
-
-            $solver.assert_and_track($constraint, &tracking);
-
-            tracked_assertions.push((tracking_name, $description.to_string()));
-
-            assertion_id += 1;
-        }};
-    }
-
-    with_z3_config(&config, || {
-        let mut solver = Solver::new();
-        let zero = Int::from_i64(0);
-        let one = Int::from_i64(1);
-
-        let mut expr_use_vars = Vec::new();
-        let rows_expr = cluster.len();
-        // Because we are impossing that each expression at the end just has 1 variable, it cannot be an original expression because if not, it will plonk originally
-        let cols_expr = bound;
-
-        for e in 0..rows_expr {
-            for c in 0..cols_expr {
-                let var = Bool::new_const(format!("expr_{}_uses_var_{}", e, c));
-
-                expr_use_vars.push(var);
-            }
-        }
-
-        let get_expr_uses = |r: usize, c: usize| expr_use_vars[r * cols_expr + c].clone();
-
-        let mut vars_composition = Vec::new();
-        let rows_vars = bound;
-        let cols_vars = coeffs_and_vars.len() + bound;
-
-        for v in 0..rows_vars {
-            for c in 0..cols_vars {
-                let v = Bool::new_const(format!("var_{}_uses_{}", v, c));
-                vars_composition.push(v);
-            }
-        }
-
-        let get_v_composition = |r: usize, c: usize| vars_composition[r * cols_vars + c].clone();
-
-        // Each new variable can be empty or formed with exactly 2 original variables or previous declared new variables
-        for v in 0..rows_vars {
-            // At most 2 positions are used for each variable
-            for c in 0..cols_vars {
-                let c_used = get_v_composition(v, c);
-                for c_next in c + 1..cols_vars {
-                    let both_used = Bool::and(&[&get_v_composition(v, c_next), &c_used]);
-                    for c_not in c_next + 1..cols_vars {
-                        let c_not_used = get_v_composition(v, c_not);
-
-                        // If both variables are used yet, any other variable can be used
-                        assert_tracked!(
-                            solver,
-                            Bool::or(&[&both_used.not(), &c_not_used.not()]),
-                            format!("Variable composition at most 2: v{} c{} c_not{}", v, c, c_not)
-                        );
-                    }
-                }
-            }
-
-            // At least 2 positions or 0 are used for each variable because it can always be rebuild with 2 elements per variable because if not the expression would be plonk initially (1 variable)
-            let mut is_empty = Bool::from_bool(true);
-            for c in 0..cols_vars {
-                is_empty = Bool::and(&[&is_empty, &&get_v_composition(v, c).not()]);
-            }
-
-            for c in 0..cols_vars {
-                let current = get_v_composition(v, c);
-                let mut another_used = Bool::from_bool(false);
-
-                for other_c in 0..cols_vars {
-                    if other_c != c {
-                        another_used = Bool::or(&[&another_used, &get_v_composition(v, other_c)]);
-                    }
-                }
-
-                assert_tracked!(
-                    solver,
-                    Bool::or(&[&is_empty, &current.not(), &another_used]),
-                    format!("Variable composition at least 2: v{} c{}", v, c)
-                );
-            }
-
-            // If a variable is not empty it is because it is used by someone.
-            let mut used_by_another_var = Bool::from_bool(false);
-            for next_var in (v + 1)..rows_vars {
-                let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
-                used_by_another_var = Bool::or(&[&used_by_another_var, &uses_v]);
-            }
-
-            let mut used_by_final_expr = Bool::from_bool(false);
-            for e in 0..rows_expr {
-                let uses_v = get_expr_uses(e, v);
-                used_by_final_expr = Bool::or(&[&used_by_final_expr, &uses_v]);
-            }
-
-            assert_tracked!(
-                solver,
-                Bool::or(&[&is_empty, &Bool::or(&[&used_by_another_var, &used_by_final_expr])]),
-                format!("Used by someone or empty: v{}", v)
-            );
-
-            // Cannot exist two variables with the same composition except for the empty variables
-            for next in (v + 1)..rows_vars {
-                let mut different = Bool::from_bool(false);
-                for c in 0..cols_vars {
-                    let comp_v = get_v_composition(v, c);
-                    let comp_next = get_v_composition(next, c);
-                    different = Bool::or(&[&different, &comp_v._eq(&comp_next).not()]);
-                }
-                assert_tracked!(
-                    solver,
-                    Bool::or(&[&is_empty, &different]),
-                    format!("Two vars same composition: v{} next{}", v, next)
-                );
-            }
-
-            // If a variable uses another variable created before, then the next variables must hold the same. First appear the variables that only use factors
-            let mut uses_another_var = Bool::from_bool(false);
-            for c in (coeffs_and_vars.len())..v {
-                let comp_v = get_v_composition(v, c);
-                uses_another_var = Bool::or(&[&uses_another_var, &comp_v]);
-            }
-
-            for next in (v + 1)..rows_vars {
-                let mut next_var_uses_another_var = Bool::from_bool(false);
-                let mut next_is_empty = Bool::from_bool(true);
-                for c in coeffs_and_vars.len()..next {
-                    // because it can only use previous
-                    let comp_next = get_v_composition(next, c);
-                    next_var_uses_another_var = Bool::or(&[&next_var_uses_another_var, &comp_next]);
-                    next_is_empty = Bool::and(&[&next_is_empty, &comp_next.not()]);
-                }
-                assert_tracked!(
-                    solver,
-                    Bool::or(&[
-                        &uses_another_var.not(),
-                        &next_is_empty,
-                        &next_var_uses_another_var
-                    ]),
-                    format!("First variables with only factors: v{} next{}", v, next)
-                );
-            }
-
-            // Two terms with the same variables cannot be used in the same variable
-            for first in 0..coeffs_and_vars.len() {
-                for second in (first + 1)..coeffs_and_vars.len() {
-                    if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
-                        assert_tracked!(
-                            solver,
-                            Bool::or(&[
-                                &get_v_composition(v, first).not(),
-                                &get_v_composition(v, second).not()
-                            ]),
-                            format!(
-                                "Two terms with same variables: v{} first{} second{}",
-                                v, first, second
-                            )
-                        );
-                    }
-                }
-            }
-        }
-
-        let empty: Vec<Bool> = (0..rows_vars)
-            .map(|v| {
-                let nots: Vec<Bool> =
-                    (0..cols_vars).map(|c| get_v_composition(v, c).not()).collect();
-                Bool::and(&nots.iter().collect::<Vec<_>>())
-            })
-            .collect();
-
-        // Ordered by its maximum column
-        for var in 0..rows_vars.saturating_sub(1) {
-            for c in 0..cols_vars {
-                let mut lits: Vec<Bool> =
-                    (c..cols_vars).map(|k| get_v_composition(var + 1, k)).collect();
-                lits.push(empty[var + 1].clone());
-                assert_tracked!(
-                    solver,
-                    &get_v_composition(var, c).implies(&Bool::or(&lits.iter().collect::<Vec<_>>())),
-                    format!("Order column var{} c{}", var, c)
-                );
-            }
-        }
-
-        // Each new variable can only use previous variables and cannot use itself to create a new variable
-        for v in 0..rows_vars {
-            for c in (coeffs_and_vars.len() + v)..cols_vars {
-                assert_tracked!(
-                    solver,
-                    &get_v_composition(v, c).not(),
-                    format!("Only use previous vars: v{} c{}", v, c)
-                );
-            }
-        }
-
-        // Empty variables must be at the end of the matrix
-        for v in 0..rows_vars.saturating_sub(1) {
-            let mut empty_var = Bool::from_bool(true);
-            let mut empty_next = Bool::from_bool(true);
-
-            for c in 0..cols_vars {
-                let selected_v = get_v_composition(v, c);
-                empty_var = Bool::and(&[&empty_var, &selected_v.not()]);
-
-                let selected_next = get_v_composition(v + 1, c);
-                empty_next = Bool::and(&[&empty_next, &selected_next.not()]);
-            }
-
-            assert_tracked!(
-                solver,
-                Bool::or(&[&empty_var.not(), &empty_next]),
-                format!("Empty vars at the end: v{}", v)
-            );
-        }
-
-        // We must check that every subexpression contained in the original expression, is also contained in the transformed one
-        // Does each new variable contain or not a subexpression: just itself or another variable that is contained on it
-        let mut subexpressions_var: Vec<Vec<Bool>> = Vec::new();
-        for v in 0..rows_vars {
-            let mut sub_vars: Vec<Bool> = Vec::new();
-            for subexpr in 0..coeffs_and_vars.len() {
-                let mut contains_subexpr = get_v_composition(v, subexpr);
-
-                for prev_v in 0..v {
-                    let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
-
-                    let prev_contains = &subexpressions_var[prev_v][subexpr];
-                    let uses_subexpr_through_prev = Bool::and(&[&uses_prev, prev_contains]);
-
-                    contains_subexpr = Bool::or(&[&contains_subexpr, &uses_subexpr_through_prev]);
-                }
-                sub_vars.push(contains_subexpr);
-            }
-            subexpressions_var.push(sub_vars);
-        }
-
-        for e in 0..rows_expr {
-            for subexpr in 0..coeffs_and_vars.len() {
-                let mut used = Bool::from_bool(false);
-
-                for v in 0..rows_vars {
-                    used = Bool::or(&[
-                        &used,
-                        &Bool::and(&[&get_expr_uses(e, v), &subexpressions_var[v][subexpr]]),
-                    ]);
-                }
-
-                // If the initial expression contains this subexpression, it must be used by the transformed expression directly or by a variable that it uses
-                if vars_per_expression[e][subexpr] {
-                    assert_tracked!(
-                        solver,
-                        used,
-                        format!("Subexpression contained in expression: e{} subexpr{}", e, subexpr)
-                    );
-                }
-                // Otherwise it must not be used by the transformed expression or any variable that it uses
-                else {
-                    assert_tracked!(
-                        solver,
-                        used.not(),
-                        format!(
-                            "Subexpression not contained in expression: e{} subexpr{}",
-                            e, subexpr
-                        )
-                    );
-                }
-            }
-        }
-
-        // Substituted by: each expression at the end just has 1 variable. If it uses one variable, it cannot use any of the following variables
-        for e in 0..rows_expr {
-            for c in 0..cols_expr {
-                let used = get_expr_uses(e, c);
-
-                for next in c + 1..cols_expr {
-                    assert_tracked!(
-                        solver,
-                        Bool::or(&[&used.not(), &get_expr_uses(e, next).not()]),
-                        format!("If c used in e, next no: e{} c{} next{}", e, c, next)
-                    );
-                }
-            }
-        }
-
-        // An expression just uses non empty variables
-        for e in 0..rows_expr {
-            for v in 0..rows_vars {
-                let mut empty_var = Bool::from_bool(true);
-
-                for c in 0..cols_vars {
-                    let selected = get_v_composition(v, c);
-                    empty_var = Bool::and(&[&empty_var, &selected.not()]);
-                }
-
-                let expr_uses_aux = get_expr_uses(e, v);
-
-                // Or it does not use it, or if it uses is because the variable is not empty
-                assert_tracked!(
-                    solver,
-                    Bool::or(&[&expr_uses_aux.not(), &empty_var.not()]),
-                    format!("Expressions just use non empty vars: e{} v{}", e, v)
-                );
-            }
-        }
-
-        // Impose a saved solution for poseidon3
-        // let json_path = r"C:\Users\paula\OneDrive\Documentos\Personal\MASTER METODOS FORMALES\PLI\back_circom\variables_simplification.json";
-        // let json_contents = fs::read_to_string(json_path)
-        //     .expect("failed to read variables_simplification.json");
-        // let cluster_counts =
-        //     json::parse(&json_contents).expect("failed to parse variables_simplification.json");
-        // let max_vars = cluster_counts
-        //     .members()
-        //     .find(|entry| entry["cluster_id"].as_usize() == Some(cluster_id))
-        //     .and_then(|entry| entry["variables_introduced"].as_usize())
-        //     .expect("cluster variable count is missing from variables_simplification.json") + cluster.len();
-
-        // for v in max_vars..rows_vars {
-        //     for c in 0..cols_vars {
-        //         assert_tracked!(solver, &get_v_composition(v, c).not(), format!("Do not use var v{} col c{}", v, c));
-        //     }
-        // }
-
-        for k in 1..rows_vars + 1 {
-            solver.push();
-
-            for v in 0..k {
-                let mut used = Bool::from_bool(false);
-                for col in 0..cols_vars {
-                    used = Bool::or(&[&used, &get_v_composition(v, col)]);
-                }
-                solver.assert(&used);
-            }
-
-            for v in k..rows_vars {
-                // solver.assert(&row_nonempty[v].not());
-                for col in 0..cols_vars {
-                    solver.assert(&get_v_composition(v, col).not());
-                }
-            }
-
-            match solver.check() {
-                SatResult::Sat => {
-                    let mut model = solver.get_model().expect("SAT result must have a model");
-                    let is_selected = |variable: &Bool| {
-                        model
-                            .eval(variable, true)
-                            .and_then(|value| value.as_bool())
-                            .unwrap_or(false)
-                    };
-                    let mut created_variables = (0..rows_vars)
-                        .filter(|v| {
-                            (0..cols_vars).any(|c| {
-                                model
-                                    .eval(&vars_composition[v * cols_vars + c], true)
-                                    .and_then(|value| value.as_bool())
-                                    .unwrap_or(false)
-                            })
-                        })
-                        .count();
-
-                    let mut model_aux_signals = vec![None; rows_vars];
-                    for v in 0..rows_vars {
-                        let selected_sources: Vec<usize> = (0..cols_vars)
-                            .filter(|c| is_selected(&vars_composition[v * cols_vars + c]))
-                            .collect();
-                        if selected_sources.is_empty() {
-                            continue;
-                        }
-
-                        let source = |column: usize, model_aux_signals: &[Option<usize>]| {
-                            if column < coeffs_and_vars.len() {
-                                (coeffs_and_vars[column].0, coeffs_and_vars[column].1.clone())
-                            } else {
-                                let previous_aux = column - coeffs_and_vars.len();
-                                (model_aux_signals[previous_aux].unwrap(), BigInt::from(1))
-                            }
-                        };
-                        let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
-                        let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
-                        let pair = (signal_a, signal_b, coeff_a, coeff_b);
-                        let is_new_auxiliary = !aux_signals.contains_key(&pair);
-                        let auxiliary = apply_pair_to_cluster(
-                            storage,
-                            cluster,
-                            expression,
-                            pair,
-                            aux_signals,
-                            next_aux,
-                            non_linear_map,
-                            field,
-                        );
-                        if is_new_auxiliary {
-                            let definition_id = storage
-                                .get_ids()
-                                .last()
-                                .copied()
-                                .expect("new auxiliary must have a defining constraint");
-                            auxiliary_constraint_ids.insert(auxiliary, definition_id);
-                        }
-                        model_aux_signals[v] = Some(auxiliary);
-                    }
-
-                    if created_variables > 0 {
-                        println!("New constraints:");
-                        let mut introduced = 0;
-                        for v in 0..created_variables {
-                            let mut terms = Vec::new();
-                            for c in 0..cols_vars {
-                                if !is_selected(&vars_composition[v * cols_vars + c]) {
-                                    continue;
-                                }
-
-                                if c < coeffs_and_vars.len() {
-                                    let (signal, coefficient) = &coeffs_and_vars[c];
-                                    terms.push(format!("{} * x{}", coefficient, signal));
-                                } else {
-                                    let previous_aux = c - coeffs_and_vars.len();
-                                    terms.push(format!(
-                                        "x{}",
-                                        model_aux_signals[previous_aux].unwrap()
-                                    ));
-                                }
-                            }
-
-                            if !terms.is_empty() {
-                                let auxiliary = model_aux_signals[v].unwrap();
-                                println!("  x{} = {}", auxiliary, terms.join(" + "));
-                                introduced += 1;
-                            }
-                        }
-
-                        println!("Introduced variables ({}):", introduced);
-                        for v in 0..created_variables {
-                            println!("  x{}", model_aux_signals[v].unwrap());
-                        }
-
-                        println!("Transformed expressions:");
-                        for e in 0..rows_expr {
-                            let expression_id = cluster[e];
-                            let mut terms = Vec::new();
-                            if let Some(constant) = expression[expression_id].1.get(&0) {
-                                if constant != &BigInt::from(0) {
-                                    terms.push(constant.to_string());
-                                }
-                            }
-
-                            for v in 0..rows_vars {
-                                if is_selected(&expr_use_vars[e * cols_expr + v]) {
-                                    terms.push(format!("x{}", model_aux_signals[v].unwrap()));
-                                }
-                            }
-
-                            println!("  expression {}: {}", expression_id, terms.join(" + "));
-                        }
-                    }
-
-                    break;
-                }
-                SatResult::Unsat => {
-                    println!("\nVariable optimization: UNSAT with k = {}", k);
-                    // println!("\nVariable optimization: UNSAT");
-
-                    // let unsat_core = solver.get_unsat_core();
-
-                    // println!(
-                    //     "\nUnsatisfiable Core ({} constraints):",
-                    //     unsat_core.len()
-                    // );
-
-                    // for core_constraint in &unsat_core {
-                    //     let core_name = core_constraint.to_string();
-
-                    //     for (tracking_name, description) in &tracked_assertions {
-                    //         if tracking_name == &core_name {
-                    //             println!("  - {}", description);
-                    //             break;
-                    //         }
-                    //     }
-                    // }
-
-                    solver.pop(1);
-                    continue;
-                }
-                SatResult::Unknown => {
-                    println!("\nVariable optimization: UNKNOWN with k = {}", k);
-                    // println!("\nVariable optimization: UNKNOWN");
-                    solver.pop(1);
-                    break;
-                }
-            }
-        }
-    })
-}
-
-fn variables_optimization_bitwuzla(storage: &mut ConstraintStorage, expression: &[(usize, BTreeMap<usize, BigInt>, usize)], cluster: &[usize], aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
-next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, cluster_id: usize, auxiliary_constraint_ids: &mut BTreeMap<usize, usize>) {
-
-    let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
-
-    for &expression_id in cluster {
-        for (var, coeff) in &expression[expression_id].1 {
-            if *var == 0 || coeff == &BigInt::from(0) {
-                continue;
-            }
-
-            let pair = (*var, coeff.clone());
-            if !coeffs_and_vars.contains(&pair) {
-                coeffs_and_vars.push(pair);
-            }
-        }
-    }
-
-    let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
-
-    for &expression_id in cluster {
-        let expression_coeffs = &expression[expression_id].1;
-        let mut v = Vec::new();
-
-        for (var, coeff) in &coeffs_and_vars {
-            v.push(expression_coeffs.get(var) == Some(coeff));
-        }
-
-        vars_per_expression.push(v);
-    }
-
-    let mut bound = cluster.len();
-
-    for &expression_id in cluster {
-        bound += expression[expression_id].2;
-    }
-
-    unsafe {
-        let tm = bitwuzla_term_manager_new();
-        let options = bitwuzla_options_new();
-        bitwuzla_set_option(options, BITWUZLA_OPT_PRODUCE_MODELS, 1);
-
-        let solver = bitwuzla_new(tm, options);
-        bitwuzla_options_delete(options);
-
-        let bool_sort = bitwuzla_mk_bool_sort(tm);
-        let true_term = bitwuzla_mk_true(tm);
-        let false_term = bitwuzla_mk_false(tm);
-
-        let mk_nary = |kind: BitwuzlaKind, mut args: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
-            if args.is_empty() {
-                return if kind == BITWUZLA_KIND_AND {
-                    true_term
-                }
-                else {
-                    false_term
-                };
-            }
-            if args.len() == 1 && kind != BITWUZLA_KIND_NOT {
-                return args[0];
-            }
-            bitwuzla_mk_term(tm, kind, args.len() as u32, args.as_mut_ptr())
-        };
-
-        let mk_not = |term: BitwuzlaTerm| -> BitwuzlaTerm {
-            mk_nary(BITWUZLA_KIND_NOT, vec![term])
-        };
-
-        let mk_and = |terms: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
-            mk_nary(BITWUZLA_KIND_AND, terms)
-        };
-
-        let mk_or = |terms: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
-            mk_nary(BITWUZLA_KIND_OR, terms)
-        };
-
-        let mk_implies = |a: BitwuzlaTerm, b: BitwuzlaTerm| -> BitwuzlaTerm {
-            mk_nary(BITWUZLA_KIND_IMPLIES, vec![a, b])
-        };
-
-        let mk_equal = |a: BitwuzlaTerm, b: BitwuzlaTerm| -> BitwuzlaTerm {
-            mk_nary(BITWUZLA_KIND_EQUAL, vec![a, b])
-        };
-
-        let mut assertion_id = 0usize;
-
-        let mut new_bool = |name: String| -> BitwuzlaTerm {
-            let symbol = CString::new(name).unwrap();
-            let term = bitwuzla_mk_const(tm, bool_sort, symbol.as_ptr());
-            assertion_id += 1;
-            term
-        };
-
-        let assert_formula = |formula: BitwuzlaTerm| {
-            bitwuzla_assert(solver, formula);
-        };
-
-        let is_selected = |variable: BitwuzlaTerm| -> bool {
-            let value = bitwuzla_get_value(solver, variable);
-            bitwuzla_term_is_true(value)
-        };
-
-        let rows_expr = cluster.len();
-        let cols_expr = bound;
-
-        let mut expr_use_vars: Vec<BitwuzlaTerm> = Vec::new();
-        for e in 0..rows_expr {
-            for c in 0..cols_expr {
-                let var = new_bool(format!("expr_{}_uses_var{}", e, c));
-
-                expr_use_vars.push(var);
-            }
-        }
-
-        let get_expr_uses = |r: usize, c: usize| {
-            expr_use_vars[r * cols_expr + c]
-        };
-
-        let rows_vars = bound;
-        let cols_vars = coeffs_and_vars.len() + bound;
-
-        let mut vars_composition: Vec<BitwuzlaTerm> = Vec::new();
-
-        for v in 0..rows_vars {
-            for c in 0..cols_vars {
-                let var = new_bool(format!("var_{}_uses_{}", v, c));
-                vars_composition.push(var);
-            }
-        }
-
-        let get_v_composition = |r: usize, c: usize| {
-            vars_composition[r * cols_vars + c]
-        };
-
-        // Each new variable can be empty or formed with exactly two original variables or previous declared variables.
-        for v in 0..rows_vars {
-            // At most 2 positions are used for each variable
-            for c in 0..cols_vars {
-                let c_used = get_v_composition(v, c);
-                for c_next in c+1..cols_vars {
-                    let both_used = mk_and(vec![get_v_composition(v, c_next), c_used]);
-                    for c_not in c_next + 1..cols_vars {
-                        let c_not_used = get_v_composition(v, c_not);
-
-                        assert_formula(mk_or(vec![mk_not(both_used), mk_not(c_not_used)]));
-                    }
-                }
-            }
-
-            // At least 2 positions or 0 are used
-            let mut is_empty = true_term;
-
-            for c in 0..cols_vars {
-                is_empty = mk_and(vec![is_empty, mk_not(get_v_composition(v, c))]);
-            }
-
-            for c in 0..cols_vars {
-                let current = get_v_composition(v, c);
-                let mut another_used = false_term;
-                for other_c in 0..cols_vars {
-                    if other_c != c {
-                        another_used = mk_or(vec![another_used, get_v_composition(v, other_c)]);
-                    }
-                }
-
-                assert_formula(mk_or(vec![is_empty, mk_not(current), another_used]));
-            }
-
-            // If a variable is not empty, it must be used by another variable or a final expression.
-            let mut used_by_another_var = false_term;
-
-            for next_var in v + 1..rows_vars {
-                let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
-                used_by_another_var = mk_or(vec![used_by_another_var, uses_v]);
-            }
-
-            let mut used_by_final_expr = false_term;
-
-            for e in 0..rows_expr {
-                used_by_final_expr = mk_or(vec![used_by_final_expr, get_expr_uses(e, v)]);
-            }
-
-            assert_formula(mk_or(vec![is_empty, used_by_another_var, used_by_final_expr]));
-
-            for next in v + 1..rows_vars {
-                let mut different = false_term;
-
-                for c in 0..cols_vars {
-                    let comp_v = get_v_composition(v, c);
-                    let comp_next = get_v_composition(next, c);
-
-                    different = mk_or(vec![different, mk_not(mk_equal(comp_v, comp_next))]);
-                }
-
-                assert_formula(mk_or(vec![is_empty, different]));
-            }
-
-            let mut uses_another_var = false_term;
-
-            for c in coeffs_and_vars.len()..v {
-                uses_another_var = mk_or(vec![uses_another_var, get_v_composition(v, c)]);
-            }
-
-            for next in v + 1..rows_vars {
-                let mut next_var_uses_another_var = false_term;
-                let mut next_is_empty = true_term;
-
-                for c in coeffs_and_vars.len()..next {
-                    let comp_next = get_v_composition(next, c);
-
-                    next_var_uses_another_var = mk_or(vec![next_var_uses_another_var, comp_next]);
-                    next_is_empty = mk_and(vec![next_is_empty, mk_not(comp_next)]);
-                }
-
-                assert_formula(mk_or(vec![mk_not(uses_another_var), next_is_empty, next_var_uses_another_var]));
-            }
-
-            // Two terms with the same variables cannot be used in the same auxiliary variable.
-            for first in 0..coeffs_and_vars.len() {
-                for second in first + 1..coeffs_and_vars.len() {
-                    if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
-                        assert_formula(mk_or(vec![mk_not(get_v_composition(v, first)), mk_not(get_v_composition(v, second))]));
-                    }
-                }
-            }
-        }
-
-        // Empty variables
-        let mut empty: Vec<BitwuzlaTerm> = Vec::new();
-
-        for v in 0..rows_vars {
-            let mut nots = Vec::new();
-
-            for c in 0..cols_vars {
-                nots.push(mk_not(get_v_composition(v, c)));
-            }
-
-            empty.push(mk_and(nots));
-        }
-
-        // Ordered by its maximum column
-        for var in 0..rows_vars.saturating_sub(1) {
-            for c in 0..cols_vars {
-                let mut lits = Vec::new();
-                for k in c..cols_vars {
-                    lits.push(get_v_composition(var + 1, k));
-                }
-
-                lits.push(empty[var + 1]);
-
-                assert_formula(mk_implies(get_v_composition(var, c), mk_or(lits)));
-            }
-        }
-
-        // Each new variable can only use previous variables
-        for v in 0..rows_vars {
-            for c in coeffs_and_vars.len() + v..cols_vars {
-                assert_formula(mk_not(get_v_composition(v, c)));
-            }
-        }
-
-        // Empty variables must be at the end
-        for v in 0..rows_vars.saturating_sub(1) {
-            let mut empty_var = true_term;
-            let mut empty_next = true_term;
-
-            for c in 0..cols_vars {
-                let selected_v = get_v_composition(v, c);
-                empty_var = mk_and(vec![empty_var, mk_not(selected_v)]);
-
-                let selected_next = get_v_composition(v + 1, c);
-                empty_next = mk_and(vec![empty_next, mk_not(selected_next)]);
-            }
-
-            assert_formula(mk_or(vec![mk_not(empty_var), empty_next]));
-        }
-
-        let mut subexpressions_var: Vec<Vec<BitwuzlaTerm>> = Vec::new();
-
-        for v in 0..rows_vars {
-            let mut sub_vars = Vec::new();
-            for subexpr in 0..coeffs_and_vars.len() {
-                let mut contains_subexpr = get_v_composition(v, subexpr);
-
-                for prev_v in 0..v {
-                    let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
-                    let prev_contains = subexpressions_var[prev_v][subexpr];
-                    let uses_subexpr_through_prev = mk_and(vec![uses_prev, prev_contains]);
-                    contains_subexpr = mk_or(vec![contains_subexpr, uses_subexpr_through_prev]);
-                }
-
-                sub_vars.push(contains_subexpr);
-            }
-
-            subexpressions_var.push(sub_vars);
-        }
-
-        for e in 0..rows_expr {
-            for subexpr in 0..coeffs_and_vars.len() {
-                let mut used = false_term;
-
-                for v in 0..rows_vars {
-                    used = mk_or(vec![used, mk_and(vec![get_expr_uses(e, v), subexpressions_var[v][subexpr]])]);
-                }
-
-                if vars_per_expression[e][subexpr] {
-                    assert_formula(used);
-                }
-                else {
-                    assert_formula(mk_not(used));
-                }
-            }
-        }
-
-        // Each final expression uses at most one auxiliary variable
-        for e in 0..rows_expr {
-            for c in 0..cols_expr {
-                let used = get_expr_uses(e, c);
-
-                for next in c + 1..cols_expr {
-                    assert_formula(mk_or(vec![mk_not(used), mk_not(get_expr_uses(e, next))]));
-                }
-            }
-        }
-
-        // An expression only uses non-empty variables
-        for e in 0..rows_expr {
-            for v in 0..rows_vars {
-                let mut empty_var = true_term;
-
-                for c in 0..cols_vars {
-                    empty_var = mk_and(vec![empty_var, mk_not(get_v_composition(v, c))]);
-                }
-
-                let expr_uses_aux = get_expr_uses(e, v);
-                assert_formula(mk_or(vec![mk_not(expr_uses_aux), mk_not(empty_var)]));
-            }
-        }
-
-        // Incremental minimization of auxiliary variables
-        for k in 1..rows_vars + 1 {
-            bitwuzla_push(solver, 1);
-
-            for v in 0..k {
-                let mut used = false_term;
-
-                for col in 0..cols_vars {
-                    used = mk_or(vec![used, get_v_composition(v, col)]);
-                }
-
-                bitwuzla_assert(solver, used);
-            }
-
-            for v in k..rows_vars {
-                for col in 0..cols_vars {
-                    bitwuzla_assert(solver, mk_not(get_v_composition(v, col)));
-                }
-            }
-
-            match bitwuzla_check_sat(solver) {
-                BITWUZLA_SAT => {
-
-                    println!("[Bitwuzla] Cluster {} -> SAT with k = {}", cluster_id, k);
-                    let mut created_variables = 0usize;
-
-                    for v in 0..rows_vars {
-                        let mut used = false;
-
-                        for c in 0..cols_vars {
-                            if is_selected(vars_composition[v * cols_vars + c]) {
-                                used = true;
-                                break;
-                            }
-                        }
-
-                        if used {
-                            created_variables += 1;
-                        }
-                    }
-
-                    let mut model_aux_signals = vec![None; rows_vars];
-
-                    for v in 0..rows_vars {
-                        let mut selected_sources = Vec::new();
-
-                        for c in 0..cols_vars {
-                            if is_selected(vars_composition[v * cols_vars + c]) {
-                                selected_sources.push(c);
-                            }
-                        }
-
-                        if selected_sources.is_empty() {continue;}
-
-                        let source = |column: usize, model_aux_signals: &[Option<usize>]| -> (usize, BigInt) {
-                            if column < coeffs_and_vars.len() {
-                                (
-                                    coeffs_and_vars[column].0,
-                                    coeffs_and_vars[column].1.clone(),
-                                )
-                            } else {
-                                let previous_aux = column - coeffs_and_vars.len();
-                                (
-                                    model_aux_signals[previous_aux]
-                                        .unwrap(),
-                                    BigInt::from(1),
-                                )
-                            }
-                        };
-
-                        let (signal_a, coeff_a) = source(
-                            selected_sources[0],
-                            &model_aux_signals,
-                        );
-
-                        let (signal_b, coeff_b) = source(
-                            selected_sources[1],
-                            &model_aux_signals,
-                        );
-
-                        let pair = (
-                            signal_a,
-                            signal_b,
-                            coeff_a,
-                            coeff_b,
-                        );
-
-                        let is_new_auxiliary =
-                            !aux_signals.contains_key(&pair);
-
-                        let auxiliary = apply_pair_to_cluster(
-                            storage,
-                            cluster,
-                            expression,
-                            pair,
-                            aux_signals,
-                            next_aux,
-                            non_linear_map,
-                            field,
-                        );
-
-                        if is_new_auxiliary {
-                            let definition_id = storage
-                                .get_ids()
-                                .last()
-                                .copied()
-                                .expect(
-                                    "new auxiliary must have a defining constraint",
-                                );
-
-                            auxiliary_constraint_ids.insert(
-                                auxiliary,
-                                definition_id,
-                            );
-                        }
-
-                        model_aux_signals[v] = Some(auxiliary);
-                    }
-
-                    if created_variables > 0 {
-                        // println!("New constraints:");
-
-                        let mut introduced = 0;
-
-                        for v in 0..created_variables {
-                            let mut terms = Vec::new();
-
-                            for c in 0..cols_vars {
-                                if !is_selected(
-                                    vars_composition[v * cols_vars + c],
-                                ) {
-                                    continue;
-                                }
-
-                                if c < coeffs_and_vars.len() {
-                                    let (signal, coefficient) =
-                                        &coeffs_and_vars[c];
-
-                                    terms.push(format!(
-                                        "{} * x{}",
-                                        coefficient,
-                                        signal
-                                    ));
-                                } else {
-                                    let previous_aux =
-                                        c - coeffs_and_vars.len();
-
-                                    terms.push(format!(
-                                        "x{}",
-                                        model_aux_signals[previous_aux]
-                                            .unwrap()
-                                    ));
-                                }
-                            }
-
-                            if !terms.is_empty() {
-                                let auxiliary =
-                                    model_aux_signals[v].unwrap();
-
-                                // println!(
-                                //     "  x{} = {}",
-                                //     auxiliary,
-                                //     terms.join(" + ")
-                                // );
-
-                                introduced += 1;
-                            }
-                        }
-
-                        // println!(
-                        //     "Introduced variables ({}):",
-                        //     introduced
-                        // );
-
-                        for v in 0..created_variables {
-                            // println!(
-                            //     "  x{}",
-                            //     model_aux_signals[v].unwrap()
-                            // );
-                        }
-
-                        // println!("Transformed expressions:");
-
-                        for e in 0..rows_expr {
-                            let expression_id = cluster[e];
-                            let mut terms = Vec::new();
-
-                            if let Some(constant) =
-                                expression[expression_id].1.get(&0)
-                            {
-                                if constant != &BigInt::from(0) {
-                                    terms.push(constant.to_string());
-                                }
-                            }
-
-                            for v in 0..rows_vars {
-                                if is_selected(get_expr_uses(e, v)) {
-                                    terms.push(format!(
-                                        "x{}",
-                                        model_aux_signals[v].unwrap()
-                                    ));
-                                }
-                            }
-
-                            // println!(
-                            //     "  expression {}: {}",
-                            //     expression_id,
-                            //     terms.join(" + ")
-                            // );
-                        }
-                    }
-
-                    break;
-                }
-
-                BITWUZLA_UNSAT => {
-                    println!(
-                        "\nVariable optimization: UNSAT with k = {}",
-                        k
-                    );
-
-                    bitwuzla_pop(solver, 1);
-                    continue;
-                }
-
-                BITWUZLA_UNKNOWN => {
-                    println!(
-                        "\nVariable optimization: UNKNOWN with k = {}",
-                        k
-                    );
-
-                    bitwuzla_pop(solver, 1);
-                    break;
-                }
-
-                _ => {
-                    bitwuzla_pop(solver, 1);
-                    break;
-                }
-            }
-        }
-
-        // Release Bitwuzla resources
-        bitwuzla_delete(solver);
-        bitwuzla_term_manager_delete(tm);
-    }
-}
-
-fn variables_optimization_cadical(
-    storage: &mut ConstraintStorage,
-    expression: &[(usize, BTreeMap<usize, BigInt>, usize)],
-    cluster: &[usize],
-    aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
-    next_aux: &mut usize,
-    non_linear_map: &mut SignalToConstraints,
-    field: &BigInt,
-    cluster_id: usize,
-    auxiliary_constraint_ids: &mut BTreeMap<usize, usize>,
-) {
-    let mut constraints_ids = Vec::new();
-    let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
-
-    for &expression_id in cluster {
-        let constraint_id = expression[expression_id].0;
-
-        if !constraints_ids.contains(&constraint_id) {
-            constraints_ids.push(constraint_id);
-        }
-
-        for (var, coeff) in &expression[expression_id].1 {
-            if *var == 0 || coeff == &BigInt::from(0) {
-                continue;
-            }
-
-            let pair = (*var, coeff.clone());
-
-            if !coeffs_and_vars.contains(&pair) {
-                coeffs_and_vars.push(pair);
-            }
-        }
-    }
-
-    let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
-
-    for &expression_id in cluster {
-        let expression_coeffs = &expression[expression_id].1;
-        let mut v = Vec::new();
-
-        for (var, coeff) in &coeffs_and_vars {
-            let present = expression_coeffs.get(var) == Some(coeff);
-            v.push(present);
-        }
-
-        vars_per_expression.push(v);
-    }
-
-    let mut bound = cluster.len();
-
-    for &expression_id in cluster {
-        bound += expression[expression_id].2;
-    }
-
-    let mut solver: CadicalSolver<Timeout> = CadicalSolver::default();
-
-    // SAT variable 1 == TRUE and -1 == FALSE
-    solver.add_clause([1]);
-    let mut next_sat_var: i32 = 2;
-
-    // Create a new SAT var
-    macro_rules! new_sat_var {
-        () => {{
-            let var = next_sat_var;
-            next_sat_var += 1;
-            var
-        }};
-    }
-
-    // Create a SAT var equivalent to the conjunction
-    macro_rules! sat_and {
-        ($lits:expr) => {{
-            let lits: Vec<i32> = $lits;
-            if lits.is_empty() {
-                1
-            } else if lits.len() == 1 {
-                lits[0]
-            } else {
-                let result = new_sat_var!();
-                for lit in &lits {
-                    solver.add_clause([-result, *lit]);
-                }
-                let mut clause = vec![result];
-
-                for lit in &lits {
-                    clause.push(-*lit);
-                }
-                solver.add_clause(clause);
-                result
-            }
-        }};
-    }
-
-    macro_rules! sat_or {
-        ($lits:expr) => {{
-            let lits: Vec<i32> = $lits;
-
-            if lits.is_empty() {
-                -1
-            } else if lits.len() == 1 {
-                lits[0]
-            } else {
-                let result = new_sat_var!();
-
-                for lit in &lits {
-                    solver.add_clause([-*lit, result]);
-                }
-
-                let mut clause = vec![-result];
-
-                for lit in &lits {
-                    clause.push(*lit);
-                }
-
-                solver.add_clause(clause);
-
-                result
-            }
-        }};
-    }
-
-    macro_rules! sat_xor {
-        ($a:expr, $b:expr) => {{
-            let a = $a;
-            let b = $b;
-
-            let result = new_sat_var!();
-
-            solver.add_clause([a, b, -result]);
-            solver.add_clause([-a, -b, -result]);
-            solver.add_clause([a, -b, result]);
-            solver.add_clause([-a, b, result]);
-
-            result
-        }};
-    }
-
-    let rows_expr = cluster.len();
-    let cols_expr = bound;
-    let mut expr_use_vars = Vec::new();
-
-    for e in 0..rows_expr {
-        for c in 0..cols_expr {
-            let var = new_sat_var!();
-            expr_use_vars.push(var);
-        }
-    }
-
-    let get_expr_uses = |r: usize, c: usize| expr_use_vars[r * cols_expr + c];
-
-    let rows_vars = bound;
-    let cols_vars = coeffs_and_vars.len() + bound;
-
-    let mut vars_composition = Vec::new();
-
-    for v in 0..rows_vars {
-        for c in 0..cols_vars {
-            let var = new_sat_var!();
-            vars_composition.push(var);
-        }
-    }
-
-    let get_v_composition = |r: usize, c: usize| vars_composition[r * cols_vars + c];
-
-    // non_empty
-    let mut row_nonempty = Vec::new();
-
-    for v in 0..rows_vars {
-        let mut lits = Vec::new();
-
-        for c in 0..cols_vars {
-            lits.push(get_v_composition(v, c));
-        }
-
-        row_nonempty.push(sat_or!(lits));
-    }
-
-    // Empty or formed with exactly 2 variables
-    for v in 0..rows_vars {
-        // At most 2 variables
-        for c in 0..cols_vars {
-            let c_used = get_v_composition(v, c);
-
-            for c_next in c + 1..cols_vars {
-                let c_next_used = get_v_composition(v, c_next);
-                for c_not in c_next + 1..cols_vars {
-                    let c_not_used = get_v_composition(v, c_not);
-                    solver.add_clause([-c_used, -c_next_used, -c_not_used]);
-                }
-            }
-        }
-
-        // At least 2
-        for c in 0..cols_vars {
-            let current = get_v_composition(v, c);
-            let mut another_used = Vec::new();
-
-            for other_c in 0..cols_vars {
-                if other_c != c {
-                    another_used.push(get_v_composition(v, other_c));
-                }
-            }
-
-            let another_used = sat_or!(another_used);
-            solver.add_clause([-row_nonempty[v], -current, another_used]);
-        }
-
-        // If non empty, it is used by someone
-        let mut used_by_another_var = Vec::new();
-
-        for next_var in (v + 1)..rows_vars {
-            let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
-
-            used_by_another_var.push(uses_v);
-        }
-
-        let mut used_by_final_expr = Vec::new();
-
-        for e in 0..rows_expr {
-            let uses_v = get_expr_uses(e, v);
-            used_by_final_expr.push(uses_v);
-        }
-
-        let mut used_by_someone = used_by_another_var;
-        used_by_someone.extend(used_by_final_expr);
-
-        let used_by_someone = sat_or!(used_by_someone);
-
-        solver.add_clause([-row_nonempty[v], used_by_someone]);
-
-        // Cannot exist 2 variables with the same composition
-        for next in (v + 1)..rows_vars {
-            let mut different = Vec::new();
-
-            for c in 0..cols_vars {
-                let comp_v = get_v_composition(v, c);
-                let comp_next = get_v_composition(next, c);
-
-                different.push(sat_xor!(comp_v, comp_next));
-            }
-
-            let different = sat_or!(different);
-            solver.add_clause([-row_nonempty[v], different]);
-        }
-
-        // First appear the variables that only use factors.
-        let mut uses_another_var = Vec::new();
-
-        for c in coeffs_and_vars.len()..v {
-            let comp_v = get_v_composition(v, c);
-            uses_another_var.push(comp_v);
-        }
-
-        let uses_another_var = sat_or!(uses_another_var);
-
-        for next in (v + 1)..rows_vars {
-            let mut next_var_uses_another_var = Vec::new();
-            let mut next_is_empty = Vec::new();
-
-            for c in coeffs_and_vars.len()..next {
-                let comp_next = get_v_composition(next, c);
-                next_var_uses_another_var.push(comp_next);
-                next_is_empty.push(-comp_next);
-            }
-
-            let next_var_uses_another_var = sat_or!(next_var_uses_another_var);
-            let next_is_empty = sat_and!(next_is_empty);
-
-            solver.add_clause([-uses_another_var, next_is_empty, next_var_uses_another_var]);
-        }
-
-        // Two terms with the same variables cannot be used in the same variable.
-        for first in 0..coeffs_and_vars.len() {
-            for second in (first + 1)..coeffs_and_vars.len() {
-                if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
-                    solver
-                        .add_clause([-get_v_composition(v, first), -get_v_composition(v, second)]);
-                }
-            }
-        }
-    }
-
-    // Empty vars
-    let mut empty = Vec::new();
-
-    for v in 0..rows_vars {
-        empty.push(-row_nonempty[v]);
-    }
-
-    // Ordered by maximum column
-    for var in 0..rows_vars.saturating_sub(1) {
-        for c in 0..cols_vars {
-            let mut clause = Vec::new();
-            clause.push(-get_v_composition(var, c));
-
-            for k in c..cols_vars {
-                clause.push(get_v_composition(var + 1, k));
-            }
-
-            clause.push(empty[var + 1]);
-            solver.add_clause(clause);
-        }
-    }
-
-    // Each new variable can only use previous variables and cannot use itself to create a new variable.
-    for v in 0..rows_vars {
-        for c in (coeffs_and_vars.len() + v)..cols_vars {
-            solver.add_clause([-get_v_composition(v, c)]);
-        }
-    }
-
-    // Empty vars at the end of the matrix
-    for v in 0..rows_vars.saturating_sub(1) {
-        solver.add_clause([row_nonempty[v], -row_nonempty[v + 1]]);
-    }
-
-    let mut subexpressions_var: Vec<Vec<i32>> = Vec::new();
-
-    for v in 0..rows_vars {
-        let mut sub_vars: Vec<i32> = Vec::new();
-
-        for subexpr in 0..coeffs_and_vars.len() {
-            let mut contains_terms = Vec::new();
-
-            contains_terms.push(get_v_composition(v, subexpr));
-
-            for prev_v in 0..v {
-                let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
-                let prev_contains = subexpressions_var[prev_v][subexpr];
-                let uses_subexpr_through_prev = sat_and!(vec![uses_prev, prev_contains]);
-
-                contains_terms.push(uses_subexpr_through_prev);
-            }
-
-            let contains_subexpr = sat_or!(contains_terms);
-
-            sub_vars.push(contains_subexpr);
-        }
-
-        subexpressions_var.push(sub_vars);
-    }
-
-    for e in 0..rows_expr {
-        for subexpr in 0..coeffs_and_vars.len() {
-            let mut used_terms = Vec::new();
-
-            for v in 0..rows_vars {
-                let used_by_expr = get_expr_uses(e, v);
-                let contains_subexpr = subexpressions_var[v][subexpr];
-
-                let used = sat_and!(vec![used_by_expr, contains_subexpr]);
-
-                used_terms.push(used);
-            }
-
-            let used = sat_or!(used_terms);
-
-            if vars_per_expression[e][subexpr] {
-                solver.add_clause([used]);
-            } else {
-                solver.add_clause([-used]);
-            }
-        }
-    }
-
-    // Each expression at the end just has 1 variable
-    for e in 0..rows_expr {
-        for c in 0..cols_expr {
-            let used = get_expr_uses(e, c);
-
-            for next in c + 1..cols_expr {
-                solver.add_clause([-used, -get_expr_uses(e, next)]);
-            }
-        }
-    }
-
-    // An expression just uses non-empty variables.
-    for e in 0..rows_expr {
-        for v in 0..rows_vars {
-            let expr_uses_aux = get_expr_uses(e, v);
-            solver.add_clause([-expr_uses_aux, row_nonempty[v]]);
-        }
-    }
-
-    let _ = cluster_id;
-    let _ = constraints_ids;
-
-    // Incremental minimization of auxiliary variables.
-    for k in 1..rows_vars + 1 {
-        let mut assumptions = Vec::new();
-
-        for v in 0..k {
-            assumptions.push(row_nonempty[v]);
-        }
-
-        for v in k..rows_vars {
-            assumptions.push(-row_nonempty[v]);
-        }
-
-        match solver.solve_with(assumptions) {
-            Some(true) => {
-                println!("[Cadical] Cluster {} -> SAT with k = {}", cluster_id, k);
-
-                let is_selected = |variable: i32| solver.value(variable).unwrap_or(false);
-
-                let created_variables = (0..rows_vars)
-                    .filter(|v| {
-                        (0..cols_vars).any(|c| is_selected(vars_composition[*v * cols_vars + c]))
-                    })
-                    .count();
-
-                let mut model_aux_signals = vec![None; rows_vars];
-
-                for v in 0..rows_vars {
-                    let selected_sources: Vec<usize> = (0..cols_vars)
-                        .filter(|c| is_selected(vars_composition[v * cols_vars + *c]))
-                        .collect();
-
-                    if selected_sources.is_empty() {
-                        continue;
-                    }
-
-                    assert_eq!(
-                        selected_sources.len(),
-                        2,
-                        "An auxiliary variable must use exactly two sources"
-                    );
-
-                    let source = |column: usize, model_aux_signals: &[Option<usize>]| {
-                        if column < coeffs_and_vars.len() {
-                            (coeffs_and_vars[column].0, coeffs_and_vars[column].1.clone())
-                        } else {
-                            let previous_aux = column - coeffs_and_vars.len();
-
-                            (model_aux_signals[previous_aux].unwrap(), BigInt::from(1))
-                        }
-                    };
-
-                    let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
-                    let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
-                    let pair = (signal_a, signal_b, coeff_a, coeff_b);
-
-                    let is_new_auxiliary = !aux_signals.contains_key(&pair);
-
-                    let auxiliary = apply_pair_to_cluster(
-                        storage,
-                        cluster,
-                        expression,
-                        pair,
-                        aux_signals,
-                        next_aux,
-                        non_linear_map,
-                        field,
-                    );
-
-                    if is_new_auxiliary {
-                        let definition_id = storage
-                            .get_ids()
-                            .last()
-                            .copied()
-                            .expect("new auxiliary must have a defining constraint");
-
-                        auxiliary_constraint_ids.insert(auxiliary, definition_id);
-                    }
-
-                    model_aux_signals[v] = Some(auxiliary);
-                }
-
-                if created_variables > 0 {
-                    println!("New constraints:");
-
-                    let mut introduced = 0;
-
-                    for v in 0..created_variables {
-                        let mut terms = Vec::new();
-
-                        for c in 0..cols_vars {
-                            if !is_selected(vars_composition[v * cols_vars + c]) {
-                                continue;
-                            }
-
-                            if c < coeffs_and_vars.len() {
-                                let (signal, coefficient) = &coeffs_and_vars[c];
-                                terms.push(format!("{} * x{}", coefficient, signal));
-                            } else {
-                                let previous_aux = c - coeffs_and_vars.len();
-                                terms.push(format!("x{}", model_aux_signals[previous_aux].unwrap()));
-                            }
-                        }
-
-                        if !terms.is_empty() {
-                            let auxiliary = model_aux_signals[v].unwrap();
-                            println!("  x{} = {}", auxiliary, terms.join(" + "));
-                            introduced += 1;
-                        }
-                    }
-
-                    println!("Introduced variables ({}):", introduced);
-
-                    for v in 0..created_variables {
-                        println!("  x{}", model_aux_signals[v].unwrap());
-                    }
-
-                    println!("Transformed expressions:");
-
-                    for e in 0..rows_expr {
-                        let expression_id = cluster[e];
-                        let mut terms = Vec::new();
-
-                        if let Some(constant) = expression[expression_id].1.get(&0) {
-                            if constant != &BigInt::from(0) {
-                                terms.push(constant.to_string());
-                            }
-                        }
-
-                        for v in 0..rows_vars {
-                            if is_selected(expr_use_vars[e * cols_expr + v]) {
-                                terms.push(format!("x{}", model_aux_signals[v].unwrap()));
-                            }
-                        }
-
-                        println!("  expression {}: {}", expression_id, terms.join(" + "));
-                    }
-                }
-
-                break;
-            }
-
-            Some(false) => {
-                println!("Variable optimization: UNSAT with k = {}", k);
-            }
-
-            None => {
-                println!("Variable optimization: UNKNOWN with k = {}", k);
-                break;
-            }
-        }
-    }
-}
+// fn variables_optimization(
+//     storage: &mut ConstraintStorage,
+//     expression: &[(usize, BTreeMap<usize, BigInt>, usize)],
+//     cluster: &[usize],
+//     aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
+//     next_aux: &mut usize,
+//     non_linear_map: &mut SignalToConstraints,
+//     field: &BigInt,
+// ) {
+//     let mut constraints_ids = Vec::new();
+//     let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
+
+//     for &expression_id in cluster {
+//         let constraint_id = expression[expression_id].0;
+//         if !constraints_ids.contains(&constraint_id) {
+//             constraints_ids.push(constraint_id);
+//         }
+
+//         for (var, coeff) in &expression[expression_id].1 {
+//             if *var == 0 || coeff == &BigInt::from(0) {
+//                 continue;
+//             }
+
+//             let pair = (*var, coeff.clone());
+//             if !coeffs_and_vars.contains(&pair) {
+//                 coeffs_and_vars.push(pair);
+//             }
+//         }
+//     }
+
+//     let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
+
+//     for &expression_id in cluster {
+//         let expression_coeffs = &expression[expression_id].1;
+//         let mut v = Vec::new();
+
+//         for (var, coeff) in &coeffs_and_vars {
+//             let present = expression_coeffs.get(var) == Some(coeff);
+//             v.push(present);
+//         }
+
+//         vars_per_expression.push(v);
+//     }
+
+//     let mut bound = cluster.len(); // Maximum number of variables that are needed to transform all the expressions of the cluster into plonk
+//     for &expression_id in cluster {
+//         bound += expression[expression_id].2;
+//     }
+
+//     let config = Config::new();
+//     with_z3_config(&config, || {
+//         let mut solver = Solver::new();
+//         let zero = Int::from_i64(0);
+//         let one = Int::from_i64(1);
+
+//         let mut expr_use_vars = Vec::new();
+//         let rows_expr = cluster.len();
+//         // Because we are impossing that each expression at the end just has 1 variable, it cannot be an original expression because if not, it will plonk originally
+//         let cols_expr = bound;
+
+//         for e in 0..rows_expr {
+//             for c in 0..cols_expr {
+//                 let var = Bool::new_const(format!("expr_{}_uses_var_{}", e, c));
+
+//                 expr_use_vars.push(var);
+//             }
+//         }
+
+//         let get_expr_uses = |r: usize, c: usize| expr_use_vars[r * cols_expr + c].clone();
+
+//         let mut vars_composition = Vec::new();
+//         let rows_vars = bound;
+//         let cols_vars = coeffs_and_vars.len() + bound;
+
+//         for v in 0..rows_vars {
+//             for c in 0..cols_vars {
+//                 let v = Bool::new_const(format!("var_{}_uses_{}", v, c));
+//                 vars_composition.push(v);
+//             }
+//         }
+
+//         let get_v_composition = |r: usize, c: usize| vars_composition[r * cols_vars + c].clone();
+
+//         // Each new variable can be empty or formed with exactly 2 original variables or previous declared new variables
+//         for v in 0..rows_vars {
+//             // At most 2 positions are used for each variable
+//             for c in 0..cols_vars {
+//                 let c_used = get_v_composition(v, c);
+//                 for c_next in c + 1..cols_vars {
+//                     let both_used = Bool::and(&[&get_v_composition(v, c_next), &c_used]);
+//                     for c_not in c_next + 1..cols_vars {
+//                         let c_not_used = get_v_composition(v, c_not);
+
+//                         // If both variables are used yet, any other variable can be used
+//                         solver.assert(Bool::or(&[&both_used.not(), &c_not_used.not()]));
+//                     }
+//                 }
+//             }
+
+//             // At least 2 positions or 0 are used for each variable
+//             let mut is_empty = Bool::from_bool(true);
+//             for c in 0..cols_vars {
+//                 is_empty = Bool::and(&[&is_empty, &&get_v_composition(v, c).not()]);
+//             }
+
+//             for c in 0..cols_vars {
+//                 let current = get_v_composition(v, c);
+//                 let mut another_used = Bool::from_bool(false);
+
+//                 for other_c in 0..cols_vars {
+//                     if other_c != c {
+//                         another_used = Bool::or(&[&another_used, &get_v_composition(v, other_c)]);
+//                     }
+//                 }
+
+//                 solver.assert(Bool::or(&[&is_empty, &current.not(), &another_used]));
+//             }
+
+//             // If a variable is not empty it is because it is used by someone.
+//             let mut used_by_another_var = Bool::from_bool(false);
+//             for next_var in (v + 1)..rows_vars {
+//                 let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
+//                 used_by_another_var = Bool::or(&[&used_by_another_var, &uses_v]);
+//             }
+
+//             let mut used_by_final_expr = Bool::from_bool(false);
+//             for e in 0..rows_expr {
+//                 let uses_v = get_expr_uses(e, v);
+//                 used_by_final_expr = Bool::or(&[&used_by_final_expr, &uses_v]);
+//             }
+
+//             solver.assert(Bool::or(&[
+//                 &is_empty,
+//                 &Bool::or(&[&used_by_another_var, &used_by_final_expr]),
+//             ]));
+
+//             // Cannot exist two variables with the same composition except for the empty variables
+//             for next in (v + 1)..rows_vars {
+//                 let mut different = Bool::from_bool(false);
+//                 for c in 0..cols_vars {
+//                     let comp_v = get_v_composition(v, c);
+//                     let comp_next = get_v_composition(next, c);
+//                     different = Bool::or(&[&different, &comp_v._eq(&comp_next).not()]);
+//                 }
+//                 solver.assert(Bool::or(&[&is_empty, &different]));
+//             }
+
+//             // If a variable uses another variable created before, then the next variables must hold the same. First appear the variables that only use factors
+//             let mut uses_another_var = Bool::from_bool(false);
+//             for c in (coeffs_and_vars.len())..v {
+//                 let comp_v = get_v_composition(v, c);
+//                 uses_another_var = Bool::or(&[&uses_another_var, &comp_v]);
+//             }
+
+//             for next in (v + 1)..rows_vars {
+//                 let mut next_var_uses_another_var = Bool::from_bool(false);
+//                 let mut next_is_empty = Bool::from_bool(true);
+//                 for c in coeffs_and_vars.len()..next {
+//                     // because it can only use previous vars ..cols_vars
+//                     let comp_next = get_v_composition(next, c);
+//                     next_var_uses_another_var = Bool::or(&[&next_var_uses_another_var, &comp_next]);
+//                     next_is_empty = Bool::and(&[&next_is_empty, &comp_next.not()]);
+//                 }
+//                 solver.assert(Bool::or(&[
+//                     &uses_another_var.not(),
+//                     &next_is_empty,
+//                     &next_var_uses_another_var,
+//                 ]));
+//             }
+
+//             let empty: Vec<Bool> = (0..rows_vars)
+//                 .map(|v| {
+//                     let nots: Vec<Bool> =
+//                         (0..cols_vars).map(|c| get_v_composition(v, c).not()).collect();
+//                     Bool::and(&nots.iter().collect::<Vec<_>>())
+//                 })
+//                 .collect();
+
+//             // Ordered by its maximum column
+//             for var in 0..rows_vars.saturating_sub(1) {
+//                 for c in 0..cols_vars {
+//                     let mut lits: Vec<Bool> =
+//                         (c..cols_vars).map(|k| get_v_composition(var + 1, k)).collect();
+//                     lits.push(empty[var + 1].clone());
+//                     solver.assert(
+//                         &get_v_composition(var, c)
+//                             .implies(&Bool::or(&lits.iter().collect::<Vec<_>>())),
+//                     );
+//                 }
+//             }
+
+//             // Two terms with the same variables cannot be used in the same variable
+//             for first in 0..coeffs_and_vars.len() {
+//                 for second in (first + 1)..coeffs_and_vars.len() {
+//                     if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
+//                         solver.assert(Bool::or(&[
+//                             &get_v_composition(v, first).not(),
+//                             &get_v_composition(v, second).not(),
+//                         ]));
+//                     }
+//                 }
+//             }
+//         }
+
+//         // Each new variable can only use previous variables and cannot use itself to create a new variable
+//         for v in 0..rows_vars {
+//             for c in (coeffs_and_vars.len() + v)..cols_vars {
+//                 solver.assert(&get_v_composition(v, c).not());
+//             }
+//         }
+
+//         // Empty variables must be at the end of the matrix
+//         for v in 0..rows_vars.saturating_sub(1) {
+//             let mut empty_var = Bool::from_bool(true);
+//             let mut empty_next = Bool::from_bool(true);
+
+//             for c in 0..cols_vars {
+//                 let selected_v = get_v_composition(v, c);
+//                 empty_var = Bool::and(&[&empty_var, &selected_v.not()]);
+
+//                 let selected_next = get_v_composition(v + 1, c);
+//                 empty_next = Bool::and(&[&empty_next, &selected_next.not()]);
+//             }
+
+//             solver.assert(Bool::or(&[&empty_var.not(), &empty_next]));
+//         }
+
+//         // We must check that every subexpression contained in the original expression, is also contained in the transformed one
+//         // Does each new variable contain or not a subexpression: just itself or another variable that is contained on it
+//         let mut subexpressions_var: Vec<Vec<Bool>> = Vec::new();
+//         for v in 0..rows_vars {
+//             let mut sub_vars: Vec<Bool> = Vec::new();
+//             for subexpr in 0..coeffs_and_vars.len() {
+//                 let mut contains_subexpr = get_v_composition(v, subexpr);
+
+//                 for prev_v in 0..v {
+//                     let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
+
+//                     let prev_contains = &subexpressions_var[prev_v][subexpr];
+//                     let uses_subexpr_through_prev = Bool::and(&[&uses_prev, prev_contains]);
+
+//                     contains_subexpr = Bool::or(&[&contains_subexpr, &uses_subexpr_through_prev]);
+//                 }
+//                 sub_vars.push(contains_subexpr);
+//             }
+//             subexpressions_var.push(sub_vars);
+//         }
+
+//         for e in 0..rows_expr {
+//             for subexpr in 0..coeffs_and_vars.len() {
+//                 let mut used = Bool::from_bool(false);
+
+//                 for v in 0..rows_vars {
+//                     used = Bool::or(&[
+//                         &used,
+//                         &Bool::and(&[&get_expr_uses(e, v), &subexpressions_var[v][subexpr]]),
+//                     ]);
+//                 }
+
+//                 // If the initial expression contains this subexpression, it must be used by the transformed expression directly or by a variable that it uses
+//                 if vars_per_expression[e][subexpr] {
+//                     solver.assert(used);
+//                 }
+//                 // Otherwise it must not be used by the transformed expression or any variable that it uses
+//                 else {
+//                     solver.assert(used.not());
+//                 }
+//             }
+//         }
+
+//         // Substituted by: each expression at the end just has 1 variable. If it uses one variable, it cannot use any of the following variables
+//         for e in 0..rows_expr {
+//             for c in 0..cols_expr {
+//                 let used = get_expr_uses(e, c);
+
+//                 for next in c + 1..cols_expr {
+//                     solver.assert(Bool::or(&[&used.not(), &get_expr_uses(e, next).not()]));
+//                 }
+//             }
+//         }
+
+//         // An expression just uses non empty variables
+//         for e in 0..rows_expr {
+//             for v in 0..rows_vars {
+//                 let mut empty_var = Bool::from_bool(true);
+
+//                 for c in 0..cols_vars {
+//                     let selected = get_v_composition(v, c);
+//                     empty_var = Bool::and(&[&empty_var, &selected.not()]);
+//                 }
+
+//                 let expr_uses_aux = get_expr_uses(e, v);
+
+//                 // Or it does not use it, or if it uses is because the variable is not empty
+//                 solver.assert(Bool::or(&[&expr_uses_aux.not(), &empty_var.not()]));
+//             }
+//         }
+
+//         match solver.check() {
+//             SatResult::Sat => {
+//                 let mut model = solver.get_model().expect("SAT result must have a model");
+//                 let mut created_variables = (0..rows_vars)
+//                     .filter(|v| {
+//                         (0..cols_vars).any(|c| {
+//                             model
+//                                 .eval(&vars_composition[v * cols_vars + c], true)
+//                                 .and_then(|value| value.as_bool())
+//                                 .unwrap_or(false)
+//                         })
+//                     })
+//                     .count();
+//                 println!("\nSolution found with {} variables", created_variables);
+
+//                 // Active variables form a prefix, so disabling the last one tests whether
+//                 // the same constraints can be represented with fewer auxiliaries --> Incremental solving
+//                 loop {
+//                     if created_variables == 0 {
+//                         break;
+//                     }
+//                     for col in 0..cols_vars {
+//                         solver.assert(&get_v_composition(created_variables - 1, col).not());
+//                     }
+
+//                     for e in 0..rows_expr {
+//                         solver.assert(&get_expr_uses(e, created_variables - 1).not());
+//                     }
+
+//                     match solver.check() {
+//                         SatResult::Sat => {
+//                             model = solver.get_model().expect("SAT result must have a model");
+//                             created_variables = (0..rows_vars)
+//                                 .filter(|v| {
+//                                     (0..cols_vars).any(|c| {
+//                                         model
+//                                             .eval(&vars_composition[v * cols_vars + c], true)
+//                                             .and_then(|value| value.as_bool())
+//                                             .unwrap_or(false)
+//                                     })
+//                                 })
+//                                 .count();
+//                             println!("\nSolution found with {} variables", created_variables);
+//                         }
+//                         SatResult::Unsat => break,
+//                         SatResult::Unknown => {
+//                             println!(
+//                                 "\nVariable minimization: UNKNOWN; keeping the last SAT solution"
+//                             );
+//                             break;
+//                         }
+//                     }
+//                 }
+
+//                 println!("\nFinal solution found with {} variables", created_variables);
+
+//                 let is_selected = |variable: &Bool| {
+//                     model.eval(variable, true).and_then(|value| value.as_bool()).unwrap_or(false)
+//                 };
+
+//                 let mut model_aux_signals = vec![None; rows_vars];
+//                 for v in 0..created_variables {
+//                     let selected_sources: Vec<usize> = (0..cols_vars)
+//                         .filter(|c| is_selected(&vars_composition[v * cols_vars + c]))
+//                         .collect();
+//                     if selected_sources.is_empty() {
+//                         continue;
+//                     }
+
+//                     let source = |column: usize, model_aux_signals: &[Option<usize>]| {
+//                         if column < coeffs_and_vars.len() {
+//                             (coeffs_and_vars[column].0, coeffs_and_vars[column].1.clone())
+//                         } else {
+//                             let previous_aux = column - coeffs_and_vars.len();
+//                             (model_aux_signals[previous_aux].unwrap(), BigInt::from(1))
+//                         }
+//                     };
+//                     let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
+//                     let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
+//                     let pair = (signal_a, signal_b, coeff_a, coeff_b);
+//                     let auxiliary = apply_pair_to_cluster(
+//                         storage,
+//                         cluster,
+//                         expression,
+//                         pair,
+//                         aux_signals,
+//                         next_aux,
+//                         non_linear_map,
+//                         field,
+//                     );
+//                     model_aux_signals[v] = Some(auxiliary);
+//                 }
+
+//                 if created_variables > 0 {
+//                     println!("New constraints:");
+//                     let mut introduced = 0;
+//                     for v in 0..created_variables {
+//                         let mut terms = Vec::new();
+//                         for c in 0..cols_vars {
+//                             if !is_selected(&vars_composition[v * cols_vars + c]) {
+//                                 continue;
+//                             }
+
+//                             if c < coeffs_and_vars.len() {
+//                                 let (signal, coefficient) = &coeffs_and_vars[c];
+//                                 terms.push(format!("{} * x{}", coefficient, signal));
+//                             } else {
+//                                 let previous_aux = c - coeffs_and_vars.len();
+//                                 terms
+//                                     .push(format!("x{}", model_aux_signals[previous_aux].unwrap()));
+//                             }
+//                         }
+
+//                         if !terms.is_empty() {
+//                             let auxiliary = model_aux_signals[v].unwrap();
+//                             println!("  x{} = {}", auxiliary, terms.join(" + "));
+//                             introduced += 1;
+//                         }
+//                     }
+
+//                     println!("Introduced variables ({}):", introduced);
+//                     for v in 0..created_variables {
+//                         println!("  x{}", model_aux_signals[v].unwrap());
+//                     }
+
+//                     println!("Transformed expressions:");
+//                     for e in 0..rows_expr {
+//                         let expression_id = cluster[e];
+//                         let mut terms = Vec::new();
+//                         if let Some(constant) = expression[expression_id].1.get(&0) {
+//                             if constant != &BigInt::from(0) {
+//                                 terms.push(constant.to_string());
+//                             }
+//                         }
+
+//                         for v in 0..created_variables {
+//                             if is_selected(&expr_use_vars[e * cols_expr + v]) {
+//                                 terms.push(format!("x{}", model_aux_signals[v].unwrap()));
+//                             }
+//                         }
+
+//                         println!("  expression {}: {}", expression_id, terms.join(" + "));
+//                     }
+//                 }
+//             }
+//             SatResult::Unsat => {
+//                 println!("\nVariable optimization: UNSAT");
+//             }
+//             SatResult::Unknown => {
+//                 println!("\nVariable optimization: UNKNOWN");
+//             }
+//         }
+//     })
+// }
+
+// fn variables_optimization_unsat_core(
+//     storage: &mut ConstraintStorage,
+//     expression: &[(usize, BTreeMap<usize, BigInt>, usize)],
+//     cluster: &[usize],
+//     aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
+//     next_aux: &mut usize,
+//     non_linear_map: &mut SignalToConstraints,
+//     field: &BigInt,
+//     cluster_id: usize,
+//     auxiliary_constraint_ids: &mut BTreeMap<usize, usize>,
+// ) {
+//     let mut constraints_ids = Vec::new();
+//     let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
+
+//     for &expression_id in cluster {
+//         let constraint_id = expression[expression_id].0;
+//         if !constraints_ids.contains(&constraint_id) {
+//             constraints_ids.push(constraint_id);
+//         }
+
+//         for (var, coeff) in &expression[expression_id].1 {
+//             if *var == 0 || coeff == &BigInt::from(0) {
+//                 continue;
+//             }
+
+//             let pair = (*var, coeff.clone());
+//             if !coeffs_and_vars.contains(&pair) {
+//                 coeffs_and_vars.push(pair);
+//             }
+//         }
+//     }
+
+//     let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
+
+//     for &expression_id in cluster {
+//         let expression_coeffs = &expression[expression_id].1;
+//         let mut v = Vec::new();
+
+//         for (var, coeff) in &coeffs_and_vars {
+//             let present = expression_coeffs.get(var) == Some(coeff);
+//             v.push(present);
+//         }
+
+//         vars_per_expression.push(v);
+//     }
+
+//     let mut bound = cluster.len(); // Maximum number of variables that are needed to transform all the expressions of the cluster into plonk
+//     for &expression_id in cluster {
+//         bound += expression[expression_id].2;
+//     }
+
+//     let config = Config::new();
+
+//     // Unsatisfiable core
+//     let mut tracked_assertions: Vec<(String, String)> = Vec::new();
+//     let mut assertion_id = 0usize;
+
+//     macro_rules! assert_tracked {
+//         ($solver:expr, $constraint:expr, $description:expr) => {{
+//             let tracking_name = format!("track_{}", assertion_id);
+//             let tracking = Bool::new_const(tracking_name.as_str());
+
+//             $solver.assert_and_track($constraint, &tracking);
+
+//             tracked_assertions.push((tracking_name, $description.to_string()));
+
+//             assertion_id += 1;
+//         }};
+//     }
+
+//     with_z3_config(&config, || {
+//         let mut solver = Solver::new();
+//         let zero = Int::from_i64(0);
+//         let one = Int::from_i64(1);
+
+//         let mut expr_use_vars = Vec::new();
+//         let rows_expr = cluster.len();
+//         // Because we are impossing that each expression at the end just has 1 variable, it cannot be an original expression because if not, it will plonk originally
+//         let cols_expr = bound;
+
+//         for e in 0..rows_expr {
+//             for c in 0..cols_expr {
+//                 let var = Bool::new_const(format!("expr_{}_uses_var_{}", e, c));
+
+//                 expr_use_vars.push(var);
+//             }
+//         }
+
+//         let get_expr_uses = |r: usize, c: usize| expr_use_vars[r * cols_expr + c].clone();
+
+//         let mut vars_composition = Vec::new();
+//         let rows_vars = bound;
+//         let cols_vars = coeffs_and_vars.len() + bound;
+
+//         for v in 0..rows_vars {
+//             for c in 0..cols_vars {
+//                 let v = Bool::new_const(format!("var_{}_uses_{}", v, c));
+//                 vars_composition.push(v);
+//             }
+//         }
+
+//         let get_v_composition = |r: usize, c: usize| vars_composition[r * cols_vars + c].clone();
+
+//         // Each new variable can be empty or formed with exactly 2 original variables or previous declared new variables
+//         for v in 0..rows_vars {
+//             // At most 2 positions are used for each variable
+//             for c in 0..cols_vars {
+//                 let c_used = get_v_composition(v, c);
+//                 for c_next in c + 1..cols_vars {
+//                     let both_used = Bool::and(&[&get_v_composition(v, c_next), &c_used]);
+//                     for c_not in c_next + 1..cols_vars {
+//                         let c_not_used = get_v_composition(v, c_not);
+
+//                         // If both variables are used yet, any other variable can be used
+//                         assert_tracked!(
+//                             solver,
+//                             Bool::or(&[&both_used.not(), &c_not_used.not()]),
+//                             format!("Variable composition at most 2: v{} c{} c_not{}", v, c, c_not)
+//                         );
+//                     }
+//                 }
+//             }
+
+//             // At least 2 positions or 0 are used for each variable because it can always be rebuild with 2 elements per variable because if not the expression would be plonk initially (1 variable)
+//             let mut is_empty = Bool::from_bool(true);
+//             for c in 0..cols_vars {
+//                 is_empty = Bool::and(&[&is_empty, &&get_v_composition(v, c).not()]);
+//             }
+
+//             for c in 0..cols_vars {
+//                 let current = get_v_composition(v, c);
+//                 let mut another_used = Bool::from_bool(false);
+
+//                 for other_c in 0..cols_vars {
+//                     if other_c != c {
+//                         another_used = Bool::or(&[&another_used, &get_v_composition(v, other_c)]);
+//                     }
+//                 }
+
+//                 assert_tracked!(
+//                     solver,
+//                     Bool::or(&[&is_empty, &current.not(), &another_used]),
+//                     format!("Variable composition at least 2: v{} c{}", v, c)
+//                 );
+//             }
+
+//             // If a variable is not empty it is because it is used by someone.
+//             let mut used_by_another_var = Bool::from_bool(false);
+//             for next_var in (v + 1)..rows_vars {
+//                 let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
+//                 used_by_another_var = Bool::or(&[&used_by_another_var, &uses_v]);
+//             }
+
+//             let mut used_by_final_expr = Bool::from_bool(false);
+//             for e in 0..rows_expr {
+//                 let uses_v = get_expr_uses(e, v);
+//                 used_by_final_expr = Bool::or(&[&used_by_final_expr, &uses_v]);
+//             }
+
+//             assert_tracked!(
+//                 solver,
+//                 Bool::or(&[&is_empty, &Bool::or(&[&used_by_another_var, &used_by_final_expr])]),
+//                 format!("Used by someone or empty: v{}", v)
+//             );
+
+//             // Cannot exist two variables with the same composition except for the empty variables
+//             for next in (v + 1)..rows_vars {
+//                 let mut different = Bool::from_bool(false);
+//                 for c in 0..cols_vars {
+//                     let comp_v = get_v_composition(v, c);
+//                     let comp_next = get_v_composition(next, c);
+//                     different = Bool::or(&[&different, &comp_v._eq(&comp_next).not()]);
+//                 }
+//                 assert_tracked!(
+//                     solver,
+//                     Bool::or(&[&is_empty, &different]),
+//                     format!("Two vars same composition: v{} next{}", v, next)
+//                 );
+//             }
+
+//             // If a variable uses another variable created before, then the next variables must hold the same. First appear the variables that only use factors
+//             let mut uses_another_var = Bool::from_bool(false);
+//             for c in (coeffs_and_vars.len())..v {
+//                 let comp_v = get_v_composition(v, c);
+//                 uses_another_var = Bool::or(&[&uses_another_var, &comp_v]);
+//             }
+
+//             for next in (v + 1)..rows_vars {
+//                 let mut next_var_uses_another_var = Bool::from_bool(false);
+//                 let mut next_is_empty = Bool::from_bool(true);
+//                 for c in coeffs_and_vars.len()..next {
+//                     // because it can only use previous
+//                     let comp_next = get_v_composition(next, c);
+//                     next_var_uses_another_var = Bool::or(&[&next_var_uses_another_var, &comp_next]);
+//                     next_is_empty = Bool::and(&[&next_is_empty, &comp_next.not()]);
+//                 }
+//                 assert_tracked!(
+//                     solver,
+//                     Bool::or(&[
+//                         &uses_another_var.not(),
+//                         &next_is_empty,
+//                         &next_var_uses_another_var
+//                     ]),
+//                     format!("First variables with only factors: v{} next{}", v, next)
+//                 );
+//             }
+
+//             // Two terms with the same variables cannot be used in the same variable
+//             for first in 0..coeffs_and_vars.len() {
+//                 for second in (first + 1)..coeffs_and_vars.len() {
+//                     if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
+//                         assert_tracked!(
+//                             solver,
+//                             Bool::or(&[
+//                                 &get_v_composition(v, first).not(),
+//                                 &get_v_composition(v, second).not()
+//                             ]),
+//                             format!(
+//                                 "Two terms with same variables: v{} first{} second{}",
+//                                 v, first, second
+//                             )
+//                         );
+//                     }
+//                 }
+//             }
+//         }
+
+//         let empty: Vec<Bool> = (0..rows_vars)
+//             .map(|v| {
+//                 let nots: Vec<Bool> =
+//                     (0..cols_vars).map(|c| get_v_composition(v, c).not()).collect();
+//                 Bool::and(&nots.iter().collect::<Vec<_>>())
+//             })
+//             .collect();
+
+//         // Ordered by its maximum column
+//         for var in 0..rows_vars.saturating_sub(1) {
+//             for c in 0..cols_vars {
+//                 let mut lits: Vec<Bool> =
+//                     (c..cols_vars).map(|k| get_v_composition(var + 1, k)).collect();
+//                 lits.push(empty[var + 1].clone());
+//                 assert_tracked!(
+//                     solver,
+//                     &get_v_composition(var, c).implies(&Bool::or(&lits.iter().collect::<Vec<_>>())),
+//                     format!("Order column var{} c{}", var, c)
+//                 );
+//             }
+//         }
+
+//         // Each new variable can only use previous variables and cannot use itself to create a new variable
+//         for v in 0..rows_vars {
+//             for c in (coeffs_and_vars.len() + v)..cols_vars {
+//                 assert_tracked!(
+//                     solver,
+//                     &get_v_composition(v, c).not(),
+//                     format!("Only use previous vars: v{} c{}", v, c)
+//                 );
+//             }
+//         }
+
+//         // Empty variables must be at the end of the matrix
+//         for v in 0..rows_vars.saturating_sub(1) {
+//             let mut empty_var = Bool::from_bool(true);
+//             let mut empty_next = Bool::from_bool(true);
+
+//             for c in 0..cols_vars {
+//                 let selected_v = get_v_composition(v, c);
+//                 empty_var = Bool::and(&[&empty_var, &selected_v.not()]);
+
+//                 let selected_next = get_v_composition(v + 1, c);
+//                 empty_next = Bool::and(&[&empty_next, &selected_next.not()]);
+//             }
+
+//             assert_tracked!(
+//                 solver,
+//                 Bool::or(&[&empty_var.not(), &empty_next]),
+//                 format!("Empty vars at the end: v{}", v)
+//             );
+//         }
+
+//         // We must check that every subexpression contained in the original expression, is also contained in the transformed one
+//         // Does each new variable contain or not a subexpression: just itself or another variable that is contained on it
+//         let mut subexpressions_var: Vec<Vec<Bool>> = Vec::new();
+//         for v in 0..rows_vars {
+//             let mut sub_vars: Vec<Bool> = Vec::new();
+//             for subexpr in 0..coeffs_and_vars.len() {
+//                 let mut contains_subexpr = get_v_composition(v, subexpr);
+
+//                 for prev_v in 0..v {
+//                     let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
+
+//                     let prev_contains = &subexpressions_var[prev_v][subexpr];
+//                     let uses_subexpr_through_prev = Bool::and(&[&uses_prev, prev_contains]);
+
+//                     contains_subexpr = Bool::or(&[&contains_subexpr, &uses_subexpr_through_prev]);
+//                 }
+//                 sub_vars.push(contains_subexpr);
+//             }
+//             subexpressions_var.push(sub_vars);
+//         }
+
+//         for e in 0..rows_expr {
+//             for subexpr in 0..coeffs_and_vars.len() {
+//                 let mut used = Bool::from_bool(false);
+
+//                 for v in 0..rows_vars {
+//                     used = Bool::or(&[
+//                         &used,
+//                         &Bool::and(&[&get_expr_uses(e, v), &subexpressions_var[v][subexpr]]),
+//                     ]);
+//                 }
+
+//                 // If the initial expression contains this subexpression, it must be used by the transformed expression directly or by a variable that it uses
+//                 if vars_per_expression[e][subexpr] {
+//                     assert_tracked!(
+//                         solver,
+//                         used,
+//                         format!("Subexpression contained in expression: e{} subexpr{}", e, subexpr)
+//                     );
+//                 }
+//                 // Otherwise it must not be used by the transformed expression or any variable that it uses
+//                 else {
+//                     assert_tracked!(
+//                         solver,
+//                         used.not(),
+//                         format!(
+//                             "Subexpression not contained in expression: e{} subexpr{}",
+//                             e, subexpr
+//                         )
+//                     );
+//                 }
+//             }
+//         }
+
+//         // Substituted by: each expression at the end just has 1 variable. If it uses one variable, it cannot use any of the following variables
+//         for e in 0..rows_expr {
+//             for c in 0..cols_expr {
+//                 let used = get_expr_uses(e, c);
+
+//                 for next in c + 1..cols_expr {
+//                     assert_tracked!(
+//                         solver,
+//                         Bool::or(&[&used.not(), &get_expr_uses(e, next).not()]),
+//                         format!("If c used in e, next no: e{} c{} next{}", e, c, next)
+//                     );
+//                 }
+//             }
+//         }
+
+//         // An expression just uses non empty variables
+//         for e in 0..rows_expr {
+//             for v in 0..rows_vars {
+//                 let mut empty_var = Bool::from_bool(true);
+
+//                 for c in 0..cols_vars {
+//                     let selected = get_v_composition(v, c);
+//                     empty_var = Bool::and(&[&empty_var, &selected.not()]);
+//                 }
+
+//                 let expr_uses_aux = get_expr_uses(e, v);
+
+//                 // Or it does not use it, or if it uses is because the variable is not empty
+//                 assert_tracked!(
+//                     solver,
+//                     Bool::or(&[&expr_uses_aux.not(), &empty_var.not()]),
+//                     format!("Expressions just use non empty vars: e{} v{}", e, v)
+//                 );
+//             }
+//         }
+
+//         // Impose a saved solution for poseidon3
+//         // let json_path = r"C:\Users\paula\OneDrive\Documentos\Personal\MASTER METODOS FORMALES\PLI\back_circom\variables_simplification.json";
+//         // let json_contents = fs::read_to_string(json_path)
+//         //     .expect("failed to read variables_simplification.json");
+//         // let cluster_counts =
+//         //     json::parse(&json_contents).expect("failed to parse variables_simplification.json");
+//         // let max_vars = cluster_counts
+//         //     .members()
+//         //     .find(|entry| entry["cluster_id"].as_usize() == Some(cluster_id))
+//         //     .and_then(|entry| entry["variables_introduced"].as_usize())
+//         //     .expect("cluster variable count is missing from variables_simplification.json") + cluster.len();
+
+//         // for v in max_vars..rows_vars {
+//         //     for c in 0..cols_vars {
+//         //         assert_tracked!(solver, &get_v_composition(v, c).not(), format!("Do not use var v{} col c{}", v, c));
+//         //     }
+//         // }
+
+//         for k in 1..rows_vars + 1 {
+//             solver.push();
+
+//             for v in 0..k {
+//                 let mut used = Bool::from_bool(false);
+//                 for col in 0..cols_vars {
+//                     used = Bool::or(&[&used, &get_v_composition(v, col)]);
+//                 }
+//                 solver.assert(&used);
+//             }
+
+//             for v in k..rows_vars {
+//                 // solver.assert(&row_nonempty[v].not());
+//                 for col in 0..cols_vars {
+//                     solver.assert(&get_v_composition(v, col).not());
+//                 }
+//             }
+
+//             match solver.check() {
+//                 SatResult::Sat => {
+//                     let mut model = solver.get_model().expect("SAT result must have a model");
+//                     let is_selected = |variable: &Bool| {
+//                         model
+//                             .eval(variable, true)
+//                             .and_then(|value| value.as_bool())
+//                             .unwrap_or(false)
+//                     };
+//                     let mut created_variables = (0..rows_vars)
+//                         .filter(|v| {
+//                             (0..cols_vars).any(|c| {
+//                                 model
+//                                     .eval(&vars_composition[v * cols_vars + c], true)
+//                                     .and_then(|value| value.as_bool())
+//                                     .unwrap_or(false)
+//                             })
+//                         })
+//                         .count();
+
+//                     let mut model_aux_signals = vec![None; rows_vars];
+//                     for v in 0..rows_vars {
+//                         let selected_sources: Vec<usize> = (0..cols_vars)
+//                             .filter(|c| is_selected(&vars_composition[v * cols_vars + c]))
+//                             .collect();
+//                         if selected_sources.is_empty() {
+//                             continue;
+//                         }
+
+//                         let source = |column: usize, model_aux_signals: &[Option<usize>]| {
+//                             if column < coeffs_and_vars.len() {
+//                                 (coeffs_and_vars[column].0, coeffs_and_vars[column].1.clone())
+//                             } else {
+//                                 let previous_aux = column - coeffs_and_vars.len();
+//                                 (model_aux_signals[previous_aux].unwrap(), BigInt::from(1))
+//                             }
+//                         };
+//                         let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
+//                         let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
+//                         let pair = (signal_a, signal_b, coeff_a, coeff_b);
+//                         let is_new_auxiliary = !aux_signals.contains_key(&pair);
+//                         let auxiliary = apply_pair_to_cluster(
+//                             storage,
+//                             cluster,
+//                             expression,
+//                             pair,
+//                             aux_signals,
+//                             next_aux,
+//                             non_linear_map,
+//                             field,
+//                         );
+//                         if is_new_auxiliary {
+//                             let definition_id = storage
+//                                 .get_ids()
+//                                 .last()
+//                                 .copied()
+//                                 .expect("new auxiliary must have a defining constraint");
+//                             auxiliary_constraint_ids.insert(auxiliary, definition_id);
+//                         }
+//                         model_aux_signals[v] = Some(auxiliary);
+//                     }
+
+//                     if created_variables > 0 {
+//                         println!("New constraints:");
+//                         let mut introduced = 0;
+//                         for v in 0..created_variables {
+//                             let mut terms = Vec::new();
+//                             for c in 0..cols_vars {
+//                                 if !is_selected(&vars_composition[v * cols_vars + c]) {
+//                                     continue;
+//                                 }
+
+//                                 if c < coeffs_and_vars.len() {
+//                                     let (signal, coefficient) = &coeffs_and_vars[c];
+//                                     terms.push(format!("{} * x{}", coefficient, signal));
+//                                 } else {
+//                                     let previous_aux = c - coeffs_and_vars.len();
+//                                     terms.push(format!(
+//                                         "x{}",
+//                                         model_aux_signals[previous_aux].unwrap()
+//                                     ));
+//                                 }
+//                             }
+
+//                             if !terms.is_empty() {
+//                                 let auxiliary = model_aux_signals[v].unwrap();
+//                                 println!("  x{} = {}", auxiliary, terms.join(" + "));
+//                                 introduced += 1;
+//                             }
+//                         }
+
+//                         println!("Introduced variables ({}):", introduced);
+//                         for v in 0..created_variables {
+//                             println!("  x{}", model_aux_signals[v].unwrap());
+//                         }
+
+//                         println!("Transformed expressions:");
+//                         for e in 0..rows_expr {
+//                             let expression_id = cluster[e];
+//                             let mut terms = Vec::new();
+//                             if let Some(constant) = expression[expression_id].1.get(&0) {
+//                                 if constant != &BigInt::from(0) {
+//                                     terms.push(constant.to_string());
+//                                 }
+//                             }
+
+//                             for v in 0..rows_vars {
+//                                 if is_selected(&expr_use_vars[e * cols_expr + v]) {
+//                                     terms.push(format!("x{}", model_aux_signals[v].unwrap()));
+//                                 }
+//                             }
+
+//                             println!("  expression {}: {}", expression_id, terms.join(" + "));
+//                         }
+//                     }
+
+//                     break;
+//                 }
+//                 SatResult::Unsat => {
+//                     println!("\nVariable optimization: UNSAT with k = {}", k);
+//                     // println!("\nVariable optimization: UNSAT");
+
+//                     // let unsat_core = solver.get_unsat_core();
+
+//                     // println!(
+//                     //     "\nUnsatisfiable Core ({} constraints):",
+//                     //     unsat_core.len()
+//                     // );
+
+//                     // for core_constraint in &unsat_core {
+//                     //     let core_name = core_constraint.to_string();
+
+//                     //     for (tracking_name, description) in &tracked_assertions {
+//                     //         if tracking_name == &core_name {
+//                     //             println!("  - {}", description);
+//                     //             break;
+//                     //         }
+//                     //     }
+//                     // }
+
+//                     solver.pop(1);
+//                     continue;
+//                 }
+//                 SatResult::Unknown => {
+//                     println!("\nVariable optimization: UNKNOWN with k = {}", k);
+//                     // println!("\nVariable optimization: UNKNOWN");
+//                     solver.pop(1);
+//                     break;
+//                 }
+//             }
+//         }
+//     })
+// }
+
+// fn variables_optimization_bitwuzla(storage: &mut ConstraintStorage, expression: &[(usize, BTreeMap<usize, BigInt>, usize)], cluster: &[usize], aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
+// next_aux: &mut usize, non_linear_map: &mut SignalToConstraints, field: &BigInt, cluster_id: usize, auxiliary_constraint_ids: &mut BTreeMap<usize, usize>) {
+
+//     let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
+
+//     for &expression_id in cluster {
+//         for (var, coeff) in &expression[expression_id].1 {
+//             if *var == 0 || coeff == &BigInt::from(0) {
+//                 continue;
+//             }
+
+//             let pair = (*var, coeff.clone());
+//             if !coeffs_and_vars.contains(&pair) {
+//                 coeffs_and_vars.push(pair);
+//             }
+//         }
+//     }
+
+//     let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
+
+//     for &expression_id in cluster {
+//         let expression_coeffs = &expression[expression_id].1;
+//         let mut v = Vec::new();
+
+//         for (var, coeff) in &coeffs_and_vars {
+//             v.push(expression_coeffs.get(var) == Some(coeff));
+//         }
+
+//         vars_per_expression.push(v);
+//     }
+
+//     let mut bound = cluster.len();
+
+//     for &expression_id in cluster {
+//         bound += expression[expression_id].2;
+//     }
+
+//     unsafe {
+//         let tm = bitwuzla_term_manager_new();
+//         let options = bitwuzla_options_new();
+//         bitwuzla_set_option(options, BITWUZLA_OPT_PRODUCE_MODELS, 1);
+
+//         let solver = bitwuzla_new(tm, options);
+//         bitwuzla_options_delete(options);
+
+//         let bool_sort = bitwuzla_mk_bool_sort(tm);
+//         let true_term = bitwuzla_mk_true(tm);
+//         let false_term = bitwuzla_mk_false(tm);
+
+//         let mk_nary = |kind: BitwuzlaKind, mut args: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
+//             if args.is_empty() {
+//                 return if kind == BITWUZLA_KIND_AND {
+//                     true_term
+//                 }
+//                 else {
+//                     false_term
+//                 };
+//             }
+//             if args.len() == 1 && kind != BITWUZLA_KIND_NOT {
+//                 return args[0];
+//             }
+//             bitwuzla_mk_term(tm, kind, args.len() as u32, args.as_mut_ptr())
+//         };
+
+//         let mk_not = |term: BitwuzlaTerm| -> BitwuzlaTerm {
+//             mk_nary(BITWUZLA_KIND_NOT, vec![term])
+//         };
+
+//         let mk_and = |terms: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
+//             mk_nary(BITWUZLA_KIND_AND, terms)
+//         };
+
+//         let mk_or = |terms: Vec<BitwuzlaTerm>| -> BitwuzlaTerm {
+//             mk_nary(BITWUZLA_KIND_OR, terms)
+//         };
+
+//         let mk_implies = |a: BitwuzlaTerm, b: BitwuzlaTerm| -> BitwuzlaTerm {
+//             mk_nary(BITWUZLA_KIND_IMPLIES, vec![a, b])
+//         };
+
+//         let mk_equal = |a: BitwuzlaTerm, b: BitwuzlaTerm| -> BitwuzlaTerm {
+//             mk_nary(BITWUZLA_KIND_EQUAL, vec![a, b])
+//         };
+
+//         let mut assertion_id = 0usize;
+
+//         let mut new_bool = |name: String| -> BitwuzlaTerm {
+//             let symbol = CString::new(name).unwrap();
+//             let term = bitwuzla_mk_const(tm, bool_sort, symbol.as_ptr());
+//             assertion_id += 1;
+//             term
+//         };
+
+//         let assert_formula = |formula: BitwuzlaTerm| {
+//             bitwuzla_assert(solver, formula);
+//         };
+
+//         let is_selected = |variable: BitwuzlaTerm| -> bool {
+//             let value = bitwuzla_get_value(solver, variable);
+//             bitwuzla_term_is_true(value)
+//         };
+
+//         let rows_expr = cluster.len();
+//         let cols_expr = bound;
+
+//         let mut expr_use_vars: Vec<BitwuzlaTerm> = Vec::new();
+//         for e in 0..rows_expr {
+//             for c in 0..cols_expr {
+//                 let var = new_bool(format!("expr_{}_uses_var{}", e, c));
+
+//                 expr_use_vars.push(var);
+//             }
+//         }
+
+//         let get_expr_uses = |r: usize, c: usize| {
+//             expr_use_vars[r * cols_expr + c]
+//         };
+
+//         let rows_vars = bound;
+//         let cols_vars = coeffs_and_vars.len() + bound;
+
+//         let mut vars_composition: Vec<BitwuzlaTerm> = Vec::new();
+
+//         for v in 0..rows_vars {
+//             for c in 0..cols_vars {
+//                 let var = new_bool(format!("var_{}_uses_{}", v, c));
+//                 vars_composition.push(var);
+//             }
+//         }
+
+//         let get_v_composition = |r: usize, c: usize| {
+//             vars_composition[r * cols_vars + c]
+//         };
+
+//         // Each new variable can be empty or formed with exactly two original variables or previous declared variables.
+//         for v in 0..rows_vars {
+//             // At most 2 positions are used for each variable
+//             for c in 0..cols_vars {
+//                 let c_used = get_v_composition(v, c);
+//                 for c_next in c+1..cols_vars {
+//                     let both_used = mk_and(vec![get_v_composition(v, c_next), c_used]);
+//                     for c_not in c_next + 1..cols_vars {
+//                         let c_not_used = get_v_composition(v, c_not);
+
+//                         assert_formula(mk_or(vec![mk_not(both_used), mk_not(c_not_used)]));
+//                     }
+//                 }
+//             }
+
+//             // At least 2 positions or 0 are used
+//             let mut is_empty = true_term;
+
+//             for c in 0..cols_vars {
+//                 is_empty = mk_and(vec![is_empty, mk_not(get_v_composition(v, c))]);
+//             }
+
+//             for c in 0..cols_vars {
+//                 let current = get_v_composition(v, c);
+//                 let mut another_used = false_term;
+//                 for other_c in 0..cols_vars {
+//                     if other_c != c {
+//                         another_used = mk_or(vec![another_used, get_v_composition(v, other_c)]);
+//                     }
+//                 }
+
+//                 assert_formula(mk_or(vec![is_empty, mk_not(current), another_used]));
+//             }
+
+//             // If a variable is not empty, it must be used by another variable or a final expression.
+//             let mut used_by_another_var = false_term;
+
+//             for next_var in v + 1..rows_vars {
+//                 let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
+//                 used_by_another_var = mk_or(vec![used_by_another_var, uses_v]);
+//             }
+
+//             let mut used_by_final_expr = false_term;
+
+//             for e in 0..rows_expr {
+//                 used_by_final_expr = mk_or(vec![used_by_final_expr, get_expr_uses(e, v)]);
+//             }
+
+//             assert_formula(mk_or(vec![is_empty, used_by_another_var, used_by_final_expr]));
+
+//             for next in v + 1..rows_vars {
+//                 let mut different = false_term;
+
+//                 for c in 0..cols_vars {
+//                     let comp_v = get_v_composition(v, c);
+//                     let comp_next = get_v_composition(next, c);
+
+//                     different = mk_or(vec![different, mk_not(mk_equal(comp_v, comp_next))]);
+//                 }
+
+//                 assert_formula(mk_or(vec![is_empty, different]));
+//             }
+
+//             let mut uses_another_var = false_term;
+
+//             for c in coeffs_and_vars.len()..v {
+//                 uses_another_var = mk_or(vec![uses_another_var, get_v_composition(v, c)]);
+//             }
+
+//             for next in v + 1..rows_vars {
+//                 let mut next_var_uses_another_var = false_term;
+//                 let mut next_is_empty = true_term;
+
+//                 for c in coeffs_and_vars.len()..next {
+//                     let comp_next = get_v_composition(next, c);
+
+//                     next_var_uses_another_var = mk_or(vec![next_var_uses_another_var, comp_next]);
+//                     next_is_empty = mk_and(vec![next_is_empty, mk_not(comp_next)]);
+//                 }
+
+//                 assert_formula(mk_or(vec![mk_not(uses_another_var), next_is_empty, next_var_uses_another_var]));
+//             }
+
+//             // Two terms with the same variables cannot be used in the same auxiliary variable.
+//             for first in 0..coeffs_and_vars.len() {
+//                 for second in first + 1..coeffs_and_vars.len() {
+//                     if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
+//                         assert_formula(mk_or(vec![mk_not(get_v_composition(v, first)), mk_not(get_v_composition(v, second))]));
+//                     }
+//                 }
+//             }
+//         }
+
+//         // Empty variables
+//         let mut empty: Vec<BitwuzlaTerm> = Vec::new();
+
+//         for v in 0..rows_vars {
+//             let mut nots = Vec::new();
+
+//             for c in 0..cols_vars {
+//                 nots.push(mk_not(get_v_composition(v, c)));
+//             }
+
+//             empty.push(mk_and(nots));
+//         }
+
+//         // Ordered by its maximum column
+//         for var in 0..rows_vars.saturating_sub(1) {
+//             for c in 0..cols_vars {
+//                 let mut lits = Vec::new();
+//                 for k in c..cols_vars {
+//                     lits.push(get_v_composition(var + 1, k));
+//                 }
+
+//                 lits.push(empty[var + 1]);
+
+//                 assert_formula(mk_implies(get_v_composition(var, c), mk_or(lits)));
+//             }
+//         }
+
+//         // Each new variable can only use previous variables
+//         for v in 0..rows_vars {
+//             for c in coeffs_and_vars.len() + v..cols_vars {
+//                 assert_formula(mk_not(get_v_composition(v, c)));
+//             }
+//         }
+
+//         // Empty variables must be at the end
+//         for v in 0..rows_vars.saturating_sub(1) {
+//             let mut empty_var = true_term;
+//             let mut empty_next = true_term;
+
+//             for c in 0..cols_vars {
+//                 let selected_v = get_v_composition(v, c);
+//                 empty_var = mk_and(vec![empty_var, mk_not(selected_v)]);
+
+//                 let selected_next = get_v_composition(v + 1, c);
+//                 empty_next = mk_and(vec![empty_next, mk_not(selected_next)]);
+//             }
+
+//             assert_formula(mk_or(vec![mk_not(empty_var), empty_next]));
+//         }
+
+//         let mut subexpressions_var: Vec<Vec<BitwuzlaTerm>> = Vec::new();
+
+//         for v in 0..rows_vars {
+//             let mut sub_vars = Vec::new();
+//             for subexpr in 0..coeffs_and_vars.len() {
+//                 let mut contains_subexpr = get_v_composition(v, subexpr);
+
+//                 for prev_v in 0..v {
+//                     let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
+//                     let prev_contains = subexpressions_var[prev_v][subexpr];
+//                     let uses_subexpr_through_prev = mk_and(vec![uses_prev, prev_contains]);
+//                     contains_subexpr = mk_or(vec![contains_subexpr, uses_subexpr_through_prev]);
+//                 }
+
+//                 sub_vars.push(contains_subexpr);
+//             }
+
+//             subexpressions_var.push(sub_vars);
+//         }
+
+//         for e in 0..rows_expr {
+//             for subexpr in 0..coeffs_and_vars.len() {
+//                 let mut used = false_term;
+
+//                 for v in 0..rows_vars {
+//                     used = mk_or(vec![used, mk_and(vec![get_expr_uses(e, v), subexpressions_var[v][subexpr]])]);
+//                 }
+
+//                 if vars_per_expression[e][subexpr] {
+//                     assert_formula(used);
+//                 }
+//                 else {
+//                     assert_formula(mk_not(used));
+//                 }
+//             }
+//         }
+
+//         // Each final expression uses at most one auxiliary variable
+//         for e in 0..rows_expr {
+//             for c in 0..cols_expr {
+//                 let used = get_expr_uses(e, c);
+
+//                 for next in c + 1..cols_expr {
+//                     assert_formula(mk_or(vec![mk_not(used), mk_not(get_expr_uses(e, next))]));
+//                 }
+//             }
+//         }
+
+//         // An expression only uses non-empty variables
+//         for e in 0..rows_expr {
+//             for v in 0..rows_vars {
+//                 let mut empty_var = true_term;
+
+//                 for c in 0..cols_vars {
+//                     empty_var = mk_and(vec![empty_var, mk_not(get_v_composition(v, c))]);
+//                 }
+
+//                 let expr_uses_aux = get_expr_uses(e, v);
+//                 assert_formula(mk_or(vec![mk_not(expr_uses_aux), mk_not(empty_var)]));
+//             }
+//         }
+
+//         // Incremental minimization of auxiliary variables
+//         for k in 1..rows_vars + 1 {
+//             bitwuzla_push(solver, 1);
+
+//             for v in 0..k {
+//                 let mut used = false_term;
+
+//                 for col in 0..cols_vars {
+//                     used = mk_or(vec![used, get_v_composition(v, col)]);
+//                 }
+
+//                 bitwuzla_assert(solver, used);
+//             }
+
+//             for v in k..rows_vars {
+//                 for col in 0..cols_vars {
+//                     bitwuzla_assert(solver, mk_not(get_v_composition(v, col)));
+//                 }
+//             }
+
+//             match bitwuzla_check_sat(solver) {
+//                 BITWUZLA_SAT => {
+
+//                     println!("[Bitwuzla] Cluster {} -> SAT with k = {}", cluster_id, k);
+//                     let mut created_variables = 0usize;
+
+//                     for v in 0..rows_vars {
+//                         let mut used = false;
+
+//                         for c in 0..cols_vars {
+//                             if is_selected(vars_composition[v * cols_vars + c]) {
+//                                 used = true;
+//                                 break;
+//                             }
+//                         }
+
+//                         if used {
+//                             created_variables += 1;
+//                         }
+//                     }
+
+//                     let mut model_aux_signals = vec![None; rows_vars];
+
+//                     for v in 0..rows_vars {
+//                         let mut selected_sources = Vec::new();
+
+//                         for c in 0..cols_vars {
+//                             if is_selected(vars_composition[v * cols_vars + c]) {
+//                                 selected_sources.push(c);
+//                             }
+//                         }
+
+//                         if selected_sources.is_empty() {continue;}
+
+//                         let source = |column: usize, model_aux_signals: &[Option<usize>]| -> (usize, BigInt) {
+//                             if column < coeffs_and_vars.len() {
+//                                 (
+//                                     coeffs_and_vars[column].0,
+//                                     coeffs_and_vars[column].1.clone(),
+//                                 )
+//                             } else {
+//                                 let previous_aux = column - coeffs_and_vars.len();
+//                                 (
+//                                     model_aux_signals[previous_aux]
+//                                         .unwrap(),
+//                                     BigInt::from(1),
+//                                 )
+//                             }
+//                         };
+
+//                         let (signal_a, coeff_a) = source(
+//                             selected_sources[0],
+//                             &model_aux_signals,
+//                         );
+
+//                         let (signal_b, coeff_b) = source(
+//                             selected_sources[1],
+//                             &model_aux_signals,
+//                         );
+
+//                         let pair = (
+//                             signal_a,
+//                             signal_b,
+//                             coeff_a,
+//                             coeff_b,
+//                         );
+
+//                         let is_new_auxiliary =
+//                             !aux_signals.contains_key(&pair);
+
+//                         let auxiliary = apply_pair_to_cluster(
+//                             storage,
+//                             cluster,
+//                             expression,
+//                             pair,
+//                             aux_signals,
+//                             next_aux,
+//                             non_linear_map,
+//                             field,
+//                         );
+
+//                         if is_new_auxiliary {
+//                             let definition_id = storage
+//                                 .get_ids()
+//                                 .last()
+//                                 .copied()
+//                                 .expect(
+//                                     "new auxiliary must have a defining constraint",
+//                                 );
+
+//                             auxiliary_constraint_ids.insert(
+//                                 auxiliary,
+//                                 definition_id,
+//                             );
+//                         }
+
+//                         model_aux_signals[v] = Some(auxiliary);
+//                     }
+
+//                     if created_variables > 0 {
+//                         // println!("New constraints:");
+
+//                         let mut introduced = 0;
+
+//                         for v in 0..created_variables {
+//                             let mut terms = Vec::new();
+
+//                             for c in 0..cols_vars {
+//                                 if !is_selected(
+//                                     vars_composition[v * cols_vars + c],
+//                                 ) {
+//                                     continue;
+//                                 }
+
+//                                 if c < coeffs_and_vars.len() {
+//                                     let (signal, coefficient) =
+//                                         &coeffs_and_vars[c];
+
+//                                     terms.push(format!(
+//                                         "{} * x{}",
+//                                         coefficient,
+//                                         signal
+//                                     ));
+//                                 } else {
+//                                     let previous_aux =
+//                                         c - coeffs_and_vars.len();
+
+//                                     terms.push(format!(
+//                                         "x{}",
+//                                         model_aux_signals[previous_aux]
+//                                             .unwrap()
+//                                     ));
+//                                 }
+//                             }
+
+//                             if !terms.is_empty() {
+//                                 let auxiliary =
+//                                     model_aux_signals[v].unwrap();
+
+//                                 // println!(
+//                                 //     "  x{} = {}",
+//                                 //     auxiliary,
+//                                 //     terms.join(" + ")
+//                                 // );
+
+//                                 introduced += 1;
+//                             }
+//                         }
+
+//                         // println!(
+//                         //     "Introduced variables ({}):",
+//                         //     introduced
+//                         // );
+
+//                         for v in 0..created_variables {
+//                             // println!(
+//                             //     "  x{}",
+//                             //     model_aux_signals[v].unwrap()
+//                             // );
+//                         }
+
+//                         // println!("Transformed expressions:");
+
+//                         for e in 0..rows_expr {
+//                             let expression_id = cluster[e];
+//                             let mut terms = Vec::new();
+
+//                             if let Some(constant) =
+//                                 expression[expression_id].1.get(&0)
+//                             {
+//                                 if constant != &BigInt::from(0) {
+//                                     terms.push(constant.to_string());
+//                                 }
+//                             }
+
+//                             for v in 0..rows_vars {
+//                                 if is_selected(get_expr_uses(e, v)) {
+//                                     terms.push(format!(
+//                                         "x{}",
+//                                         model_aux_signals[v].unwrap()
+//                                     ));
+//                                 }
+//                             }
+
+//                             // println!(
+//                             //     "  expression {}: {}",
+//                             //     expression_id,
+//                             //     terms.join(" + ")
+//                             // );
+//                         }
+//                     }
+
+//                     break;
+//                 }
+
+//                 BITWUZLA_UNSAT => {
+//                     println!(
+//                         "\nVariable optimization: UNSAT with k = {}",
+//                         k
+//                     );
+
+//                     bitwuzla_pop(solver, 1);
+//                     continue;
+//                 }
+
+//                 BITWUZLA_UNKNOWN => {
+//                     println!(
+//                         "\nVariable optimization: UNKNOWN with k = {}",
+//                         k
+//                     );
+
+//                     bitwuzla_pop(solver, 1);
+//                     break;
+//                 }
+
+//                 _ => {
+//                     bitwuzla_pop(solver, 1);
+//                     break;
+//                 }
+//             }
+//         }
+
+//         // Release Bitwuzla resources
+//         bitwuzla_delete(solver);
+//         bitwuzla_term_manager_delete(tm);
+//     }
+// }
+
+// fn variables_optimization_cadical(
+//     storage: &mut ConstraintStorage,
+//     expression: &[(usize, BTreeMap<usize, BigInt>, usize)],
+//     cluster: &[usize],
+//     aux_signals: &mut BTreeMap<(usize, usize, BigInt, BigInt), usize>,
+//     next_aux: &mut usize,
+//     non_linear_map: &mut SignalToConstraints,
+//     field: &BigInt,
+//     cluster_id: usize,
+//     auxiliary_constraint_ids: &mut BTreeMap<usize, usize>,
+// ) {
+//     let mut constraints_ids = Vec::new();
+//     let mut coeffs_and_vars: Vec<(usize, BigInt)> = Vec::new();
+
+//     for &expression_id in cluster {
+//         let constraint_id = expression[expression_id].0;
+
+//         if !constraints_ids.contains(&constraint_id) {
+//             constraints_ids.push(constraint_id);
+//         }
+
+//         for (var, coeff) in &expression[expression_id].1 {
+//             if *var == 0 || coeff == &BigInt::from(0) {
+//                 continue;
+//             }
+
+//             let pair = (*var, coeff.clone());
+
+//             if !coeffs_and_vars.contains(&pair) {
+//                 coeffs_and_vars.push(pair);
+//             }
+//         }
+//     }
+
+//     let mut vars_per_expression: Vec<Vec<bool>> = Vec::new();
+
+//     for &expression_id in cluster {
+//         let expression_coeffs = &expression[expression_id].1;
+//         let mut v = Vec::new();
+
+//         for (var, coeff) in &coeffs_and_vars {
+//             let present = expression_coeffs.get(var) == Some(coeff);
+//             v.push(present);
+//         }
+
+//         vars_per_expression.push(v);
+//     }
+
+//     let mut bound = cluster.len();
+
+//     for &expression_id in cluster {
+//         bound += expression[expression_id].2;
+//     }
+
+//     let mut solver: CadicalSolver<Timeout> = CadicalSolver::default();
+
+//     // SAT variable 1 == TRUE and -1 == FALSE
+//     solver.add_clause([1]);
+//     let mut next_sat_var: i32 = 2;
+
+//     // Create a new SAT var
+//     macro_rules! new_sat_var {
+//         () => {{
+//             let var = next_sat_var;
+//             next_sat_var += 1;
+//             var
+//         }};
+//     }
+
+//     // Create a SAT var equivalent to the conjunction
+//     macro_rules! sat_and {
+//         ($lits:expr) => {{
+//             let lits: Vec<i32> = $lits;
+//             if lits.is_empty() {
+//                 1
+//             } else if lits.len() == 1 {
+//                 lits[0]
+//             } else {
+//                 let result = new_sat_var!();
+//                 for lit in &lits {
+//                     solver.add_clause([-result, *lit]);
+//                 }
+//                 let mut clause = vec![result];
+
+//                 for lit in &lits {
+//                     clause.push(-*lit);
+//                 }
+//                 solver.add_clause(clause);
+//                 result
+//             }
+//         }};
+//     }
+
+//     macro_rules! sat_or {
+//         ($lits:expr) => {{
+//             let lits: Vec<i32> = $lits;
+
+//             if lits.is_empty() {
+//                 -1
+//             } else if lits.len() == 1 {
+//                 lits[0]
+//             } else {
+//                 let result = new_sat_var!();
+
+//                 for lit in &lits {
+//                     solver.add_clause([-*lit, result]);
+//                 }
+
+//                 let mut clause = vec![-result];
+
+//                 for lit in &lits {
+//                     clause.push(*lit);
+//                 }
+
+//                 solver.add_clause(clause);
+
+//                 result
+//             }
+//         }};
+//     }
+
+//     macro_rules! sat_xor {
+//         ($a:expr, $b:expr) => {{
+//             let a = $a;
+//             let b = $b;
+
+//             let result = new_sat_var!();
+
+//             solver.add_clause([a, b, -result]);
+//             solver.add_clause([-a, -b, -result]);
+//             solver.add_clause([a, -b, result]);
+//             solver.add_clause([-a, b, result]);
+
+//             result
+//         }};
+//     }
+
+//     let rows_expr = cluster.len();
+//     let cols_expr = bound;
+//     let mut expr_use_vars = Vec::new();
+
+//     for e in 0..rows_expr {
+//         for c in 0..cols_expr {
+//             let var = new_sat_var!();
+//             expr_use_vars.push(var);
+//         }
+//     }
+
+//     let get_expr_uses = |r: usize, c: usize| expr_use_vars[r * cols_expr + c];
+
+//     let rows_vars = bound;
+//     let cols_vars = coeffs_and_vars.len() + bound;
+
+//     let mut vars_composition = Vec::new();
+
+//     for v in 0..rows_vars {
+//         for c in 0..cols_vars {
+//             let var = new_sat_var!();
+//             vars_composition.push(var);
+//         }
+//     }
+
+//     let get_v_composition = |r: usize, c: usize| vars_composition[r * cols_vars + c];
+
+//     // non_empty
+//     let mut row_nonempty = Vec::new();
+
+//     for v in 0..rows_vars {
+//         let mut lits = Vec::new();
+
+//         for c in 0..cols_vars {
+//             lits.push(get_v_composition(v, c));
+//         }
+
+//         row_nonempty.push(sat_or!(lits));
+//     }
+
+//     // Empty or formed with exactly 2 variables
+//     for v in 0..rows_vars {
+//         // At most 2 variables
+//         for c in 0..cols_vars {
+//             let c_used = get_v_composition(v, c);
+
+//             for c_next in c + 1..cols_vars {
+//                 let c_next_used = get_v_composition(v, c_next);
+//                 for c_not in c_next + 1..cols_vars {
+//                     let c_not_used = get_v_composition(v, c_not);
+//                     solver.add_clause([-c_used, -c_next_used, -c_not_used]);
+//                 }
+//             }
+//         }
+
+//         // At least 2
+//         for c in 0..cols_vars {
+//             let current = get_v_composition(v, c);
+//             let mut another_used = Vec::new();
+
+//             for other_c in 0..cols_vars {
+//                 if other_c != c {
+//                     another_used.push(get_v_composition(v, other_c));
+//                 }
+//             }
+
+//             let another_used = sat_or!(another_used);
+//             solver.add_clause([-row_nonempty[v], -current, another_used]);
+//         }
+
+//         // If non empty, it is used by someone
+//         let mut used_by_another_var = Vec::new();
+
+//         for next_var in (v + 1)..rows_vars {
+//             let uses_v = get_v_composition(next_var, coeffs_and_vars.len() + v);
+
+//             used_by_another_var.push(uses_v);
+//         }
+
+//         let mut used_by_final_expr = Vec::new();
+
+//         for e in 0..rows_expr {
+//             let uses_v = get_expr_uses(e, v);
+//             used_by_final_expr.push(uses_v);
+//         }
+
+//         let mut used_by_someone = used_by_another_var;
+//         used_by_someone.extend(used_by_final_expr);
+
+//         let used_by_someone = sat_or!(used_by_someone);
+
+//         solver.add_clause([-row_nonempty[v], used_by_someone]);
+
+//         // Cannot exist 2 variables with the same composition
+//         for next in (v + 1)..rows_vars {
+//             let mut different = Vec::new();
+
+//             for c in 0..cols_vars {
+//                 let comp_v = get_v_composition(v, c);
+//                 let comp_next = get_v_composition(next, c);
+
+//                 different.push(sat_xor!(comp_v, comp_next));
+//             }
+
+//             let different = sat_or!(different);
+//             solver.add_clause([-row_nonempty[v], different]);
+//         }
+
+//         // First appear the variables that only use factors.
+//         let mut uses_another_var = Vec::new();
+
+//         for c in coeffs_and_vars.len()..v {
+//             let comp_v = get_v_composition(v, c);
+//             uses_another_var.push(comp_v);
+//         }
+
+//         let uses_another_var = sat_or!(uses_another_var);
+
+//         for next in (v + 1)..rows_vars {
+//             let mut next_var_uses_another_var = Vec::new();
+//             let mut next_is_empty = Vec::new();
+
+//             for c in coeffs_and_vars.len()..next {
+//                 let comp_next = get_v_composition(next, c);
+//                 next_var_uses_another_var.push(comp_next);
+//                 next_is_empty.push(-comp_next);
+//             }
+
+//             let next_var_uses_another_var = sat_or!(next_var_uses_another_var);
+//             let next_is_empty = sat_and!(next_is_empty);
+
+//             solver.add_clause([-uses_another_var, next_is_empty, next_var_uses_another_var]);
+//         }
+
+//         // Two terms with the same variables cannot be used in the same variable.
+//         for first in 0..coeffs_and_vars.len() {
+//             for second in (first + 1)..coeffs_and_vars.len() {
+//                 if coeffs_and_vars[first].0 == coeffs_and_vars[second].0 {
+//                     solver
+//                         .add_clause([-get_v_composition(v, first), -get_v_composition(v, second)]);
+//                 }
+//             }
+//         }
+//     }
+
+//     // Empty vars
+//     let mut empty = Vec::new();
+
+//     for v in 0..rows_vars {
+//         empty.push(-row_nonempty[v]);
+//     }
+
+//     // Ordered by maximum column
+//     for var in 0..rows_vars.saturating_sub(1) {
+//         for c in 0..cols_vars {
+//             let mut clause = Vec::new();
+//             clause.push(-get_v_composition(var, c));
+
+//             for k in c..cols_vars {
+//                 clause.push(get_v_composition(var + 1, k));
+//             }
+
+//             clause.push(empty[var + 1]);
+//             solver.add_clause(clause);
+//         }
+//     }
+
+//     // Each new variable can only use previous variables and cannot use itself to create a new variable.
+//     for v in 0..rows_vars {
+//         for c in (coeffs_and_vars.len() + v)..cols_vars {
+//             solver.add_clause([-get_v_composition(v, c)]);
+//         }
+//     }
+
+//     // Empty vars at the end of the matrix
+//     for v in 0..rows_vars.saturating_sub(1) {
+//         solver.add_clause([row_nonempty[v], -row_nonempty[v + 1]]);
+//     }
+
+//     let mut subexpressions_var: Vec<Vec<i32>> = Vec::new();
+
+//     for v in 0..rows_vars {
+//         let mut sub_vars: Vec<i32> = Vec::new();
+
+//         for subexpr in 0..coeffs_and_vars.len() {
+//             let mut contains_terms = Vec::new();
+
+//             contains_terms.push(get_v_composition(v, subexpr));
+
+//             for prev_v in 0..v {
+//                 let uses_prev = get_v_composition(v, coeffs_and_vars.len() + prev_v);
+//                 let prev_contains = subexpressions_var[prev_v][subexpr];
+//                 let uses_subexpr_through_prev = sat_and!(vec![uses_prev, prev_contains]);
+
+//                 contains_terms.push(uses_subexpr_through_prev);
+//             }
+
+//             let contains_subexpr = sat_or!(contains_terms);
+
+//             sub_vars.push(contains_subexpr);
+//         }
+
+//         subexpressions_var.push(sub_vars);
+//     }
+
+//     for e in 0..rows_expr {
+//         for subexpr in 0..coeffs_and_vars.len() {
+//             let mut used_terms = Vec::new();
+
+//             for v in 0..rows_vars {
+//                 let used_by_expr = get_expr_uses(e, v);
+//                 let contains_subexpr = subexpressions_var[v][subexpr];
+
+//                 let used = sat_and!(vec![used_by_expr, contains_subexpr]);
+
+//                 used_terms.push(used);
+//             }
+
+//             let used = sat_or!(used_terms);
+
+//             if vars_per_expression[e][subexpr] {
+//                 solver.add_clause([used]);
+//             } else {
+//                 solver.add_clause([-used]);
+//             }
+//         }
+//     }
+
+//     // Each expression at the end just has 1 variable
+//     for e in 0..rows_expr {
+//         for c in 0..cols_expr {
+//             let used = get_expr_uses(e, c);
+
+//             for next in c + 1..cols_expr {
+//                 solver.add_clause([-used, -get_expr_uses(e, next)]);
+//             }
+//         }
+//     }
+
+//     // An expression just uses non-empty variables.
+//     for e in 0..rows_expr {
+//         for v in 0..rows_vars {
+//             let expr_uses_aux = get_expr_uses(e, v);
+//             solver.add_clause([-expr_uses_aux, row_nonempty[v]]);
+//         }
+//     }
+
+//     let _ = cluster_id;
+//     let _ = constraints_ids;
+
+//     // Incremental minimization of auxiliary variables.
+//     for k in 1..rows_vars + 1 {
+//         let mut assumptions = Vec::new();
+
+//         for v in 0..k {
+//             assumptions.push(row_nonempty[v]);
+//         }
+
+//         for v in k..rows_vars {
+//             assumptions.push(-row_nonempty[v]);
+//         }
+
+//         match solver.solve_with(assumptions) {
+//             Some(true) => {
+//                 println!("[Cadical] Cluster {} -> SAT with k = {}", cluster_id, k);
+
+//                 let is_selected = |variable: i32| solver.value(variable).unwrap_or(false);
+
+//                 let created_variables = (0..rows_vars)
+//                     .filter(|v| {
+//                         (0..cols_vars).any(|c| is_selected(vars_composition[*v * cols_vars + c]))
+//                     })
+//                     .count();
+
+//                 let mut model_aux_signals = vec![None; rows_vars];
+
+//                 for v in 0..rows_vars {
+//                     let selected_sources: Vec<usize> = (0..cols_vars)
+//                         .filter(|c| is_selected(vars_composition[v * cols_vars + *c]))
+//                         .collect();
+
+//                     if selected_sources.is_empty() {
+//                         continue;
+//                     }
+
+//                     assert_eq!(
+//                         selected_sources.len(),
+//                         2,
+//                         "An auxiliary variable must use exactly two sources"
+//                     );
+
+//                     let source = |column: usize, model_aux_signals: &[Option<usize>]| {
+//                         if column < coeffs_and_vars.len() {
+//                             (coeffs_and_vars[column].0, coeffs_and_vars[column].1.clone())
+//                         } else {
+//                             let previous_aux = column - coeffs_and_vars.len();
+
+//                             (model_aux_signals[previous_aux].unwrap(), BigInt::from(1))
+//                         }
+//                     };
+
+//                     let (signal_a, coeff_a) = source(selected_sources[0], &model_aux_signals);
+//                     let (signal_b, coeff_b) = source(selected_sources[1], &model_aux_signals);
+//                     let pair = (signal_a, signal_b, coeff_a, coeff_b);
+
+//                     let is_new_auxiliary = !aux_signals.contains_key(&pair);
+
+//                     let auxiliary = apply_pair_to_cluster(
+//                         storage,
+//                         cluster,
+//                         expression,
+//                         pair,
+//                         aux_signals,
+//                         next_aux,
+//                         non_linear_map,
+//                         field,
+//                     );
+
+//                     if is_new_auxiliary {
+//                         let definition_id = storage
+//                             .get_ids()
+//                             .last()
+//                             .copied()
+//                             .expect("new auxiliary must have a defining constraint");
+
+//                         auxiliary_constraint_ids.insert(auxiliary, definition_id);
+//                     }
+
+//                     model_aux_signals[v] = Some(auxiliary);
+//                 }
+
+//                 if created_variables > 0 {
+//                     println!("New constraints:");
+
+//                     let mut introduced = 0;
+
+//                     for v in 0..created_variables {
+//                         let mut terms = Vec::new();
+
+//                         for c in 0..cols_vars {
+//                             if !is_selected(vars_composition[v * cols_vars + c]) {
+//                                 continue;
+//                             }
+
+//                             if c < coeffs_and_vars.len() {
+//                                 let (signal, coefficient) = &coeffs_and_vars[c];
+//                                 terms.push(format!("{} * x{}", coefficient, signal));
+//                             } else {
+//                                 let previous_aux = c - coeffs_and_vars.len();
+//                                 terms.push(format!("x{}", model_aux_signals[previous_aux].unwrap()));
+//                             }
+//                         }
+
+//                         if !terms.is_empty() {
+//                             let auxiliary = model_aux_signals[v].unwrap();
+//                             println!("  x{} = {}", auxiliary, terms.join(" + "));
+//                             introduced += 1;
+//                         }
+//                     }
+
+//                     println!("Introduced variables ({}):", introduced);
+
+//                     for v in 0..created_variables {
+//                         println!("  x{}", model_aux_signals[v].unwrap());
+//                     }
+
+//                     println!("Transformed expressions:");
+
+//                     for e in 0..rows_expr {
+//                         let expression_id = cluster[e];
+//                         let mut terms = Vec::new();
+
+//                         if let Some(constant) = expression[expression_id].1.get(&0) {
+//                             if constant != &BigInt::from(0) {
+//                                 terms.push(constant.to_string());
+//                             }
+//                         }
+
+//                         for v in 0..rows_vars {
+//                             if is_selected(expr_use_vars[e * cols_expr + v]) {
+//                                 terms.push(format!("x{}", model_aux_signals[v].unwrap()));
+//                             }
+//                         }
+
+//                         println!("  expression {}: {}", expression_id, terms.join(" + "));
+//                     }
+//                 }
+
+//                 break;
+//             }
+
+//             Some(false) => {
+//                 println!("Variable optimization: UNSAT with k = {}", k);
+//             }
+
+//             None => {
+//                 println!("Variable optimization: UNKNOWN with k = {}", k);
+//                 break;
+//             }
+//         }
+//     }
+// }
 
 fn export_expr_clusters_json(
     path: &str,
@@ -3600,113 +3343,19 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
 
         let mut auxiliary_signals: BTreeMap<(usize, usize, BigInt, BigInt), usize> = BTreeMap::new();
 
-        let mut expressions_to_fix: Vec<(usize, BTreeMap<usize, BigInt>, usize)> = Vec::new();
-        let mut estimated_auxiliary_variables = 0;
-        for i in constraint_storage.get_ids() {
-            let mut constraint = constraint_storage.read_constraint(i).unwrap();
-            constraint.normalize_constraint(&field);
-
-            if !constraint.is_plonk() {
-                let (expressions, total_auxiliaries) = constraint.vars_to_solve_plonk_with_total();
-                estimated_auxiliary_variables += total_auxiliaries;
-                for (expr, num_vars) in expressions {
-                    let expr_btree: BTreeMap<usize, BigInt> = expr.iter().map(|(signal, coeff)| (*signal, coeff.clone())).collect();
-                    expressions_to_fix.push((i, expr_btree, num_vars));
-                }
-            }
-
-            constraint_storage.replace(i, constraint);
-        }
-
-        // Export the initial clusters before applying any optimization.
-        let start = Instant::now();
-        println!("build_expr_clusters starts");
-        let initial_clusters = build_expr_clusters(&expressions_to_fix, &field);
-        println!("build_expr_clusters took: {:?}", start.elapsed());
-
-        if let Err(error) =
-            export_expr_clusters_json("clusters.json", &expressions_to_fix, &initial_clusters)
-        {
-            eprintln!("Error exporting clusters.json: {}", error);
-        }
-
         // Greedy optimization retained for comparison:
         if smp.apply_eager_plonk {
-            loop {
-                let mut expressions_to_fix: Vec<(usize, BTreeMap<usize, BigInt>, usize)> = Vec::new();
-                for i in constraint_storage.get_ids() {
-                    let constraint = constraint_storage.read_constraint(i).unwrap();
-                    if !constraint.is_plonk() {
-                        let (expressions, _) = constraint.vars_to_solve_plonk_with_total();
-                        for (expr, num_vars) in expressions {
-                            let expr_btree: BTreeMap<usize, BigInt> = expr.iter()
-                                .map(|(signal, coeff)| (*signal, coeff.clone()))
-                                .collect();
-
-                            expressions_to_fix.push((i, expr_btree, num_vars));
-                        }
-                    }
-                }
-
-                if expressions_to_fix.is_empty() {
-                    break; // all is PLONK
-                }
-
-                // Rebuild the clusters
-                let start = Instant::now();
-                println!("build_expr_clusters starts");
-                let clusters = build_expr_clusters(&expressions_to_fix, &field);
-                println!("build_expr_clusters took: {:?}", start.elapsed());
-
-                for cluster in &clusters {
-                    let mut best_candidate: Option<((usize, usize, BigInt, BigInt), usize, Vec<usize>)> = None;
-                    let pairs = count_variable_pairs(cluster, &expressions_to_fix, &field);
-                    if let Some((pair, frec)) = select_most_frequent_pair(cluster, &expressions_to_fix, pairs, &field)
-                    {
-                        let replace = match &best_candidate {
-                            None => true,
-                            Some((best_pair, best_frec, _)) => {
-                                frec > *best_frec || (frec == *best_frec && pair < *best_pair)
-                            }
-                        };
-
-                        if replace {
-                            best_candidate = Some((pair, frec, cluster.clone()));
-                        }
-                    }
-                    
-                    let (pair, _frec, cluster) = match best_candidate {
-                        Some(candidate) => candidate,
-                        None => break,
-                    };
-    
-                    let modified = apply_pair_to_cluster(
-                        &mut constraint_storage,
-                        &cluster,
-                        &expressions_to_fix,
-                        pair,
-                        &mut auxiliary_signals,
-                        &mut max_signal,
-                        &mut non_linear_map,
-                        &field,
-                    );
-                }
-
-                // if modified == 0 {
-                //     eprintln!(
-                //         "Greedy PLONK simplification stopped: selected pair matched no constraints"
-                //     );
-                //     break;
-                // }
-            }
-        } else if smp.apply_sat_plonk {
             let mut expressions_to_fix: Vec<(usize, BTreeMap<usize, BigInt>, usize)> = Vec::new();
+
             for i in constraint_storage.get_ids() {
                 let constraint = constraint_storage.read_constraint(i).unwrap();
+
                 if !constraint.is_plonk() {
                     let (expressions, _) = constraint.vars_to_solve_plonk_with_total();
+
                     for (expr, num_vars) in expressions {
-                        let expr_btree: BTreeMap<usize, BigInt> = expr.iter()
+                        let expr_btree: BTreeMap<usize, BigInt> = expr
+                            .iter()
                             .map(|(signal, coeff)| (*signal, coeff.clone()))
                             .collect();
 
@@ -3717,26 +3366,124 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
 
             let start = Instant::now();
             println!("build_expr_clusters starts");
+
             let clusters = build_expr_clusters(&expressions_to_fix, &field);
+
             println!("build_expr_clusters took: {:?}", start.elapsed());
 
-            let mut auxiliary_constraint_ids : BTreeMap<usize, usize> = BTreeMap::new();
-            let mut i = 0;
-            for cluster in &clusters {
-                // variables_optimization(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field);
-                // variables_optimization_unsat_core(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field, i, &mut auxiliary_constraint_ids);
-                // variables_optimization_bitwuzla(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field, i, &mut auxiliary_constraint_ids);
-                variables_optimization_cadical(&mut constraint_storage, &expressions_to_fix, cluster, &mut auxiliary_signals, &mut max_signal, &mut non_linear_map, &field, i, &mut auxiliary_constraint_ids);
-                i += 1;
+            for initial_cluster in &clusters {
+                let initial_constraint_ids: BTreeSet<usize> = initial_cluster.iter().map(|&expression_id| expressions_to_fix[expression_id].0).collect();
+                
+                let mut expressions: Vec<(usize, BTreeMap<usize, BigInt>, usize)> = Vec::new();
+                let mut expression_ids_by_constraint: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+
+                for &constraint_id in &initial_constraint_ids {
+                    let constraint = constraint_storage.read_constraint(constraint_id).unwrap();
+
+                    if !constraint.is_plonk() {
+                        let (new_expressions, _) = constraint.vars_to_solve_plonk_with_total();
+
+                        for (expression, num_vars) in new_expressions {
+                            let expression_btree: BTreeMap<usize, BigInt> = expression.iter().map(|(signal, coefficient)| (*signal, coefficient.clone())).collect();
+                            let expression_id = expressions.len();
+
+                            expressions.push((constraint_id, expression_btree, num_vars));
+
+                            expression_ids_by_constraint.entry(constraint_id).or_insert_with(Vec::new).push(expression_id);
+                        }
+                    }
+                }
+
+                if expressions.is_empty() {
+                    continue;
+                }
+
+                println!(
+                    "Processing initial cluster with {} pending expressions",
+                    expressions.len()
+                );
+
+                let mut active_expression_ids: BTreeSet<usize> = (0..expressions.len()).collect();
+                let initial_expression_ids: Vec<usize> = active_expression_ids.iter().copied().collect();
+                let (mut pairs_by_expression, mut frequencies, mut pairs_by_frequency) = count_variable_pairs(&initial_expression_ids, &expressions, &field);
+
+                while !active_expression_ids.is_empty() {
+
+                    let selected = select_most_frequent_pair(&pairs_by_frequency);
+
+                    let (pair, frequency) = match selected {
+                        Some(candidate) => candidate,
+                        None => {
+                            println!("No applicable pair found");
+                            break;
+                        }
+                    };
+
+                    println!("Selected pair {:?} with frequency {}", pair, frequency);
+
+                    let active_cluster: Vec<usize> = active_expression_ids.iter().copied().collect();
+
+                    let (_auxiliary, modified_constraint_ids) =
+                        apply_pair_to_cluster(
+                            &mut constraint_storage,
+                            &active_cluster,
+                            &expressions,
+                            pair,
+                            &mut auxiliary_signals,
+                            &mut max_signal,
+                            &mut non_linear_map,
+                            &field,
+                        );
+
+                    if modified_constraint_ids.is_empty() {
+                        println!("No constraints were modified. Stopping cluster.");
+                        break;
+                    }
+
+                    for constraint_id in modified_constraint_ids {
+
+                        // Eliminates old appearances of the replaced pair
+                        if let Some(old_expression_ids) = expression_ids_by_constraint.remove(&constraint_id) {
+                            for expression_id in old_expression_ids {
+
+                                active_expression_ids.remove(&expression_id);
+
+                                for old_pair in &pairs_by_expression[expression_id] {
+                                    remove_pair_frequency(old_pair, &mut frequencies, &mut pairs_by_frequency);
+                                }
+                            }
+                        }
+
+                        let constraint = constraint_storage.read_constraint(constraint_id).unwrap();
+
+                        // If the constraint is not PLONK, adds its new pairs 3
+                        if !constraint.is_plonk() {
+                            let (new_expressions, _) = constraint.vars_to_solve_plonk_with_total();
+
+                            for (expression, num_vars) in new_expressions {
+                                let expression_btree: BTreeMap<usize, BigInt> =
+                                    expression.iter().map(|(signal, coefficient)| {(*signal, coefficient.clone())}).collect();
+
+                                let expression_id = expressions.len();
+
+                                expressions.push((constraint_id, expression_btree, num_vars));
+
+                                // Calculates only the pairs for this expression
+                                let new_pairs = get_expression_pairs(&expressions[expression_id].1, &field);
+
+                                for new_pair in &new_pairs {
+                                    add_pair_frequency(new_pair.clone(), &mut frequencies, &mut pairs_by_frequency);
+                                }
+
+                                pairs_by_expression.push(new_pairs);
+                                active_expression_ids.insert(expression_id);
+
+                                expression_ids_by_constraint.entry(constraint_id).or_insert_with(Vec::new).push(expression_id);
+                            }
+                        }
+                    }
+                }
             }
-            restore_plonk_constraints(
-                &mut constraint_storage,
-                &auxiliary_signals,
-                &auxiliary_constraint_ids,
-                &mut non_linear_map,
-                &mut deleted,
-                &field,
-            );
         }
 
         // println!("\n========================================");
@@ -3791,6 +3538,7 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
                         .map(|(signal, _)| *signal),
                 );
             }
+
             // println!(
             //     "  Remaining variables after reconstruction: A={}, B={}, C={}, distinct in constraint={}",
             //     count_variables(constraint.a()),
@@ -3800,10 +3548,8 @@ pub fn simplification(smp: &mut Simplifier) -> (ConstraintStorage, SignalMap, us
             // );
 
             if constraint.is_plonk() {
-                // println!("  State: PLONK");
                 final_plonk += 1;
             } else {
-                // println!("  State: NO PLONK");
                 final_non_plonk += 1;
             }
         }

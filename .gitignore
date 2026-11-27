@@ -12,5 +12,3 @@ type_analysis/target/
 .DS_Store
 perf.data
 perf.data.old
-perf.data
-perf.data.old
